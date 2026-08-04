@@ -650,6 +650,23 @@ class InputQuantizerBuilder(BaseQuantizerBuilder):
                 if self._is_groupwise() else RuntimeDynamicStatsZeroPoint)
         return base_classes
 
+    def _build_restrict_param_method(
+        self,
+        namespace: Dict[str, Any],
+        base_classes: Tuple[Type, ...],
+        restrict_value_float_to_int_impl_type: EnumType[FloatToIntImplType] = FloatToIntImplType
+        .CEIL
+    ) -> Tuple[Type, ...]:
+        # Non-group dynamic power-of-two activations floor the exponent (mirrors
+        # brevitas Int8DynamicActPerRowFixedPoint / FP8e4m3OCPDynamicActPerRowFixedPoint),
+        # unlike static po2 activations which ceil it. Groupwise (MX) is already
+        # handled as FLOOR by the base implementation.
+        if (self._is_dynamic() and self.restrict_scaling_type == RestrictValueType.POWER_OF_TWO and
+                self.scaling_per_output_type != ScalingPerOutputType.GROUP):
+            restrict_value_float_to_int_impl_type = FloatToIntImplType.FLOOR
+        return super()._build_restrict_param_method(
+            namespace, base_classes, restrict_value_float_to_int_impl_type)
+
 
 # ----------------------------------------------------------------------
 # Format axis: int vs float. The solver / proxy / float base are deferred to
