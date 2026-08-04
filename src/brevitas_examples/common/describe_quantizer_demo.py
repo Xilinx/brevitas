@@ -15,12 +15,12 @@ from brevitas.inject.enum import QuantType
 from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
-from brevitas_examples.common.quantizer_builder import build_input_quantizer
-from brevitas_examples.common.quantizer_builder import build_weight_quantizer
+from brevitas_examples.common.input_quantizer_builder import build_input_quantizer
 from brevitas_examples.common.quantizer_builder import FloatFormat
 from brevitas_examples.common.quantizer_builder import ParamMethod
 from brevitas_examples.common.quantizer_builder import QuantParamType
 from brevitas_examples.common.quantizer_builder import ScaleType
+from brevitas_examples.common.weight_quantizer_builder import build_weight_quantizer
 
 BIT_WIDTH = 8
 GROUP_SIZE = 8
