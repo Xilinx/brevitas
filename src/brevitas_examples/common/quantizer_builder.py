@@ -21,7 +21,6 @@ from dependencies import this
 from dependencies import value
 from torch import nn
 
-from brevitas.core.function_wrapper.ops_ste import CeilSte
 from brevitas.core.function_wrapper.ops_ste import FloorSte
 from brevitas.core.function_wrapper.shape import OverOutputFeaturesView
 from brevitas.core.function_wrapper.shape import OverTensorView
@@ -619,7 +618,8 @@ class InputQuantizerBuilder(BaseQuantizerBuilder):
         namespace.pop('scaling_impl_type', None)
         if self._is_groupwise():
             # Per-group: RuntimeDynamicGroupStatsScaling reads group_size/group_dim
-            # and input_view_impl from the (groupwise) act solver.
+            # and input_view_impl from the (groupwise) act solver. stats_reduce_dim
+            # (over the group block dim) is derived by ActQuantSolver from group_dim.
             namespace['scaling_impl'] = RuntimeDynamicGroupStatsScaling
         else:
             namespace['scaling_impl'] = RuntimeDynamicStatsScaling
