@@ -34,9 +34,11 @@ from brevitas.quant.scaled_int import Int8ActPerTensorFloatMSE
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloatMSE
 from brevitas_examples.common.generative.quantizers import Fp8e4m3DynamicActPerGroupFloat
+from brevitas_examples.common.generative.quantizers import FP8e4m3FNUZDynamicActPerRowFloat
 from brevitas_examples.common.generative.quantizers import Fp8e4m3FNUZDynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPDynamicActPerGroupFloat
 from brevitas_examples.common.generative.quantizers import FP8e4m3OCPDynamicActPerRowFixedPoint
+from brevitas_examples.common.generative.quantizers import FP8e4m3OCPDynamicActPerRowFloat
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerGroupFloat
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowFixedPoint
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowFloat
@@ -294,6 +296,32 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {},},},
+    "float_ocp_dynamic_per_row_sym": {
+        "ref": FP8e4m3OCPDynamicActPerRowFloat,
+        "granularity": "per_row",
+        "builder_args": {
+            "quant_type": QuantType.FP,
+            "quant_param_type": QuantParamType.SYM,
+            "scale_type": ScaleType.DYNAMIC,
+            "float_format": FloatFormat.OCP,
+            "float_quant_format": "e4m3",
+            "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
+            "restrict_scaling_type": RestrictValueType.FP,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {},},},
+    "float_fnuz_dynamic_per_row_sym": {
+        "ref": FP8e4m3FNUZDynamicActPerRowFloat,
+        "granularity": "per_row",
+        "builder_args": {
+            "quant_type": QuantType.FP,
+            "quant_param_type": QuantParamType.SYM,
+            "scale_type": ScaleType.DYNAMIC,
+            "float_format": FloatFormat.FNUZ,
+            "float_quant_format": "e4m3",
+            "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
+            "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},},
     "int_dynamic_per_group_sym": {
