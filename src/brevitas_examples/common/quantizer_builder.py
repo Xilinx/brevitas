@@ -58,6 +58,7 @@ from brevitas.proxy.groupwise_int_runtime_quant import GroupwiseActQuantProxyFro
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import DynamicActQuantProxyFromInjector
+from brevitas.quant.float_base import FloatActBase
 from brevitas.quant.float_base import ScaledFloatActBase
 from brevitas.quant.float_base import ScaledFloatWeightBase
 from brevitas.quant.float_quant_fnuz import FpFNUZMixin
@@ -565,17 +566,14 @@ class InputQuantizerBuilder(BaseQuantizerBuilder):
     """Kind axis: quantizes *inputs/activations*.
 
     Adds the activation-specific ``scale_type`` axis. ``ScaleType.STATIC``
-    (runtime percentile scaling stored as a parameter) and ``ScaleType.DYNAMIC``
-    (scale recomputed per-forward) are supported; ``ScaleType.NO_SCALE`` is not
-    implemented yet.
+    (runtime percentile scaling stored as a parameter), ``ScaleType.DYNAMIC``
+    (scale recomputed per-forward) and ``ScaleType.NO_SCALE`` (float-only, no
+    scale) are supported.
     """
 
     def __init__(
             self, *, scale_type: Union[str, ScaleType] = ScaleType.STATIC, **kwargs: Any) -> None:
         self.scale_type: Union[str, ScaleType] = scale_type
-        if ScaleType(self.scale_type) not in (ScaleType.STATIC, ScaleType.DYNAMIC):
-            raise NotImplementedError(
-                f"Input quantization scale_type {self.scale_type} is not supported yet.")
         super().__init__(**kwargs)
 
     def _is_static(self) -> bool:
@@ -583,6 +581,9 @@ class InputQuantizerBuilder(BaseQuantizerBuilder):
 
     def _is_dynamic(self) -> bool:
         return ScaleType(self.scale_type) == ScaleType.DYNAMIC
+
+    def _is_no_scale(self) -> bool:
+        return ScaleType(self.scale_type) == ScaleType.NO_SCALE
 
     def _is_groupwise(self) -> bool:
         return self.scaling_per_output_type == ScalingPerOutputType.GROUP
@@ -592,9 +593,11 @@ class InputQuantizerBuilder(BaseQuantizerBuilder):
         # Static scaling learns a runtime-percentile scale stored as a parameter;
         # dynamic scaling wires a runtime scaling impl recomputed per-forward. The
         # scaling_stats_op (MAX vs MIN_MAX) is provided by the sym/asym mixins.
-        if ScaleType(self.scale_type) == ScaleType.STATIC:
+        # NO_SCALE quantizers have no scale at all (float-only), so no scale attrs
+        # are wired.
+        if self._is_static():
             self._build_static_scaling(namespace)
-        elif ScaleType(self.scale_type) == ScaleType.DYNAMIC:
+        elif self._is_dynamic():
             self._build_dynamic_scaling(namespace)
         return namespace
 
@@ -791,6 +794,12 @@ class WeightFloatQuantizerBuilder(WeightQuantizerBuilder, FloatQuantizerBuilder)
 class InputIntQuantizerBuilder(InputQuantizerBuilder, IntQuantizerBuilder):
     """Integer input/activation quantizer builder (static or dynamic scaling)."""
 
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        # INPUT_QUANT_MAP has no integer no_scale entry (no_scale is float-only).
+        if self._is_no_scale():
+            raise ValueError("no_scale input quantization is only supported for float quant_type.")
+
     def _quant_solver(self) -> Type:
         return ActQuantSolver
 
@@ -814,10 +823,21 @@ class InputIntQuantizerBuilder(InputQuantizerBuilder, IntQuantizerBuilder):
 
 
 class InputFloatQuantizerBuilder(InputQuantizerBuilder, FloatQuantizerBuilder):
-    """Float input/activation quantizer builder (static or dynamic scaling)."""
+    """Float input/activation quantizer builder (static, dynamic or no scale)."""
 
     def _solver_base_classes(self) -> Tuple[Type, ...]:
-        return super()._solver_base_classes() + (ScaledFloatActBase,)
+        # NO_SCALE uses FloatActBase (no scale), otherwise ScaledFloatActBase.
+        base = FloatActBase if self._is_no_scale() else ScaledFloatActBase
+        return super()._solver_base_classes() + (base,)
+
+    def _build_base_namespace(self) -> Dict[str, Any]:
+        namespace: Dict[str, Any] = super()._build_base_namespace()
+        # FloatActBase has no scale, so drop the scale-related attributes carried
+        # over from the generic base namespace (mirrors brevitas Fp8e4m3Act).
+        if self._is_no_scale():
+            for attr in ('scaling_impl_type', 'restrict_scaling_type'):
+                namespace.pop(attr, None)
+        return namespace
 
     def _proxy_class(self) -> Type:
         if self._is_dynamic():
@@ -828,7 +848,8 @@ class InputFloatQuantizerBuilder(InputQuantizerBuilder, FloatQuantizerBuilder):
             # Per-tensor dynamic float reuses the plain float act proxy (mirrors
             # brevitas Fp8e4m3*DynamicActPerTensorFloat).
             return ActFloatQuantProxyFromInjector
-        # Groupwise static activation float proxy is not supported yet.
+        # Static / no_scale float use the plain float act proxy (FloatActBase's
+        # default). Groupwise static activation float proxy is not supported yet.
         return ActFloatQuantProxyFromInjector
 
 
