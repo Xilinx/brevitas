@@ -33,7 +33,9 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloatMSE
 from brevitas_examples.common.generative.quantizers import Fp8e4m3DynamicActPerGroupFloat
 from brevitas_examples.common.generative.quantizers import Fp8e4m3FNUZDynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPDynamicActPerGroupFloat
+from brevitas_examples.common.generative.quantizers import FP8e4m3OCPDynamicActPerRowFixedPoint
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerGroupFloat
+from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowFixedPoint
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowFloat
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerGroupFloat
@@ -262,6 +264,33 @@ BUILDER_SPECS = {
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {},},},
+    # dynamic po2 (per_row): fixed-point scale floors the exponent (FloorSte),
+    # unlike static po2 activations which ceil it.
+    "int_dynamic_per_row_sym_po2": {
+        "ref": Int8DynamicActPerRowFixedPoint,
+        "granularity": "per_row",
+        "builder_args": {
+            "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.SYM,
+            "scale_type": ScaleType.DYNAMIC,
+            "bit_width": BIT_WIDTH,
+            "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
+            "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {},},},
+    "float_ocp_dynamic_per_row_sym_po2": {
+        "ref": FP8e4m3OCPDynamicActPerRowFixedPoint,
+        "granularity": "per_row",
+        "builder_args": {
+            "quant_type": QuantType.FP,
+            "quant_param_type": QuantParamType.SYM,
+            "scale_type": ScaleType.DYNAMIC,
+            "float_format": FloatFormat.OCP,
+            "float_quant_format": "e4m3",
+            "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
+            "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
             "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},},
     "int_dynamic_per_group_sym": {
