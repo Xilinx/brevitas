@@ -23,6 +23,7 @@ from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.nn import QuantIdentity
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPointMSE
+from brevitas.quant.float import Fp8e4m3Act
 from brevitas.quant.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.float_quant_fnuz import Fp8e4m3FNUZActPerTensorFloat
 from brevitas.quant.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
@@ -348,6 +349,23 @@ BUILDER_SPECS = {
             "float_format": FloatFormat.OCP,
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
+            "restrict_scaling_type": RestrictValueType.FP,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {},},},
+    # ----------------------------------------------------------------------
+    # no_scale (float, sym): INPUT_QUANT_MAP['float']['no_scale']. Float-only,
+    # no scale at all (uses FloatActBase, constant unit scale). Per-tensor and
+    # hosted directly by QuantIdentity.
+    # ----------------------------------------------------------------------
+    "float_no_scale_sym": {
+        "ref": Fp8e4m3Act,
+        "builder_args": {
+            "quant_type": QuantType.FP,
+            "quant_param_type": QuantParamType.SYM,
+            "scale_type": ScaleType.NO_SCALE,
+            "float_format": FloatFormat.FLOAT,
+            "float_quant_format": "e4m3",
+            "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},},}
