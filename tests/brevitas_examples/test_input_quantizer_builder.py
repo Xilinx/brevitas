@@ -27,6 +27,8 @@ from brevitas.quant.float import Fp8e4m3Act
 from brevitas.quant.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.float_quant_fnuz import Fp8e4m3FNUZActPerTensorFloat
 from brevitas.quant.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
+from brevitas.quant.mx_quant_ocp import MXFloat8e4m3Act
+from brevitas.quant.mx_quant_ocp import MXInt8Act
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloatMSE
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
@@ -367,6 +369,36 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {},},},
+    # ----------------------------------------------------------------------
+    # MX (dynamic po2 per_group): INPUT_QUANT_MAP['int'/'float_ocp']['dynamic']
+    # ['po2_scale']['stats']['per_group']. Groupwise power-of-two dynamic scale;
+    # float MX is OCP-only.
+    # ----------------------------------------------------------------------
+    "int_dynamic_per_group_sym_po2": {
+        "ref": MXInt8Act,
+        "granularity": "per_group",
+        "builder_args": {
+            "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.SYM,
+            "scale_type": ScaleType.DYNAMIC,
+            "bit_width": BIT_WIDTH,
+            "scaling_per_output_type": ScalingPerOutputType.GROUP,
+            "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {},},},
+    "float_ocp_dynamic_per_group_sym_po2": {
+        "ref": MXFloat8e4m3Act,
+        "granularity": "per_group",
+        "builder_args": {
+            "quant_type": QuantType.FP,
+            "quant_param_type": QuantParamType.SYM,
+            "scale_type": ScaleType.DYNAMIC,
+            "float_format": FloatFormat.OCP,
+            "float_quant_format": "e4m3",
+            "scaling_per_output_type": ScalingPerOutputType.GROUP,
+            "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
             "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},},}
 
