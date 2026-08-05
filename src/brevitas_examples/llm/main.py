@@ -269,8 +269,8 @@ def quantize_llm(args, extra_args=None):
     print("Model loaded.")
     model.eval()
     tokenizer = AutoTokenizer.from_pretrained(args.model)
-    float_ppl = None
-    quant_ppl = None
+    float_ppl = float_ppl_std = None
+    quant_ppl = quant_ppl_std = None
 
     require_fx = fx_required(args)
     if require_fx and args.calibration_batch_size > 1:
