@@ -104,7 +104,7 @@ class ZeroPointImplType(AutoName):
     PARAMETER_FROM_RUNTIME = auto()  # ParameterFromRuntimeZeroPoint  (optional, activations)
 
 
-class AsymMixin(ExtendedInjector):
+class AsymmetricZeroPointMixin(ExtendedInjector):
     scaling_stats_op = StatsOp.MIN_MAX
     zero_point_stats_op = StatsOp.NEG_MIN_OR_ZERO
     zero_point_shape = this.scaling_shape
@@ -494,8 +494,8 @@ class BaseQuantizerBuilder(ABC):
 
     def _build_asymmmetric_quantizer(
             self, namespace: Dict[str, Any], base_classes: Tuple[Type, ...]) -> Tuple[Type, ...]:
-        # Enable asymmetric quantization by adding the AsymMixin to the base classes
-        base_classes += (AsymMixin,)
+        # Enable asymmetric quantization by adding the AsymmetricZeroPointMixin
+        base_classes += (AsymmetricZeroPointMixin,)
         base_classes = self._build_zero_point_param_method(namespace, base_classes)
         return base_classes
 
