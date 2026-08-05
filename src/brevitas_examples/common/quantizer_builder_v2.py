@@ -123,25 +123,34 @@ class Component(ABC):
         ...
 
 
-class QuantizerBuilder:
-    """Director of the Builder pattern: folds an ordered list of components into
-    a brevitas injector class."""
+class QuantizerBuilder(ABC):
+    """Director of the Builder pattern.
 
-    def __init__(self, config: QuantizerConfig, components: List[Component]) -> None:
+    Concrete (kind-specific) builders declare their fixed preset of components in
+    :meth:`components`, listed in the order their ``build`` should run.
+    :meth:`build_quant_injector` folds those contributions into the injector.
+    """
+
+    def __init__(self, config: QuantizerConfig) -> None:
         self.config = config
-        self.components = components
+
+    @abstractmethod
+    def components(self) -> List[Component]:
+        """Return this quantizer's preset of components, in build order."""
+        ...
 
     def build_quant_injector(self) -> Type:
-        """Fold the components (in list order) into a brevitas injector class.
+        """Build each component (in the order given by :meth:`components`) and fold
+        their contributions into a brevitas injector class.
 
-        List order is authoritative: later components' ``attrs`` override earlier
-        ones, and their ``bases`` are appended after earlier ones (so earlier
-        components sit first in the MRO). Correctness of this ordering is
-        guarded by the reference module-hierarchy tests.
+        Order is authoritative: later components' ``attrs`` override earlier ones,
+        and their ``bases`` are appended after earlier ones (so earlier components
+        sit first in the MRO). Correctness of this ordering is guarded by the
+        reference module-hierarchy tests.
         """
         attrs: Dict[str, Any] = {}
         bases: Tuple[Type, ...] = ()
-        for component in self.components:
+        for component in self.components():
             contribution = component.build(self.config)
             attrs.update(contribution.attrs)
             for key in contribution.drop:
