@@ -116,9 +116,9 @@ class InputQuantizerBuilder(BaseQuantizerBuilder):
         if self._is_static():
             # Interval percentile scale + runtime-percentile zero-point for
             # asymmetric static activations (mirrors brevitas
-            # ShiftedParamFromPercentileUintQuant). Override the weight AsymMixin
+            # ShiftedParamFromPercentileUintQuant). Override the weight AsymmetricZeroPointMixin
             # defaults with the activation ones. The weight
-            # zero_point_stats_input_concat_dim (added by AsymMixin) is left
+            # zero_point_stats_input_concat_dim (added by AsymmetricZeroPointMixin) is left
             # unresolved: ParameterFromRuntimeZeroPoint never requests it.
             namespace['zero_point_impl_type'] = ZeroPointImplType.PARAMETER_FROM_RUNTIME
             namespace['zero_point_stats_op'] = StatsOp.NEG_PERCENTILE_OR_ZERO
@@ -126,7 +126,7 @@ class InputQuantizerBuilder(BaseQuantizerBuilder):
             namespace['scaling_stats_op'] = StatsOp.PERCENTILE_INTERVAL
         elif self._is_dynamic():
             # Runtime-dynamic zero-point recomputed per-forward; scale (MIN_MAX)
-            # comes from the AsymMixin (mirrors brevitas
+            # comes from the AsymmetricZeroPointMixin (mirrors brevitas
             # ShiftedUint8DynamicActPer{Tensor,Row,Group}Float).
             namespace['zero_point_impl'] = (
                 RuntimeDynamicGroupZeroPoint
