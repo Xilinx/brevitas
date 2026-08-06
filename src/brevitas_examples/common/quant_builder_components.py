@@ -10,20 +10,39 @@ Object) and returns a :class:`Contribution` (namespace attrs + base mixins). The
 injector. This module holds the kind-agnostic (shared) components as well as the
 kind-specific (weight / input) ones.
 """
+from typing import Type
+
+from brevitas.core.function_wrapper.shape import OverOutputFeaturesView
+from brevitas.core.function_wrapper.shape import OverTensorView
+from brevitas.core.scaling.runtime import RuntimeDynamicGroupStatsScaling
+from brevitas.core.stats.stats_wrapper import SCALAR_SHAPE
+from brevitas.core.zero_point import RuntimeDynamicGroupZeroPoint
 from brevitas.core.zero_point import ZeroZeroPoint
 from brevitas.inject.enum import BitWidthImplType
 from brevitas.inject.enum import FloatToIntImplType
 from brevitas.inject.enum import RestrictValueType
+from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.inject.enum import StatsOp
 from brevitas.proxy.float_parameter_quant import WeightFloatQuantProxyFromInjector
+from brevitas.proxy.float_runtime_quant import ActFloatQuantProxyFromInjector
+from brevitas.proxy.float_runtime_quant import DynamicActFloatQuantProxyFromInjector
 from brevitas.proxy.groupwise_float_parameter_quant import \
     GroupwiseWeightFloatQuantProxyFromInjector
+from brevitas.proxy.groupwise_float_runtime_quant import GroupwiseActFloatQuantProxyFromInjector
 from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantProxyFromInjector
+from brevitas.proxy.groupwise_int_runtime_quant import GroupwiseActQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
+from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
+from brevitas.proxy.runtime_quant import DynamicActQuantProxyFromInjector
+from brevitas.quant.float_base import FloatActBase
+from brevitas.quant.float_base import ScaledFloatActBase
 from brevitas.quant.float_base import ScaledFloatWeightBase
+from brevitas.quant.solver.act import ActQuantSolver
 from brevitas.quant.solver.common import solve_float_to_int_impl_from_enum
 from brevitas.quant.solver.weight import WeightQuantSolver
+from brevitas_examples.common.generative.quant_blocks import RuntimeDynamicStatsScaling
+from brevitas_examples.common.generative.quant_blocks import RuntimeDynamicStatsZeroPoint
 from brevitas_examples.common.quant_builder_core import Component
 from brevitas_examples.common.quant_builder_core import Contribution
 from brevitas_examples.common.quant_builder_core import QuantizerConfig
@@ -38,6 +57,8 @@ from brevitas_examples.common.quantizer_builder import ParamMethod
 from brevitas_examples.common.quantizer_builder import parse_float_quant_format
 from brevitas_examples.common.quantizer_builder import QuantParamType
 from brevitas_examples.common.quantizer_builder import QuantType
+from brevitas_examples.common.quantizer_builder import ScaleType
+from brevitas_examples.common.quantizer_builder import ZeroPointImplType
 
 
 class CommonComponent(Component):
@@ -128,10 +149,10 @@ class ZeroPointParamMethodComponent(Component):
 
 class ScaleRestrictComponent(Component):
     """Power-of-two *scale* handling: rounding of the exponent + the groupwise (MX)
-    mixin. Non-group po2 ceils the exponent by default; groupwise (MX) floors it.
-    Kind-specific rounding overrides (e.g. input dynamic po2 -> floor) are applied
-    by a kind component. This restricts only the scale; zero-point restriction is
-    handled elsewhere.
+    mixin. Groupwise (MX) floors the exponent. Non-group po2 ceils it for static
+    scales but floors it for dynamic scales (mirrors brevitas
+    Int8DynamicActPerRowFixedPoint / FP8e4m3OCPDynamicActPerRowFixedPoint). This
+    restricts only the scale; zero-point restriction is handled elsewhere.
     """
 
     def build(self, config: QuantizerConfig) -> Contribution:
@@ -149,10 +170,13 @@ class ScaleRestrictComponent(Component):
             bases=(GroupwisePoTMixin,))
 
     def build_po2_restrict_non_groupwise(self, config: QuantizerConfig) -> Contribution:
+        # Dynamic (activation) power-of-two scales floor the exponent; static
+        # scales ceil it. Weights never use dynamic scaling, so they always ceil.
+        impl = FloatToIntImplType.FLOOR \
+            if ScaleType(config.scale_type) == ScaleType.DYNAMIC \
+            else FloatToIntImplType.CEIL
         return Contribution(
-            attrs={
-                "restrict_value_float_to_int_impl":
-                    solve_float_to_int_impl_from_enum(FloatToIntImplType.CEIL)})
+            attrs={"restrict_value_float_to_int_impl": solve_float_to_int_impl_from_enum(impl)})
 
 
 class ZeroPointComponent(Component):
@@ -195,9 +219,16 @@ class WeightSolverComponent(Component):
         return Contribution(attrs={"proxy_class": proxy}, bases=(ScaledFloatWeightBase,))
 
 
-class WeightIntQuantComponent(Component):
-    """Signedness / narrow-range / zero-point enable for integer weights (no-op
-    for float, whose signedness comes from the float base)."""
+class IntQuantComponent(Component):
+    """Signedness / narrow-range / zero-point enable for integer quantizers (no-op
+    for float, whose signedness comes from the float base).
+
+    The symmetric narrow-range policy is kind-specific (weights use a narrow range
+    -> NarrowIntQuant; activations do not -> IntQuant) and supplied by subclasses
+    via :attr:`sym_narrow_range`.
+    """
+
+    sym_narrow_range: bool
 
     def build(self, config: QuantizerConfig) -> Contribution:
         if not config.is_int:
@@ -206,9 +237,156 @@ class WeightIntQuantComponent(Component):
         return self.build_asym(config) if is_asym else self.build_sym(config)
 
     def build_sym(self, config: QuantizerConfig) -> Contribution:
-        return Contribution(attrs={"signed": True, "narrow_range": True})
+        return Contribution(attrs={"signed": True, "narrow_range": self.sym_narrow_range})
 
     def build_asym(self, config: QuantizerConfig) -> Contribution:
         return Contribution(
             attrs={
                 "signed": False, "narrow_range": False, "quantize_zero_point": True})
+
+
+class WeightIntQuantComponent(IntQuantComponent):
+    """Integer weight tuning: symmetric weights use a narrow range (NarrowIntQuant)."""
+
+    sym_narrow_range = True
+
+
+# ---------------------------------------------------------------------------
+# Input / activation components. These replace the generic scale / zero-point /
+# solver / int-quant components in the input builder's component list (rather
+# than layering on top), which keeps the number of overridden / dropped keys to
+# a minimum.
+# ---------------------------------------------------------------------------
+class InputIntQuantComponent(IntQuantComponent):
+    """Integer activation tuning: activations use a non-narrow range (IntQuant)."""
+
+    sym_narrow_range = False
+
+
+class InputScaleComponent(Component):
+    """Activation scale wiring (replaces :class:`ScaleComponent` for inputs).
+
+    ``STATIC`` learns a runtime-percentile scale stored as a parameter;
+    ``DYNAMIC`` wires a per-forward runtime scaling impl; ``NO_SCALE`` has no
+    scale at all (float-only, :class:`FloatActBase`). This component also owns the
+    *symmetric* scale-stats op (int static uses a one-sided percentile, everything
+    else uses max); the asymmetric scale-stats op is owned by
+    :class:`InputZeroPointComponent` / the asymmetric mixin.
+    """
+
+    def build(self, config: QuantizerConfig) -> Contribution:
+        scale_type = ScaleType(config.scale_type)
+        if scale_type == ScaleType.STATIC:
+            return self.build_static(config)
+        if scale_type == ScaleType.DYNAMIC:
+            return self.build_dynamic(config)
+        return self.build_no_scale(config)
+
+    def build_static(self, config: QuantizerConfig) -> Contribution:
+        attrs: dict = {
+            "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
+            "high_percentile_q": 99.999,
+            "collect_stats_steps": 300,}
+        if QuantParamType(config.quant_param_type) == QuantParamType.SYM:
+            # Static int activations use a one-sided percentile scale; static float
+            # uses AbsMax (from ScaledFloatActBase).
+            attrs["scaling_stats_op"] = StatsOp.PERCENTILE if config.is_int else StatsOp.MAX
+        return Contribution(attrs=attrs)
+
+    def build_dynamic(self, config: QuantizerConfig) -> Contribution:
+        groupwise = config.scaling_granularity == ScalingPerOutputType.GROUP
+        if groupwise:
+            # Per-group: RuntimeDynamicGroupStatsScaling reads group_size/group_dim
+            # and input_view_impl from the (groupwise) act solver.
+            attrs: dict = {"scaling_impl": RuntimeDynamicGroupStatsScaling}
+        else:
+            attrs = {"scaling_impl": RuntimeDynamicStatsScaling}
+            if config.scaling_granularity == ScalingPerOutputType.TENSOR:
+                attrs["scaling_stats_input_view_shape_impl"] = OverTensorView
+                attrs["dynamic_scaling_broadcastable_fn"] = lambda x, shape: x.view(SCALAR_SHAPE)
+            else:  # per-row (CHANNEL)
+                attrs["scaling_stats_input_view_shape_impl"] = OverOutputFeaturesView
+        if QuantParamType(config.quant_param_type) == QuantParamType.SYM:
+            attrs["scaling_stats_op"] = StatsOp.MAX
+        return Contribution(attrs=attrs)
+
+    def build_no_scale(self, config: QuantizerConfig) -> Contribution:
+        # FloatActBase has no scale; drop the scale-related attribute carried by
+        # CommonComponent (mirrors brevitas Fp8e4m3Act). scaling_impl_type is never
+        # set on this path, so only restrict_scaling_type needs dropping.
+        return Contribution(drop=("restrict_scaling_type",))
+
+
+class InputZeroPointComponent(ZeroPointComponent):
+    """Activation zero-point wiring (replaces :class:`ZeroPointComponent` for
+    inputs).
+
+    Symmetric activations reuse the base zero zero-point (the sym scale-stats op is
+    owned by :class:`InputScaleComponent`, so it is *not* set here). Asymmetric
+    activations reuse the base asymmetric mixin and add the static (runtime
+    percentile) or dynamic (per-forward) zero-point tuning.
+    """
+
+    def build_sym(self, config: QuantizerConfig) -> Contribution:
+        return Contribution(attrs={"zero_point_impl": ZeroZeroPoint})
+
+    def build_asym(self, config: QuantizerConfig) -> Contribution:
+        base = super().build_asym(config)  # contributes AsymmetricZeroPointMixin
+        scale_type = ScaleType(config.scale_type)
+        if scale_type == ScaleType.STATIC:
+            # Interval percentile scale + runtime-percentile zero-point (mirrors
+            # brevitas ShiftedParamFromPercentileUintQuant), overriding the weight
+            # AsymmetricZeroPointMixin defaults with the activation ones.
+            attrs = {
+                "zero_point_impl_type": ZeroPointImplType.PARAMETER_FROM_RUNTIME,
+                "zero_point_stats_op": StatsOp.NEG_PERCENTILE_OR_ZERO,
+                "low_percentile_q": 0.001,
+                "scaling_stats_op": StatsOp.PERCENTILE_INTERVAL,}
+        elif scale_type == ScaleType.DYNAMIC:
+            # Runtime-dynamic zero-point recomputed per-forward; scale (MIN_MAX)
+            # comes from the AsymmetricZeroPointMixin.
+            groupwise = config.scaling_granularity == ScalingPerOutputType.GROUP
+            attrs = {
+                "zero_point_impl":
+                    RuntimeDynamicGroupZeroPoint if groupwise else RuntimeDynamicStatsZeroPoint}
+        else:
+            attrs = {}
+        return Contribution(attrs=attrs, bases=base.bases, drop=base.drop)
+
+
+class InputSolverComponent(Component):
+    """Activation solver, float base and proxy class (replaces
+    :class:`WeightSolverComponent`). Contributed last so the solver / float base
+    sits at the bottom of the MRO, matching the reference activation quantizers."""
+
+    def build(self, config: QuantizerConfig) -> Contribution:
+        return self.build_int(config) if config.is_int else self.build_float(config)
+
+    def build_int(self, config: QuantizerConfig) -> Contribution:
+        return Contribution(attrs={"proxy_class": self._int_proxy(config)}, bases=(ActQuantSolver,))
+
+    def build_float(self, config: QuantizerConfig) -> Contribution:
+        # NO_SCALE uses FloatActBase (no scale), otherwise ScaledFloatActBase
+        # (which brings the act solver and a stats scale).
+        no_scale = ScaleType(config.scale_type) == ScaleType.NO_SCALE
+        base = FloatActBase if no_scale else ScaledFloatActBase
+        return Contribution(attrs={"proxy_class": self._float_proxy(config)}, bases=(base,))
+
+    def _int_proxy(self, config: QuantizerConfig) -> Type:
+        if ScaleType(config.scale_type) == ScaleType.DYNAMIC:
+            if config.scaling_granularity == ScalingPerOutputType.GROUP:
+                return GroupwiseActQuantProxyFromInjector
+            return DynamicActQuantProxyFromInjector
+        # Groupwise static activation int proxy is not supported yet.
+        return ActQuantProxyFromInjector
+
+    def _float_proxy(self, config: QuantizerConfig) -> Type:
+        if ScaleType(config.scale_type) == ScaleType.DYNAMIC:
+            if config.scaling_granularity == ScalingPerOutputType.GROUP:
+                return GroupwiseActFloatQuantProxyFromInjector
+            if config.scaling_granularity == ScalingPerOutputType.CHANNEL:  # per-row
+                return DynamicActFloatQuantProxyFromInjector
+            # Per-tensor dynamic float reuses the plain float act proxy.
+            return ActFloatQuantProxyFromInjector
+        # Static / no_scale float use the plain float act proxy.
+        return ActFloatQuantProxyFromInjector

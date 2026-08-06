@@ -3,7 +3,7 @@ Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 Weight quantizer builder (v2): the concrete :class:`WeightQuantizerBuilder` with
-its fixed component preset, plus the ``build_weight_quantizer`` factory shim that
+its ordered component list, plus the ``build_weight_quantizer`` factory shim that
 keeps the legacy ``(quant_type, **kwargs)`` signature.
 """
 from typing import List
@@ -14,8 +14,15 @@ from brevitas.inject.enum import QuantType
 from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
+from brevitas_examples.common.quant_builder_components import CommonComponent
+from brevitas_examples.common.quant_builder_components import FormatComponent
+from brevitas_examples.common.quant_builder_components import ScaleComponent
+from brevitas_examples.common.quant_builder_components import ScaleParamMethodComponent
+from brevitas_examples.common.quant_builder_components import ScaleRestrictComponent
 from brevitas_examples.common.quant_builder_components import WeightIntQuantComponent
 from brevitas_examples.common.quant_builder_components import WeightSolverComponent
+from brevitas_examples.common.quant_builder_components import ZeroPointComponent
+from brevitas_examples.common.quant_builder_components import ZeroPointParamMethodComponent
 from brevitas_examples.common.quant_builder_core import Component
 from brevitas_examples.common.quant_builder_core import FloatFormatConfig
 from brevitas_examples.common.quant_builder_core import IntFormatConfig
@@ -27,12 +34,25 @@ from brevitas_examples.common.quantizer_builder_v2 import QuantizerBuilder
 
 
 class WeightQuantizerBuilder(QuantizerBuilder):
-    """Builds a weight quantizer injector: the shared base components plus the
-    weight-specific solver and int tuning, appended at the end (the solver is the
-    lowest-priority base, matching the reference weight quantizers' MRO)."""
+    """Builds a weight quantizer injector.
 
-    def extra_components(self) -> List[Component]:
-        return [WeightSolverComponent(), WeightIntQuantComponent()]
+    The ordered component list ends with the weight-specific solver and int
+    tuning: the solver contributes the lowest-priority base (matching the
+    reference weight quantizers' MRO) and the int tuning has the final say over
+    the signed / narrow-range attributes.
+    """
+
+    def base_components(self) -> List[Component]:
+        return [
+            ZeroPointParamMethodComponent(),
+            ScaleParamMethodComponent(),
+            FormatComponent(),
+            ScaleComponent(),
+            ScaleRestrictComponent(),
+            ZeroPointComponent(),
+            CommonComponent(),
+            WeightSolverComponent(),
+            WeightIntQuantComponent(),]
 
 
 def build_weight_quantizer(
@@ -48,9 +68,11 @@ def build_weight_quantizer(
         zero_point_param_method: Optional[ParamMethod] = None,
         float_format: Optional[FloatFormat] = None,
         float_quant_format: Optional[str] = None,
+        extra_components: Optional[List[Component]] = None,
         kwargs: Optional[dict] = None) -> WeightQuantizerBuilder:
     """Assemble a :class:`QuantizerConfig` from the legacy flat arguments and
-    return a :class:`WeightQuantizerBuilder`."""
+    return a :class:`WeightQuantizerBuilder`. ``extra_components`` are folded after
+    the builder's own components (see :class:`QuantizerBuilder`)."""
     if QuantType(quant_type) == QuantType.INT:
         fmt = IntFormatConfig(bit_width=bit_width)
     else:
@@ -67,4 +89,4 @@ def build_weight_quantizer(
         scaling_param_method=scaling_param_method,
         zero_point_param_method=zero_point_param_method,
         extra=kwargs or {})
-    return WeightQuantizerBuilder(config)
+    return WeightQuantizerBuilder(config, extra_components=extra_components)
