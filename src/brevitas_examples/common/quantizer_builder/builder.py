@@ -15,9 +15,9 @@ from typing import List
 from typing import Optional
 from typing import Type
 
-from brevitas_examples.common.quant_builder_core import Component
-from brevitas_examples.common.quant_builder_core import Contribution
-from brevitas_examples.common.quant_builder_core import QuantizerConfig
+from brevitas_examples.common.quantizer_builder.core import Component
+from brevitas_examples.common.quantizer_builder.core import Contribution
+from brevitas_examples.common.quantizer_builder.core import QuantizerConfig
 
 
 class QuantizerBuilder(ABC):
@@ -72,5 +72,5 @@ class QuantizerBuilder(ABC):
     def describe_quantizer(self, resolve: bool = True) -> None:
         """Build the quant injector and print its attributes, dependency kinds,
         and (for ``@value`` functions) the args they require and resolve to."""
-        from brevitas_examples.common.injector_utils import describe_injector
+        from brevitas_examples.common.quantizer_builder.injector_utils import describe_injector
         describe_injector(self.build_quant_injector(), resolve=resolve)
