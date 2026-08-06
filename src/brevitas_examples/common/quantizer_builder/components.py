@@ -22,6 +22,7 @@ from brevitas.core.zero_point import RuntimeDynamicGroupZeroPoint
 from brevitas.core.zero_point import ZeroZeroPoint
 from brevitas.inject.enum import BitWidthImplType
 from brevitas.inject.enum import FloatToIntImplType
+from brevitas.inject.enum import QuantType
 from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.inject.enum import StatsOp
@@ -44,20 +45,19 @@ from brevitas.quant.solver.common import solve_float_to_int_impl_from_enum
 from brevitas.quant.solver.weight import WeightQuantSolver
 from brevitas_examples.common.generative.quant_blocks import RuntimeDynamicStatsScaling
 from brevitas_examples.common.generative.quant_blocks import RuntimeDynamicStatsZeroPoint
-from brevitas_examples.common.quant_builder_core import Component
-from brevitas_examples.common.quant_builder_core import Contribution
-from brevitas_examples.common.quant_builder_core import QuantizerConfig
-from brevitas_examples.common.quantizer_builder import AsymmetricZeroPointMixin
-from brevitas_examples.common.quantizer_builder import FLOAT_FORMAT_MIXIN_MAP
-from brevitas_examples.common.quantizer_builder import GroupwisePoTMixin
-from brevitas_examples.common.quantizer_builder import HQOScaleInjectorMixin
-from brevitas_examples.common.quantizer_builder import HQOZeroPointInjectorMixin
-from brevitas_examples.common.quantizer_builder import MSEScaleInjectorMixin
-from brevitas_examples.common.quantizer_builder import MSEZeroPointInjectorMixin
-from brevitas_examples.common.quantizer_builder import ParamMethod
-from brevitas_examples.common.quantizer_builder import parse_float_quant_format
-from brevitas_examples.common.quantizer_builder import QuantType
-from brevitas_examples.common.quantizer_builder import ZeroPointImplType
+from brevitas_examples.common.quantizer_builder.core import Component
+from brevitas_examples.common.quantizer_builder.core import Contribution
+from brevitas_examples.common.quantizer_builder.core import QuantizerConfig
+from brevitas_examples.common.quantizer_builder.mixins import AsymmetricZeroPointMixin
+from brevitas_examples.common.quantizer_builder.mixins import FLOAT_FORMAT_MIXIN_MAP
+from brevitas_examples.common.quantizer_builder.mixins import GroupwisePoTMixin
+from brevitas_examples.common.quantizer_builder.mixins import HQOScaleInjectorMixin
+from brevitas_examples.common.quantizer_builder.mixins import HQOZeroPointInjectorMixin
+from brevitas_examples.common.quantizer_builder.mixins import MSEScaleInjectorMixin
+from brevitas_examples.common.quantizer_builder.mixins import MSEZeroPointInjectorMixin
+from brevitas_examples.common.quantizer_builder.mixins import ParamMethod
+from brevitas_examples.common.quantizer_builder.mixins import parse_float_quant_format
+from brevitas_examples.common.quantizer_builder.mixins import ZeroPointImplType
 
 
 class CommonComponent(Component):

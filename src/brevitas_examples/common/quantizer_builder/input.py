@@ -15,22 +15,22 @@ from brevitas.inject.enum import QuantType
 from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
-from brevitas_examples.common.quant_builder_components import CommonComponent
-from brevitas_examples.common.quant_builder_components import FormatComponent
-from brevitas_examples.common.quant_builder_components import InputIntQuantComponent
-from brevitas_examples.common.quant_builder_components import InputScaleComponent
-from brevitas_examples.common.quant_builder_components import InputSolverComponent
-from brevitas_examples.common.quant_builder_components import InputZeroPointComponent
-from brevitas_examples.common.quant_builder_components import ScaleParamMethodComponent
-from brevitas_examples.common.quant_builder_components import ScaleRestrictComponent
-from brevitas_examples.common.quant_builder_components import ZeroPointParamMethodComponent
-from brevitas_examples.common.quant_builder_core import Component
-from brevitas_examples.common.quant_builder_core import config_from_flat_args
-from brevitas_examples.common.quantizer_builder import FloatFormat
-from brevitas_examples.common.quantizer_builder import ParamMethod
-from brevitas_examples.common.quantizer_builder import QuantParamType
-from brevitas_examples.common.quantizer_builder import ScaleType
-from brevitas_examples.common.quantizer_builder_v2 import QuantizerBuilder
+from brevitas_examples.common.quantizer_builder.builder import QuantizerBuilder
+from brevitas_examples.common.quantizer_builder.components import CommonComponent
+from brevitas_examples.common.quantizer_builder.components import FormatComponent
+from brevitas_examples.common.quantizer_builder.components import InputIntQuantComponent
+from brevitas_examples.common.quantizer_builder.components import InputScaleComponent
+from brevitas_examples.common.quantizer_builder.components import InputSolverComponent
+from brevitas_examples.common.quantizer_builder.components import InputZeroPointComponent
+from brevitas_examples.common.quantizer_builder.components import ScaleParamMethodComponent
+from brevitas_examples.common.quantizer_builder.components import ScaleRestrictComponent
+from brevitas_examples.common.quantizer_builder.components import ZeroPointParamMethodComponent
+from brevitas_examples.common.quantizer_builder.core import Component
+from brevitas_examples.common.quantizer_builder.core import config_from_flat_args
+from brevitas_examples.common.quantizer_builder.mixins import FloatFormat
+from brevitas_examples.common.quantizer_builder.mixins import ParamMethod
+from brevitas_examples.common.quantizer_builder.mixins import QuantParamType
+from brevitas_examples.common.quantizer_builder.mixins import ScaleType
 
 
 class InputQuantizerBuilder(QuantizerBuilder):

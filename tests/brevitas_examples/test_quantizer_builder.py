@@ -46,10 +46,10 @@ from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPWeightPerCh
 from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPWeightSymmetricGroupQuant
 from brevitas_examples.common.generative.quantizers import Fp8e4m3WeightSymmetricGroupQuant
 from brevitas_examples.common.generative.quantizers import IntWeightSymmetricGroupQuant
+from brevitas_examples.common.quantizer_builder import build_weight_quantizer
 from brevitas_examples.common.quantizer_builder import FloatFormat
 from brevitas_examples.common.quantizer_builder import ParamMethod
 from brevitas_examples.common.quantizer_builder import QuantParamType
-from brevitas_examples.common.weight_quantizer_builder import build_weight_quantizer
 
 # Keep the model small and deterministic so that weight-quant outputs are
 # directly comparable between the reference quantizer and the builder.

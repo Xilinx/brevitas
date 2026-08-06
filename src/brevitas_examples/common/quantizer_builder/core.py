@@ -7,9 +7,9 @@ Foundational abstractions for the quantizer builder: the immutable configuration
 component contract (:class:`Component`) and its output (:class:`Contribution`).
 
 These are the leaf definitions of the builder package: both the concrete
-components and the :class:`~.quantizer_builder_v2.QuantizerBuilder` depend on
-them, so keeping them here (rather than in the builder module) makes the
-dependency one-directional and avoids circular imports.
+components and the :class:`~.builder.QuantizerBuilder` depend on them, so keeping
+them here (rather than in the builder module) makes the dependency
+one-directional and avoids circular imports.
 """
 from abc import ABC
 from abc import abstractmethod
@@ -27,10 +27,10 @@ from brevitas.inject.enum import QuantType
 from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
-from brevitas_examples.common.quantizer_builder import FloatFormat
-from brevitas_examples.common.quantizer_builder import ParamMethod
-from brevitas_examples.common.quantizer_builder import QuantParamType
-from brevitas_examples.common.quantizer_builder import ScaleType
+from brevitas_examples.common.quantizer_builder.mixins import FloatFormat
+from brevitas_examples.common.quantizer_builder.mixins import ParamMethod
+from brevitas_examples.common.quantizer_builder.mixins import QuantParamType
+from brevitas_examples.common.quantizer_builder.mixins import ScaleType
 
 
 @dataclass(frozen=True)
