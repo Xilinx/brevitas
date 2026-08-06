@@ -24,9 +24,7 @@ from brevitas_examples.common.quant_builder_components import WeightSolverCompon
 from brevitas_examples.common.quant_builder_components import ZeroPointComponent
 from brevitas_examples.common.quant_builder_components import ZeroPointParamMethodComponent
 from brevitas_examples.common.quant_builder_core import Component
-from brevitas_examples.common.quant_builder_core import FloatFormatConfig
-from brevitas_examples.common.quant_builder_core import IntFormatConfig
-from brevitas_examples.common.quant_builder_core import QuantizerConfig
+from brevitas_examples.common.quant_builder_core import config_from_flat_args
 from brevitas_examples.common.quantizer_builder import FloatFormat
 from brevitas_examples.common.quantizer_builder import ParamMethod
 from brevitas_examples.common.quantizer_builder import QuantParamType
@@ -73,20 +71,17 @@ def build_weight_quantizer(
     """Assemble a :class:`QuantizerConfig` from the legacy flat arguments and
     return a :class:`WeightQuantizerBuilder`. ``extra_components`` are folded after
     the builder's own components (see :class:`QuantizerBuilder`)."""
-    if QuantType(quant_type) == QuantType.INT:
-        fmt = IntFormatConfig(bit_width=bit_width)
-    else:
-        fmt = FloatFormatConfig(
-            float_quant_format=float_quant_format,
-            float_format=float_format if float_format is not None else FloatFormat.FLOAT)
-    config = QuantizerConfig(
-        format=fmt,
+    config = config_from_flat_args(
+        quant_type,
         quant_param_type=quant_param_type,
-        scaling_granularity=scaling_per_output_type,
+        bit_width=bit_width,
         scaling_impl_type=scaling_impl_type,
+        scaling_per_output_type=scaling_per_output_type,
         restrict_scaling_type=restrict_scaling_type,
         scaling_min_val=scaling_min_val,
         scaling_param_method=scaling_param_method,
         zero_point_param_method=zero_point_param_method,
-        extra=kwargs or {})
+        float_format=float_format,
+        float_quant_format=float_quant_format,
+        kwargs=kwargs)
     return WeightQuantizerBuilder(config, extra_components=extra_components)
