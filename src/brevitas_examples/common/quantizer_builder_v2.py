@@ -13,7 +13,6 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
-from typing import Tuple
 from typing import Type
 
 from brevitas_examples.common.quant_builder_core import Component
@@ -58,23 +57,17 @@ class QuantizerBuilder(ABC):
         writers).
         """
         components = self.base_components() + self.extra_components
-        contributions = [component.build(self.config) for component in components]
-        return self._assemble(contributions)
+        merged = Contribution.merge(component.build(self.config) for component in components)
+        return self._assemble(merged)
 
-    def _assemble(self, contributions: List[Contribution]) -> Type:
-        attrs: Dict[str, Any] = {}
-        bases: Tuple[Type, ...] = ()
-        drops: set = set()
-        for contribution in contributions:
-            attrs.update(contribution.attrs)
-            bases = bases + tuple(contribution.bases)
-            drops.update(contribution.drop)
+    def _assemble(self, merged: Contribution) -> Type:
+        attrs: Dict[str, Any] = dict(merged.attrs)
         attrs.update(self.config.extra)
         # Drops are applied last so a component can remove an attribute regardless
         # of whether the component that set it ran before or after it.
-        for key in drops:
+        for key in merged.drop:
             attrs.pop(key, None)
-        return type("QuantInjector", bases, attrs)
+        return type("QuantInjector", merged.bases, attrs)
 
     def describe_quantizer(self, resolve: bool = True) -> None:
         """Build the quant injector and print its attributes, dependency kinds,
