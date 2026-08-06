@@ -45,3 +45,18 @@ class TestQuantMultiheadAttention:
         out = qm(inp, inp, inp)
         assert torch.isclose(out[0], ref_out[0], atol=ATOL).all()
         assert torch.isclose(out[1], ref_out[1], atol=ATOL).all()
+
+    @pytest.mark.parametrize("packed_in_proj", [True, False])
+    def test_mha_projections_expose_batch_dim(self, packed_in_proj):
+        # The internal projections always operate on (L, N, E) tensors, so they must expose
+        # batch_dim == 1 to let PTQ algorithms detect the batch dimension without named tensors.
+        qm = QuantMultiheadAttention(EMBED_DIM, NUM_HEADS, packed_in_proj=packed_in_proj)
+        if packed_in_proj:
+            projections = [qm.in_proj, qm.out_proj]
+            assert qm.q_proj is qm.k_proj is qm.v_proj is None
+        else:
+            projections = [qm.q_proj, qm.k_proj, qm.v_proj, qm.out_proj]
+            assert qm.in_proj is None
+        for proj in projections:
+            assert proj is not None
+            assert proj.batch_dim == 1

@@ -247,3 +247,38 @@ def test_act_equalization_torchvision_models(model_dict: dict, layerwise: bool, 
     # Check that at least one region performs "true" equalization
     # If all shapes are scalar, no equalization has been performed
     assert any([shape != () for shape in shape_scale_regions])
+
+
+def test_act_equalization_quant_mha(quant_mha_model):
+    # LayerwiseActivationEqualization descends into QuantMultiheadAttention (which is not an
+    # nn.MultiheadAttention) and hooks its internal projection QuantLinear layers. Those layers
+    # always receive tensors in (L, N, E) layout, i.e. with the batch dimension at index 1,
+    # regardless of batch_first. This test verifies that the batch dimension is detected as 1
+    # (so that activation statistics are reduced over the correct dimension) and that
+    # equalization remains output-preserving.
+    model_class = quant_mha_model
+    batch_first = model_class.batch_first
+
+    torch.manual_seed(SEED)
+    inp = quant_mha_input(batch_first)
+
+    model = model_class()
+    model.eval()
+    with torch.no_grad():
+        expected_out = model(inp)
+
+    with torch.no_grad():
+        with activation_equalization_mode(model, 0.5, True, layerwise=True) as aem:
+            model(inp)
+
+    # Intent: every hooked layer is an MHA internal projection operating on (L, N, E),
+    # so the detected batch dimension must be 1.
+    batch_dims = list(aem.graph_act_eq.batch_dim_act_map.values())
+    assert len(batch_dims) > 0
+    assert all(batch_dim == 1 for batch_dim in batch_dims), \
+        f"Expected batch_dim == 1 for all MHA projections, got {batch_dims}"
+
+    # Correctness: activation equalization must preserve the output.
+    with torch.no_grad():
+        out = model(inp)
+    assert torch.allclose(expected_out, out, atol=ATOL)

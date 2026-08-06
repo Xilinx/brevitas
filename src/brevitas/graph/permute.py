@@ -26,6 +26,7 @@ from brevitas.graph.equalize import WalkRegionState
 from brevitas.graph.utils import find_node_for_module
 from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.utils.logging import setup_logger
+from brevitas.utils.torch_utils import rename_tensor
 
 logging = setup_logger(__name__)
 
@@ -193,7 +194,14 @@ class GraphPermutationEqualization(GraphTransform, RegionWalkMixin):
         if inp is None:
             return
 
-        if hasattr(inp, 'names') and 'N' in inp.names:
+        # Prefer an explicit batch_dim exposed by the module (works on all PyTorch versions),
+        # otherwise fall back to named tensors (PyTorch < 2.13). batch_dim has already been
+        # resolved by _process_input; here we only need to reorganize the input accordingly.
+        if hasattr(module, 'batch_dim'):
+            # Strip any legacy dimension names before reshaping (no-op on PyTorch >= 2.13).
+            inp = rename_tensor(inp, None)
+            inp = inp.transpose(0, batch_dim)
+        elif hasattr(inp, 'names') and 'N' in inp.names:
             inp.rename_(None)
             inp = inp.transpose(0, batch_dim)
 

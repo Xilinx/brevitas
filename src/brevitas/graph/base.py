@@ -22,6 +22,7 @@ from brevitas.fx import immutable_dict
 from brevitas.fx import Node
 from brevitas.graph.utils import *
 from brevitas.utils.python_utils import islambda
+from brevitas.utils.torch_utils import rename_tensor
 
 INPUT_NAMES = ('input', 'inp', 'query', 'hidden_states', 'x')
 
@@ -95,9 +96,18 @@ class GraphTransform(Transform):
             assert len(inp) == 1, "Expected single element tuple"
             inp = inp[0]
 
-        # Extra check for batch_dim using named tensors
-        if hasattr(inp, 'names') and 'N' in inp.names:
+        # Refine batch_dim: prefer an explicit batch_dim exposed by the module (works on all
+        # PyTorch versions), otherwise fall back to named tensors (PyTorch < 2.13).
+        if hasattr(module, 'batch_dim'):
+            batch_dim = module.batch_dim
+        elif hasattr(inp, 'names') and 'N' in inp.names:
             batch_dim = inp.names.index('N')
+
+        # Drop any dimension names before returning so that downstream ops that do not support
+        # named tensors (e.g. permute/reshape on PyTorch < 2.13) keep working.
+        if isinstance(inp, torch.Tensor) and hasattr(inp, 'names') and any(
+                name is not None for name in inp.names):
+            inp = rename_tensor(inp, None)
 
         return inp, batch_dim
 

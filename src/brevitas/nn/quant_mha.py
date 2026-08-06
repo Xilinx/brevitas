@@ -186,6 +186,15 @@ class QuantMultiheadAttention(Module):
             dtype=dtype,
             **filter_kwargs('out_proj_'))
 
+        # The internal projection layers always operate on tensors in (L, N, E) layout, i.e.
+        # with the batch dimension at index 1, regardless of batch_first. Expose this constant
+        # so that PTQ algorithms (e.g. activation equalization, GPxQ) that hook these layers can
+        # detect the batch dimension without relying on named tensors, which were removed in
+        # PyTorch 2.13.
+        for proj in (self.in_proj, self.q_proj, self.k_proj, self.v_proj, self.out_proj):
+            if proj is not None:
+                proj.batch_dim = 1
+
         if add_bias_kv:
             self.bias_k = Parameter(torch.empty((1, 1, embed_dim), device=device, dtype=dtype))
             self.bias_v = Parameter(torch.empty((1, 1, embed_dim), device=device, dtype=dtype))

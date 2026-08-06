@@ -25,6 +25,7 @@ from brevitas.graph.utils import is_quant_module
 import brevitas.nn as qnn
 from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
+from brevitas.utils.torch_utils import rename_tensor
 
 SUPPORTED_CONV_OP = (
     nn.Conv1d, nn.Conv2d, nn.Conv3d, nn.ConvTranspose1d, nn.ConvTranspose2d, nn.ConvTranspose3d)
@@ -258,8 +259,14 @@ class GPxQ(ABC):
             warnings.warn("Found unbatched input, adding batch dimension equal to 1")
             inp = inp.unsqueeze(0)
 
-        # Define batch size before re-organizing the input
-        if hasattr(inp, 'names') and 'N' in inp.names:
+        # Define batch size before re-organizing the input.
+        # Prefer an explicit batch_dim exposed by the module (works on all PyTorch versions),
+        # otherwise fall back to named tensors (PyTorch < 2.13).
+        if hasattr(self.layer, 'batch_dim'):
+            # Strip any legacy dimension names before reshaping (no-op on PyTorch >= 2.13).
+            inp = rename_tensor(inp, None)
+            inp = inp.transpose(0, self.layer.batch_dim)
+        elif hasattr(inp, 'names') and 'N' in inp.names:
             batch_dim = inp.names.index('N')
             inp.rename_(None)
             inp = inp.transpose(0, batch_dim)
