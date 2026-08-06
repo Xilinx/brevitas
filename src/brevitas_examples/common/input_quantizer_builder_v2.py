@@ -2,9 +2,10 @@
 Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-Weight quantizer builder (v2): the concrete :class:`WeightQuantizerBuilder` with
-its ordered component list, plus the ``build_weight_quantizer`` factory shim that
-keeps the legacy ``(quant_type, **kwargs)`` signature.
+Input/activation quantizer builder (v2): the concrete
+:class:`InputQuantizerBuilder` with its ordered component list, plus the
+``build_input_quantizer`` factory shim that keeps the legacy
+``(quant_type, **kwargs)`` signature.
 """
 from typing import List
 from typing import Optional
@@ -16,12 +17,12 @@ from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
 from brevitas_examples.common.quant_builder_components import CommonComponent
 from brevitas_examples.common.quant_builder_components import FormatComponent
-from brevitas_examples.common.quant_builder_components import ScaleComponent
+from brevitas_examples.common.quant_builder_components import InputIntQuantComponent
+from brevitas_examples.common.quant_builder_components import InputScaleComponent
+from brevitas_examples.common.quant_builder_components import InputSolverComponent
+from brevitas_examples.common.quant_builder_components import InputZeroPointComponent
 from brevitas_examples.common.quant_builder_components import ScaleParamMethodComponent
 from brevitas_examples.common.quant_builder_components import ScaleRestrictComponent
-from brevitas_examples.common.quant_builder_components import WeightIntQuantComponent
-from brevitas_examples.common.quant_builder_components import WeightSolverComponent
-from brevitas_examples.common.quant_builder_components import ZeroPointComponent
 from brevitas_examples.common.quant_builder_components import ZeroPointParamMethodComponent
 from brevitas_examples.common.quant_builder_core import Component
 from brevitas_examples.common.quant_builder_core import FloatFormatConfig
@@ -30,16 +31,19 @@ from brevitas_examples.common.quant_builder_core import QuantizerConfig
 from brevitas_examples.common.quantizer_builder import FloatFormat
 from brevitas_examples.common.quantizer_builder import ParamMethod
 from brevitas_examples.common.quantizer_builder import QuantParamType
+from brevitas_examples.common.quantizer_builder import ScaleType
 from brevitas_examples.common.quantizer_builder_v2 import QuantizerBuilder
 
 
-class WeightQuantizerBuilder(QuantizerBuilder):
-    """Builds a weight quantizer injector.
+class InputQuantizerBuilder(QuantizerBuilder):
+    """Builds an input/activation quantizer injector.
 
-    The ordered component list ends with the weight-specific solver and int
-    tuning: the solver contributes the lowest-priority base (matching the
-    reference weight quantizers' MRO) and the int tuning has the final say over
-    the signed / narrow-range attributes.
+    The input-specific scale / zero-point / solver / int-quant components take the
+    place of the generic ones in the ordered list (rather than layering on top),
+    which keeps the number of overridden / dropped keys to a minimum. The solver is
+    contributed second-to-last (lowest-priority base, matching the reference
+    activation quantizers' MRO); the int tuning has the final say over the
+    signed / narrow-range attributes.
     """
 
     def base_components(self) -> List[Component]:
@@ -47,18 +51,19 @@ class WeightQuantizerBuilder(QuantizerBuilder):
             ZeroPointParamMethodComponent(),
             ScaleParamMethodComponent(),
             FormatComponent(),
-            ScaleComponent(),
+            InputScaleComponent(),
             ScaleRestrictComponent(),
-            ZeroPointComponent(),
+            InputZeroPointComponent(),
             CommonComponent(),
-            WeightSolverComponent(),
-            WeightIntQuantComponent(),]
+            InputSolverComponent(),
+            InputIntQuantComponent(),]
 
 
-def build_weight_quantizer(
+def build_input_quantizer(
         quant_type: Union[str, QuantType],
         *,
         quant_param_type: QuantParamType = QuantParamType.SYM,
+        scale_type: ScaleType = ScaleType.STATIC,
         bit_width: int = 8,
         scaling_impl_type: ScalingImplType = ScalingImplType.STATS,
         scaling_per_output_type: ScalingPerOutputType = ScalingPerOutputType.TENSOR,
@@ -69,9 +74,9 @@ def build_weight_quantizer(
         float_format: Optional[FloatFormat] = None,
         float_quant_format: Optional[str] = None,
         extra_components: Optional[List[Component]] = None,
-        kwargs: Optional[dict] = None) -> WeightQuantizerBuilder:
+        kwargs: Optional[dict] = None) -> InputQuantizerBuilder:
     """Assemble a :class:`QuantizerConfig` from the legacy flat arguments and
-    return a :class:`WeightQuantizerBuilder`. ``extra_components`` are folded after
+    return an :class:`InputQuantizerBuilder`. ``extra_components`` are folded after
     the builder's own components (see :class:`QuantizerBuilder`)."""
     if QuantType(quant_type) == QuantType.INT:
         fmt = IntFormatConfig(bit_width=bit_width)
@@ -88,5 +93,6 @@ def build_weight_quantizer(
         scaling_min_val=scaling_min_val,
         scaling_param_method=scaling_param_method,
         zero_point_param_method=zero_point_param_method,
+        scale_type=scale_type,
         extra=kwargs or {})
-    return WeightQuantizerBuilder(config, extra_components=extra_components)
+    return InputQuantizerBuilder(config, extra_components=extra_components)
