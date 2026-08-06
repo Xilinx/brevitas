@@ -7,8 +7,8 @@ Concrete :class:`Component` implementations for the quantizer builder.
 Each component reads what it needs from the :class:`QuantizerConfig` (Context
 Object) and returns a :class:`Contribution` (namespace attrs + base mixins). The
 :class:`QuantizerBuilder` folds an ordered list of these into a brevitas
-injector. This module holds the kind-agnostic (shared) components; kind-specific
-components (weight / input) are added later.
+injector. This module holds the kind-agnostic (shared) components as well as the
+kind-specific (weight / input) ones.
 """
 from brevitas.core.zero_point import ZeroZeroPoint
 from brevitas.inject.enum import BitWidthImplType
@@ -16,7 +16,14 @@ from brevitas.inject.enum import FloatToIntImplType
 from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.inject.enum import StatsOp
+from brevitas.proxy.float_parameter_quant import WeightFloatQuantProxyFromInjector
+from brevitas.proxy.groupwise_float_parameter_quant import \
+    GroupwiseWeightFloatQuantProxyFromInjector
+from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantProxyFromInjector
+from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
+from brevitas.quant.float_base import ScaledFloatWeightBase
 from brevitas.quant.solver.common import solve_float_to_int_impl_from_enum
+from brevitas.quant.solver.weight import WeightQuantSolver
 from brevitas_examples.common.quantizer_builder import AsymmetricZeroPointMixin
 from brevitas_examples.common.quantizer_builder import FLOAT_FORMAT_MIXIN_MAP
 from brevitas_examples.common.quantizer_builder import GroupwisePoTMixin
@@ -82,6 +89,15 @@ class FormatComponent(Component):
 
 
 # TODO (pml): Refactor to avoid duplication with ScaleParamMethodComponent
+class ScaleComponent(Component):
+    """Base scale wiring (counterpart of :class:`ZeroPointComponent`). Sets the
+    scale implementation type (default STATS from the config). MSE/HQO drop it and
+    the input scale extra overrides it for the static/dynamic/no_scale paths."""
+
+    def build(self, config: QuantizerConfig) -> Contribution:
+        return Contribution(attrs={"scaling_impl_type": config.scaling_impl_type})
+
+
 class ScaleParamMethodComponent(Component):
     """Scale parameter method: MSE / HQO local-loss injectors (STATS = nothing).
 
@@ -156,3 +172,43 @@ class ZeroPointComponent(Component):
 
     def build_asym(self, config: QuantizerConfig) -> Contribution:
         return Contribution(bases=(AsymmetricZeroPointMixin,))
+
+
+class WeightSolverComponent(Component):
+    """Weight solver, float base and proxy class. The scale implementation type is
+    provided by the base :class:`ScaleComponent` (default STATS)."""
+
+    def build(self, config: QuantizerConfig) -> Contribution:
+        return self.build_int(config) if config.is_int else self.build_float(config)
+
+    def build_int(self, config: QuantizerConfig) -> Contribution:
+        groupwise = config.scaling_granularity == ScalingPerOutputType.GROUP
+        proxy = GroupwiseWeightQuantProxyFromInjector if groupwise \
+            else WeightQuantProxyFromInjector
+        return Contribution(attrs={"proxy_class": proxy}, bases=(WeightQuantSolver,))
+
+    def build_float(self, config: QuantizerConfig) -> Contribution:
+        # ScaledFloatWeightBase already brings the weight solver and a stats scale.
+        groupwise = config.scaling_granularity == ScalingPerOutputType.GROUP
+        proxy = GroupwiseWeightFloatQuantProxyFromInjector if groupwise \
+            else WeightFloatQuantProxyFromInjector
+        return Contribution(attrs={"proxy_class": proxy}, bases=(ScaledFloatWeightBase,))
+
+
+class WeightIntQuantComponent(Component):
+    """Signedness / narrow-range / zero-point enable for integer weights (no-op
+    for float, whose signedness comes from the float base)."""
+
+    def build(self, config: QuantizerConfig) -> Contribution:
+        if not config.is_int:
+            return Contribution()
+        is_asym = QuantParamType(config.quant_param_type) == QuantParamType.ASYM
+        return self.build_asym(config) if is_asym else self.build_sym(config)
+
+    def build_sym(self, config: QuantizerConfig) -> Contribution:
+        return Contribution(attrs={"signed": True, "narrow_range": True})
+
+    def build_asym(self, config: QuantizerConfig) -> Contribution:
+        return Contribution(
+            attrs={
+                "signed": False, "narrow_range": False, "quantize_zero_point": True})
