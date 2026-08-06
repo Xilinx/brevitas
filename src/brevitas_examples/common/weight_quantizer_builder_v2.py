@@ -16,14 +16,14 @@ from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
 from brevitas_examples.common.quant_builder_components import WeightIntQuantComponent
 from brevitas_examples.common.quant_builder_components import WeightSolverComponent
+from brevitas_examples.common.quant_builder_core import Component
+from brevitas_examples.common.quant_builder_core import FloatFormatConfig
+from brevitas_examples.common.quant_builder_core import IntFormatConfig
+from brevitas_examples.common.quant_builder_core import QuantizerConfig
 from brevitas_examples.common.quantizer_builder import FloatFormat
 from brevitas_examples.common.quantizer_builder import ParamMethod
 from brevitas_examples.common.quantizer_builder import QuantParamType
-from brevitas_examples.common.quantizer_builder_v2 import Component
-from brevitas_examples.common.quantizer_builder_v2 import FloatFormatConfig
-from brevitas_examples.common.quantizer_builder_v2 import IntFormatConfig
 from brevitas_examples.common.quantizer_builder_v2 import QuantizerBuilder
-from brevitas_examples.common.quantizer_builder_v2 import QuantizerConfig
 
 
 class WeightQuantizerBuilder(QuantizerBuilder):

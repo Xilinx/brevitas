@@ -24,6 +24,9 @@ from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas.quant.float_base import ScaledFloatWeightBase
 from brevitas.quant.solver.common import solve_float_to_int_impl_from_enum
 from brevitas.quant.solver.weight import WeightQuantSolver
+from brevitas_examples.common.quant_builder_core import Component
+from brevitas_examples.common.quant_builder_core import Contribution
+from brevitas_examples.common.quant_builder_core import QuantizerConfig
 from brevitas_examples.common.quantizer_builder import AsymmetricZeroPointMixin
 from brevitas_examples.common.quantizer_builder import FLOAT_FORMAT_MIXIN_MAP
 from brevitas_examples.common.quantizer_builder import GroupwisePoTMixin
@@ -35,9 +38,6 @@ from brevitas_examples.common.quantizer_builder import ParamMethod
 from brevitas_examples.common.quantizer_builder import parse_float_quant_format
 from brevitas_examples.common.quantizer_builder import QuantParamType
 from brevitas_examples.common.quantizer_builder import QuantType
-from brevitas_examples.common.quantizer_builder_v2 import Component
-from brevitas_examples.common.quantizer_builder_v2 import Contribution
-from brevitas_examples.common.quantizer_builder_v2 import QuantizerConfig
 
 
 class CommonComponent(Component):
