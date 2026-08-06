@@ -17,11 +17,13 @@ from dataclasses import dataclass
 from dataclasses import field
 from typing import Any
 from typing import Dict
+from typing import Iterable
 from typing import Optional
 from typing import Tuple
 from typing import Type
 from typing import Union
 
+from brevitas.inject.enum import QuantType
 from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
@@ -75,25 +77,49 @@ class QuantizerConfig:
     def is_float(self) -> bool:
         return isinstance(self.format, FloatFormatConfig)
 
+    @property
+    def is_sym(self) -> bool:
+        return QuantParamType(self.quant_param_type) == QuantParamType.SYM
+
+    @property
+    def is_asym(self) -> bool:
+        return QuantParamType(self.quant_param_type) == QuantParamType.ASYM
+
+    @property
+    def is_groupwise(self) -> bool:
+        return ScalingPerOutputType(self.scaling_granularity) == ScalingPerOutputType.GROUP
+
+    @property
+    def is_static(self) -> bool:
+        return ScaleType(self.scale_type) == ScaleType.STATIC
+
+    @property
+    def is_dynamic(self) -> bool:
+        return ScaleType(self.scale_type) == ScaleType.DYNAMIC
+
+    @property
+    def is_no_scale(self) -> bool:
+        return ScaleType(self.scale_type) == ScaleType.NO_SCALE
+
+    @property
+    def is_power_of_two(self) -> bool:
+        return RestrictValueType(self.restrict_scaling_type) == RestrictValueType.POWER_OF_TWO
+
     # TODO (pml): Lift these contraints as, at least, a subset of these combinations should
     # be supported in the future (e.g. float + asymmetric quantization)
     def __post_init__(self) -> None:
-        is_sym = QuantParamType(self.quant_param_type) == QuantParamType.SYM
-        is_no_scale = ScaleType(self.scale_type) == ScaleType.NO_SCALE
-        is_po2 = self.restrict_scaling_type == RestrictValueType.POWER_OF_TWO
-        is_groupwise = self.scaling_granularity == ScalingPerOutputType.GROUP
-        if self.is_float and not is_sym:
+        if self.is_float and not self.is_sym:
             raise ValueError("Float quantizers only support symmetric quantization.")
         if self.is_float and self.zero_point_param_method is not None:
             raise ValueError("Float quantizers do not support a zero-point param method.")
-        if is_sym and self.zero_point_param_method is not None:
+        if self.is_sym and self.zero_point_param_method is not None:
             raise ValueError(
                 "Zero point parameter method is not applicable for symmetric quantization.")
-        if is_no_scale and not self.is_float:
+        if self.is_no_scale and not self.is_float:
             raise ValueError("no_scale quantization is only supported for float quant_type.")
         # Groupwise power-of-two scaled float (MX) is only defined for the OCP
         # format (it relies on FpOCPMixin's inf/nan values for the mantissa bias).
-        if (self.is_float and is_po2 and is_groupwise and
+        if (self.is_float and self.is_power_of_two and self.is_groupwise and
                 self.format.float_format != FloatFormat.OCP):
             raise ValueError(
                 "Groupwise power-of-two scaled float quantizers (MX) are only "
@@ -111,6 +137,26 @@ class Contribution:
     # drops the scale-related attributes carried by earlier components).
     drop: Tuple[str, ...] = ()
 
+    def __add__(self, other: "Contribution") -> "Contribution":
+        """Fold ``other`` on top of ``self``: later ``attrs`` win, ``bases`` are
+        appended (so ``self``'s bases sit first in the MRO) and ``drop`` sets are
+        unioned. ``drop`` is *not* applied here (the builder applies it last, after
+        every contribution is folded and ``config.extra`` is merged), so a
+        component can remove an attribute regardless of ordering."""
+        return Contribution(
+            attrs={
+                **self.attrs, **other.attrs},
+            bases=self.bases + other.bases,
+            drop=self.drop + other.drop)
+
+    @classmethod
+    def merge(cls, contributions: Iterable["Contribution"]) -> "Contribution":
+        """Fold an ordered iterable of contributions into a single one."""
+        result = cls()
+        for contribution in contributions:
+            result = result + contribution
+        return result
+
 
 class Component(ABC):
     """One axis of the quantizer. Reads what it needs from the config (Context
@@ -119,3 +165,43 @@ class Component(ABC):
     @abstractmethod
     def build(self, config: QuantizerConfig) -> Contribution:
         ...
+
+
+def config_from_flat_args(
+        quant_type: Union[str, QuantType],
+        *,
+        quant_param_type: QuantParamType = QuantParamType.SYM,
+        bit_width: int = 8,
+        scaling_impl_type: ScalingImplType = ScalingImplType.STATS,
+        scaling_per_output_type: ScalingPerOutputType = ScalingPerOutputType.TENSOR,
+        restrict_scaling_type: RestrictValueType = RestrictValueType.FP,
+        scaling_min_val: Optional[float] = None,
+        scaling_param_method: ParamMethod = ParamMethod.STATS,
+        zero_point_param_method: Optional[ParamMethod] = None,
+        scale_type: ScaleType = ScaleType.STATIC,
+        float_format: Optional[FloatFormat] = None,
+        float_quant_format: Optional[str] = None,
+        kwargs: Optional[Dict[str, Any]] = None) -> QuantizerConfig:
+    """Assemble a :class:`QuantizerConfig` from the legacy flat quantizer arguments.
+
+    Shared by the weight / input factory shims, which differ only in whether they
+    expose ``scale_type`` (activation-only). The ``format`` axis is discriminated
+    on ``quant_type`` into an :class:`IntFormatConfig` or :class:`FloatFormatConfig`.
+    """
+    if QuantType(quant_type) == QuantType.INT:
+        fmt: FormatConfig = IntFormatConfig(bit_width=bit_width)
+    else:
+        fmt = FloatFormatConfig(
+            float_quant_format=float_quant_format,
+            float_format=float_format if float_format is not None else FloatFormat.FLOAT)
+    return QuantizerConfig(
+        format=fmt,
+        quant_param_type=quant_param_type,
+        scaling_granularity=scaling_per_output_type,
+        scaling_impl_type=scaling_impl_type,
+        restrict_scaling_type=restrict_scaling_type,
+        scaling_min_val=scaling_min_val,
+        scaling_param_method=scaling_param_method,
+        zero_point_param_method=zero_point_param_method,
+        scale_type=scale_type,
+        extra=kwargs or {})
