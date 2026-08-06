@@ -73,6 +73,48 @@ class TestLLMEntryPointUtils:
         result = LLMEntryPointUtils.parse_log(log)
         assert result["float_ppl"] == pytest.approx(25.123)
         assert result["quant_ppl"] == pytest.approx(30.456)
+        # No stddev present in the log -> std fields should be None
+        assert result["float_ppl_std"] is None
+        assert result["quant_ppl_std"] is None
+
+    @pytest.mark.llm
+    def test_parse_log_float_and_quant_ppl_with_std(self):
+        log = (
+            "Loading model...\n"
+            "Float perplexity (wikitext2): 25.123 ± 0.456\n"
+            "Running quantization...\n"
+            "Quantized perplexity (wikitext2): 30.456 ± 1.234\n")
+        result = LLMEntryPointUtils.parse_log(log)
+        assert result["float_ppl"] == pytest.approx(25.123)
+        assert result["quant_ppl"] == pytest.approx(30.456)
+        assert result["float_ppl_std"] == pytest.approx(0.456)
+        assert result["quant_ppl_std"] == pytest.approx(1.234)
+
+    @pytest.mark.llm
+    def test_parse_log_mixed_ppl_std(self):
+        # Only the float line carries a stddev; the quant line does not.
+        log = (
+            "Float perplexity (wikitext2): 25.123 ± 0.456\n"
+            "Quantized perplexity (wikitext2): 30.456\n")
+        result = LLMEntryPointUtils.parse_log(log)
+        assert result["float_ppl"] == pytest.approx(25.123)
+        assert result["float_ppl_std"] == pytest.approx(0.456)
+        assert result["quant_ppl"] == pytest.approx(30.456)
+        assert result["quant_ppl_std"] is None
+
+    @pytest.mark.llm
+    def test_parse_log_ppl_std_with_few_shot_dict(self):
+        log = (
+            "Float perplexity (wikitext2): 25.0 ± 0.5\n"
+            "Quantized perplexity (wikitext2): 30.0 ± 0.75\n"
+            "Few-shot results: {'task_a': 0.85, 'task_b': 0.72}\n")
+        result = LLMEntryPointUtils.parse_log(log)
+        assert result["float_ppl"] == pytest.approx(25.0)
+        assert result["float_ppl_std"] == pytest.approx(0.5)
+        assert result["quant_ppl"] == pytest.approx(30.0)
+        assert result["quant_ppl_std"] == pytest.approx(0.75)
+        assert result["task_a"] == pytest.approx(0.85)
+        assert result["task_b"] == pytest.approx(0.72)
 
     @pytest.mark.llm
     def test_parse_log_missing_ppl(self):
@@ -80,6 +122,8 @@ class TestLLMEntryPointUtils:
         result = LLMEntryPointUtils.parse_log(log)
         assert result["float_ppl"] is None
         assert result["quant_ppl"] is None
+        assert result["float_ppl_std"] is None
+        assert result["quant_ppl_std"] is None
 
     @pytest.mark.llm
     def test_parse_log_with_few_shot_dict(self):

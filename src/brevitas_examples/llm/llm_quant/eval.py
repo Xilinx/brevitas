@@ -38,6 +38,20 @@ from tqdm import tqdm
 from brevitas_examples.llm.llm_quant.data_utils import recursive_to_device
 
 
+def perplexity_statistic(nlls: np.ndarray) -> float:
+    return np.exp(np.mean(nlls)).item()
+
+
+def compute_perplexity_std(nlls: List[torch.Tensor], n_resamples: int = 1000) -> float:
+    return bootstrap(
+        data=[nlls],
+        statistic=perplexity_statistic,
+        n_resamples=n_resamples,
+        confidence_level=0.95,
+        method="BCa",
+    ).standard_error
+
+
 def create_validation_dataloader(data, seqlen, device):
     nsamples = data['input_ids'].numel() // seqlen
     val_dataloader = []
@@ -102,12 +116,6 @@ def compute_perplexity(
             nlls.append(loss)
 
     ppl = torch.exp(torch.stack(nlls).mean())
-    ppl_std = bootstrap(
-        data=[nlls],
-        statistic=lambda x: np.exp(np.mean(x)).item(),
-        n_resamples=1000,
-        confidence_level=0.95,
-        method="BCa",
-    ).standard_error
+    ppl_std = compute_perplexity_std(nlls)
 
     return ppl.item(), ppl_std
