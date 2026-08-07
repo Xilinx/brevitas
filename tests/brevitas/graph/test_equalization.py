@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import copy
+import platform
 
 from packaging.version import parse
 import pytest
@@ -168,6 +169,9 @@ def test_act_equalization_models(toy_model, layerwise, fuse_scaling, dtype, devi
         pytest.skip(
             "Some operations are not implemented for float16/bfloat16 in PyTorch versions below 2.3.0"
         )
+    if dtype in [torch.float16, torch.bfloat16
+                ] and device == 'cpu' and platform.system() == 'Windows':
+        pytest.skip("Windows CPU oneDNN backend cannot build bf16/fp16 matmul primitives")
     test_id = request.node.callspec.id
 
     if 'mha' in test_id:
