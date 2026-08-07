@@ -14,6 +14,7 @@ from brevitas import config
 from brevitas.inject.enum import FloatToIntImplType
 from brevitas.inject.enum import ScalingImplType
 from brevitas.utils.torch_utils import compute_channel_view_shape
+from brevitas.utils.torch_utils import same_storage
 
 
 def mul_add_from_bn(bn_mean, bn_var, bn_eps, bn_weight, bn_bias):
@@ -102,17 +103,24 @@ def merge_quant_weights(
 
     def hook(module: WeightQuantProxyFromInjectorBase, args: Tuple[Any, ...], output: Any) -> None:
         input_tensor = args[0]
+        matched = False
         with torch.no_grad():
             for m in module.tracked_module_list:
-                # We match the module based on its weights and the ID of the tensor to quantize
-                if id(m.weight.data) == id(input_tensor.data):
+                # We match the module based on the storage shared between its weight and the
+                # tensor being quantized. The tensor passed to the proxy is a view of the
+                # weight (e.g. ``weight[slice(None)]``), so it shares the same storage but is
+                # a distinct Python object: comparing ``id(...)`` of the tensors (or their
+                # ``.data``, which is re-created on every access) would never match.
+                if same_storage(m.weight, input_tensor):
                     m.weight.data = output.value.data
+                    matched = True
                     # We track how many modules have been converted
                     if module not in module_tensor_id_mapping:
                         module_tensor_id_mapping[module] = 1
                     else:
                         module_tensor_id_mapping[module] += 1
-            proxy_list.append(module)
+            if matched:
+                proxy_list.append(module)
 
     # Register Proxy hooks
     for module in model.modules():
@@ -134,7 +142,7 @@ def merge_quant_weights(
     # Reset quantizers from LEARNED_ROUND to ROUND
     with torch.no_grad():
         for module in proxy_list:
-            if module_tensor_id_mapping[module] < len(module.tracked_module_list):
+            if module_tensor_id_mapping.get(module, 0) < len(module.tracked_module_list):
                 raise RuntimeError("Not all weights associated to this quantizer were replaced")
             _reset_quantizer(module)
 
