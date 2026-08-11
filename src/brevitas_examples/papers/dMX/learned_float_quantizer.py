@@ -26,9 +26,8 @@ def _with_scaling_min_val(quantizer, scaling_min_val: float):
     registered class that can be reused by another experiment in the process.
     """
     return type(
-        f"{quantizer.__name__}WithScalingMinVal",
-        (quantizer,),
-        {"__module__": __name__, "scaling_min_val": scaling_min_val})
+        f"{quantizer.__name__}WithScalingMinVal", (quantizer,), {
+            "__module__": __name__, "scaling_min_val": scaling_min_val})
 
 
 def smooth_heaviside_stable(
@@ -197,8 +196,7 @@ class LearnedFloat(BaseQuantizer):
         # but they still must receive the user-requested scale floor.
         if scaling_min_val is None:
             return cls.override_quantizers_dict(quantizers_dict)
-        quantizers_dict["weight_quant"] = _with_scaling_min_val(
-            cls.weight_quant, scaling_min_val)
+        quantizers_dict["weight_quant"] = _with_scaling_min_val(cls.weight_quant, scaling_min_val)
         quantizers_dict["linear_input_quant"] = _with_scaling_min_val(
             cls.linear_input_quant, scaling_min_val)
         return quantizers_dict

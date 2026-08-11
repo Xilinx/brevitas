@@ -118,13 +118,14 @@ def _prepare_model(model: torch.nn.Module) -> torch.nn.Module:
     return model
 
 
-def _resolve_trainer_cls(
-        model: torch.nn.Module, trainer_cls: Optional[Type[Trainer]]) -> Type[Trainer]:
+def _resolve_trainer_cls(model: torch.nn.Module,
+                         trainer_cls: Optional[Type[Trainer]]) -> Type[Trainer]:
     """Resolve the trainer class used to prepare and optimize ``model``."""
     if trainer_cls is None:
         if len(extract_trainable_rotation_matrices(model)) == 0:
             raise RuntimeError(
-                "No Custom Trainer has been defined and no optimizable rotations are present in the model.")
+                "No Custom Trainer has been defined and no optimizable rotations are present in the model."
+            )
         return RotationTrainer
     return trainer_cls
 
@@ -132,7 +133,8 @@ def _resolve_trainer_cls(
 def prepare_fine_tuning(
         model: torch.nn.Module,
         trainer_cls: Optional[Type[Trainer]] = None,
-        extra_args: Optional[List[str]] = None) -> tuple[Type[Trainer], transformers.TrainingArguments]:
+        extra_args: Optional[List[str]] = None
+) -> tuple[Type[Trainer], transformers.TrainingArguments]:
     """Resolve training arguments and prepare trainable parameters before compile.
 
     Custom trainers can opt in to ``prepare_model_for_training`` to establish

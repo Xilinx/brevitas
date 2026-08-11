@@ -239,13 +239,11 @@ class RotationLearnedBitWidthTrainingArguments(TrainingArguments):
         default=None,
         metadata={
             "help":
-            "Storage dtype for trainable rotation parameters. The rotation forward "
-            "still uses the BF16 model dtype."})
+                "Storage dtype for trainable rotation parameters. The rotation forward "
+                "still uses the BF16 model dtype."})
     bit_width_parameter_dtype: Optional[str] = field(
         default=None,
-        metadata={
-            "help":
-            "Storage dtype for learned bit-width offsets and their SGD state."})
+        metadata={"help": "Storage dtype for learned bit-width offsets and their SGD state."})
 
     # Bit-width regularisation
     target_bit_width: float = field(
@@ -425,7 +423,8 @@ class RotationLearnedBitWidthTrainer(GeneralizedTrainer):
                         weight_tq.exponent_bit_width_impl(),
                         weight_tq.mantissa_bit_width_impl())
                 elif isinstance(m, qnn.QuantScaledDotProductAttention):
-                    sdpa_tq = (m.k_transposed_quant.act_quant.fused_activation_quant_proxy.tensor_quant)
+                    sdpa_tq = (
+                        m.k_transposed_quant.act_quant.fused_activation_quant_proxy.tensor_quant)
                     print(n, sdpa_tq.exponent_bit_width_impl(), sdpa_tq.mantissa_bit_width_impl())
             return result
         finally:
