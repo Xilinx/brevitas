@@ -114,6 +114,10 @@ few_shot_tasks:
   - hellaswag_lm_eval|0
 optimizer_dtype:
 - float32
+rotation_parameter_dtype:
+- float32
+bit_width_parameter_dtype:
+- float32
 custom_quantizer:
 - mxfp6_learned_float
 bw_learning_rate:

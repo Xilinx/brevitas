@@ -118,13 +118,43 @@ def _prepare_model(model: torch.nn.Module) -> torch.nn.Module:
     return model
 
 
+def _resolve_trainer_cls(
+        model: torch.nn.Module, trainer_cls: Optional[Type[Trainer]]) -> Type[Trainer]:
+    """Resolve the trainer class used to prepare and optimize ``model``."""
+    if trainer_cls is None:
+        if len(extract_trainable_rotation_matrices(model)) == 0:
+            raise RuntimeError(
+                "No Custom Trainer has been defined and no optimizable rotations are present in the model.")
+        return RotationTrainer
+    return trainer_cls
+
+
+def prepare_fine_tuning(
+        model: torch.nn.Module,
+        trainer_cls: Optional[Type[Trainer]] = None,
+        extra_args: Optional[List[str]] = None) -> tuple[Type[Trainer], transformers.TrainingArguments]:
+    """Resolve training arguments and prepare trainable parameters before compile.
+
+    Custom trainers can opt in to ``prepare_model_for_training`` to establish
+    parameter sharing or dtypes before quantizer compilation captures them.
+    """
+    trainer_cls = _resolve_trainer_cls(model, trainer_cls)
+    training_args = parse_rotation_optimization_args(
+        extra_args=extra_args if extra_args is not None else [], trainer_cls=trainer_cls)
+    prepare = getattr(trainer_cls, "prepare_model_for_training", None)
+    if prepare is not None:
+        prepare(model, training_args)
+    return trainer_cls, training_args
+
+
 def apply_fine_tuning(
         model: torch.nn.Module,
         tokenizer: PreTrainedTokenizerBase,
         train_dataset: Dataset,
         collate_fn: Callable,
         trainer_cls: Optional[Type[Trainer]] = None,
-        extra_args: Optional[List[str]] = None) -> None:
+        extra_args: Optional[List[str]] = None,
+        training_args: Optional[transformers.TrainingArguments] = None) -> None:
     """Fine-tune model weights and/or rotation matrices.
 
     The training arguments are parsed from *extra_args* via
@@ -159,23 +189,11 @@ def apply_fine_tuning(
         dataclass (see :func:`parse_rotation_optimization_args`).
     """
 
-    # Resolve the trainer class up front so that its ``training_args_cls`` (which
-    # sets the ``optimizer_scheduler_args`` default) is used when parsing the
-    # training arguments. When no custom trainer is given but the model has
-    # trainable rotation matrices, default to RotationTrainer (CaileySGD on the
-    # rotations, expressed through the standard optimizer_scheduler_args mechanism).
-    if trainer_cls is None:
-        if len(extract_trainable_rotation_matrices(model)) == 0:
-            raise RuntimeError(
-                "No Custom Trainer has been defined and no optimizable rotations are present in the model."
-            )
-        trainer_cls = RotationTrainer
+    if training_args is None:
+        trainer_cls, training_args = prepare_fine_tuning(
+            model=model, trainer_cls=trainer_cls, extra_args=extra_args)
     else:
-        trainer_cls = trainer_cls
-
-    # Parse the training arguments, resolving the training-args class from the
-    # (possibly defaulted) trainer.
-    training_args = parse_rotation_optimization_args(extra_args=extra_args, trainer_cls=trainer_cls)
+        trainer_cls = _resolve_trainer_cls(model, trainer_cls)
 
     # Prepare model for training
     model = _prepare_model(model)

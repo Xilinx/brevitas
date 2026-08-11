@@ -30,6 +30,10 @@ class WeightFloatBitWidthAverage(BitWidthWeighted):
 
     def __init__(self, model):
         super(WeightFloatBitWidthAverage, self).__init__(model=model)
+        # The hooks deliberately collect FP32 values. Do not downcast their
+        # average merely because the frozen model itself is BF16.
+        self.orig_dtype = torch.float32
+        self.dtype = torch.float32
 
     def register_hooks(self):
 
@@ -49,6 +53,8 @@ class ActivationFloatBitWidthAverage(BitWidthWeighted):
 
     def __init__(self, model):
         super(ActivationFloatBitWidthAverage, self).__init__(model=model)
+        self.orig_dtype = torch.float32
+        self.dtype = torch.float32
 
     def register_hooks(self):
 
@@ -151,6 +157,36 @@ def _tie_bit_widths(model: torch.nn.Module, args) -> None:
             weight_tq.exponent_bit_width_impl.bit_width_offset = act_mantissa_offset
 
 
+def _unique_bit_width_params(model: torch.nn.Module) -> List[torch.nn.Parameter]:
+    """Return tied learned-bit-width offsets once, in model traversal order."""
+    seen: set = set()
+    params: List[torch.nn.Parameter] = []
+    for name, param in model.named_parameters():
+        if "bit_width_offset" in name and id(param) not in seen:
+            seen.add(id(param))
+            params.append(param)
+    return params
+
+
+def _resolve_dtype(name: Optional[str], option: str) -> Optional[torch.dtype]:
+    if name is None:
+        return None
+    dtype = getattr(torch, name, None)
+    if not isinstance(dtype, torch.dtype):
+        raise ValueError(f"{option} must name a torch dtype, got {name!r}")
+    return dtype
+
+
+def _cast_parameters(params: List[torch.nn.Parameter], dtype: Optional[torch.dtype]) -> None:
+    """Change storage dtype without replacing shared Parameter identities."""
+    if dtype is None:
+        return
+    with torch.no_grad():
+        for param in params:
+            if param.dtype != dtype:
+                param.data = param.data.to(dtype=dtype)
+
+
 # ---------------------------------------------------------------------------
 # Parameter selectors for optimizer configs
 # ---------------------------------------------------------------------------
@@ -172,14 +208,7 @@ def _get_bit_width_params(
     be safely shared.
     """
     _tie_bit_widths(model, training_args)
-    # After tying, collect unique bit-width parameters
-    seen: set = set()
-    params: List[torch.nn.Parameter] = []
-    for n, p in model.named_parameters():
-        if "bit_width" in n and id(p) not in seen:
-            seen.add(id(p))
-            params.append(p)
-    return params
+    return _unique_bit_width_params(model)
 
 
 # ---------------------------------------------------------------------------
@@ -205,6 +234,18 @@ class RotationLearnedBitWidthTrainingArguments(TrainingArguments):
             "help":
                 "Data type for CaileySGD optimizer computations (e.g. 'float32'). "
                 "None means use the parameter dtype."})
+
+    rotation_parameter_dtype: Optional[str] = field(
+        default=None,
+        metadata={
+            "help":
+            "Storage dtype for trainable rotation parameters. The rotation forward "
+            "still uses the BF16 model dtype."})
+    bit_width_parameter_dtype: Optional[str] = field(
+        default=None,
+        metadata={
+            "help":
+            "Storage dtype for learned bit-width offsets and their SGD state."})
 
     # Bit-width regularisation
     target_bit_width: float = field(
@@ -286,6 +327,18 @@ class RotationLearnedBitWidthTrainer(GeneralizedTrainer):
 
     training_args_cls = RotationLearnedBitWidthTrainingArguments
 
+    @classmethod
+    def prepare_model_for_training(
+            cls, model: torch.nn.Module, args: RotationLearnedBitWidthTrainingArguments) -> None:
+        """Establish shared parameters and requested master storage before compile."""
+        _tie_bit_widths(model, args)
+        _cast_parameters(
+            extract_trainable_rotation_matrices(model),
+            _resolve_dtype(args.rotation_parameter_dtype, "rotation_parameter_dtype"))
+        _cast_parameters(
+            _unique_bit_width_params(model),
+            _resolve_dtype(args.bit_width_parameter_dtype, "bit_width_parameter_dtype"))
+
     def __init__(self, args: RotationLearnedBitWidthTrainingArguments = None, **kwargs) -> None:
         super().__init__(args=args, **kwargs)
         self.target_bit_width = args.target_bit_width
@@ -346,6 +399,7 @@ class RotationLearnedBitWidthTrainer(GeneralizedTrainer):
         bw_penalty = torch.max(zero, 5. * (current_avg_bw - target_bw))
 
         self.log({
+            "ce_loss": loss.detach().item(),
             "weight_bw": weight_bw.detach().item(),
             "act_bw": act_bw.detach().item(),
             "penalty": bw_penalty.detach().item()})
@@ -355,27 +409,28 @@ class RotationLearnedBitWidthTrainer(GeneralizedTrainer):
 
     def train(self, *args, **kwargs):
         """Train and clean up bit-width criterion hooks afterwards."""
-        result = super().train(*args, **kwargs)
+        try:
+            result = super().train(*args, **kwargs)
 
-        # Print learned bit-widths per quantised layer
-        self.model.eval()
-        for n, m in self.model.named_modules():
-            if isinstance(m, qnn.QuantLinear):
-                act_tq = m.input_quant.fused_activation_quant_proxy.tensor_quant
-                weight_tq = m.weight_quant.tensor_quant
-                print(
-                    n,
-                    act_tq.exponent_bit_width_impl(),
-                    act_tq.mantissa_bit_width_impl(),
-                    weight_tq.exponent_bit_width_impl(),
-                    weight_tq.mantissa_bit_width_impl())
-            elif isinstance(m, qnn.QuantScaledDotProductAttention):
-                sdpa_tq = (m.k_transposed_quant.act_quant.fused_activation_quant_proxy.tensor_quant)
-                print(n, sdpa_tq.exponent_bit_width_impl(), sdpa_tq.mantissa_bit_width_impl())
-
-        self.weight_criterion.remove_hooks()
-        self.act_criterion.remove_hooks()
-        return result
+            # Print learned bit-widths per quantised layer.
+            self.model.eval()
+            for n, m in self.model.named_modules():
+                if isinstance(m, qnn.QuantLinear):
+                    act_tq = m.input_quant.fused_activation_quant_proxy.tensor_quant
+                    weight_tq = m.weight_quant.tensor_quant
+                    print(
+                        n,
+                        act_tq.exponent_bit_width_impl(),
+                        act_tq.mantissa_bit_width_impl(),
+                        weight_tq.exponent_bit_width_impl(),
+                        weight_tq.mantissa_bit_width_impl())
+                elif isinstance(m, qnn.QuantScaledDotProductAttention):
+                    sdpa_tq = (m.k_transposed_quant.act_quant.fused_activation_quant_proxy.tensor_quant)
+                    print(n, sdpa_tq.exponent_bit_width_impl(), sdpa_tq.mantissa_bit_width_impl())
+            return result
+        finally:
+            self.weight_criterion.remove_hooks()
+            self.act_criterion.remove_hooks()
 
 
 # ---------------------------------------------------------------------------

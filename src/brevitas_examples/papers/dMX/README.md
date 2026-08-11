@@ -28,7 +28,7 @@ models; the `mxfp8`/`mxfp6` pairs differ only in the quantizer, while the
 From this directory:
 
 ```bash
-python benchmark.py --config benchmark/mxfp8_mixed_precision.yaml --results results/ --gpus 0,1
+python benchmark.py --config benchmark/mxfp8_mixed_precision.yaml --results-folder results/ --gpus 0,1
 ```
 
 where `--gpus` is a comma-separated list of GPU device indices. Each argument

@@ -19,6 +19,18 @@ from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
 MAX_AV_FP8 = get_max_available_float(4, 3, 2 ** (4 - 1) - 1, (('111',)), None, True)
 
 
+def _with_scaling_min_val(quantizer, scaling_min_val: float):
+    """Create an invocation-local injector with the requested scale floor.
+
+    Quantizer injectors are classes, so changing a CLI value must not mutate a
+    registered class that can be reused by another experiment in the process.
+    """
+    return type(
+        f"{quantizer.__name__}WithScalingMinVal",
+        (quantizer,),
+        {"__module__": __name__, "scaling_min_val": scaling_min_val})
+
+
 def smooth_heaviside_stable(
     x: torch.Tensor,
     T=1.0,
@@ -179,6 +191,18 @@ class LearnedFloat(BaseQuantizer):
     weight_quant = MXFP4LearnedbitWeight
     linear_input_quant = MXFP4LearnedbitAct
 
+    @classmethod
+    def configure_quantizers_dict(cls, quantizers_dict, *, scaling_min_val=None):
+        # The learned injectors intentionally replace the generated injectors,
+        # but they still must receive the user-requested scale floor.
+        if scaling_min_val is None:
+            return cls.override_quantizers_dict(quantizers_dict)
+        quantizers_dict["weight_quant"] = _with_scaling_min_val(
+            cls.weight_quant, scaling_min_val)
+        quantizers_dict["linear_input_quant"] = _with_scaling_min_val(
+            cls.linear_input_quant, scaling_min_val)
+        return quantizers_dict
+
 
 class MXFP6LearnedbitWeight(MXFloat8e4m3Weight):
     exponent_bit_width_impl_type = BitWidthImplType.CONST
@@ -202,6 +226,6 @@ class MXFP6LearnedbitAct(MXFloat8e4m3Act):
 
 
 @Registry.register(QUANTIZERS_REGISTRY, "mxfp6_learned_float")
-class MXFP6LearnedFloat(BaseQuantizer):
+class MXFP6LearnedFloat(LearnedFloat):
     weight_quant = MXFP6LearnedbitWeight
     linear_input_quant = MXFP6LearnedbitAct
