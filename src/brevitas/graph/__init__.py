@@ -6,5 +6,6 @@ from .calibrate import *
 from .channel_splitting import *
 from .equalize import *
 from .fixed_point import *
+from .functional_quant import *
 from .per_input import *
 from .standardize import *
