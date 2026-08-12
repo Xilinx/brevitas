@@ -12,6 +12,7 @@ from torch.utils.checkpoint import checkpoint
 from brevitas.graph.quantize import _QuantParametrization
 from brevitas.graph.quantize import functional_quantization_mode
 from brevitas.graph.quantize import prepare_functional_quantization
+from brevitas.graph.quantize import remove_functional_quantization
 from brevitas.nn import QuantIdentity
 from brevitas.proxy.groupwise_int_runtime_quant import GroupwiseActQuantProxyFromInjector
 from brevitas.quant.experimental.mx_quant_ocp import MXInt8Act
@@ -228,6 +229,112 @@ class TestFunctionalQuantizationMode:
         assert len(block_quantizers) == 2
         state.remove_parametrizations()
 
+    def test_multiple_weight_calls_same_module(self):
+        """Every repeated functional call receives its own weight parametrization."""
+        model = ModelWithMultiLinear(4, 3, 2)
+        quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
+        x = torch.randn(2, 4)
+
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        assert is_parametrized(model.block, 'weight1')
+        assert is_parametrized(model.block, 'weight2')
+        assert len([key for key in state.quantizers if key.endswith('_wq')]) == 2
+        state.cleanup()
+
+    def test_missing_second_runtime_spec_reuses_first_quantizer(self):
+        """A single spec quantizes both runtime inputs of a binary function."""
+        model = BmmModel()
+        a = torch.randn(2, 3, 4)
+        b = torch.randn(2, 4, 3)
+
+        state = prepare_functional_quantization(
+            model, {torch.bmm: Int8ActPerTensorFloat}, example_inputs=(a, b))
+        assert len(state.quantizers) == 2
+        with functional_quantization_mode(state):
+            model(a, b)
+        state.cleanup()
+
+    def test_keyword_tensor_arguments_are_quantized(self):
+        """Configured functional arguments can be supplied by keyword."""
+
+        class KeywordBmmModel(nn.Module):
+
+            def forward(self, a, b):
+                return torch.bmm(input=a, mat2=b)
+
+        model = KeywordBmmModel()
+        a = torch.randn(2, 3, 4)
+        b = torch.randn(2, 4, 3)
+        state = prepare_functional_quantization(
+            model, {torch.bmm: Int8ActPerTensorFloat}, example_inputs=(a, b))
+        assert len(state.quantizers) == 2
+        state.cleanup()
+
+    def test_explicit_none_does_not_fall_back(self):
+        """An explicit None disables an argument instead of reusing arg zero."""
+        model = BmmModel()
+        a = torch.randn(2, 3, 4)
+        b = torch.randn(2, 4, 3)
+
+        state = prepare_functional_quantization(
+            model, {torch.bmm: (Int8ActPerTensorFloat, None)}, example_inputs=(a, b))
+        assert len(state.quantizers) == 1
+        state.cleanup()
+
+    def test_weight_quantization_respects_enabled(self):
+        """enabled=False bypasses both activation and weight quantization."""
+        model = SimpleLinearModel(4, 3)
+        x = torch.randn(2, 4)
+        expected = model(x)
+        state = prepare_functional_quantization(
+            model, {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)},
+            example_inputs=(x,))
+        with functional_quantization_mode(state, enabled=False):
+            actual = model(x)
+        assert torch.allclose(actual, expected)
+        state.cleanup()
+
+    def test_nested_disabled_mode_disables_weight_quantization(self):
+        """An inner disabled mode temporarily bypasses parametrized weights."""
+        model = SimpleLinearModel(4, 3)
+        x = torch.randn(2, 4)
+        expected = model(x)
+        state = prepare_functional_quantization(
+            model, {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)},
+            example_inputs=(x,))
+        with functional_quantization_mode(state):
+            with functional_quantization_mode(state, enabled=False):
+                actual = model(x)
+        assert torch.allclose(actual, expected)
+        state.cleanup()
+
+    def test_cleanup_removes_retained_quantizers(self):
+        """State and model cleanup are explicit and idempotent."""
+        model = SimpleLinearModel(4, 3)
+        x = torch.randn(2, 4)
+        state = prepare_functional_quantization(model, {F.linear: Int8ActPerTensorFloat}, (x,))
+        assert hasattr(model, '_functional_quantizers')
+        state.cleanup()
+        assert not hasattr(model, '_functional_quantizers')
+        remove_functional_quantization(model)
+
+    def test_prepare_failure_rolls_back_model_mutations(self):
+        """A failed discovery pass does not leave quantizers or parametrizations behind."""
+
+        class FailingModel(SimpleLinearModel):
+
+            def forward(self, x):
+                self.linear(x)
+                raise RuntimeError('expected preparation failure')
+
+        model = FailingModel(4, 3)
+        with pytest.raises(RuntimeError, match='expected preparation failure'):
+            prepare_functional_quantization(
+                model, {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)},
+                example_inputs=(torch.randn(2, 4),))
+        assert not is_parametrized(model.linear, 'weight')
+        assert not hasattr(model, '_functional_quantizers')
+
     def test_disabled_mode(self):
         """Test that disabled mode passes through without quantization."""
         model = SimpleLinearModel(4, 3)
@@ -252,14 +359,9 @@ class TestFunctionalQuantizationMode:
 
         state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
 
-        # Check that quantizers are accessible as model attributes
-        found = False
-        for name, module in model.named_modules():
-            if name.startswith('_fq_'):
-                found = True
-                break
-        assert found, "Quantizer modules should be registered on the model"
-        state.remove_parametrizations()
+        assert hasattr(model, '_functional_quantizers')
+        assert len(model._functional_quantizers) > 0
+        state.cleanup()
 
     def test_non_quantizable_function_passthrough(self):
         """Test that functions not in quant_map are not affected."""
@@ -928,7 +1030,7 @@ class TestFunctionalQuantizationMode:
         """prepare_functional_quantization requires at least one example input source."""
         model = SimpleLinearModel(4, 3)
         quant_map = {F.linear: Int8ActPerTensorFloat}
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             prepare_functional_quantization(model, quant_map)
 
     def test_unprepared_call_site_raises(self):
@@ -958,6 +1060,7 @@ class TestFunctionalQuantizationMode:
                 model(x, run_second=True)
         state.remove_parametrizations()
 
+    @requires_pt_ge('2.1')
     def test_gradient_checkpointing_without_context_fn_is_unsupported(self):
         """Without a context_fn, checkpointing is incompatible with the mode.
 
@@ -980,6 +1083,7 @@ class TestFunctionalQuantizationMode:
                 out.sum().backward()
         state.remove_parametrizations()
 
+    @requires_pt_ge('2.1')
     def test_gradient_checkpointing_with_context_fn(self):
         """checkpoint_context_fn re-applies quantization during the recompute.
 
@@ -1011,13 +1115,14 @@ class TestFunctionalQuantizationMode:
             assert is_parametrized(model.block2, 'weight')
 
         assert out.shape == (2, 2)
-        # Gradients must reach the model weights through the recomputed graph.
-        assert model.block1.weight.grad is not None
-        assert model.block2.weight.grad is not None
+        # Gradients must reach the leaf weights through the recomputed graph.
+        assert model.block1.parametrizations.weight.original.grad is not None
+        assert model.block2.parametrizations.weight.original.grad is not None
         state.remove_parametrizations()
         assert not is_parametrized(model.block1, 'weight')
         assert not is_parametrized(model.block2, 'weight')
 
+    @requires_pt_ge('2.1')
     def test_gradient_checkpointing_matches_non_checkpointed(self):
         """Checkpointed and non-checkpointed runs produce the same output.
 
@@ -1050,6 +1155,7 @@ class TestFunctionalQuantizationMode:
 
         assert torch.allclose(ckpt_out.detach(), plain_out, atol=1e-6)
 
+    @requires_pt_ge('2.1')
     def test_gradient_checkpointing_inference_no_grad(self):
         """A checkpointed forward under no_grad works without a context_fn.
 

@@ -571,8 +571,8 @@ def quantize_llm(args, extra_args=None):
                 (sdpa_q_quant, sdpa_k_quant, sdpa_v_quant)}
         # Preparation phase: create the SDPA quantizers by running one example
         # forward, then apply them within the context manager below. SDPA has no
-        # weight parameters, so parametrization teardown is a no-op here, but we
-        # still request it for a clean one-shot usage.
+        # weight parameters, so parametrization teardown is a no-op here. The
+        # prepared quantizers deliberately remain on the returned model for reuse.
         fq_state = prepare_functional_quantization(
             model, sdpa_quant_map, example_kwargs=next(iter(calibration_loader)))
         quantization_cm = functional_quantization_mode(
@@ -596,6 +596,14 @@ def quantize_llm(args, extra_args=None):
             print("Act calibration applied.")
 
         if args.fine_tune:
+            if args.quant_sdpa == 'functional' and getattr(
+                    model, 'is_gradient_checkpointing', False):
+                # Non-reentrant checkpoint recomputation needs to re-enter the
+                # functional mode so Q/K/V quantization matches the original pass.
+                model.gradient_checkpointing_enable(
+                    gradient_checkpointing_kwargs={
+                        'use_reentrant': False,
+                        'context_fn': quantization_cm.checkpoint_context_fn()})
             # Load custom training plugin if specified. The registered Trainer class
             # carries its own ``training_args_cls`` class attribute (which in turn
             # defines the optimizer setup via ``optimizer_scheduler_args``), consumed
