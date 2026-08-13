@@ -60,10 +60,7 @@ ACT_QUANTIZERS = {
 @jit_disabled_for_compile()
 def test_compile_weight(weight, weight_quantizer):
     name, quant = weight_quantizer
-    if is_compile_unsupported_pt_py():
-        pytest.skip(
-            'Upstream torch incompatibility: torch.compile is unsupported for '
-            'PyTorch <= 2.3.1 on Python >= 3.12')
+    is_compile_unsupported_pt_py()
     if version.parse('2.8') <= torch_version < version.parse('2.9'):
         pytest.skip('Skipping due to random failures')
     if name == 'mxfloat8' and torch_version == version.parse('2.3.1'):
@@ -93,10 +90,7 @@ def test_compile_weight(weight, weight_quantizer):
 @jit_disabled_for_compile()
 def test_compile_act(inp, act_quantizer):
     name, quant = act_quantizer
-    if is_compile_unsupported_pt_py():
-        pytest.skip(
-            'Upstream torch incompatibility: torch.compile is unsupported for '
-            'PyTorch <= 2.3.1 on Python >= 3.12')
+    is_compile_unsupported_pt_py()
     if version.parse('2.8') <= torch_version < version.parse('2.9'):
         pytest.skip('Skipping due to random failures')
     if platform.system() == "Windows":

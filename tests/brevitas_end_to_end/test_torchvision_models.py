@@ -118,10 +118,7 @@ def torchvision_model_compile(model_name, quantize_fn):
 @requires_pt_ge('2.2')
 def test_torchvision_compile(torchvision_model_compile):
     torch._dynamo.config.capture_scalar_outputs = True
-    if is_compile_unsupported_pt_py():
-        pytest.skip(
-            'Upstream torch incompatibility: torch.compile is unsupported for '
-            'PyTorch <= 2.3.1 on Python >= 3.12')
+    is_compile_unsupported_pt_py()
     if torchvision_model_compile is None:
         pytest.skip('Model not instantiated')
     if version.parse('2.2.0') <= torch_version <= version.parse('2.4.1'):

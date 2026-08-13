@@ -382,10 +382,7 @@ def test_fuse_parametrized_modules_after_compile_and_train(device):
     """
     if device == 'cpu':
         pytest.skip('Compile tests are disabled on CPU')
-    if is_compile_unsupported_pt_py():
-        pytest.skip(
-            'Upstream torch incompatibility: torch.compile is unsupported for '
-            'PyTorch <= 2.3.1 on Python >= 3.12')
+    is_compile_unsupported_pt_py()
     torch.set_default_device(device)
 
     model = nn.Sequential(nn.Linear(2, 3))
