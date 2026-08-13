@@ -1,1 +1,2 @@
 lighteval[math]==0.13
+xxhash<4
