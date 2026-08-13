@@ -401,6 +401,7 @@ def layer_args_hyperparam(default_run_args, request):
 @pytest.mark.llm
 @jit_disabled_for_dynamic_quant_act()
 def test_small_models_quant_layer_hyperparam(caplog, layer_args_hyperparam, main):
+    from brevitas.nn import QuantIdentity
     from brevitas.nn import QuantScaledDotProductAttention as QuantSDPA
     from brevitas.proxy.groupwise_int_runtime_quant import GroupwiseActQuantProxyFromInjector
     caplog.set_level(logging.INFO)
@@ -412,29 +413,29 @@ def test_small_models_quant_layer_hyperparam(caplog, layer_args_hyperparam, main
         pytest.skip("Skipping dynamo + Windows")
 
     _, model = main(args)
-    quant_sdpa = []
-    for m in model.modules():
-        if isinstance(m, QuantSDPA):
-            quant_sdpa.append(m)
-
-    first_sdpa = quant_sdpa[0]
-
-    # Check that Q/Softmax quantization is disabled
-    assert first_sdpa.q_scaled_quant.act_quant.fused_activation_quant_proxy is None
-    assert first_sdpa.attn_output_weights_quant.act_quant.fused_activation_quant_proxy is None
-    # NOTE: We assume that asym == unsigned. This might change in the future.
-    assert not first_sdpa.v_quant.act_quant.is_signed
-    assert not first_sdpa.k_transposed_quant.act_quant.is_signed
-    # Check for groupwise activation quantization
-    assert isinstance(first_sdpa.v_quant.act_quant, GroupwiseActQuantProxyFromInjector)
-    assert isinstance(first_sdpa.k_transposed_quant.act_quant, GroupwiseActQuantProxyFromInjector)
-    assert first_sdpa.v_quant.act_quant.group_size == args.input_group_size
-    assert first_sdpa.k_transposed_quant.act_quant.group_size == args.input_group_size
-    # Functional quantization uses one shared quant block for everything
-    if args.quant_sdpa == "fx" or args.quant_sdpa == "eager":
-        assert len(quant_sdpa) == 2
-    elif args.quant_sdpa == "functional":
-        assert len(quant_sdpa) == 1
+    if args.quant_sdpa == "functional":
+        assert hasattr(model, '_functional_quantizers')
+        fq_quantizers = list(model._functional_quantizers.items())
+        assert len(fq_quantizers) > 0, "Expected functional QuantIdentity quantizers"
+        for name, quant_id in fq_quantizers:
+            if '_arg1' in name or '_arg2' in name:
+                assert isinstance(quant_id, QuantIdentity)
+                assert not quant_id.act_quant.is_signed
+                assert isinstance(quant_id.act_quant, GroupwiseActQuantProxyFromInjector)
+                assert quant_id.act_quant.group_size == args.input_group_size
+    else:
+        quant_sdpa = [m for m in model.modules() if isinstance(m, QuantSDPA)]
+        first_sdpa = quant_sdpa[0]
+        assert first_sdpa.q_scaled_quant.act_quant.fused_activation_quant_proxy is None
+        assert first_sdpa.attn_output_weights_quant.act_quant.fused_activation_quant_proxy is None
+        assert not first_sdpa.v_quant.act_quant.is_signed
+        assert not first_sdpa.k_transposed_quant.act_quant.is_signed
+        assert isinstance(first_sdpa.v_quant.act_quant, GroupwiseActQuantProxyFromInjector)
+        assert isinstance(first_sdpa.k_transposed_quant.act_quant, GroupwiseActQuantProxyFromInjector)
+        assert first_sdpa.v_quant.act_quant.group_size == args.input_group_size
+        assert first_sdpa.k_transposed_quant.act_quant.group_size == args.input_group_size
+        if args.quant_sdpa == "fx" or args.quant_sdpa == "eager":
+            assert len(quant_sdpa) == 2
 
 
 @pytest_cases.fixture(
