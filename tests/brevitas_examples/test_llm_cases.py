@@ -17,14 +17,14 @@ class LLMRunCases:
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",},
             {
                 "model": "hf-internal-testing/tiny-random-MistralForCausalLM",},
-            # Ready for MoE support
-            #{
-            #    "model": ""dacorvo/Mixtral-tiny",},
+            {
+                "model": "dacorvo/Mixtral-tiny",},
             {
                 "model": "hf-internal-testing/tiny-random-OPTForCausalLM",},],
         ids=[
             "llama",
-            "mistral",  #"mixtral",
+            "mistral",
+            "mixtral",
             "opt",],
     )
     def case_small_models_run(self, run_dict, default_run_args, request):
