@@ -13,13 +13,15 @@ from brevitas import torch_version
 
 
 def is_compile_unsupported_pt_py(pt_version: str = '2.3.1', py_version: str = '3.12') -> bool:
-    # torch.compile is unsupported on old PyTorch releases with recent Python versions
-    # (e.g. PyTorch <= 2.3.1 on Python >= 3.12) due to an upstream incompatibility.
-    unsupported = torch_version <= parse(pt_version) and python_version >= parse(py_version)
+    # torch.compile is unsupported on Python >= 3.14 and on old PyTorch releases with
+    # recent Python versions (e.g. PyTorch <= 2.3.1 on Python >= 3.12).
+    unsupported = (
+        python_version >= parse('3.14') or
+        (torch_version <= parse(pt_version) and python_version >= parse(py_version)))
     if unsupported:
         pytest.skip(
-            'Upstream torch incompatibility: torch.compile is unsupported for '
-            f'PyTorch <= {pt_version} on Python >= {py_version}')
+            'Upstream torch incompatibility: torch.compile is unsupported on '
+            f'Python >= 3.14 and for PyTorch <= {pt_version} on Python >= {py_version}')
     return unsupported
 
 
