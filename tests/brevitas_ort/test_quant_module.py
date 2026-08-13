@@ -59,8 +59,6 @@ def test_ort_wbiol(model, export_type, current_cases):
     if export_type == 'qonnx_dynamo' and torch_version < parse('2.8'):
         pytest.skip('QONNX dynamo export requires PyTorch >= 2.8')
 
-    if 'per_channel' in quantizer and 'asymmetric' in quantizer:
-        pytest.skip('Per-channel zero-point is not well supported in ORT.')
     if 'QuantLinear' in impl and 'asymmetric' in quantizer:
         pytest.skip('ORT execution is unreliable and fails randomly on a subset of cases.')
     if 'dynamic' in quantizer and ((o_bit_width != "o8" or i_bit_width != "i8") or
