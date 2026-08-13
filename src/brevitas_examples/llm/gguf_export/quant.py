@@ -85,22 +85,29 @@ def register_block(name):
     return register
 
 
+def _to_numpy(x):
+    if not isinstance(x, torch.Tensor):
+        return x
+    if x.dtype not in (torch.float16, torch.float32):
+        x = x.to(torch.float32)
+    return x.detach().numpy()
+
+
 def ggml_quant(
-        data: np.array, ggml_type, scale=None, zp=None, wmin_m=None, d_scale=None, d_wmin_m=None):
+        data: np.array,
+        ggml_type,
+        scale=None,
+        zero_point=None,
+        scale_of_scale=None,
+        scale_of_zero_point=None):
 
     data = data.squeeze().cpu().detach().numpy() if isinstance(data, torch.Tensor) else data
 
-    if scale.dtype not in (torch.float16, torch.float32):
-        scale = scale.to(torch.float32)
-    scale = scale.detach().numpy() if isinstance(scale, torch.Tensor) else scale
+    scale = _to_numpy(scale)
+    zero_point = _to_numpy(zero_point)
+    scale_of_scale = _to_numpy(scale_of_scale)
+    scale_of_zero_point = _to_numpy(scale_of_zero_point)
 
-    if zp.dtype not in (torch.float16, torch.float32):
-        zp = zp.to(torch.float32)
-    zp = zp.detach().numpy() if isinstance(zp, torch.Tensor) else zp
-
-    wmin_m = wmin_m.detach().numpy() if isinstance(wmin_m, torch.Tensor) else wmin_m
-    d_scale = d_scale.detach().numpy() if isinstance(d_scale, torch.Tensor) else d_scale
-    d_wmin_m = d_wmin_m.detach().numpy() if isinstance(d_wmin_m, torch.Tensor) else d_wmin_m
     block_size, type_size = GGML_QUANT_SIZES[ggml_type]
 
     shape = data.shape
@@ -111,11 +118,11 @@ def ggml_quant(
     if ggml_type in (gguf.GGMLQuantizationType.Q4_K,
                      gguf.GGMLQuantizationType.Q5_K,
                      gguf.GGMLQuantizationType.Q2_K):
-        new_data = quant_func(blocks, scale, zp, wmin_m=wmin_m, d_scale=d_scale, d_wmin_m=d_wmin_m)
+        new_data = quant_func(blocks, scale, None, zero_point, scale_of_scale, scale_of_zero_point)
     elif ggml_type in (gguf.GGMLQuantizationType.Q6_K, gguf.GGMLQuantizationType.Q3_K):
-        new_data = quant_func(blocks, scale, zp, d_scale=d_scale)
+        new_data = quant_func(blocks, scale, zero_point, scale_of_scale)
     else:
-        new_data = quant_func(blocks, scale, zp)
+        new_data = quant_func(blocks, scale, zero_point)
 
     assert new_data.dtype == np.uint8, "No uint8"
     assert new_data.shape[-1] == type_size, "No correct shape"
