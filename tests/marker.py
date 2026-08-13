@@ -15,14 +15,14 @@ from brevitas import torch_version
 def requires_torch_compile():
     # Newest Python versions have only limited supports for torch.compile on
     # older torch versions
-    skip = ((torch_version <= parse('2.9') and python_version >= parse('3.14')) or
+    skip = ((torch_version <= parse('2.9.1') and python_version >= parse('3.14')) or
             (torch_version <= parse('2.3.1') and python_version >= parse('3.12')))
 
     return pytest.mark.skipif(
         skip,
         reason=(
             'Upstream torch incompatibility: torch.compile is unsupported for '
-            'PyTorch <= 2.9 on Python >= 3.14 and '
+            'PyTorch <= 2.9.1 on Python >= 3.14 and '
             'PyTorch <= 2.3.1 on Python >= 3.12'))
 
 
