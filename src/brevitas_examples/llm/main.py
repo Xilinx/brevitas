@@ -28,9 +28,9 @@ from brevitas.graph.equalize import LayerwiseActivationRotation
 from brevitas.graph.permute import rotate_permute_mode
 from brevitas.graph.quantize import functional_quantization_mode
 from brevitas.graph.quantize import layerwise_quantize
+from brevitas.graph.quantize import prepare_functional_quantization
 from brevitas.graph.utils import get_module
 from brevitas.graph.utils import remove_weight_orig
-from brevitas.nn.quant_sdpa import ScaledDotProductAttention
 from brevitas.utils.logging import setup_logger
 from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
 from brevitas.utils.python_utils import hooked_on_a_function
@@ -405,12 +405,6 @@ def quantize_llm(args, extra_args=None):
         print("Replace `F.scaled_dot_product_attention` with QuantSDPA...")
         model = replace_sdpa_with_quantizable_layers(model)
         print("Replacing done.")
-    elif args.quant_sdpa == 'functional':
-        print("Inserting SDPA quantizable module")
-        model = offload_model(model)
-        with torch.no_grad(), functional_quantization_mode(model, {torch.nn.functional.scaled_dot_product_attention: ScaledDotProductAttention}):
-            model(**next(iter(calibration_loader)))
-        remove_hooks(model)
     elif args.quant_sdpa == 'eager':
         model = replace_sdpa_with_quantizable_layers(
             model, is_fx=False, eager_quant_sdpa_class=args.eager_quant_sdpa_class)
@@ -544,6 +538,10 @@ def quantize_llm(args, extra_args=None):
             quantizer_name = parse_custom_quantizer(args.custom_quantizer)
             custom_quantizer = QUANTIZERS_REGISTRY.get(quantizer_name)
             quantizers_dict = custom_quantizer.override_quantizers_dict(quantizers_dict)
+        # Save SDPA quantizers for the functional quantization mode context manager
+        sdpa_q_quant = quantizers_dict.get('q_scaled_quant')
+        sdpa_k_quant = quantizers_dict.get('k_transposed_quant')
+        sdpa_v_quant = quantizers_dict.get('v_quant')
         # Quantize the embedding only when first/last-layer quantization is requested.
         # The embedding uses the same weight quantizer as the linear layers.
         # A custom quantizer that branches on module name or type still applies.
@@ -629,8 +627,19 @@ def quantize_llm(args, extra_args=None):
     # If we are doing functional SDPA quantization, we create the correct context manager,
     # otherwise nullcontext. We would love to avoid the extra indentation level but it doesn't seem easy.
     if args.quant_sdpa == "functional":
+        # The Q/K/V quantizers already carry their dependency-injection attributes
+        # (e.g. group_dim) via let(), so no extra DI kwargs are needed in the spec.
+        sdpa_quant_map = {
+            torch.nn.functional.scaled_dot_product_attention:
+                (sdpa_q_quant, sdpa_k_quant, sdpa_v_quant)}
+        # Preparation phase: create the SDPA quantizers by running one example
+        # forward, then apply them within the context manager below. SDPA has no
+        # weight parameters, so parametrization teardown is a no-op here. The
+        # prepared quantizers deliberately remain on the returned model for reuse.
+        fq_state = prepare_functional_quantization(
+            model, sdpa_quant_map, example_kwargs=next(iter(calibration_loader)))
         quantization_cm = functional_quantization_mode(
-            model, {torch.nn.functional.scaled_dot_product_attention: ScaledDotProductAttention})
+            fq_state, remove_parametrizations_on_exit=True)
     else:
         quantization_cm = nullcontext()
 
@@ -655,6 +664,14 @@ def quantize_llm(args, extra_args=None):
             print("Act calibration applied.")
 
         if args.fine_tune:
+            if args.quant_sdpa == 'functional' and getattr(
+                    model, 'is_gradient_checkpointing', False):
+                # Non-reentrant checkpoint recomputation needs to re-enter the
+                # functional mode so Q/K/V quantization matches the original pass.
+                model.gradient_checkpointing_enable(
+                    gradient_checkpointing_kwargs={
+                        'use_reentrant': False,
+                        'context_fn': quantization_cm.checkpoint_context_fn()})
             custom_trainer_cls = None
             if args.custom_trainer is not None:
                 custom_trainer_config_name = parse_custom_trainer(args.custom_trainer)
