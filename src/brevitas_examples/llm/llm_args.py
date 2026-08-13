@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 from argparse import Namespace
 from typing import List
 from typing import Optional
+from typing import Union
 from warnings import warn
 
 from brevitas_examples.common.parse_utils import create_entrypoint_args_parser
@@ -531,7 +532,7 @@ def create_args_parser() -> ArgumentParser:
     return parser
 
 
-def fx_required(args: Namespace):
+def fx_required(args: Namespace) -> bool:
     return args.weight_equalization or args.act_equalization == 'fx' or args.rotation == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or args.quant_sdpa == 'fx'
 
 
@@ -558,6 +559,9 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
                 "dependency. Install it with `pip install \"brevitas[llm,export,llm_onnx_export]\"`."
             ) from e
         del onnx_export_from_model
+    if args.quant_sdpa == 'functional':
+        assert not args.no_quantize, "Functional SDPA quantization requires model quantization."
+        assert args.attn_quant_config != 'qkvs', "Functional SDPA quantization does not support QKVS config"
     if args.rotation == 'fx':
         assert args.ln_affine_merge, 'Graph rotation requires to merge LN/RMS norm affine parameters'
         assert args.replace_rmsnorm, 'Graph rotation requires to replace HF RMSNorm with PyTorch ones (torch 2.4+ require)'
@@ -617,7 +621,7 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
             assert args.act_calibration, "Static input quantization is being applied without activation calibration. Set --act-calibration."
 
 
-def attn_quant_format_validator(value):
+def attn_quant_format_validator(value: Optional[str]) -> Union[bool, str]:
     if value is None:
         return True
     else:
