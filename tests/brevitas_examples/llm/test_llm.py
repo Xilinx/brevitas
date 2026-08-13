@@ -431,7 +431,8 @@ def test_small_models_quant_layer_hyperparam(caplog, layer_args_hyperparam, main
         assert not first_sdpa.v_quant.act_quant.is_signed
         assert not first_sdpa.k_transposed_quant.act_quant.is_signed
         assert isinstance(first_sdpa.v_quant.act_quant, GroupwiseActQuantProxyFromInjector)
-        assert isinstance(first_sdpa.k_transposed_quant.act_quant, GroupwiseActQuantProxyFromInjector)
+        assert isinstance(
+            first_sdpa.k_transposed_quant.act_quant, GroupwiseActQuantProxyFromInjector)
         assert first_sdpa.v_quant.act_quant.group_size == args.input_group_size
         assert first_sdpa.k_transposed_quant.act_quant.group_size == args.input_group_size
         if args.quant_sdpa == "fx" or args.quant_sdpa == "eager":
