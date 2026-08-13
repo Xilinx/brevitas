@@ -20,8 +20,8 @@ from brevitas.graph.quantize import quantize
 from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas.graph.target.flexml import quantize_flexml
 from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
-from tests.marker import is_compile_unsupported_pt_py
 from tests.marker import requires_pt_ge
+from tests.marker import requires_torch_compile
 
 TORCH_COMPILE_ATOL = 0.35
 BATCH = 1
@@ -116,9 +116,9 @@ def torchvision_model_compile(model_name, quantize_fn):
 
 
 @requires_pt_ge('2.2')
+@requires_torch_compile()
 def test_torchvision_compile(torchvision_model_compile):
     torch._dynamo.config.capture_scalar_outputs = True
-    is_compile_unsupported_pt_py()
     if torchvision_model_compile is None:
         pytest.skip('Model not instantiated')
     if version.parse('2.2.0') <= torch_version <= version.parse('2.4.1'):
