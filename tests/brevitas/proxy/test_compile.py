@@ -62,7 +62,7 @@ ACT_QUANTIZERS = {
 def test_compile_weight(weight, weight_quantizer):
     name, quant = weight_quantizer
     if version.parse('2.8') <= torch_version < version.parse('2.9'):
-        pytest.skip('Skipping due to random failures')
+        pytest.skip('Skipping due to random failures on torch 2.8.x')
     if name == 'mxfloat8' and torch_version == version.parse('2.3.1'):
         pytest.skip("Skip test for unknown failure. It works with more recent version of torch.")
     if platform.system() == "Windows":
@@ -92,7 +92,7 @@ def test_compile_weight(weight, weight_quantizer):
 def test_compile_act(inp, act_quantizer):
     name, quant = act_quantizer
     if version.parse('2.8') <= torch_version < version.parse('2.9'):
-        pytest.skip('Skipping due to random failures')
+        pytest.skip('Skipping due to random failures on torch 2.8.x')
     if platform.system() == "Windows":
         pytest.skip("Skip compile + windows because of unknown failure")
     if torch_version >= version.parse('2.5.0') and torch_version < version.parse('2.8.0'):
