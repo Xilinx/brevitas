@@ -54,8 +54,6 @@ import torch
 from torch import Tensor
 from transformers import AutoConfig
 
-from brevitas.core.restrict_val import QuantRestrictValue
-from brevitas.core.zero_point import _ScaleShiftQuantZeroPoint
 from brevitas.nn.quant_embedding import QuantEmbedding
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.utils.logging import setup_logger
@@ -438,79 +436,46 @@ class ModelBase:
                     f"No encoder for {data_qtype.name} on pass-through tensor {name} "
                     f"({e}); falling back to {fallback_gguf_dtype.name}")
             return data, fallback_gguf_dtype
+
+        def _modify_if_tensor(value):
+            if value is None:
+                return value
+            if value.ndim > 0:
+                _, value = self.modify_tensors(value, name, bid)[0]
+            return value.cpu()
+
+        # quant_weight() lazily populates weight_quant cache
         quant_weight = module.quant_weight()
+        quant_data = _modify_if_tensor(quant_weight.int())
+
         weight_quant = module.weight_quant
-        quant_data = quant_weight.int()
-        scale = quant_weight.scale_ if hasattr(quant_weight, 'scale_') else quant_weight.scale
-        zp = quant_weight.zero_point_ if hasattr(
-            quant_weight, 'zero_point_') else quant_weight.zero_point
-        _, quant_data = self.modify_tensors(quant_data, name, bid)[0]
 
-        # Our quantizer's declared qtype overrides the file's nominal ftype
-        # (e.g. the Q6_K bump on token_embd/output).
         if isinstance(weight_quant, GGUFGroupwiseWeightQuantProxyFromInjector):
+            if weight_quant._cached_weight is None:
+                raise ValueError(f"{name!r}: GGUF export cache is missing")
+            # The quantizer qtype overrides the file ftype.
             data_qtype = weight_quant.gguf_qtype
-
-        # TODO: Generalize this to have a map between GGUF quant type
-        # and our preprocessing for quant_modules
-        # Q4_K/Q5_K/Q2_K all share the same super-block structure
-        if data_qtype in (gguf.GGMLQuantizationType.Q4_K,
-                          gguf.GGMLQuantizationType.Q5_K,
-                          gguf.GGMLQuantizationType.Q2_K):
-
-            quant_scale_module = None
-
-            for m in weight_quant.modules():
-                if isinstance(m, QuantRestrictValue):
-                    quant_scale_module = m
-                    break
-            quant_scale, scale_scale, *_ = quant_scale_module.float_to_int_impl(scale)
-            orig_scale = scale
-            scale = quant_scale
-
-            quant_zero_point_module = None
-
-            for m in weight_quant.modules():
-                if isinstance(m, _ScaleShiftQuantZeroPoint):
-                    quant_zero_point_module = m
-                    break
-            quant_zero_point, scale_zp, *_ = quant_zero_point_module.zp_int_quant(zp * orig_scale)
-            zp = quant_zero_point
-            _, scale_scale = self.modify_tensors(scale_scale, name, bid)[0]
-            _, scale_zp = self.modify_tensors(scale_zp, name, bid)[0]
-            _, scale = self.modify_tensors(scale, name, bid)[0]
-            _, zp = self.modify_tensors(zp, name, bid)[0]
-            data = ggml_quant(
-                quant_data,
-                data_qtype,
-                scale,
-                zp,
-                wmin_m=zp,
-                d_scale=scale_scale,
-                d_wmin_m=scale_zp)
-
-        elif data_qtype in (gguf.GGMLQuantizationType.Q6_K, gguf.GGMLQuantizationType.Q3_K):
-            # Q6_K/Q3_K are symmetric with a nested ("double") scale
-            quant_scale_module = None
-            for m in weight_quant.modules():
-                if isinstance(m, QuantRestrictValue):
-                    quant_scale_module = m
-                    break
-            quant_scale, scale_scale, *_ = quant_scale_module.float_to_int_impl(scale)
-            scale = quant_scale
-            _, scale_scale = self.modify_tensors(scale_scale, name, bid)[0]
-            _, scale = self.modify_tensors(scale, name, bid)[0]
-            data = ggml_quant(quant_data, data_qtype, scale, zp, d_scale=scale_scale)
-
+            scale = _modify_if_tensor(weight_quant.scale)
+            zero_point = _modify_if_tensor(weight_quant.zero_point)
+            # K-quants use the nested values. Other types return None.
+            scale_of_scale = _modify_if_tensor(weight_quant.scale_of_scale)
+            scale_of_zero_point = _modify_if_tensor(weight_quant.scale_of_zero_point)
         else:
-            _, scale = self.modify_tensors(scale, name, bid)[0]
-            # If the zero point is a scalar, it is not a tensor that needs
-            # to be modified. Also, this check avoids issues with LlamaModel,
-            # where the permutation for q_proj and k_proj causes issues.
-            if zp.ndim > 0:
-                _, zp = self.modify_tensors(zp, name, bid)[0]
-            data = ggml_quant(quant_data, data_qtype, scale, zp)
+            # A non-GGUF proxy has no K-quant metadata.
+            scale = quant_weight.scale_ if hasattr(quant_weight, 'scale_') else quant_weight.scale
+            zero_point = quant_weight.zero_point_ if hasattr(
+                quant_weight, 'zero_point_') else quant_weight.zero_point
+            scale = _modify_if_tensor(scale)
+            zero_point = _modify_if_tensor(zero_point)
+            scale_of_scale = scale_of_zero_point = None
 
+        data = ggml_quant(
+            quant_data,
+            data_qtype,
+            scale=scale,
+            zero_point=zero_point,
+            scale_of_scale=scale_of_scale,
+            scale_of_zero_point=scale_of_zero_point)
         return data, data_qtype
 
     def _is_brevitas_quantized(self, name: str) -> bool:

@@ -16,10 +16,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pathlib import Path
 import re
 import shutil
-import sys
 import tempfile
+import time
 
 import torch
 
@@ -28,13 +29,39 @@ from brevitas.utils.logging import setup_logger
 # Imported for its side effect: registers the GGUF custom quantizers (gguf_q4_0,
 # gguf_q4_k, ...) in QUANTIZERS_REGISTRY so they are selectable via --custom-quantizer.
 from . import custom_quantizers  # noqa: F401
+from .base_quantizers import GGUFGroupwiseWeightQuantProxyFromInjector
 from .convert import ModelBase
 from .targets import FTYPE_MAP
 from .targets import GGUF_EXPORT_TARGETS
 
 logger = setup_logger(__name__)
-from pathlib import Path
-import time
+
+
+def _gguf_proxies(model):
+    """Yield every GGUF-aware weight-quant proxy reachable from ``model``."""
+    for m in model.modules():
+        if isinstance(m, GGUFGroupwiseWeightQuantProxyFromInjector):
+            yield m
+
+
+def _enable_gguf_export_caching(model):
+    """Enable metadata-only weight caching on each GGUF proxy."""
+    prior_settings = {}
+    for wq in _gguf_proxies(model):
+        prior_settings[wq] = (
+            wq.cache_inference_quant_weight, wq.cache_inference_quant_weight_metadata_only)
+        wq.cache_inference_quant_weight = False
+        wq.cache_inference_quant_weight_metadata_only = True
+        wq.cache_inference_quant_weight = True
+    return prior_settings
+
+
+def _restore_gguf_export_caching(prior_settings):
+    """Restore the cache settings for each GGUF proxy."""
+    for wq, (prior_enabled, prior_metadata_only) in prior_settings.items():
+        wq.cache_inference_quant_weight = False
+        wq.cache_inference_quant_weight_metadata_only = prior_metadata_only
+        wq.cache_inference_quant_weight = prior_enabled
 
 
 def _resolve_model_name(name_or_path: str) -> str:
@@ -70,7 +97,6 @@ def save_quantized_as_gguf(
       using the same auto-derived naming as the ``None`` case.
     """
     st = time.time()
-
     config = model.config
 
     # TODO: every tensor now carries its own qtype via
@@ -93,39 +119,44 @@ def save_quantized_as_gguf(
         fname_out.mkdir(parents=True, exist_ok=True)
 
     tmp_work_dir = Path(tempfile.mkdtemp(prefix='brevitas_gguf_export_'))
-    tokenizer.save_pretrained(tmp_work_dir)
-    config.save_pretrained(tmp_work_dir)
-    if getattr(model, 'generation_config', None) is not None:
-        model.generation_config.save_pretrained(tmp_work_dir)
+    is_training = model.training
+    prior_gguf_cache_settings = dict()
+    try:
+        tokenizer.save_pretrained(tmp_work_dir)
+        config.save_pretrained(tmp_work_dir)
+        if getattr(model, 'generation_config', None) is not None:
+            model.generation_config.save_pretrained(tmp_work_dir)
 
-    with torch.no_grad():
-        hparams = ModelBase.load_hparams(tmp_work_dir)
-        model_architecture = hparams["architectures"][0]
-        try:
+        with torch.no_grad():
+            hparams = ModelBase.load_hparams(tmp_work_dir)
+            model_architecture = hparams["architectures"][0]
             model_class = ModelBase.from_model_architecture(model_architecture)
-        except NotImplementedError:
-            logger.error(f"Model {model_architecture} is not supported")
-            sys.exit(1)
-        model_class = ModelBase.from_model_architecture(model_architecture)
-        model_name = _resolve_model_name(model.name_or_path)
+            model_name = _resolve_model_name(model.name_or_path)
 
-        model_instance = model_class(
-            model,
-            dir_model=tmp_work_dir,
-            ftype=output_type,
-            fname_out=fname_out,
-            is_big_endian=False,
-            model_name=model_name,
-            split_max_tensors=False,
-            split_max_size=0,
-            dry_run=False,
-            small_first_shard=False,
-            override_model_tensors=override_model_tensors,
-            override_qtype=override_qtype)
-        model_instance.write()
-        rt = time.time() - st
-        logger.info(f"Model successfully exported to {model_instance.fname_out}, running time={rt}")
+            model_instance = model_class(
+                model,
+                dir_model=tmp_work_dir,
+                ftype=output_type,
+                fname_out=fname_out,
+                is_big_endian=False,
+                model_name=model_name,
+                split_max_tensors=False,
+                split_max_size=0,
+                dry_run=False,
+                small_first_shard=False,
+                override_model_tensors=override_model_tensors,
+                override_qtype=override_qtype)
 
-    shutil.rmtree(tmp_work_dir, ignore_errors=True)
+            model.eval()
+            prior_gguf_cache_settings = _enable_gguf_export_caching(model)
+            model_instance.write()
+    # Restore model state and remove temporary files after success or failure.
+    finally:
+        _restore_gguf_export_caching(prior_gguf_cache_settings)
+        model.train(is_training)
+        shutil.rmtree(tmp_work_dir, ignore_errors=True)
+
+    rt = time.time() - st
+    logger.info(f"Model successfully exported to {model_instance.fname_out}, running time={rt}")
 
     return model
