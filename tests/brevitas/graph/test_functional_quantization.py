@@ -66,3 +66,31 @@ def test_cleanup_removes_container():
         model, {F.linear: Int8ActPerTensorFloat}, (torch.randn(2, 4),))
     state.cleanup()
     assert not hasattr(model, '_functional_quantizers')
+
+
+def test_missing_second_runtime_spec_reuses_first_quantizer():
+
+    class BmmModel(nn.Module):
+
+        def forward(self, left, right):
+            return torch.bmm(left, right)
+
+    state = prepare_functional_quantization(
+        BmmModel(), {torch.bmm: Int8ActPerTensorFloat},
+        (torch.randn(2, 3, 4), torch.randn(2, 4, 3)))
+    assert len(state.quantizers) == 2
+    state.cleanup()
+
+
+def test_explicit_none_skips_argument():
+
+    class BmmModel(nn.Module):
+
+        def forward(self, left, right):
+            return torch.bmm(left, right)
+
+    state = prepare_functional_quantization(
+        BmmModel(), {torch.bmm: (Int8ActPerTensorFloat, None)},
+        (torch.randn(2, 3, 4), torch.randn(2, 4, 3)))
+    assert len(state.quantizers) == 1
+    state.cleanup()
