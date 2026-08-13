@@ -468,6 +468,31 @@ class functional_quantization_mode(_HookedMode):
             replace(self.state.quantizers[prepared.quantizer_key](value))
         return func(*tuple(values), **kwargs)
 
+    def checkpoint_context_fn(self) -> Callable[[], Tuple[Any, Any]]:
+        """Return a non-reentrant checkpoint ``context_fn`` for recomputation."""
+        if torch_version < version.parse('2.1'):
+            raise RuntimeError(
+                'Functional checkpointing requires PyTorch >= 2.1 and use_reentrant=False.')
+
+        def context_fn() -> Tuple[Any, '_FunctionalQuantInterceptor']:
+            """Return no-op forward and functional recompute contexts."""
+            return contextlib.nullcontext(), _FunctionalQuantInterceptor(self)
+
+        return context_fn
+
+
+class _FunctionalQuantInterceptor(TorchFunctionMode):
+
+    def __init__(self, parent: functional_quantization_mode) -> None:
+        """Reuse a parent application's prepared state during recomputation."""
+        super().__init__()
+        self.parent = parent
+
+    def __torch_function__(
+            self, func: Callable, types: Tuple[Type, ...], args=(), kwargs=None) -> Any:
+        """Delegate recompute interception to the active parent mode."""
+        return functional_quantization_mode.__torch_function__(
+            self.parent, func, types, args, kwargs)
 
 
 def prepare_functional_quantization(
