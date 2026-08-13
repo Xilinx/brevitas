@@ -12,6 +12,7 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 from typing import Type
+from typing import Union
 
 import torch
 from torch import nn
@@ -27,8 +28,18 @@ __all__ = [
     'prepare_functional_quantization',
     'remove_functional_quantization']
 
+QuantResolver = Callable[[nn.Module, str, int], Optional[Type]]
+QuantSpec = Union[Type, QuantResolver, None, Tuple[Union[Type, QuantResolver, None], Dict[str, Any]]]
+
 _CONTAINER_NAME = '_functional_quantizers'
 _STATE_NAME = '_functional_quantization_state'
+_MISSING = object()
+_ARGUMENT_NAMES = {
+    torch.nn.functional.linear: ('input', 'weight', 'bias'),
+    torch.bmm: ('input', 'mat2'),
+    torch.matmul: ('input', 'other')}
+if hasattr(torch.nn.functional, 'scaled_dot_product_attention'):
+    _ARGUMENT_NAMES[torch.nn.functional.scaled_dot_product_attention] = ('query', 'key', 'value')
 
 
 def _key(module_name: str, func: Callable, index: int) -> str:
@@ -39,13 +50,13 @@ def _key(module_name: str, func: Callable, index: int) -> str:
 
 @dataclass
 class _PreparedCall:
-    quantizer_key: Optional[str]
+    quantizer_keys: Dict[int, str]
 
 
 class FunctionalQuantState:
     """Prepared activation quantizers for a model's functional call sites."""
 
-    def __init__(self, model: nn.Module, quant_map: Dict[Callable, Type]) -> None:
+    def __init__(self, model: nn.Module, quant_map: Dict[Callable, Any]) -> None:
         """Attach the retained quantizer container and initialize prepared state."""
         self.model = model
         self.quant_map = quant_map
@@ -123,29 +134,68 @@ class _FunctionalQuantMode(TorchFunctionMode):
         self.module_stack.clear()
         self.counters.clear()
 
+    def _specs(self, func: Callable) -> List[Any]:
+        """Normalize the configured specification for an intercepted function."""
+        spec = self.state.quant_map[func]
+        if isinstance(spec, tuple) and not (len(spec) == 2 and isinstance(spec[1], dict)):
+            return list(spec)
+        return [spec]
+
+    def _resolve(self, spec: Any, module: nn.Module, name: str, index: int):
+        """Resolve one quantizer specification for a call site."""
+        if spec is _MISSING:
+            return None, {}
+        if isinstance(spec, tuple):
+            spec, kwargs = spec
+        else:
+            kwargs = {}
+        if spec is None or isinstance(spec, type):
+            return spec, kwargs
+        result = spec(module, name, index)
+        if result is not None and not isinstance(result, type):
+            raise TypeError('Functional quantizer resolvers must return a class or None.')
+        return result, kwargs
+
     def __torch_function__(self, func, types, args=(), kwargs=None):
         """Handle an intercepted functional operation."""
         kwargs = {} if kwargs is None else kwargs
         if not self.enabled or func not in self.state.quant_map or not self.module_stack:
             return func(*args, **kwargs)
-        module_name, _ = self.module_stack[-1]
+        module_name, module = self.module_stack[-1]
         index = self.counters[module_name][func]
         self.counters[module_name][func] += 1
         call_key = (module_name, func, index)
+        values = list(args)
+        names = _ARGUMENT_NAMES.get(func, ())
+        slots = [(idx, value, lambda replacement, idx=idx: values.__setitem__(idx, replacement))
+                 for idx, value in enumerate(values)]
+        slots += [(idx, kwargs[name], lambda replacement, name=name: kwargs.__setitem__(name, replacement))
+                  for idx, name in enumerate(names[len(values):], len(values)) if name in kwargs]
         if self.build:
-            quantizer_key = _key(module_name, func, index)
-            quantizer = QuantIdentity(
-                act_quant=self.state.quant_map[func], return_quant_tensor=True).to(args[0].device)
-            self.state.quantizers[quantizer_key] = quantizer
-            self.state.calls[call_key] = _PreparedCall(quantizer_key)
+            call = _PreparedCall({})
+            self.state.calls[call_key] = call
         else:
             call = self.state.calls.get(call_key)
             if call is None:
                 raise RuntimeError('No prepared quantizer found for this functional call site.')
-            quantizer = self.state.quantizers[call.quantizer_key]
-        if args and isinstance(args[0], torch.Tensor) and not isinstance(args[0], QuantTensor):
-            args = (quantizer(args[0]), *args[1:])
-        return func(*args, **kwargs)
+        specs = self._specs(func)
+        for arg_idx, value, replace in slots:
+            if not isinstance(value, torch.Tensor) or isinstance(value, QuantTensor):
+                continue
+            spec = specs[arg_idx] if arg_idx < len(specs) else (specs[0] if arg_idx == 1 and specs else _MISSING)
+            quant_class, di_kwargs = self._resolve(spec, module, module_name, index)
+            if quant_class is None:
+                continue
+            if self.build:
+                quantizer_key = _key(module_name, func, index) + ('' if arg_idx == 0 else f'_arg{arg_idx}')
+                quant_injector = quant_class.let(**di_kwargs) if di_kwargs else quant_class
+                quantizer = QuantIdentity(act_quant=quant_injector, return_quant_tensor=True).to(value.device)
+                self.state.quantizers[quantizer_key] = quantizer
+                call.quantizer_keys[arg_idx] = quantizer_key
+            else:
+                quantizer = self.state.quantizers[call.quantizer_keys[arg_idx]]
+            replace(quantizer(value))
+        return func(*tuple(values), **kwargs)
 
 
 def prepare_functional_quantization(
