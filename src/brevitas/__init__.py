@@ -5,6 +5,7 @@ from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _dist_version
 import glob
 import os
+import sys
 from typing import List
 from typing import Optional
 import warnings
@@ -23,6 +24,9 @@ if torch.__version__.endswith('+cpu'):
     torch_version = version.parse(torch.__version__.rstrip('+cpu'))
 else:
     torch_version = version.parse(torch.__version__)
+
+python_version = version.parse(
+    f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")
 
 try:
     # Attempt _dynamo import
