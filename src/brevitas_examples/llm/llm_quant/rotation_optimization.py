@@ -3,11 +3,13 @@
 
 import copy
 from dataclasses import dataclass
+from dataclasses import field
 from typing import Any
 from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
+from typing import Tuple
 from typing import Type
 
 from accelerate.utils import DistributedType
@@ -22,6 +24,7 @@ except:
     # This has changed in transformers v5
     from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
+from brevitas.utils.parametrization_utils import cast_parameters_
 from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 # Optimizer/scheduler building and trainer plumbing live in trainer_utils.
@@ -39,6 +42,15 @@ class RotationTrainingArguments(TrainingArguments):
     parameter group is optimized with ``CaileySGD`` on the Stiefel manifold.
     """
 
+    rotation_parameter_dtype: Optional[str] = field(
+        default=None,
+        metadata={
+            "help":
+                "Storage dtype for the trainable rotation matrices (e.g. 'float32'). "
+                "When set, rotation masters are kept in this dtype while the model and "
+                "the rotation forward remain in the model dtype. None keeps the model "
+                "dtype."})
+
     def __post_init__(self) -> None:
         super().__post_init__()
         if self.optimizer_scheduler_args is None:
@@ -51,6 +63,16 @@ class RotationTrainingArguments(TrainingArguments):
                         "lr": self.learning_rate,
                         "stiefel": True,
                         "dtype": self.optimizer_dtype,},}],}]
+
+
+def _resolve_dtype(name: Optional[str], option: str) -> Optional[torch.dtype]:
+    """Resolve a dtype name (e.g. ``'float32'``) into a ``torch.dtype``."""
+    if name is None:
+        return None
+    dtype = getattr(torch, name, None)
+    if not isinstance(dtype, torch.dtype):
+        raise ValueError(f"{option} must name a torch dtype, got {name!r}")
+    return dtype
 
 
 def _select_rotation_params(
@@ -69,6 +91,19 @@ class RotationTrainer(GeneralizedTrainer):
     the model has trainable rotation matrices and no custom trainer is provided.
     """
     training_args_cls: Type[transformers.TrainingArguments] = RotationTrainingArguments
+
+    @classmethod
+    def prepare_model_for_training(
+            cls, model: torch.nn.Module, args: RotationTrainingArguments) -> None:
+        """Set the requested storage dtype for trainable rotation matrices.
+
+        Runs before quant-proxy compilation so the parameter dtype is fixed
+        before compilation captures it. Idempotent: re-running with the same
+        ``args`` is a no-op once the dtype already matches.
+        """
+        cast_parameters_(
+            extract_trainable_rotation_matrices(model),
+            _resolve_dtype(args.rotation_parameter_dtype, "rotation_parameter_dtype"))
 
 
 def parse_rotation_optimization_args(
@@ -118,13 +153,61 @@ def _prepare_model(model: torch.nn.Module) -> torch.nn.Module:
     return model
 
 
+def _resolve_trainer_cls(model: torch.nn.Module,
+                         trainer_cls: Optional[Type[Trainer]]) -> Type[Trainer]:
+    """Resolve the trainer class used to prepare and optimize ``model``.
+
+    When no custom trainer is provided, default to :class:`RotationTrainer` if
+    the model has trainable rotation matrices, otherwise raise.
+    """
+    if trainer_cls is None:
+        if len(extract_trainable_rotation_matrices(model)) == 0:
+            raise RuntimeError(
+                "No Custom Trainer has been defined and no optimizable rotations are present in the model."
+            )
+        return RotationTrainer
+    return trainer_cls
+
+
+def _maybe_prepare_model_for_training(
+        trainer_cls: Type[Trainer],
+        model: torch.nn.Module,
+        training_args: transformers.TrainingArguments) -> None:
+    """Run the trainer's optional, idempotent pre-compilation hook, if any."""
+    prepare = getattr(trainer_cls, "prepare_model_for_training", None)
+    if prepare is not None:
+        prepare(model, training_args)
+
+
+def prepare_fine_tuning(
+        model: torch.nn.Module,
+        trainer_cls: Optional[Type[Trainer]] = None,
+        extra_args: Optional[List[str]] = None
+) -> Tuple[Type[Trainer], transformers.TrainingArguments]:
+    """Resolve the trainer/training-args and prepare the model before compile.
+
+    This is meant to be called after quantization/post-processing but *before*
+    quant-proxy compilation and the first calibration forward, so a trainer can
+    establish parameter sharing or storage dtypes before compilation captures
+    parameter identities/dtypes. It returns the resolved ``(trainer_cls,
+    training_args)`` so the caller can pass them straight to
+    :func:`apply_fine_tuning` without re-parsing.
+    """
+    trainer_cls = _resolve_trainer_cls(model, trainer_cls)
+    training_args = parse_rotation_optimization_args(
+        extra_args=extra_args if extra_args is not None else [], trainer_cls=trainer_cls)
+    _maybe_prepare_model_for_training(trainer_cls, model, training_args)
+    return trainer_cls, training_args
+
+
 def apply_fine_tuning(
         model: torch.nn.Module,
         tokenizer: PreTrainedTokenizerBase,
         train_dataset: Dataset,
         collate_fn: Callable,
         trainer_cls: Optional[Type[Trainer]] = None,
-        extra_args: Optional[List[str]] = None) -> None:
+        extra_args: Optional[List[str]] = None,
+        training_args: Optional[transformers.TrainingArguments] = None) -> None:
     """Fine-tune model weights and/or rotation matrices.
 
     The training arguments are parsed from *extra_args* via
@@ -157,25 +240,23 @@ def apply_fine_tuning(
     extra_args : list of str, optional
         Raw CLI-style extra arguments parsed into the training-arguments
         dataclass (see :func:`parse_rotation_optimization_args`).
+    training_args : transformers.TrainingArguments, optional
+        Pre-resolved training arguments, as returned by
+        :func:`prepare_fine_tuning`. When provided, *extra_args* is ignored and
+        the model-preparation hook is not re-run (it already ran in
+        :func:`prepare_fine_tuning`). When ``None``, the trainer is resolved and
+        the model is prepared here.
     """
 
-    # Resolve the trainer class up front so that its ``training_args_cls`` (which
-    # sets the ``optimizer_scheduler_args`` default) is used when parsing the
-    # training arguments. When no custom trainer is given but the model has
-    # trainable rotation matrices, default to RotationTrainer (CaileySGD on the
-    # rotations, expressed through the standard optimizer_scheduler_args mechanism).
-    if trainer_cls is None:
-        if len(extract_trainable_rotation_matrices(model)) == 0:
-            raise RuntimeError(
-                "No Custom Trainer has been defined and no optimizable rotations are present in the model."
-            )
-        trainer_cls = RotationTrainer
+    # Resolve the trainer class and training arguments. When training_args is
+    # not supplied, this also runs the (idempotent) pre-training model
+    # preparation hook so that direct callers get the same behaviour as the LLM
+    # entrypoint, which prepares the model before quant-proxy compilation.
+    if training_args is None:
+        trainer_cls, training_args = prepare_fine_tuning(
+            model=model, trainer_cls=trainer_cls, extra_args=extra_args)
     else:
-        trainer_cls = trainer_cls
-
-    # Parse the training arguments, resolving the training-args class from the
-    # (possibly defaulted) trainer.
-    training_args = parse_rotation_optimization_args(extra_args=extra_args, trainer_cls=trainer_cls)
+        trainer_cls = _resolve_trainer_cls(model, trainer_cls)
 
     # Prepare model for training
     model = _prepare_model(model)
