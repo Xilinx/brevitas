@@ -270,12 +270,12 @@ class _GGUFCachedScaleShiftQuantZeroPoint(_ScaleShiftQuantZeroPoint):
 
     def forward(self, zero_point: torch.Tensor, scale: torch.Tensor, bit_width: torch.Tensor):
         min_int = self.int_quant.min_int(bit_width)
-        quant_zp, scale_of_minimum, *_ = self.zp_int_quant(zero_point)
+        quant_zp, scale_of_zp, *_ = self.zp_int_quant(zero_point)
         if self.zero_point_dequantized_shape is not None:
             quant_zp = quant_zp.view(self.zero_point_dequantized_shape)
         if self.gguf_zero_point_cache.enabled:
             self.gguf_zero_point_cache.value = quant_zp.detach()
-            self.gguf_zero_point_cache.scale = scale_of_minimum.detach()
+            self.gguf_zero_point_cache.scale = scale_of_zp.detach()
         quant_zp = quant_zp / scale + min_int
         return quant_zp
 
