@@ -19,6 +19,7 @@ from brevitas.utils.parametrization_utils import cast_parameters_
 from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
 from brevitas.utils.quant_utils import has_learned_activation_bit_width
 from brevitas.utils.quant_utils import has_learned_weight_bit_width
+from brevitas.utils.torch_utils import resolve_torch_dtype
 from brevitas_examples.llm.llm_quant.trainer_utils import GeneralizedTrainer
 from brevitas_examples.llm.llm_quant.trainer_utils import TRAINER_REGISTRY
 from brevitas_examples.llm.llm_quant.trainer_utils import TrainingArguments
@@ -169,15 +170,6 @@ def _unique_bit_width_params(model: torch.nn.Module) -> List[torch.nn.Parameter]
     return params
 
 
-def _resolve_dtype(name: Optional[str], option: str) -> Optional[torch.dtype]:
-    if name is None:
-        return None
-    dtype = getattr(torch, name, None)
-    if not isinstance(dtype, torch.dtype):
-        raise ValueError(f"{option} must name a torch dtype, got {name!r}")
-    return dtype
-
-
 # ---------------------------------------------------------------------------
 # Parameter selectors for optimizer configs
 # ---------------------------------------------------------------------------
@@ -316,10 +308,16 @@ class RotationLearnedBitWidthTrainer(GeneralizedTrainer):
         _tie_bit_widths(model, args)
         cast_parameters_(
             extract_trainable_rotation_matrices(model),
-            _resolve_dtype(args.rotation_parameter_dtype, "rotation_parameter_dtype"))
+            resolve_torch_dtype(
+                args.rotation_parameter_dtype,
+                option="rotation_parameter_dtype",
+                require_floating_point=True))
         cast_parameters_(
             _unique_bit_width_params(model),
-            _resolve_dtype(args.bit_width_parameter_dtype, "bit_width_parameter_dtype"))
+            resolve_torch_dtype(
+                args.bit_width_parameter_dtype,
+                option="bit_width_parameter_dtype",
+                require_floating_point=True))
 
     def __init__(self, args: RotationLearnedBitWidthTrainingArguments = None, **kwargs) -> None:
         super().__init__(args=args, **kwargs)
