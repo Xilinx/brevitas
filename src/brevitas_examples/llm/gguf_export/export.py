@@ -50,7 +50,6 @@ def _enable_gguf_export_caching(model):
     for wq in _gguf_proxies(model):
         prior_settings[wq] = (
             wq.cache_inference_quant_weight, wq.cache_inference_quant_weight_metadata_only)
-        wq.cache_inference_quant_weight = False
         wq.cache_inference_quant_weight_metadata_only = True
         wq.cache_inference_quant_weight = True
     return prior_settings
@@ -59,7 +58,6 @@ def _enable_gguf_export_caching(model):
 def _restore_gguf_export_caching(prior_settings):
     """Restore the cache settings for each GGUF proxy."""
     for wq, (prior_enabled, prior_metadata_only) in prior_settings.items():
-        wq.cache_inference_quant_weight = False
         wq.cache_inference_quant_weight_metadata_only = prior_metadata_only
         wq.cache_inference_quant_weight = prior_enabled
 
