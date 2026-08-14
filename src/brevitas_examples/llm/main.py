@@ -506,7 +506,8 @@ def quantize_llm(args, extra_args=None):
         if args.custom_quantizer is not None:
             quantizer_name = parse_custom_quantizer(args.custom_quantizer)
             custom_quantizer = QUANTIZERS_REGISTRY.get(quantizer_name)
-            quantizers_dict = custom_quantizer.override_quantizers_dict(quantizers_dict)
+            quantizers_dict = custom_quantizer.configure_quantizers_dict(
+                quantizers_dict, scaling_min_val=args.scaling_min_val)
         layer_map = generate_quant_maps(
             **quantizers_dict, dtype=dtype, device=device, quantize_embedding=False)
         if not args.quantize_last_layer:
