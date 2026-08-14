@@ -13,6 +13,8 @@ import random
 import torch
 from torch.optim.optimizer import Optimizer
 
+from brevitas.utils.torch_utils import resolve_torch_dtype
+
 
 def unit(v, dim: int = 1, eps: float = 1e-8):
     vnorm = norm(v, dim)
@@ -52,26 +54,6 @@ def qr_retraction(tan_vec):
 
 
 epsilon = 1e-8
-
-
-def _resolve_dtype(dtype):
-    """Normalize a dtype specification into an ``Optional[torch.dtype]``.
-
-    Accepts ``None``, a ``torch.dtype``, or the name of a floating-point dtype
-    (e.g. ``"float32"``). Non-floating or unknown dtypes are rejected so that
-    misconfigurations fail early rather than silently degrading precision.
-    """
-    if dtype is None or isinstance(dtype, torch.dtype):
-        resolved = dtype
-    elif isinstance(dtype, str):
-        resolved = getattr(torch, dtype, None)
-        if not isinstance(resolved, torch.dtype):
-            raise ValueError(f"Unknown torch dtype {dtype!r} for CaileySGD.")
-    else:
-        raise ValueError(f"CaileySGD dtype must be None, a str, or a torch.dtype, got {dtype!r}.")
-    if resolved is not None and not resolved.is_floating_point:
-        raise ValueError(f"CaileySGD dtype must be a floating-point dtype, got {resolved}.")
-    return resolved
 
 
 class CaileySGD(Optimizer):
@@ -126,7 +108,7 @@ class CaileySGD(Optimizer):
             omega=0,
             iters=iters,
             grad_clip=grad_clip,
-            dtype=_resolve_dtype(dtype),
+            dtype=resolve_torch_dtype(dtype, option="CaileySGD dtype", require_floating_point=True),
         )
         if nesterov and (momentum <= 0 or dampening != 0):
             raise ValueError("Nesterov momentum requires a momentum and zero dampening")
@@ -135,13 +117,15 @@ class CaileySGD(Optimizer):
         # when the optimizer is built from ``optimizer_scheduler_args``, where the
         # dtype is provided as a per-group kwarg rather than a constructor argument.
         for group in self.param_groups:
-            group["dtype"] = _resolve_dtype(group.get("dtype"))
+            group["dtype"] = resolve_torch_dtype(
+                group.get("dtype"), option="CaileySGD dtype", require_floating_point=True)
 
     def __setstate__(self, state) -> None:
         super(CaileySGD, self).__setstate__(state)
         for group in self.param_groups:
             group.setdefault("nesterov", False)
-            group["dtype"] = _resolve_dtype(group.get("dtype"))
+            group["dtype"] = resolve_torch_dtype(
+                group.get("dtype"), option="CaileySGD dtype", require_floating_point=True)
 
     def step(self, closure=None):
         """Performs a single optimization step.
