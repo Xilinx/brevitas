@@ -105,8 +105,8 @@ def filter_results(results, tasks):
 def _functional_quant_map(quantizers_dict, functional_quantization=None, quant_sdpa=None):
     """Build generic functional operand and SDPA quantization specifications."""
     quant_map = {}
-    input_quant = quantizers_dict['linear_input_quant']
-    weight_quant = quantizers_dict['weight_quant']
+    input_quant = quantizers_dict.get('linear_input_quant')
+    weight_quant = quantizers_dict.get('weight_quant')
 
     def skip_quant_linear(module, module_name, call_index, quantizer):
         """Avoid quantizing calls already owned by a Brevitas QuantLinear."""

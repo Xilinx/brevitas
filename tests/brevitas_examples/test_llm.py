@@ -110,6 +110,15 @@ def test_functional_quant_map_modes(functional_mode, quant_sdpa, expected_functi
         assert quant_map[torch.matmul] == (input_quant, input_quant, weight_quant)
 
 
+def test_functional_sdpa_map_does_not_require_linear_quantizers():
+    """SDPA-only map construction is independent from functional linear quantizers."""
+    quant_map = _functional_quant_map(
+        {'q_scaled_quant': 'q', 'k_transposed_quant': 'k', 'v_quant': 'v'},
+        quant_sdpa='functional')
+    assert quant_map == {
+        torch.nn.functional.scaled_dot_product_attention: ('q', 'k', 'v')}
+
+
 def test_functional_weight_mode_does_not_require_input_quantization():
     """Weight-only functional quantization is valid without an input quantizer."""
     args = get_default_args(create_args_parser())
