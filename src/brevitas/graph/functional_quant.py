@@ -304,6 +304,7 @@ class _HookedMode(TorchFunctionMode):
     def _build_parameter_owners(self) -> None:
         """Map each direct model parameter to its owning module attribute."""
         self.state.parameter_owners.clear()
+        self.state.aliased_parameters.clear()
         for _, module in self.model.named_modules():
             if module in set(self.state.quantizers.modules()):
                 continue
@@ -313,26 +314,45 @@ class _HookedMode(TorchFunctionMode):
                 self.state.parameter_owners[id(parameter)] = (module, name)
 
     def _parameter_owner(self, value: Tensor) -> Tuple[Optional[Tuple[nn.Module, str]], bool]:
-        """Return a parameter owner and whether ``value`` is the direct parameter."""
-        owner = self.state.parameter_owners.get(id(value))
-        if owner is not None:
-            return owner, True
-        base = getattr(value, '_base', None)
-        visited = set()
-        while base is not None and id(base) not in visited:
-            visited.add(id(base))
-            owner = self.state.parameter_owners.get(id(base))
+        """Resolve a tensor to its registered parameter owner.
+
+        Direct parameters are matched by object identity. Tensor views are
+        matched by following their ``_base`` chain, which lets functional
+        quantization distinguish parameter-derived operands from ordinary
+        runtime tensors before applying activation-quantizer fallback. If the
+        first lookup misses, the owner map is rebuilt once to account for
+        parameters rematerialized or replaced by offload hooks.
+
+        Returns ``((owner_module, parameter_name), is_direct_parameter)`` on a
+        match, or ``(None, False)`` when the tensor is unrelated to a parameter.
+        """
+        def lookup():
+            owner = self.state.parameter_owners.get(id(value))
             if owner is not None:
-                return owner, False
-            base = getattr(base, '_base', None)
-        return None, False
+                return owner, True
+            base = getattr(value, '_base', None)
+            visited = set()
+            while base is not None and id(base) not in visited:
+                visited.add(id(base))
+                owner = self.state.parameter_owners.get(id(base))
+                if owner is not None:
+                    return owner, False
+                base = getattr(base, '_base', None)
+            return None, False
+
+        owner, is_direct = lookup()
+        if owner is not None:
+            return owner, is_direct
+        # Offload hooks can replace or materialize parameters after the initial map.
+        self._build_parameter_owners()
+        return lookup()
 
     def _spec_for(self, func: Callable, arg_idx: int, num_args: int, is_parameter: bool) -> Any:
         """Select the effective specification for an argument at a call site."""
         specs = self.state.specs[func]
         if func in _PARAMETER_DISPATCH_FUNCTIONS and len(specs) == 3:
             if arg_idx == 0:
-                return specs[0]
+                return specs[2] if is_parameter else specs[0]
             if arg_idx == 1:
                 return specs[2] if is_parameter else specs[1]
             return _MISSING
@@ -405,13 +425,13 @@ class _FunctionalQuantBuilder(_HookedMode):
             if not isinstance(value, Tensor) or isinstance(value, QuantTensor):
                 continue
             owner, is_direct_parameter = self._parameter_owner(value)
-            if is_direct_parameter and id(value) in self.state.aliased_parameters:
-                raise RuntimeError(
-                    'Functional weight quantization does not support tied parameters.')
             spec = self._spec_for(func, arg_idx, len(slots), owner is not None)
             quant_class, di_kwargs = _resolve_spec(spec, module, name, index)
             if quant_class is None:
                 continue
+            if is_direct_parameter and id(value) in self.state.aliased_parameters:
+                raise RuntimeError(
+                    'Functional weight quantization does not support tied parameters.')
             key = _module_key(
                 name, func, self.state.function_indices[func], index, arg_idx, owner is not None)
             if owner is None:
