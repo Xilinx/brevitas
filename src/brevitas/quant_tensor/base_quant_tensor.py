@@ -128,7 +128,8 @@ class QuantTensor(Tensor):
         if is_groupwise:
             if isinstance(index, int):
                 group_dim = self.group_dim
-                if group_dim == 0:
+                normalized_group_dim = group_dim if group_dim >= 0 else group_dim + len(original_shape)
+                if normalized_group_dim == 0:
                     raise RuntimeError('Cannot remove the grouped dimension through indexing.')
                 ctor_kwargs['group_dim'] = group_dim - 1 if group_dim > 0 else group_dim
                 if self.dequant_shape is not None:

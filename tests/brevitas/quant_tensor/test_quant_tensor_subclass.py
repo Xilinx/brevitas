@@ -210,6 +210,30 @@ class TestGetItem:
         assert result.dequant_shape == (32,)
         assert result.group_dim == 0
 
+    def test_groupwise_negative_dimension_remains_relative(self):
+        mod = QuantIdentity(
+            group_size=32,
+            group_dim=-1,
+            exponent_bit_width=4,
+            mantissa_bit_width=3,
+            return_quant_tensor=True,
+            act_quant=MXFloat8e4m3Act)
+        result = mod(torch.randn(2, 32))[0]
+        assert result.group_dim == -1
+        assert result.dequant_shape == (32,)
+
+    def test_groupwise_index_rejects_negative_leading_dimension(self):
+        mod = QuantIdentity(
+            group_size=2,
+            group_dim=-2,
+            exponent_bit_width=4,
+            mantissa_bit_width=3,
+            return_quant_tensor=True,
+            act_quant=MXFloat8e4m3Act)
+        quant_tensor = mod(torch.randn(2, 32))
+        with pytest.raises(RuntimeError, match='grouped dimension'):
+            quant_tensor[0]
+
 
 # ---------------------------------------------------------------------------
 # 4. In-place augmented assignment operators
