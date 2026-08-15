@@ -109,6 +109,56 @@ class StackedFunctionalWeightModel(nn.Module):
         return F.linear(x, self.weight[index])
 
 
+class ParameterFirstMatmulModel(nn.Module):
+    """Functional matmul with a parameter in the first operand."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.weight = nn.Parameter(torch.randn(3, 4))
+
+    def forward(self, x: Tensor) -> Tensor:
+        return torch.matmul(self.weight, x)
+
+
+class ReplacedParameterModel(nn.Module):
+    """Model that replaces a parameter once before its functional use."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.weight = nn.Parameter(torch.randn(3, 4))
+        self.replaced = False
+
+    def forward(self, x: Tensor) -> Tensor:
+        if not self.replaced:
+            self.weight = nn.Parameter(self.weight.detach().clone())
+            self.replaced = True
+        return F.linear(x, self.weight)
+
+
+class SharedFunctionalWeight(nn.Module):
+    """Functional linear owner used to exercise tied parameters."""
+
+    def __init__(self, weight: nn.Parameter) -> None:
+        super().__init__()
+        self.weight = weight
+
+    def forward(self, x: Tensor) -> Tensor:
+        return F.linear(x, self.weight)
+
+
+class TiedFunctionalWeightModel(nn.Module):
+    """Two functional modules sharing one parameter."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        weight = nn.Parameter(torch.randn(3, 4))
+        self.first = SharedFunctionalWeight(weight)
+        self.second = SharedFunctionalWeight(weight)
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self.first(x)
+
+
 class FunctionalConvTranspose1dModel(nn.Module):
     """Model that calls F.conv_transpose1d with a parameter weight."""
 
@@ -179,6 +229,35 @@ class TestFunctionalQuantizationMode:
         with functional_quantization_mode(state):
             assert isinstance(model.linear.weight, QuantTensor)
             model(x)
+        state.cleanup()
+
+    def test_input_only_skips_tied_weight_without_error(self):
+        """A tied parameter is allowed when its resolved weight spec is disabled."""
+        model = TiedFunctionalWeightModel()
+        x = torch.randn(2, 4)
+        state = prepare_functional_quantization(
+            model, {F.linear: Int8ActPerTensorFloat}, example_inputs=(x,))
+        assert len(state.quantizers) == 1
+        state.cleanup()
+
+    def test_three_slot_dispatch_quantizes_parameter_first_operand(self):
+        """The parameter slot applies to either of the first two operands."""
+        model = ParameterFirstMatmulModel()
+        quant_map = {
+            torch.matmul: (None, None, Int8WeightPerTensorFloat)}
+        state = prepare_functional_quantization(
+            model, quant_map, example_inputs=(torch.randn(4, 2),))
+        assert is_parametrized(model, 'weight')
+        state.cleanup()
+
+    def test_parameter_owner_refreshes_after_replacement(self):
+        """Parameter provenance refreshes after an offload-like replacement."""
+        model = ReplacedParameterModel()
+        quant_map = {
+            F.linear: (None, None, Int8WeightPerTensorFloat)}
+        state = prepare_functional_quantization(
+            model, quant_map, example_inputs=(torch.randn(2, 4),))
+        assert is_parametrized(model, 'weight')
         state.cleanup()
 
     def test_context_manager_basic(self):
