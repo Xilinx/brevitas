@@ -3,6 +3,7 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 """
 
+from typing import Any
 from typing import ClassVar
 from typing import Dict
 from typing import Optional
@@ -79,6 +80,14 @@ class BaseQuantizer:
             if (value := getattr(cls, key)) is not None:
                 quantizers_dict[key] = value
         return quantizers_dict
+
+    @classmethod
+    def override_functional_quant_map(
+            cls: "BaseQuantizer",
+            quant_map: Dict[Any, Any],
+            quantizers_dict: Dict[str, Optional[QuantInjector]]) -> Dict[Any, Any]:
+        """Customize functional quantization specifications after standard construction."""
+        return quant_map
 
     @classmethod
     def post_process_quant_model(cls: "BaseQuantizer", model: nn.Module) -> nn.Module:

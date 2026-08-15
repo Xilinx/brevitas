@@ -531,6 +531,9 @@ def quantize_llm(args, extra_args=None):
             quantizers_dict = custom_quantizer.override_quantizers_dict(quantizers_dict)
         functional_quant_map = _functional_quant_map(
             quantizers_dict, args.functional_quantization, args.quant_sdpa)
+        if custom_quantizer is not None:
+            functional_quant_map = custom_quantizer.override_functional_quant_map(
+                functional_quant_map, quantizers_dict)
         layer_map = generate_quant_maps(
             **quantizers_dict, dtype=dtype, device=device, quantize_embedding=False)
         if not args.quantize_last_layer:
