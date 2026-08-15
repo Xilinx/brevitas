@@ -38,7 +38,8 @@ __all__ = [
     'prepare_functional_quantization',
     'remove_functional_quantization']
 
-QuantResolver = Callable[[nn.Module, str, int], Optional[Type]]
+QuantResolverResult = Optional[Union[Type, Tuple[Optional[Type], Dict[str, Any]]]]
+QuantResolver = Callable[[nn.Module, str, int], QuantResolverResult]
 QuantResolvable = Optional[Union[Type, QuantResolver]]
 QuantSpecElement = Union[QuantResolvable, Tuple[QuantResolvable, Dict[str, Any]]]
 QuantSpecType = Union[QuantSpecElement, Tuple[QuantSpecElement, ...]]
@@ -100,10 +101,13 @@ def _resolve_spec(element: Any, module: nn.Module, module_name: str,
         return quantizer, di_kwargs
     if not callable(quantizer):
         raise TypeError(f'Invalid functional quantizer spec {quantizer!r}.')
-    resolved = quantizer(module, module_name, index)
-    if resolved is not None and not isinstance(resolved, type):
-        raise TypeError('Functional quantizer resolvers must return a quantizer class or None.')
-    return resolved, di_kwargs
+    resolved_quantizer, resolved_di_kwargs = _split_spec_element(
+        quantizer(module, module_name, index))
+    if resolved_quantizer is not None and not isinstance(resolved_quantizer, type):
+        raise TypeError(
+            'Functional quantizer resolvers must return a quantizer class, '
+            '(quantizer class, DI kwargs), or None.')
+    return resolved_quantizer, {**di_kwargs, **resolved_di_kwargs}
 
 
 def _call_key(module_name: str, func: Callable, index: int) -> Tuple[str, Callable, int]:
