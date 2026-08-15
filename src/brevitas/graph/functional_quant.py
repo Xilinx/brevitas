@@ -26,7 +26,6 @@ from torch.utils.hooks import RemovableHandle
 
 from brevitas import torch_version
 from brevitas.nn import QuantIdentity
-from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
 
 # Runtime quantization for calls to torch functional operators.
@@ -45,6 +44,8 @@ QuantSpecType = Union[QuantSpecElement, Tuple[QuantSpecElement, ...]]
 _CONTAINER_NAME = '_functional_quantizers'
 _STATE_NAME = '_functional_quantization_state'
 _MISSING = object()
+_PARAMETER_DISPATCH_FUNCTIONS = {
+    torch.nn.functional.linear, torch.bmm, torch.matmul, torch.Tensor.__matmul__}
 _FUNCTION_ARGUMENT_NAMES = {
     torch.nn.functional.linear: ('input', 'weight', 'bias'),
     torch.bmm: ('input', 'mat2'),
@@ -55,6 +56,7 @@ _FUNCTION_ARGUMENT_NAMES = {
     torch.nn.functional.conv_transpose1d: ('input', 'weight', 'bias'),
     torch.nn.functional.conv_transpose2d: ('input', 'weight', 'bias'),
     torch.nn.functional.conv_transpose3d: ('input', 'weight', 'bias'),}
+_FUNCTION_ARGUMENT_NAMES[torch.Tensor.__matmul__] = ('input', 'other')
 if hasattr(torch.nn.functional, 'scaled_dot_product_attention'):
     _FUNCTION_ARGUMENT_NAMES[torch.nn.functional.scaled_dot_product_attention] = (
         'query', 'key', 'value')
@@ -111,6 +113,7 @@ def _module_key(
         weight: bool = False) -> str:
     # ModuleDict names must not contain dots. The configured function ordinal makes
     # same-named callables distinct without process-specific object IDs.
+
     """Create a deterministic ``ModuleDict`` key for a call-site quantizer."""
     safe_module = module_name.replace('.', '__') or 'root'
     func_name = getattr(func, '__name__', 'function')
@@ -163,7 +166,7 @@ class _QuantParametrization(nn.Module):
         """Return the original parameter or its quantized proxy output."""
         if not self._state.enabled:
             return value
-        return _unpack_quant_tensor(self.proxy(value))
+        return self.proxy(value)
 
 
 @dataclass
@@ -275,8 +278,8 @@ class _HookedMode(TorchFunctionMode):
         self.counters.clear()
 
     def _pre_hook(self, name: str) -> Callable:
-
         """Create a pre-hook that records entry into a named module."""
+
         def hook(module: nn.Module, args: Tuple[Any, ...]) -> None:
             """Perform this functional quantization operation."""
             self.module_stack.append((name, module))
@@ -284,8 +287,8 @@ class _HookedMode(TorchFunctionMode):
         return hook
 
     def _post_hook(self, name: str) -> Callable:
-
         """Create an always-call hook that removes a completed module entry."""
+
         def hook(module: nn.Module, args: Tuple[Any, ...], output: Any) -> None:
             """Perform this functional quantization operation."""
             if self.module_stack and self.module_stack[-1][0] == name:
@@ -309,13 +312,31 @@ class _HookedMode(TorchFunctionMode):
                     self.state.aliased_parameters.add(id(parameter))
                 self.state.parameter_owners[id(parameter)] = (module, name)
 
+    def _parameter_owner(self, value: Tensor) -> Tuple[Optional[Tuple[nn.Module, str]], bool]:
+        """Return a parameter owner and whether ``value`` is the direct parameter."""
+        owner = self.state.parameter_owners.get(id(value))
+        if owner is not None:
+            return owner, True
+        base = getattr(value, '_base', None)
+        visited = set()
+        while base is not None and id(base) not in visited:
+            visited.add(id(base))
+            owner = self.state.parameter_owners.get(id(base))
+            if owner is not None:
+                return owner, False
+            base = getattr(base, '_base', None)
+        return None, False
+
     def _spec_for(self, func: Callable, arg_idx: int, num_args: int, is_parameter: bool) -> Any:
         """Select the effective specification for an argument at a call site."""
         specs = self.state.specs[func]
-        if arg_idx < len(specs):
-            # Three specs retain the established binary runtime/weight convention.
-            if num_args == 2 and len(specs) == 3 and arg_idx == 1:
+        if func in _PARAMETER_DISPATCH_FUNCTIONS and len(specs) == 3:
+            if arg_idx == 0:
+                return specs[0]
+            if arg_idx == 1:
                 return specs[2] if is_parameter else specs[1]
+            return _MISSING
+        if arg_idx < len(specs):
             return specs[arg_idx]
         # The task requires a missing second runtime spec to reuse argument zero.
         if arg_idx == 1 and not is_parameter and specs:
@@ -340,6 +361,7 @@ class _HookedMode(TorchFunctionMode):
             self, quant_class: Type, di_kwargs: Dict[str, Any], value: nn.Parameter) -> nn.Module:
         # Per-channel/groupwise operations must override this explicitly. A scalar
         # weight quantizer keeps the standard linear-layout default.
+
         """Create a weight proxy using explicit functional-operation metadata."""
         output_channel_dim = di_kwargs.get('output_channel_dim', 0)
         holder = _WeightQuantHolder(value, output_channel_dim)
@@ -382,8 +404,8 @@ class _FunctionalQuantBuilder(_HookedMode):
         for arg_idx, value, replace in slots:
             if not isinstance(value, Tensor) or isinstance(value, QuantTensor):
                 continue
-            owner = self.state.parameter_owners.get(id(value))
-            if owner is not None and id(value) in self.state.aliased_parameters:
+            owner, is_direct_parameter = self._parameter_owner(value)
+            if is_direct_parameter and id(value) in self.state.aliased_parameters:
                 raise RuntimeError(
                     'Functional weight quantization does not support tied parameters.')
             spec = self._spec_for(func, arg_idx, len(slots), owner is not None)
@@ -397,6 +419,10 @@ class _FunctionalQuantBuilder(_HookedMode):
                 self._add_quantizer(key, quantizer)
                 call.arguments[arg_idx] = _PreparedArgument(key)
                 replace(quantizer(value))
+            elif not is_direct_parameter:
+                raise RuntimeError(
+                    'Weight quantization of a parameter-derived view requires a declared '
+                    'functional weight descriptor.')
             else:
                 if is_parametrized(owner[0], owner[1]):
                     raise RuntimeError(

@@ -28,6 +28,7 @@ from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.quantize import prepare_functional_quantization
 from brevitas.graph.utils import get_module
 from brevitas.graph.utils import remove_weight_orig
+import brevitas.nn as qnn
 from brevitas.utils.logging import setup_logger
 from brevitas.utils.python_utils import hooked_on_a_function
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
@@ -99,6 +100,46 @@ def filter_results(results, tasks):
                 name = f"{task_name}_{key}"
                 eval_results[name] = val
     return eval_results
+
+
+def _functional_quant_map(quantizers_dict, functional_quantization=None, quant_sdpa=None):
+    """Build generic functional operand and SDPA quantization specifications."""
+    quant_map = {}
+    input_quant = quantizers_dict['linear_input_quant']
+    weight_quant = quantizers_dict['weight_quant']
+
+    def skip_quant_linear(module, module_name, call_index, quantizer):
+        """Avoid quantizing calls already owned by a Brevitas QuantLinear."""
+        return None if isinstance(module, qnn.QuantLinear) else quantizer
+
+    input_resolver = lambda module, name, index: skip_quant_linear(module, name, index, input_quant)
+    weight_resolver = lambda module, name, index: skip_quant_linear(
+        module, name, index, weight_quant)
+
+    if functional_quantization == 'input':
+        linear_spec = input_resolver
+        matmul_spec = input_quant
+    elif functional_quantization == 'weight':
+        linear_spec = (None, None, weight_resolver)
+        matmul_spec = (None, None, weight_quant)
+    elif functional_quantization == 'all':
+        linear_spec = (input_resolver, input_resolver, weight_resolver)
+        matmul_spec = (input_quant, input_quant, weight_quant)
+    else:
+        linear_spec = matmul_spec = None
+
+    if linear_spec is not None:
+        quant_map[torch.nn.functional.linear] = linear_spec
+    if matmul_spec is not None:
+        quant_map[torch.matmul] = matmul_spec
+        quant_map[torch.Tensor.__matmul__] = matmul_spec
+        quant_map[torch.bmm] = matmul_spec
+    if quant_sdpa == 'functional':
+        quant_map[torch.nn.functional.scaled_dot_product_attention] = (
+            quantizers_dict.get('q_scaled_quant'),
+            quantizers_dict.get('k_transposed_quant'),
+            quantizers_dict.get('v_quant'))
+    return quant_map
 
 
 def fused_rotation_no_fx(model, calibration_loader, args):
@@ -428,6 +469,7 @@ def quantize_llm(args, extra_args=None):
         remove_hooks(model)
         print(f"MagR applied.")
 
+    functional_quant_map = {}
     if not args.no_quantize:
         name_blacklist = []
         custom_quantizer = None
@@ -486,10 +528,8 @@ def quantize_llm(args, extra_args=None):
             quantizer_name = parse_custom_quantizer(args.custom_quantizer)
             custom_quantizer = QUANTIZERS_REGISTRY.get(quantizer_name)
             quantizers_dict = custom_quantizer.override_quantizers_dict(quantizers_dict)
-        # Save SDPA quantizers for the functional quantization mode context manager
-        sdpa_q_quant = quantizers_dict.get('q_scaled_quant')
-        sdpa_k_quant = quantizers_dict.get('k_transposed_quant')
-        sdpa_v_quant = quantizers_dict.get('v_quant')
+        functional_quant_map = _functional_quant_map(
+            quantizers_dict, args.functional_quantization, args.quant_sdpa)
         layer_map = generate_quant_maps(
             **quantizers_dict, dtype=dtype, device=device, quantize_embedding=False)
         if not args.quantize_last_layer:
@@ -561,20 +601,10 @@ def quantize_llm(args, extra_args=None):
                 new_funct = functools.partial(update_internal_dict, m)
                 m._hf_hook.post_forward = hooked_on_a_function(m._hf_hook.post_forward, new_funct)
 
-    # If we are doing functional SDPA quantization, we create the correct context manager,
-    # otherwise nullcontext. We would love to avoid the extra indentation level but it doesn't seem easy.
-    if args.quant_sdpa == "functional":
-        # The Q/K/V quantizers already carry their dependency-injection attributes
-        # (e.g. group_dim) via let(), so no extra DI kwargs are needed in the spec.
-        sdpa_quant_map = {
-            torch.nn.functional.scaled_dot_product_attention:
-                (sdpa_q_quant, sdpa_k_quant, sdpa_v_quant)}
-        # Preparation phase: create the SDPA quantizers by running one example
-        # forward, then apply them within the context manager below. SDPA has no
-        # weight parameters, so parametrization teardown is a no-op here. The
-        # prepared quantizers deliberately remain on the returned model for reuse.
+    fq_state = None
+    if functional_quant_map:
         fq_state = prepare_functional_quantization(
-            model, sdpa_quant_map, example_kwargs=next(iter(calibration_loader)))
+            model, functional_quant_map, example_kwargs=next(iter(calibration_loader)))
         quantization_cm = functional_quantization_mode(
             fq_state, remove_parametrizations_on_exit=True)
     else:
@@ -596,10 +626,7 @@ def quantize_llm(args, extra_args=None):
             print("Act calibration applied.")
 
         if args.fine_tune:
-            if args.quant_sdpa == 'functional' and getattr(
-                    model, 'is_gradient_checkpointing', False):
-                # Non-reentrant checkpoint recomputation needs to re-enter the
-                # functional mode so Q/K/V quantization matches the original pass.
+            if fq_state is not None and getattr(model, 'is_gradient_checkpointing', False):
                 model.gradient_checkpointing_enable(
                     gradient_checkpointing_kwargs={
                         'use_reentrant': False,
