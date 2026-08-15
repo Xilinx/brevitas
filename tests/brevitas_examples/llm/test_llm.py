@@ -30,12 +30,14 @@ from brevitas.utils.python_utils import Registry
 from brevitas_examples.common.generative.quantizers import BaseQuantizer
 from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
 from brevitas_examples.llm.llm_args import create_args_parser
+from brevitas_examples.llm.llm_args import validate
 from brevitas_examples.llm.llm_quant.ln_affine_merge import rmsnorm_patch
 from brevitas_examples.llm.llm_quant.parse_utils import parse_custom_trainer
 from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
 from brevitas_examples.llm.llm_quant.trainer_utils import _build_optimizers_from_configs
 from brevitas_examples.llm.llm_quant.trainer_utils import GeneralizedTrainer
 from brevitas_examples.llm.llm_quant.trainer_utils import TRAINER_REGISTRY
+from brevitas_examples.llm.main import _functional_quant_map
 from brevitas_examples.llm.main import fx_required
 from brevitas_examples.llm.main import main as llm_main
 from brevitas_examples.llm.main import quantize_llm
@@ -61,6 +63,69 @@ RTOL_PPL = 1e-04
 
 ATOL_ACC = 5e-1
 RTOL_ACC = 1e-5
+
+
+@pytest.mark.parametrize(
+    'functional_mode, quant_sdpa, expected_functions',
+    [
+        (None, None, set()),
+        (
+            'input',
+            None, {torch.nn.functional.linear, torch.matmul, torch.Tensor.__matmul__, torch.bmm}),
+        (
+            'weight',
+            None, {torch.nn.functional.linear, torch.matmul, torch.Tensor.__matmul__, torch.bmm}),
+        (
+            'all',
+            None, {torch.nn.functional.linear, torch.matmul, torch.Tensor.__matmul__, torch.bmm}),
+        (None, 'functional', {torch.nn.functional.scaled_dot_product_attention}),
+        (
+            'all',
+            'functional',
+            {
+                torch.nn.functional.linear,
+                torch.matmul,
+                torch.Tensor.__matmul__,
+                torch.bmm,
+                torch.nn.functional.scaled_dot_product_attention}),])
+def test_functional_quant_map_modes(functional_mode, quant_sdpa, expected_functions):
+    """Functional operand modes and functional SDPA are independently selectable."""
+    input_quant = object()
+    weight_quant = object()
+    quant_map = _functional_quant_map({
+        'linear_input_quant': input_quant,
+        'weight_quant': weight_quant,
+        'q_scaled_quant': 'q',
+        'k_transposed_quant': 'k',
+        'v_quant': 'v'},
+                                      functional_mode,
+                                      quant_sdpa)
+    assert set(quant_map) == expected_functions
+    if functional_mode == 'input':
+        assert callable(quant_map[torch.nn.functional.linear])
+        assert quant_map[torch.matmul] is input_quant
+    elif functional_mode == 'weight':
+        assert quant_map[torch.matmul] == (None, None, weight_quant)
+    elif functional_mode == 'all':
+        assert quant_map[torch.matmul] == (input_quant, input_quant, weight_quant)
+
+
+def test_functional_weight_mode_does_not_require_input_quantization():
+    """Weight-only functional quantization is valid without an input quantizer."""
+    args = get_default_args(create_args_parser())
+    args.functional_quantization = 'weight'
+    args.input_bit_width = None
+    validate(args)
+
+
+@pytest.mark.parametrize('mode', ['input', 'all'])
+def test_functional_input_modes_require_input_quantization(mode):
+    """Functional input modes fail clearly when no input quantizer is configured."""
+    args = get_default_args(create_args_parser())
+    args.functional_quantization = mode
+    args.input_bit_width = None
+    with pytest.raises(AssertionError, match='requires input quantization'):
+        validate(args)
 
 
 def mock_load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
