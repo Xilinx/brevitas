@@ -42,7 +42,9 @@ def test_counts_repeated_calls_in_one_module():
     model = ReusedFunctionalModel()
     x = torch.randn(2, 4)
     state = prepare_functional_quantization(model, {F.linear: Int8ActPerTensorFloat}, (x,))
-    assert len(state.quantizers) == 2
+    # Both ownerless runtime weights use activation fallback. The outer input is
+    # already a QuantTensor from the inner call and is not quantized again.
+    assert len(state.quantizers) == 3
     state.cleanup()
 
 

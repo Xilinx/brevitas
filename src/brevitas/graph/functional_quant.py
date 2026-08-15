@@ -13,12 +13,14 @@ from typing import Optional
 from typing import Tuple
 from typing import Type
 from typing import Union
+import warnings
 
 from packaging import version
 import torch
 from torch import nn
 from torch import Tensor
 from torch.nn.utils.parametrize import is_parametrized
+from torch.nn.utils.parametrize import ParametrizationList
 from torch.nn.utils.parametrize import register_parametrization
 from torch.nn.utils.parametrize import remove_parametrizations
 from torch.overrides import TorchFunctionMode
@@ -45,7 +47,11 @@ _CONTAINER_NAME = '_functional_quantizers'
 _STATE_NAME = '_functional_quantization_state'
 _MISSING = object()
 _PARAMETER_DISPATCH_FUNCTIONS = {
-    torch.nn.functional.linear, torch.bmm, torch.matmul, torch.Tensor.__matmul__}
+    torch.nn.functional.linear,
+    torch.bmm,
+    torch.matmul,
+    torch.Tensor.matmul,
+    torch.Tensor.__matmul__}
 _FUNCTION_ARGUMENT_NAMES = {
     torch.nn.functional.linear: ('input', 'weight', 'bias'),
     torch.bmm: ('input', 'mat2'),
@@ -57,6 +63,7 @@ _FUNCTION_ARGUMENT_NAMES = {
     torch.nn.functional.conv_transpose2d: ('input', 'weight', 'bias'),
     torch.nn.functional.conv_transpose3d: ('input', 'weight', 'bias'),}
 _FUNCTION_ARGUMENT_NAMES[torch.Tensor.__matmul__] = ('input', 'other')
+_FUNCTION_ARGUMENT_NAMES[torch.Tensor.matmul] = ('input', 'other')
 if hasattr(torch.nn.functional, 'scaled_dot_product_attention'):
     _FUNCTION_ARGUMENT_NAMES[torch.nn.functional.scaled_dot_product_attention] = (
         'query', 'key', 'value')
@@ -171,13 +178,30 @@ class _QuantParametrization(nn.Module):
 
 @dataclass
 class _PreparedArgument:
-    quantizer_key: Optional[str]
-    parameter_owner: Optional[Tuple[nn.Module, str]] = None
+    quantizer_key: str
 
 
 @dataclass
 class _PreparedCall:
     arguments: Dict[int, _PreparedArgument] = field(default_factory=dict)
+
+
+@dataclass
+class _DiscoveredArgument:
+    quant_class: Optional[Type]
+    di_kwargs: Dict[str, Any]
+    parameter_owner: Optional[Tuple[nn.Module, str]] = None
+    fallback_quant_class: Optional[Type] = None
+    fallback_di_kwargs: Dict[str, Any] = field(default_factory=dict)
+    example_device: Optional[torch.device] = None
+
+
+@dataclass
+class _OwnerPlan:
+    quant_class: Type
+    di_kwargs: Dict[str, Any]
+    quantizer_key: str
+    error: Optional[str] = None
 
 
 class FunctionalQuantState:
@@ -187,22 +211,18 @@ class FunctionalQuantState:
     :meth:`cleanup` or :func:`remove_functional_quantization` to remove them.
     """
 
-    def __init__(self, model: nn.Module, quant_map: Dict[Callable, QuantSpecType]) -> None:
+    def __init__(
+            self,
+            model: nn.Module,
+            quant_map: Dict[Callable, QuantSpecType]) -> None:
         """Attach the retained quantizer container and initialize prepared state."""
         self.model = model
         self.quant_map = quant_map
         self.specs = _parse_quant_map(quant_map)
         self.function_indices = {func: index for index, func in enumerate(self.specs)}
-        self.arg_quant_map = {
-            func: [_split_spec_element(element)[0] for element in specs] for func,
-            specs in self.specs.items()}
-        self.arg_di_kwargs_map = {
-            func: [_split_spec_element(element)[1] for element in specs] for func,
-            specs in self.specs.items()}
         self.calls: Dict[Tuple[str, Callable, int], _PreparedCall] = {}
-        self.parameter_owners: Dict[int, Tuple[nn.Module, str]] = {}
-        self.aliased_parameters = set()
         self.registered_parametrizations: List[Tuple[nn.Module, str]] = []
+        self.parametrizations_removed = False
         self.enabled = False
         self._closed = False
         if hasattr(model, _CONTAINER_NAME):
@@ -218,12 +238,14 @@ class FunctionalQuantState:
 
     def remove_parametrizations(self) -> None:
         """Remove functional weight parametrizations and restore original parameters."""
+        had_parametrizations = bool(self.registered_parametrizations)
         for owner, name in reversed(self.registered_parametrizations):
             if is_parametrized(owner, name):
                 parametrizations = getattr(owner.parametrizations, name)
                 if any(isinstance(item, _QuantParametrization) for item in parametrizations):
                     remove_parametrizations(owner, name, leave_parametrized=False)
         self.registered_parametrizations.clear()
+        self.parametrizations_removed |= had_parametrizations
 
     def cleanup(self) -> None:
         """Remove all functional quantization mutations from the model."""
@@ -242,6 +264,9 @@ class FunctionalQuantState:
         """Raise if this state was already cleaned up."""
         if self._closed:
             raise RuntimeError('Functional quantization state has been cleaned up.')
+        if self.parametrizations_removed:
+            raise RuntimeError(
+                'Functional weight parametrizations have been removed; prepare a new state.')
 
 
 class _HookedMode(TorchFunctionMode):
@@ -254,10 +279,6 @@ class _HookedMode(TorchFunctionMode):
         self.module_stack: List[Tuple[str, nn.Module]] = []
         self.counters = defaultdict(lambda: defaultdict(int))
         self.hooks: List[RemovableHandle] = []
-        # Compatibility aliases for callers that inspected the original mode.
-        self._module_stack = self.module_stack
-        self._counters = self.counters
-        self._hook_handles = self.hooks
 
     def _attach_hooks(self) -> None:
         """Attach hooks that maintain the active module stack and counters."""
@@ -281,7 +302,6 @@ class _HookedMode(TorchFunctionMode):
         """Create a pre-hook that records entry into a named module."""
 
         def hook(module: nn.Module, args: Tuple[Any, ...]) -> None:
-            """Perform this functional quantization operation."""
             self.module_stack.append((name, module))
 
         return hook
@@ -303,15 +323,25 @@ class _HookedMode(TorchFunctionMode):
 
     def _build_parameter_owners(self) -> None:
         """Map each direct model parameter to its owning module attribute."""
-        self.state.parameter_owners.clear()
-        self.state.aliased_parameters.clear()
+        self.parameter_owners.clear()
+        self.aliased_parameters.clear()
+        excluded = set(self.state.quantizers.modules())
         for _, module in self.model.named_modules():
-            if module in set(self.state.quantizers.modules()):
+            if module in excluded or isinstance(module, ParametrizationList):
                 continue
             for name, parameter in module.named_parameters(recurse=False):
-                if id(parameter) in self.state.parameter_owners:
-                    self.state.aliased_parameters.add(id(parameter))
-                self.state.parameter_owners[id(parameter)] = (module, name)
+                owner = (module, name)
+                if id(parameter) in self.parameter_owners and self.parameter_owners[
+                        id(parameter)] != owner:
+                    self.aliased_parameters.add(id(parameter))
+                self.parameter_owners[id(parameter)] = owner
+            for name in getattr(module, 'parametrizations', {}):
+                original = getattr(module.parametrizations, name).original
+                owner = (module, name)
+                if id(original) in self.parameter_owners and self.parameter_owners[
+                        id(original)] != owner:
+                    self.aliased_parameters.add(id(original))
+                self.parameter_owners[id(original)] = owner
 
     def _parameter_owner(self, value: Tensor) -> Tuple[Optional[Tuple[nn.Module, str]], bool]:
         """Resolve a tensor to its registered parameter owner.
@@ -319,22 +349,22 @@ class _HookedMode(TorchFunctionMode):
         Direct parameters are matched by object identity. Tensor views are
         matched by following their ``_base`` chain, which lets functional
         quantization distinguish parameter-derived operands from ordinary
-        runtime tensors before applying activation-quantizer fallback. If the
-        first lookup misses, the owner map is rebuilt once to account for
+        runtime tensors before applying activation-quantizer fallback. If a
+        parameter-like operand misses, the owner map is rebuilt to account for
         parameters rematerialized or replaced by offload hooks.
 
         Returns ``((owner_module, parameter_name), is_direct_parameter)`` on a
         match, or ``(None, False)`` when the tensor is unrelated to a parameter.
         """
         def lookup():
-            owner = self.state.parameter_owners.get(id(value))
+            owner = self.parameter_owners.get(id(value))
             if owner is not None:
                 return owner, True
             base = getattr(value, '_base', None)
             visited = set()
             while base is not None and id(base) not in visited:
                 visited.add(id(base))
-                owner = self.state.parameter_owners.get(id(base))
+                owner = self.parameter_owners.get(id(base))
                 if owner is not None:
                     return owner, False
                 base = getattr(base, '_base', None)
@@ -343,11 +373,18 @@ class _HookedMode(TorchFunctionMode):
         owner, is_direct = lookup()
         if owner is not None:
             return owner, is_direct
-        # Offload hooks can replace or materialize parameters after the initial map.
+        base = value
+        visited = set()
+        while getattr(base, '_base', None) is not None and id(base) not in visited:
+            visited.add(id(base))
+            base = base._base
+        if not isinstance(base, nn.Parameter):
+            return None, False
+        # Offload hooks can replace or materialize a parameter after the initial map.
         self._build_parameter_owners()
         return lookup()
 
-    def _spec_for(self, func: Callable, arg_idx: int, num_args: int, is_parameter: bool) -> Any:
+    def _spec_for(self, func: Callable, arg_idx: int, is_parameter: bool) -> Any:
         """Select the effective specification for an argument at a call site."""
         specs = self.state.specs[func]
         if func in _PARAMETER_DISPATCH_FUNCTIONS and len(specs) == 3:
@@ -370,12 +407,12 @@ class _HookedMode(TorchFunctionMode):
         self.state.quantizers[key] = quantizer
 
     def _create_activation(
-            self, quant_class: Type, di_kwargs: Dict[str, Any], value: Tensor) -> nn.Module:
+            self, quant_class: Type, di_kwargs: Dict[str, Any], device: torch.device) -> nn.Module:
         """Create an activation quantizer on the observed tensor device."""
         quant_injector = quant_class.let(**di_kwargs) if di_kwargs else quant_class
         quantizer = QuantIdentity(act_quant=quant_injector, return_quant_tensor=True)
         quantizer.train(self.model.training)
-        return quantizer.to(value.device)
+        return quantizer.to(device)
 
     def _create_weight(
             self, quant_class: Type, di_kwargs: Dict[str, Any], value: nn.Parameter) -> nn.Module:
@@ -391,22 +428,199 @@ class _HookedMode(TorchFunctionMode):
 
 class _FunctionalQuantBuilder(_HookedMode):
 
-    def build(
-            self, example_inputs: Optional[Tuple[Any, ...]],
-            example_kwargs: Optional[Dict[str, Any]]) -> FunctionalQuantState:
-        """Run the example forward and atomically populate prepared state."""
-        self._build_parameter_owners()
+    def __init__(self, state: FunctionalQuantState) -> None:
+        """Initialize a builder that discovers calls before parametrizing owners."""
+        super().__init__(state)
+        self.discovered_calls: Dict[Tuple[str, Callable, int], Dict[int,
+                                                                  _DiscoveredArgument]] = {}
+        self.owner_plans: Dict[Tuple[nn.Module, str], _OwnerPlan] = {}
+        self.parameter_owners: Dict[int, Tuple[nn.Module, str]] = {}
+        self.aliased_parameters = set()
+
+    def _owner_quant_kwargs(
+            self,
+            value: Tensor,
+            owner: Tuple[nn.Module, str],
+            is_direct_parameter: bool,
+            di_kwargs: Dict[str, Any]) -> Tuple[Dict[str, Any], Optional[str]]:
+        """Validate and normalize owner-level weight quantizer configuration."""
+        owner_di_kwargs = dict(di_kwargs)
+        owner_value = getattr(owner[0], owner[1], None)
+        if not isinstance(owner_value, nn.Parameter):
+            return owner_di_kwargs, 'its owner attribute is not an unparametrized Parameter'
+
+        required = ('output_channel_dim', 'group_dim')
+        if not is_direct_parameter:
+            rank_delta = owner_value.dim() - value.dim()
+            if rank_delta <= 0 or tuple(value.shape) != tuple(
+                    owner_value.shape[rank_delta:]) or tuple(value.stride()) != tuple(
+                        owner_value.stride()[rank_delta:]):
+                return owner_di_kwargs, (
+                    'only views produced by indexing leading owner dimensions are supported')
+            missing = [name for name in required if name not in owner_di_kwargs]
+            if missing:
+                return owner_di_kwargs, (
+                    'parameter-derived views require the weight quantizer to declare owner-level '
+                    f"{', '.join(missing)}")
+
+        axes = []
+        owner_dim = owner_value.dim()
+        for name in required:
+            if name not in owner_di_kwargs:
+                continue
+            axis = owner_di_kwargs[name]
+            if not isinstance(axis, int) or isinstance(axis, bool) or not -owner_dim <= axis < owner_dim:
+                return owner_di_kwargs, f'{name} is not a valid owner axis'
+            axis = axis if axis >= 0 else owner_dim + axis
+            owner_di_kwargs[name] = axis
+            axes.append(axis)
+        if len(axes) == 2 and axes[0] == axes[1]:
+            return owner_di_kwargs, (
+                'output_channel_dim and group_dim must refer to different owner axes')
+        return owner_di_kwargs, None
+
+    def _fallback_spec_for(self, func: Callable, arg_idx: int) -> Any:
+        """Select an unambiguous runtime spec for failed owner quantization."""
+        specs = self.state.specs[func]
+        if func in _PARAMETER_DISPATCH_FUNCTIONS and len(specs) == 3 and arg_idx < 2:
+            return specs[arg_idx]
+        return _MISSING
+
+    def _discover_argument(
+            self,
+            name: str,
+            module: nn.Module,
+            func: Callable,
+            index: int,
+            arg_idx: int,
+            value: Tensor) -> Optional[_DiscoveredArgument]:
+        """Classify one operand and record any owner-level weight requirement."""
+        owner, is_direct_parameter = self._parameter_owner(value)
+        spec = self._spec_for(func, arg_idx, owner is not None)
+        quant_class, di_kwargs = _resolve_spec(spec, module, name, index)
+        if quant_class is None:
+            return None
+        if owner is None:
+            return _DiscoveredArgument(quant_class, di_kwargs)
+
+        fallback_spec = self._fallback_spec_for(func, arg_idx)
+        fallback_quant_class, fallback_di_kwargs = _resolve_spec(
+            fallback_spec, module, name, index)
+        owner_di_kwargs, error = self._owner_quant_kwargs(
+            value, owner, is_direct_parameter, di_kwargs)
+        owner_value = value if is_direct_parameter else getattr(owner[0], owner[1], None)
+        if id(owner_value) in self.aliased_parameters:
+            error = 'tied parameters do not have a unique owner attribute'
+        if is_parametrized(owner[0], owner[1]):
+            error = 'the owner is already parametrized'
+
+        quantizer_key = _module_key(
+            name, func, self.state.function_indices[func], index, arg_idx, weight=True)
+        plan = self.owner_plans.get(owner)
+        if plan is None:
+            self.owner_plans[owner] = _OwnerPlan(
+                quant_class, owner_di_kwargs, quantizer_key, error)
+        elif plan.error is None:
+            if error is not None:
+                plan.error = error
+            elif plan.quant_class is not quant_class or plan.di_kwargs != owner_di_kwargs:
+                plan.error = 'the owner is used with incompatible quantizers or matrix layouts'
+        return _DiscoveredArgument(
+            quant_class,
+            owner_di_kwargs,
+            owner,
+            fallback_quant_class,
+            fallback_di_kwargs,
+            value.device)
+
+    def _discover_call(
+            self,
+            name: str,
+            module: nn.Module,
+            func: Callable,
+            index: int,
+            args: Tuple[Any, ...],
+            kwargs: Dict[str, Any]) -> Any:
+        """Record operand provenance and requirements without mutating the model."""
+        slots, values = _logical_arguments(func, args, kwargs)
+        call_key = _call_key(name, func, index)
+        discovered = self.discovered_calls.setdefault(call_key, {})
+        call = self.state.calls.setdefault(call_key, _PreparedCall())
+        for arg_idx, value, replace in slots:
+            if not isinstance(value, Tensor) or isinstance(value, QuantTensor):
+                continue
+            argument = self._discover_argument(
+                name, module, func, index, arg_idx, value)
+            if argument is not None:
+                discovered[arg_idx] = argument
+                if argument.parameter_owner is None:
+                    key = _module_key(
+                        name, func, self.state.function_indices[func], index, arg_idx)
+                    quantizer = self._create_activation(
+                        argument.quant_class, argument.di_kwargs, value.device)
+                    self._add_quantizer(key, quantizer)
+                    call.arguments[arg_idx] = _PreparedArgument(key)
+                    replace(quantizer(value))
+        return func(*tuple(values), **kwargs)
+
+    def _register_owner_quantizers(self) -> None:
+        """Finalize owner parametrizations and unsupported-view fallback mappings."""
+        for owner, plan in self.owner_plans.items():
+            owner_module, owner_name = owner
+            if plan.error is not None:
+                warnings.warn(
+                    f"Parameter-derived operand '{owner_name}' on {type(owner_module).__name__} "
+                    f"cannot be owner-quantized because {plan.error}; falling back to runtime "
+                    "activation quantization when configured.",
+                    UserWarning)
+                continue
+            parameter = getattr(owner_module, owner_name)
+            proxy = self._create_weight(plan.quant_class, plan.di_kwargs, parameter)
+            self._add_quantizer(plan.quantizer_key, proxy)
+            register_parametrization(
+                owner_module, owner_name, _QuantParametrization(self.state, proxy))
+            self.state.registered_parametrizations.append(owner)
+
+        for call_key, arguments in self.discovered_calls.items():
+            name, func, index = call_key
+            call = self.state.calls[call_key]
+            for arg_idx, argument in arguments.items():
+                if argument.parameter_owner is None:
+                    continue
+                owner_plan = self.owner_plans[argument.parameter_owner]
+                if owner_plan.error is not None and argument.fallback_quant_class is not None:
+                    key = _module_key(
+                        name, func, self.state.function_indices[func], index, arg_idx)
+                    quantizer = self._create_activation(
+                        argument.fallback_quant_class,
+                        argument.fallback_di_kwargs,
+                        argument.example_device)
+                    self._add_quantizer(key, quantizer)
+                    call.arguments[arg_idx] = _PreparedArgument(key)
+
+    def _run_forward(
+            self,
+            example_inputs: Optional[Tuple[Any, ...]],
+            example_kwargs: Optional[Dict[str, Any]]) -> None:
+        """Run one hooked preparation forward and reset transient counters."""
         self._attach_hooks()
-        self.state.enabled = True
         try:
             with self, torch.no_grad():
                 self.model(*(example_inputs or ()), **(example_kwargs or {}))
+        finally:
+            self._remove_hooks()
+
+    def build(
+            self, example_inputs: Optional[Tuple[Any, ...]],
+            example_kwargs: Optional[Dict[str, Any]]) -> FunctionalQuantState:
+        """Discover calls once, then register owner and fallback quantizers."""
+        self._build_parameter_owners()
+        try:
+            self._run_forward(example_inputs, example_kwargs)
+            self._register_owner_quantizers()
         except Exception:
             self.state.cleanup()
             raise
-        finally:
-            self.state.enabled = False
-            self._remove_hooks()
         return self.state
 
     def __torch_function__(
@@ -418,44 +632,7 @@ class _FunctionalQuantBuilder(_HookedMode):
         name, module = self.module_stack[-1]
         index = self.counters[name][func]
         self.counters[name][func] += 1
-        call_key = _call_key(name, func, index)
-        call = self.state.calls.setdefault(call_key, _PreparedCall())
-        slots, values = _logical_arguments(func, args, kwargs)
-        for arg_idx, value, replace in slots:
-            if not isinstance(value, Tensor) or isinstance(value, QuantTensor):
-                continue
-            owner, is_direct_parameter = self._parameter_owner(value)
-            spec = self._spec_for(func, arg_idx, len(slots), owner is not None)
-            quant_class, di_kwargs = _resolve_spec(spec, module, name, index)
-            if quant_class is None:
-                continue
-            if is_direct_parameter and id(value) in self.state.aliased_parameters:
-                raise RuntimeError(
-                    'Functional weight quantization does not support tied parameters.')
-            key = _module_key(
-                name, func, self.state.function_indices[func], index, arg_idx, owner is not None)
-            if owner is None:
-                quantizer = self._create_activation(quant_class, di_kwargs, value)
-                self._add_quantizer(key, quantizer)
-                call.arguments[arg_idx] = _PreparedArgument(key)
-                replace(quantizer(value))
-            elif not is_direct_parameter:
-                raise RuntimeError(
-                    'Weight quantization of a parameter-derived view requires a declared '
-                    'functional weight descriptor.')
-            else:
-                if is_parametrized(owner[0], owner[1]):
-                    raise RuntimeError(
-                        'Functional weight quantization does not support pre-parametrized weights.')
-                proxy = self._create_weight(quant_class, di_kwargs, value)
-                self._add_quantizer(key, proxy)
-                owner_module, owner_name = owner
-                register_parametrization(
-                    owner_module, owner_name, _QuantParametrization(self.state, proxy))
-                self.state.registered_parametrizations.append(owner)
-                call.arguments[arg_idx] = _PreparedArgument(key, owner)
-                replace(proxy(value))
-        return func(*tuple(values), **kwargs)
+        return self._discover_call(name, module, func, index, args, kwargs)
 
 
 class functional_quantization_mode(_HookedMode):
@@ -508,8 +685,6 @@ class functional_quantization_mode(_HookedMode):
         for arg_idx, value, replace in slots:
             prepared = call.arguments.get(arg_idx)
             if prepared is None or isinstance(value, QuantTensor) or not isinstance(value, Tensor):
-                continue
-            if prepared.parameter_owner is not None:
                 continue
             replace(self.state.quantizers[prepared.quantizer_key](value))
         return func(*tuple(values), **kwargs)
