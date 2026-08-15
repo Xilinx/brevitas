@@ -7,6 +7,7 @@ from torch import Tensor
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.parametrize import is_parametrized
+from torch.nn.utils.parametrize import register_parametrization
 from torch.utils.checkpoint import checkpoint
 
 from brevitas.graph.quantize import _QuantParametrization
@@ -20,6 +21,7 @@ from brevitas.quant.experimental.mx_quant_ocp import MXInt8Weight
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
+from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
 from tests.marker import requires_pt_ge
 
@@ -107,6 +109,39 @@ class StackedFunctionalWeightModel(nn.Module):
 
     def forward(self, x: Tensor, index: int) -> Tensor:
         return F.linear(x, self.weight[index])
+
+
+class TransposedStackedFunctionalWeightModel(nn.Module):
+    """Functional matmul model with [stack, input, output] weights."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.weight = nn.Parameter(torch.randn(2, 4, 3))
+
+    def forward(self, x: Tensor, index: int) -> Tensor:
+        return x @ self.weight[index]
+
+
+class UnsupportedFunctionalWeightViewModel(nn.Module):
+    """Functional linear model using a non-leading-index parameter view."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.weight = nn.Parameter(torch.randn(4, 4))
+
+    def forward(self, x: Tensor) -> Tensor:
+        return F.linear(x, self.weight.t())
+
+
+class ConflictingFunctionalWeightModel(nn.Module):
+    """One owner used with incompatible linear and right-matmul layouts."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.weight = nn.Parameter(torch.randn(4, 4))
+
+    def forward(self, x: Tensor) -> Tensor:
+        return F.linear(x, self.weight) + torch.matmul(x, self.weight)
 
 
 class ParameterFirstMatmulModel(nn.Module):
@@ -210,12 +245,123 @@ class TestFunctionalQuantizationMode:
         assert out.shape == (2, 3)
         state.cleanup()
 
-    def test_weight_spec_rejects_undeclared_parameter_view(self):
-        """Weight quantization of an arbitrary parameter view requires a descriptor."""
+    def test_sliced_linear_quantizes_discovered_owner(self):
+        """Explicit owner dimensions quantize a leading-index linear weight view."""
         model = StackedFunctionalWeightModel()
-        quant_map = {F.linear: (None, None, Int8WeightPerTensorFloat)}
-        with pytest.raises(RuntimeError, match='requires a declared functional weight descriptor'):
-            prepare_functional_quantization(model, quant_map, example_inputs=(torch.randn(2, 4), 0))
+        weight_spec = (Int8WeightPerTensorFloat, {
+            'output_channel_dim': 1, 'group_dim': 2})
+        quant_map = {F.linear: (None, None, weight_spec)}
+        state = prepare_functional_quantization(
+            model,
+            quant_map,
+            example_inputs=(torch.randn(2, 4), 0))
+        assert is_parametrized(model, 'weight')
+        with functional_quantization_mode(state):
+            assert isinstance(model.weight, IntQuantTensor)
+            out = model(torch.randn(2, 4), 1)
+        assert out.shape == (2, 3)
+        state.cleanup()
+
+    def test_sliced_matmul_quantizes_discovered_owner(self):
+        """Explicit owner dimensions quantize a leading-index matmul weight view."""
+        model = TransposedStackedFunctionalWeightModel()
+        weight_spec = (Int8WeightPerTensorFloat, {
+            'output_channel_dim': 2, 'group_dim': 1})
+        spec = (None, None, weight_spec)
+        quant_map = {
+            torch.matmul: spec, torch.Tensor.matmul: spec, torch.Tensor.__matmul__: spec}
+        state = prepare_functional_quantization(
+            model,
+            quant_map,
+            example_inputs=(torch.randn(2, 4), 0))
+        assert is_parametrized(model, 'weight')
+        with functional_quantization_mode(state):
+            out = model(torch.randn(2, 4), 1)
+        assert out.shape == (2, 3)
+        state.cleanup()
+
+    def test_unsupported_weight_view_warns_and_uses_activation_fallback(self):
+        """An unsupported owner view falls back to its runtime operand spec."""
+        model = UnsupportedFunctionalWeightViewModel()
+        quant_map = {
+            F.linear: (
+                Int8ActPerTensorFloat,
+                Int8ActPerTensorFloat,
+                Int8WeightPerTensorFloat)}
+        with pytest.warns(UserWarning, match='falling back to runtime activation quantization'):
+            state = prepare_functional_quantization(
+                model, quant_map, example_inputs=(torch.randn(2, 4),))
+        assert not is_parametrized(model, 'weight')
+        assert len(state.quantizers) == 2
+        with functional_quantization_mode(state):
+            out = model(torch.randn(2, 4))
+        assert out.shape == (2, 4)
+        state.cleanup()
+
+    def test_sliced_owner_without_layout_warns_and_falls_back(self):
+        """Functional quantization does not infer layout policy from the operation."""
+        model = StackedFunctionalWeightModel()
+        spec = (
+            Int8ActPerTensorFloat,
+            Int8ActPerTensorFloat,
+            Int8WeightPerTensorFloat)
+        with pytest.warns(UserWarning, match='require the weight quantizer to declare'):
+            state = prepare_functional_quantization(
+                model, {F.linear: spec}, example_inputs=(torch.randn(2, 4), 0))
+        assert not is_parametrized(model, 'weight')
+        assert len(state.quantizers) == 2
+        state.cleanup()
+
+    def test_sliced_owner_with_invalid_layout_warns_and_falls_back(self):
+        """Invalid custom owner dimensions use the activation fallback path."""
+        model = StackedFunctionalWeightModel()
+        weight_spec = (Int8WeightPerTensorFloat, {
+            'output_channel_dim': 3, 'group_dim': 2})
+        spec = (Int8ActPerTensorFloat, Int8ActPerTensorFloat, weight_spec)
+        with pytest.warns(UserWarning, match='not a valid owner axis'):
+            state = prepare_functional_quantization(
+                model, {F.linear: spec}, example_inputs=(torch.randn(2, 4), 0))
+        assert not is_parametrized(model, 'weight')
+        assert len(state.quantizers) == 2
+        state.cleanup()
+
+    def test_incompatible_owner_uses_warn_once_and_fall_back(self):
+        """All uses fall back when configurations disagree on one owner layout."""
+        model = ConflictingFunctionalWeightModel()
+        linear_spec = (
+            Int8ActPerTensorFloat,
+            Int8ActPerTensorFloat,
+            (Int8WeightPerTensorFloat, {'output_channel_dim': 0, 'group_dim': 1}))
+        matmul_spec = (
+            Int8ActPerTensorFloat,
+            Int8ActPerTensorFloat,
+            (Int8WeightPerTensorFloat, {'output_channel_dim': 1, 'group_dim': 0}))
+        with pytest.warns(UserWarning, match='incompatible quantizers or matrix layouts') as record:
+            state = prepare_functional_quantization(
+                model,
+                {F.linear: linear_spec, torch.matmul: matmul_spec},
+                example_inputs=(torch.randn(2, 4),))
+        assert len(record) == 1
+        assert not is_parametrized(model, 'weight')
+        assert len(state.quantizers) == 4
+        with functional_quantization_mode(state):
+            out = model(torch.randn(2, 4))
+        assert out.shape == (2, 4)
+        state.cleanup()
+
+    def test_preparametrized_owner_warns_and_falls_back(self):
+        """An existing owner parametrization is not mistaken for a runtime tensor."""
+        model = UnsupportedFunctionalWeightViewModel()
+        register_parametrization(model, 'weight', nn.Identity())
+        spec = (
+            Int8ActPerTensorFloat,
+            Int8ActPerTensorFloat,
+            Int8WeightPerTensorFloat)
+        with pytest.warns(UserWarning, match='owner is already parametrized'):
+            state = prepare_functional_quantization(
+                model, {F.linear: spec}, example_inputs=(torch.randn(2, 4),))
+        assert len(state.quantizers) == 2
+        state.cleanup()
 
     def test_three_slot_linear_spec_ignores_bias(self):
         """Runtime/parameter dispatch does not apply the weight spec to bias."""
@@ -282,7 +428,7 @@ class TestFunctionalQuantizationMode:
         ctx = functional_quantization_mode(state)
         with ctx:
             model(x)
-        assert len(ctx._hook_handles) == 0
+        assert len(ctx.hooks) == 0
         state.remove_parametrizations()
 
     def test_quantizers_created_during_prepare(self):
@@ -306,7 +452,7 @@ class TestFunctionalQuantizationMode:
         with ctx:
             model(x)
             # After the forward pass, counters should have been reset
-            for module_counters in ctx._counters.values():
+            for module_counters in ctx.counters.values():
                 for count in module_counters.values():
                     assert count == 0
         state.remove_parametrizations()
@@ -355,7 +501,7 @@ class TestFunctionalQuantizationMode:
         state.remove_parametrizations()
 
     def test_multiple_weight_calls_same_module(self):
-        """Every repeated functional call receives its own weight parametrization."""
+        """Distinct owners discovered in one module are parametrized once each."""
         model = ModelWithMultiLinear(4, 3, 2)
         quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
         x = torch.randn(2, 4)
@@ -459,6 +605,49 @@ class TestFunctionalQuantizationMode:
                 example_inputs=(torch.randn(2, 4),))
         assert not is_parametrized(model.linear, 'weight')
         assert not hasattr(model, '_functional_quantizers')
+
+    def test_prepare_runs_exactly_one_discovery_forward(self):
+        """Owner registration does not require a second internal model execution."""
+        class CountingModel(SimpleLinearModel):
+
+            def __init__(self):
+                super().__init__(4, 3)
+                self.forward_calls = 0
+
+            def forward(self, x):
+                self.forward_calls += 1
+                return super().forward(x)
+
+        model = CountingModel()
+        state = prepare_functional_quantization(
+            model,
+            {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)},
+            example_inputs=(torch.randn(2, 4),))
+        assert model.forward_calls == 1
+        assert is_parametrized(model.linear, 'weight')
+        state.cleanup()
+
+    def test_registration_failure_rolls_back_prior_owner(self):
+        """A failure after partial owner registration restores the whole model."""
+        class FailingWeightQuantizer:
+
+            @classmethod
+            def let(cls, **kwargs):
+                raise RuntimeError('expected registration failure')
+
+        def weight_resolver(module, name, index):
+            return Int8WeightPerTensorFloat if index == 0 else FailingWeightQuantizer
+
+        model = ModelWithMultiLinear(4, 3, 2)
+        with pytest.raises(RuntimeError, match='expected registration failure'):
+            prepare_functional_quantization(
+                model,
+                {F.linear: (None, weight_resolver)},
+                example_inputs=(torch.randn(2, 4),))
+        assert not is_parametrized(model.block, 'weight1')
+        assert not is_parametrized(model.block, 'weight2')
+        assert not hasattr(model, '_functional_quantizers')
+        assert not hasattr(model, '_functional_quantization_state')
 
     def test_disabled_mode(self):
         """Test that disabled mode passes through without quantization."""
@@ -645,8 +834,8 @@ class TestFunctionalQuantizationMode:
         x = torch.randn(2, 16)
 
         state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
-        # Bare element -> empty di_kwargs; paired element -> its dict.
-        assert state.arg_di_kwargs_map[F.linear] == [{}, {'output_channel_dim': 0}]
+        assert len(state.quantizers) == 2
+        assert len([key for key in state.quantizers if key.endswith('_wq')]) == 1
         with functional_quantization_mode(state):
             out = model(x)
         assert out.shape == (2, 8)
@@ -1224,7 +1413,7 @@ class TestFunctionalQuantizationMode:
 
         state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
         with functional_quantization_mode(state) as cm:
-            num_hooks = len(cm._hook_handles)
+            num_hooks = len(cm.hooks)
 
             out = model(x, context_fn=cm.checkpoint_context_fn(), use_reentrant=False)
             out.sum().backward()
@@ -1235,7 +1424,7 @@ class TestFunctionalQuantizationMode:
             for key in state.quantizers:
                 assert '_linear_1' not in key, f"Unexpected duplicated quantizer: {key}"
             # The outer manager still owns its hooks.
-            assert len(cm._hook_handles) == num_hooks
+            assert len(cm.hooks) == num_hooks
             assert is_parametrized(model.block1, 'weight')
             assert is_parametrized(model.block2, 'weight')
 
