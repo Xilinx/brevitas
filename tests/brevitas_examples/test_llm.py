@@ -71,13 +71,28 @@ RTOL_ACC = 1e-5
         (None, None, set()),
         (
             'input',
-            None, {torch.nn.functional.linear, torch.matmul, torch.Tensor.__matmul__, torch.bmm}),
+            None, {
+                torch.nn.functional.linear,
+                torch.matmul,
+                torch.Tensor.matmul,
+                torch.Tensor.__matmul__,
+                torch.bmm}),
         (
             'weight',
-            None, {torch.nn.functional.linear, torch.matmul, torch.Tensor.__matmul__, torch.bmm}),
+            None, {
+                torch.nn.functional.linear,
+                torch.matmul,
+                torch.Tensor.matmul,
+                torch.Tensor.__matmul__,
+                torch.bmm}),
         (
             'all',
-            None, {torch.nn.functional.linear, torch.matmul, torch.Tensor.__matmul__, torch.bmm}),
+            None, {
+                torch.nn.functional.linear,
+                torch.matmul,
+                torch.Tensor.matmul,
+                torch.Tensor.__matmul__,
+                torch.bmm}),
         (None, 'functional', {torch.nn.functional.scaled_dot_product_attention}),
         (
             'all',
@@ -85,6 +100,7 @@ RTOL_ACC = 1e-5
             {
                 torch.nn.functional.linear,
                 torch.matmul,
+                torch.Tensor.matmul,
                 torch.Tensor.__matmul__,
                 torch.bmm,
                 torch.nn.functional.scaled_dot_product_attention}),])

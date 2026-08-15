@@ -132,6 +132,7 @@ def _functional_quant_map(quantizers_dict, functional_quantization=None, quant_s
         quant_map[torch.nn.functional.linear] = linear_spec
     if matmul_spec is not None:
         quant_map[torch.matmul] = matmul_spec
+        quant_map[torch.Tensor.matmul] = matmul_spec
         quant_map[torch.Tensor.__matmul__] = matmul_spec
         quant_map[torch.bmm] = matmul_spec
     if quant_sdpa == 'functional':
@@ -604,7 +605,9 @@ def quantize_llm(args, extra_args=None):
     fq_state = None
     if functional_quant_map:
         fq_state = prepare_functional_quantization(
-            model, functional_quant_map, example_kwargs=next(iter(calibration_loader)))
+            model,
+            functional_quant_map,
+            example_kwargs=next(iter(calibration_loader)))
         quantization_cm = functional_quantization_mode(
             fq_state, remove_parametrizations_on_exit=True)
     else:
