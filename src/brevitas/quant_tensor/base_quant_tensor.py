@@ -106,6 +106,37 @@ class QuantTensor(Tensor):
         ctor_kwargs.pop('value_', None)
         return type(self)(new_value, **ctor_kwargs)
 
+    def __getitem__(self, index):
+        """Index the leading dimension while preserving aligned quantization metadata."""
+        if isinstance(index, Tensor):
+            if index.dim() != 0 or index.dtype not in (
+                    torch.int8, torch.int16, torch.int32, torch.int64, torch.uint8):
+                raise TypeError('QuantTensor indices must be integer scalars.')
+            index = int(index.item())
+        if not isinstance(index, (int, slice)):
+            raise TypeError('QuantTensor indexing supports an integer or slice.')
+
+        is_groupwise = getattr(self, '_is_groupwise', False)
+        source_value = self._value_ if is_groupwise else self.value
+        original_shape = self.value.shape
+        ctor_kwargs = self._get_constructor_kwargs()
+        for name, metadata in tuple(ctor_kwargs.items()):
+            if isinstance(metadata,
+                          Tensor) and metadata.dim() > 0 and metadata.shape[0] == original_shape[0]:
+                ctor_kwargs[name] = metadata[index]
+
+        if is_groupwise:
+            if isinstance(index, int):
+                group_dim = self.group_dim
+                if group_dim == 0:
+                    raise RuntimeError('Cannot remove the grouped dimension through indexing.')
+                ctor_kwargs['group_dim'] = group_dim - 1 if group_dim > 0 else group_dim
+                if self.dequant_shape is not None:
+                    ctor_kwargs['dequant_shape'] = tuple(self.dequant_shape[1:])
+            elif self.dequant_shape is not None:
+                ctor_kwargs['dequant_shape'] = tuple(self.value[index].shape)
+        return type(self)(source_value[index], **ctor_kwargs)
+
     @property
     def shape(self):
         return self.value.shape
