@@ -1317,6 +1317,24 @@ class TestFunctionalQuantizationMode:
         state.remove_parametrizations()
         assert not is_parametrized(model, 'weight')
 
+    def test_weight_resolver_returns_di_kwargs(self):
+        """A resolver can provide owner-specific dependency-injection overrides."""
+        model = StackedFunctionalWeightModel()
+
+        def weight_resolver(module, name, index):
+            return Int8WeightPerTensorFloat, {
+                'output_channel_dim': 1, 'group_dim': 2}
+
+        state = prepare_functional_quantization(
+            model,
+            {F.linear: (None, None, weight_resolver)},
+            example_inputs=(torch.randn(2, 4), 0))
+        assert is_parametrized(model, 'weight')
+        with functional_quantization_mode(state):
+            out = model(torch.randn(2, 4), 1)
+        assert out.shape == (2, 3)
+        state.cleanup()
+
     def test_prepare_with_example_kwargs(self):
         """prepare_functional_quantization accepts keyword example inputs."""
 

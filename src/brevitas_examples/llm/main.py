@@ -583,6 +583,9 @@ def quantize_llm(args, extra_args=None):
             quantizers_dict = custom_quantizer.override_quantizers_dict(quantizers_dict)
         functional_quant_map = _functional_quant_map(
             quantizers_dict, args.functional_quantization, args.quant_sdpa)
+        if custom_quantizer is not None:
+            functional_quant_map = custom_quantizer.override_functional_quant_map(
+                functional_quant_map, quantizers_dict)
         # Quantize the embedding only when first/last-layer quantization is requested.
         # The embedding uses the same weight quantizer as the linear layers.
         # A custom quantizer that branches on module name or type still applies.
