@@ -174,6 +174,43 @@ class TestSetMethod:
         assert type(qt2) is FloatQuantTensor
 
 
+class TestGetItem:
+
+    def test_integer_index_slices_aligned_metadata(self):
+        qt = IntQuantTensor(
+            torch.randn(2, 3, 4),
+            torch.ones(2, 3, 1),
+            torch.zeros(2, 3, 1),
+            torch.tensor(8.),
+            True,
+            False)
+        result = qt[1]
+        assert isinstance(result, IntQuantTensor)
+        assert result.shape == (3, 4)
+        assert result.scale.shape == (3, 1)
+        assert result.zero_point.shape == (3, 1)
+
+    def test_scalar_tensor_index(self):
+        qt = _make_int_qt(shape=(2, 4))
+        result = qt[torch.tensor(1)]
+        assert isinstance(result, IntQuantTensor)
+        assert result.shape == (4,)
+
+    def test_slice_retains_leading_dimension(self):
+        qt = _make_int_qt(shape=(4, 4))
+        result = qt[1:3]
+        assert isinstance(result, IntQuantTensor)
+        assert result.shape == (2, 4)
+
+    def test_groupwise_index_updates_shape_and_dimension(self):
+        qt = _make_mx_qt(shape=(2, 32))
+        result = qt[0]
+        assert isinstance(result, GroupwiseFloatQuantTensor)
+        assert result.shape == (32,)
+        assert result.dequant_shape == (32,)
+        assert result.group_dim == 0
+
+
 # ---------------------------------------------------------------------------
 # 4. In-place augmented assignment operators
 # ---------------------------------------------------------------------------
