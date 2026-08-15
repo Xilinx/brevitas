@@ -135,6 +135,22 @@ def test_functional_sdpa_map_does_not_require_linear_quantizers():
         torch.nn.functional.scaled_dot_product_attention: ('q', 'k', 'v')}
 
 
+def test_custom_quantizer_can_override_functional_map():
+    """Custom quantizers can specialize functional specs independently of layer maps."""
+    class FunctionalMapAdjuster(BaseQuantizer):
+
+        @classmethod
+        def override_functional_quant_map(cls, quant_map, quantizers_dict):
+            quant_map = dict(quant_map)
+            quant_map['custom'] = quantizers_dict['weight_quant']
+            return quant_map
+
+    weight_quant = object()
+    quant_map = FunctionalMapAdjuster.override_functional_quant_map(
+        {}, {'weight_quant': weight_quant})
+    assert quant_map == {'custom': weight_quant}
+
+
 def test_functional_weight_mode_does_not_require_input_quantization():
     """Weight-only functional quantization is valid without an input quantizer."""
     args = get_default_args(create_args_parser())
