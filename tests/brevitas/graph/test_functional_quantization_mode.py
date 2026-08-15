@@ -20,6 +20,7 @@ from brevitas.quant.experimental.mx_quant_ocp import MXInt8Weight
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
+from brevitas.quant_tensor import QuantTensor
 from tests.marker import requires_pt_ge
 
 
@@ -97,6 +98,17 @@ class MatmulWeightModel(nn.Module):
         return torch.matmul(x, self.weight)
 
 
+class StackedFunctionalWeightModel(nn.Module):
+    """Functional linear model selecting a view from a stacked parameter."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.weight = nn.Parameter(torch.randn(2, 3, 4))
+
+    def forward(self, x: Tensor, index: int) -> Tensor:
+        return F.linear(x, self.weight[index])
+
+
 class FunctionalConvTranspose1dModel(nn.Module):
     """Model that calls F.conv_transpose1d with a parameter weight."""
 
@@ -134,6 +146,40 @@ class CheckpointedTwoLinearModel(nn.Module):
 
 @requires_pt_ge('1.12')
 class TestFunctionalQuantizationMode:
+
+    def test_input_only_skips_parameter_derived_weight_view(self):
+        """A missing second spec does not quantize a parameter-derived view."""
+        model = StackedFunctionalWeightModel()
+        x = torch.randn(2, 4)
+        state = prepare_functional_quantization(
+            model, {F.linear: Int8ActPerTensorFloat}, example_inputs=(x, 0))
+        assert len(state.quantizers) == 1
+        assert not is_parametrized(model, 'weight')
+        with functional_quantization_mode(state):
+            out = model(x, 1)
+        assert out.shape == (2, 3)
+        state.cleanup()
+
+    def test_weight_spec_rejects_undeclared_parameter_view(self):
+        """Weight quantization of an arbitrary parameter view requires a descriptor."""
+        model = StackedFunctionalWeightModel()
+        quant_map = {F.linear: (None, None, Int8WeightPerTensorFloat)}
+        with pytest.raises(RuntimeError, match='requires a declared functional weight descriptor'):
+            prepare_functional_quantization(model, quant_map, example_inputs=(torch.randn(2, 4), 0))
+
+    def test_three_slot_linear_spec_ignores_bias(self):
+        """Runtime/parameter dispatch does not apply the weight spec to bias."""
+        model = SimpleLinearModel(4, 3)
+        quant_map = {
+            F.linear: (Int8ActPerTensorFloat, Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
+        x = torch.randn(2, 4)
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        assert is_parametrized(model.linear, 'weight')
+        assert not is_parametrized(model.linear, 'bias')
+        with functional_quantization_mode(state):
+            assert isinstance(model.linear.weight, QuantTensor)
+            model(x)
+        state.cleanup()
 
     def test_context_manager_basic(self):
         """Test that the context manager runs without error."""
