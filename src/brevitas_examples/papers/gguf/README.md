@@ -108,49 +108,72 @@ quantize_first_last_layer: true
 
 The tables below compare the in-process Brevitas PPL with the canonical `llama-perplexity` PPL for each
 exported GGUF file. Close agreement indicates that Brevitas emulation and GGUF export preserve the
-expected llama.cpp model behavior. The GGUF evaluation uses the WikiText2 test split with
-`-c 2048 -ngl 0`. This command processes all 141 chunks. Size values are reported in MB.
+expected llama.cpp model behavior.
+
+For the reported results, we generated the corpus from the same WikiText2 text stream used by
+[Brevitas evaluation](../../llm/llm_quant/eval.py). The join operation is defined in
+[`data.py`](../../llm/llm_quant/data.py). The following example reproduces the corpus file:
+
+```python
+from pathlib import Path
+
+from datasets import load_dataset
+
+raw_dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
+text = "\n\n".join(raw_dataset["text"])
+Path("wiki.test.raw").write_text(text + "\n", encoding="utf-8")
+```
+
+The joined dataset already ends with a newline. We added one extra newline because
+`llama-perplexity` removes exactly one trailing newline when it reads the file. After this removal,
+the llama.cpp input matches the text stream that Brevitas uses. We evaluated each GGUF file with:
+
+```bash
+llama-perplexity -m <model.gguf> -f wiki.test.raw -c 2048 -ngl 0
+```
+
+This command processes all 141 chunks. Size values are reported in MB.
 
 > [!NOTE]
-> Small PPL differences are expected because the evaluation harnesses are not identical. For example,
-> `llama-perplexity` replaces the first token in each `n`-token sequence with the BOS token. With
-> `bos_preprocessing: sequence`, Brevitas prepends the BOS token to an `(n-1)`-token sequence.
-> Other differences, such as different backend kernels and emulated versus real quantization, can also
-> affect PPL. The results remain close to the canonical evaluation. The largest measured gap is 0.56 PPL
-> for the 1B Q4_0 recipe.
+> Small PPL differences are expected because the evaluation harnesses are not identical. For
+> example, `llama-perplexity` replaces the first token in each `n`-token sequence with the BOS
+> token. With `bos_preprocessing: sequence`, Brevitas prepends the BOS token to an `(n-1)`-token
+> sequence. Other differences, such as backend kernels and emulated versus real quantization, can
+> also affect PPL. The results remain close to the canonical evaluation. The largest measured gap
+> is 0.98 PPL for the 1B Q2_K recipe.
 
 ### Llama-3.2-1B-Instruct
 
 | Recipe | Size (MB) | Brevitas PPL | llama.cpp PPL |
 |---|---:|---:|---:|
-| Q8_0 | 1321.1 | 11.81 | 11.90 |
-| Q6_K | 1021.8 | 11.82 | 11.88 |
-| Q5_K_M | 911.5 | 11.90 | 11.95 |
-| Q5_K | 892.6 | 11.99 | 12.08 |
-| Q4_1 | 831.7 | 13.15 | 13.29 |
-| Q4_K_M | 807.7 | 12.39 | 12.45 |
-| Q4_K_S | 775.6 | 12.59 | 12.69 |
-| Q4_0 | 773.0 | 13.81 | 14.37 |
-| Q4_K | 770.9 | 13.04 | 13.21 |
-| Q3_K_L | 732.5 | 13.34 | 13.40 |
-| Q3_K_M | 690.8 | 14.16 | 14.19 |
-| Q3_K_S | 641.7 | 18.22 | 18.68 |
-| Q2_K | 580.9 | 31.58 | 31.53 |
+| Q8_0 | 1321.1 | 11.81 | 11.81 |
+| Q6_K | 1021.8 | 11.82 | 11.82 |
+| Q5_K_M | 911.5 | 11.90 | 11.89 |
+| Q5_K | 892.6 | 11.99 | 12.01 |
+| Q4_1 | 831.7 | 13.15 | 13.14 |
+| Q4_K_M | 807.7 | 12.39 | 12.36 |
+| Q4_K_S | 775.6 | 12.59 | 12.60 |
+| Q4_0 | 773.0 | 13.81 | 13.77 |
+| Q4_K | 770.9 | 13.04 | 13.02 |
+| Q3_K_L | 732.5 | 13.34 | 13.36 |
+| Q3_K_M | 690.8 | 14.16 | 14.12 |
+| Q3_K_S | 641.7 | 18.22 | 18.10 |
+| Q2_K | 580.9 | 31.58 | 30.60 |
 
 ### Llama-3.2-3B-Instruct
 
 | Recipe | Size (MB) | Brevitas PPL | llama.cpp PPL |
 |---|---:|---:|---:|
-| Q8_0 | 3421.9 | 9.07 | 8.87 |
-| Q6_K | 2643.9 | 9.06 | 8.88 |
-| Q5_K_M | 2322.2 | 9.10 | 8.90 |
-| Q5_K | 2269.5 | 9.18 | 8.99 |
-| Q4_1 | 2093.4 | 9.36 | 9.25 |
-| Q4_K_M | 2019.4 | 9.24 | 9.08 |
-| Q4_K_S | 1928.2 | 9.37 | 9.22 |
-| Q4_0 | 1921.9 | 9.75 | 9.54 |
-| Q4_K | 1917.2 | 9.51 | 9.37 |
-| Q3_K_L | 1815.3 | 9.77 | 9.57 |
-| Q3_K_M | 1687.2 | 10.01 | 9.85 |
-| Q3_K_S | 1542.8 | 11.59 | 11.31 |
-| Q2_K | 1363.9 | 15.19 | 15.02 |
+| Q8_0 | 3421.9 | 9.07 | 9.05 |
+| Q6_K | 2643.9 | 9.06 | 9.03 |
+| Q5_K_M | 2322.2 | 9.10 | 9.06 |
+| Q5_K | 2269.5 | 9.18 | 9.14 |
+| Q4_1 | 2093.4 | 9.36 | 9.36 |
+| Q4_K_M | 2019.4 | 9.24 | 9.22 |
+| Q4_K_S | 1928.2 | 9.37 | 9.36 |
+| Q4_0 | 1921.9 | 9.75 | 9.70 |
+| Q4_K | 1917.2 | 9.51 | 9.48 |
+| Q3_K_L | 1815.3 | 9.77 | 9.69 |
+| Q3_K_M | 1687.2 | 10.01 | 9.95 |
+| Q3_K_S | 1542.8 | 11.59 | 11.44 |
+| Q2_K | 1363.9 | 15.19 | 15.04 |
