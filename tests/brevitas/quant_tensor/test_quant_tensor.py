@@ -77,9 +77,9 @@ def test_qt_structure():
         torch.randn(10), torch.randn(1), torch.tensor(0.), torch.tensor(8.), True, False)
     assert isinstance(qt, IntQuantTensor)
     assert isinstance(qt, QuantTensor)
-    assert isinstance(qt, tuple)
+    assert isinstance(qt, torch.Tensor)
     assert hasattr(qt, '_fields')
-    assert len(qt._fields) == 6
+    assert len(qt._fields) == 5
 
 
 def test_quant_tensor_init():
