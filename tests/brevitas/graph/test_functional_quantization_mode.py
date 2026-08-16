@@ -1392,6 +1392,33 @@ class TestFunctionalQuantizationMode:
                 model(x, run_second=True)
         state.remove_parametrizations()
 
+    def test_unprepared_disabled_call_site_passes_through(self):
+        """An unseen call whose resolver disables quantization is a no-op."""
+
+        class MaybeSecondLinear(nn.Module):
+
+            def __init__(self):
+                super().__init__()
+                self.linear1 = nn.Linear(4, 3)
+                self.linear2 = nn.Linear(3, 2)
+
+            def forward(self, x, run_second=False):
+                x = self.linear1(x)
+                if run_second:
+                    x = self.linear2(x)
+                return x
+
+        def resolver(module, name, index):
+            return Int8ActPerTensorFloat if name == 'linear1' else None
+
+        model = MaybeSecondLinear()
+        state = prepare_functional_quantization(
+            model, {F.linear: resolver}, example_inputs=(torch.randn(2, 4),))
+        with functional_quantization_mode(state):
+            out = model(torch.randn(2, 4), run_second=True)
+        assert out.shape == (2, 2)
+        state.cleanup()
+
     @requires_pt_ge('2.1')
     def test_gradient_checkpointing_without_context_fn_is_unsupported(self):
         """Without a context_fn, checkpointing is incompatible with the mode.

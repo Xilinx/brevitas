@@ -671,6 +671,27 @@ class functional_quantization_mode(_HookedMode):
             if self.remove_parametrizations_on_exit:
                 self.state.remove_parametrizations()
 
+    def _unprepared_call_is_passthrough(
+            self,
+            func: Callable,
+            module: nn.Module,
+            name: str,
+            index: int,
+            args: Tuple[Any, ...],
+            kwargs: Dict[str, Any]) -> bool:
+        """Return whether an unseen call has no functional quantization enabled."""
+        slots, _ = _logical_arguments(func, args, kwargs)
+        for arg_idx, value, _ in slots:
+            if not isinstance(value, Tensor) or isinstance(value, QuantTensor):
+                continue
+            runtime_spec = self._spec_for(func, arg_idx, False)
+            parameter_spec = self._spec_for(func, arg_idx, True)
+            runtime_quant, _ = _resolve_spec(runtime_spec, module, name, index)
+            parameter_quant, _ = _resolve_spec(parameter_spec, module, name, index)
+            if runtime_quant is not None or parameter_quant is not None:
+                return False
+        return True
+
     def __torch_function__(
             self, func: Callable, types: Tuple[Type, ...], args=(), kwargs=None) -> Any:
         """Route an intercepted call through its prepared argument quantizers."""
@@ -682,6 +703,8 @@ class functional_quantization_mode(_HookedMode):
         self.counters[name][func] += 1
         call = self.state.calls.get(_call_key(name, func, index))
         if call is None:
+            if self._unprepared_call_is_passthrough(func, self.module_stack[-1][1], name, index, args, kwargs):
+                return func(*args, **kwargs)
             raise RuntimeError(
                 'No prepared quantizer found for this functional call site; ensure example inputs exercise it.'
             )
