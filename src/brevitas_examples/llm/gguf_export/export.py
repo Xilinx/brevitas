@@ -50,6 +50,9 @@ def _enable_gguf_export_caching(model):
     for wq in _gguf_proxies(model):
         prior_settings[wq] = (
             wq.cache_inference_quant_weight, wq.cache_inference_quant_weight_metadata_only)
+        # NOTE: quant_inference_mode enables metadata-only weight caching by default.
+        # It does not clear this cache on exit; clear against to avoid stale metadata.
+        wq._cached_weight = None
         wq.cache_inference_quant_weight_metadata_only = True
         wq.cache_inference_quant_weight = True
     return prior_settings
