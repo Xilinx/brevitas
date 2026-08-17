@@ -43,7 +43,9 @@ from brevitas.core.restrict_val import QuantRestrictValue
 from brevitas.core.restrict_val import RoundSte
 from brevitas.core.stats.stats_wrapper import SCALAR_SHAPE
 from brevitas.core.zero_point import _ScaleShiftQuantZeroPoint
+from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.inject.enum import RestrictValueType
+from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.inject.enum import StatsOp
 from brevitas.quant.base import ExtendedInjector
@@ -84,8 +86,13 @@ class _GGUFBaseQuantMixin(ExtendedInjector):
     """Base GGUF quantizer mixin. Carries the defaults shared by every GGUF quantizer:
     the GGUF-aware proxy, per-group scaling, and full-range (non-narrow) integer codes."""
     proxy_class = GGUFGroupwiseWeightQuantProxyFromInjector
+    scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
     scaling_per_output_type = ScalingPerOutputType.GROUP
     narrow_range = False
+
+    @value
+    def scaling_min_val(module):
+        return torch.finfo(module.weight.dtype).tiny
 
 
 class GGUFQ8_0WeightQuant(_GGUFBaseQuantMixin, Int8WeightPerChannelFloat):
@@ -100,6 +107,7 @@ class GGUFQ4_1WeightQuant(_GGUFBaseQuantMixin, ShiftedUint8WeightPerChannelFloat
     gguf_qtype = gguf.GGMLQuantizationType.Q4_1
     group_size = QK
     bit_width = 4
+    zero_point_impl = ParameterFromStatsFromParameterZeroPoint
 
 
 class GGUFQ4_0WeightQuant(_GGUFBaseQuantMixin, Int8WeightPerChannelFloat):
@@ -192,6 +200,7 @@ class __GGUFBaseKQuantMixin(_GGUFBaseQuantMixin):
 class _GGUFShiftedBaseKQuantMixin(__GGUFBaseKQuantMixin, MSEAsymmetricScale):
     """Base quantizer for asymmetric K-quants with nested scale + zero-point (min)."""
     scale_shift_zero_point_impl = _GGUFCachedScaleShiftQuantZeroPoint
+    zero_point_impl = ParameterFromStatsFromParameterZeroPoint
     restrict_scale_positive = True
     # MSEAsymmetricScale sets scaling_stats_input_view_shape_impl = Identity; pin it explicitly
     zero_point_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_SUBCHANNEL_BLOCK
@@ -219,13 +228,18 @@ class __GGUFKQuantScaleZPMixin(ExtendedInjector):
     """Common base for every nested K-quant scale/zero-point sub-injector."""
     narrow_range = False  # scale/zp quantization is always full-range too
     rescaling_int_quant = RescalingIntQuant
+    scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
     scaling_per_output_type = ScalingPerOutputType.GROUP
     restrict_threshold_impl = FloatRestrictValue
     float_to_int_impl = RoundSte  # default rounding type
 
     @value
-    def tracked_parameter_list(upstream_shape):
-        return [torch.empty(upstream_shape)]
+    def tracked_parameter_list(upstream_shape, module):
+        return [torch.empty(upstream_shape, dtype=module.weight.dtype, device=module.weight.device)]
+
+    @value
+    def scaling_min_val(module):
+        return torch.finfo(module.weight.dtype).tiny
 
     @value
     def scaling_shape(
