@@ -29,8 +29,8 @@ from brevitas.utils.logging import setup_logger
 # Imported for its side effect: registers the GGUF custom quantizers (gguf_q4_0,
 # gguf_q4_k, ...) in QUANTIZERS_REGISTRY so they are selectable via --custom-quantizer.
 from . import custom_quantizers  # noqa: F401
-from .base_quantizers import GGUFGroupwiseWeightQuantProxyFromInjector
 from .convert import ModelBase
+from .proxy import GGUFGroupwiseWeightQuantProxyFromInjector
 from .targets import FTYPE_MAP
 from .targets import GGUF_EXPORT_TARGETS
 

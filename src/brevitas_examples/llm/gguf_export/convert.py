@@ -58,8 +58,7 @@ from brevitas.nn.quant_embedding import QuantEmbedding
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.utils.logging import setup_logger
 from brevitas.utils.python_utils import recurse_getattr
-from brevitas_examples.llm.gguf_export.base_quantizers import \
-    GGUFGroupwiseWeightQuantProxyFromInjector
+from brevitas_examples.llm.gguf_export.proxy import GGUFGroupwiseWeightQuantProxyFromInjector
 from brevitas_examples.llm.gguf_export.quant import ggml_quant
 
 BREVITAS_QUANT_MODULES = (QuantWBIOL, QuantEmbedding)

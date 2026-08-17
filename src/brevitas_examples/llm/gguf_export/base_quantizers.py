@@ -30,8 +30,6 @@ Each quantizer uses `GGUFGroupwiseWeightQuantProxyFromInjector` as its `proxy_cl
 and declares a `gguf_qtype` class attribute.
 """
 
-from functools import partial
-
 from dependencies import this
 from dependencies import value
 import gguf
@@ -45,12 +43,9 @@ from brevitas.core.restrict_val import QuantRestrictValue
 from brevitas.core.restrict_val import RoundSte
 from brevitas.core.stats.stats_wrapper import SCALAR_SHAPE
 from brevitas.core.zero_point import _ScaleShiftQuantZeroPoint
-from brevitas.export.inference.handler import GroupwiseIntWeightInferenceHandler
-from brevitas.export.inference.manager import InferenceManager
 from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.inject.enum import StatsOp
-from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantProxyFromInjector
 from brevitas.quant.base import ExtendedInjector
 from brevitas.quant.base import FloatRestrictValue
 from brevitas.quant.base import MSEAsymmetricScale
@@ -59,7 +54,7 @@ from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
-from brevitas.utils.quant_utils import _CachedIOGroupwiseInt
+from brevitas_examples.llm.gguf_export.proxy import GGUFGroupwiseWeightQuantProxyFromInjector
 
 # GGML block geometry: K-quant super-block spans QK_K elements; Q4_0/Q4_1/Q8_0 span QK.
 QK = 32
@@ -83,108 +78,6 @@ Q3_K_SUB_SCALE_BIT_WIDTH = 6
 Q2_K_GROUP_SIZE = 16
 Q2_K_SUB_SCALE_BIT_WIDTH = 4
 Q2_K_SUB_ZP_BIT_WIDTH = 4
-
-
-class _GGUFCachedScaleZPGroupwiseInt:
-
-    def __init__(self):
-        self._enabled = False
-        self.value = None
-        self.scale = None
-
-    @property
-    def enabled(self):
-        return self._enabled
-
-    @enabled.setter
-    def enabled(self, value):
-        if not value:
-            self.value = None
-            self.scale = None
-        self._enabled = value
-
-
-# TODO: temporary workaround to cache hierarchical quantizers for GGUF export; should revisit
-class _GGUFCachedIOGroupwiseInt(_CachedIOGroupwiseInt):
-
-    def __init__(self, quant_tensor, metadata_only, scaling_cache_impl, zero_point_cache_impl):
-        super().__init__(quant_tensor, metadata_only)
-        # NOTE: scale_cache_impl.value isn't populated, see _GGUFCachedQuantRestrictValue
-        self.scale_of_scale = scaling_cache_impl.scale
-        self.zero_point = zero_point_cache_impl.value
-        self.scale_of_zero_point = zero_point_cache_impl.scale
-
-
-class GGUFGroupwiseWeightQuantProxyFromInjector(GroupwiseWeightQuantProxyFromInjector):
-
-    def __init__(self, quant_layer, quant_injector) -> None:
-        scaling_cache_impl = _GGUFCachedScaleZPGroupwiseInt()
-        zero_point_cache_impl = _GGUFCachedScaleZPGroupwiseInt()
-
-        quant_injector = quant_injector.let(
-            gguf_scaling_cache=scaling_cache_impl, gguf_zero_point_cache=zero_point_cache_impl)
-        super().__init__(quant_layer, quant_injector)
-
-        self.scaling_cache_impl = scaling_cache_impl
-        self.zero_point_cache_impl = zero_point_cache_impl
-        self.cache_class = partial(
-            _GGUFCachedIOGroupwiseInt,
-            scaling_cache_impl=scaling_cache_impl,
-            zero_point_cache_impl=zero_point_cache_impl)
-
-    @property
-    def gguf_qtype(self):
-        return self.quant_injector.gguf_qtype
-
-    @property
-    def cache_inference_quant_weight(self):
-        return self._cache_inference_quant_weight
-
-    @cache_inference_quant_weight.setter
-    def cache_inference_quant_weight(self, enabled):
-        # Initialize the outer K-quant scale before caching.
-        # Other scaling implementations do not use `init_done`.
-        if enabled and not getattr(self.tensor_quant.scaling_impl, 'init_done', True):
-            raise RuntimeError(
-                "Cannot enable GGUF export caching before scale is initialized. "
-                "Run a cache-disabled forward pass first.")
-        GroupwiseWeightQuantProxyFromInjector.cache_inference_quant_weight.fset(self, enabled)
-        self.scaling_cache_impl.enabled = enabled
-        self.zero_point_cache_impl.enabled = enabled
-
-    @property
-    def scale(self):
-        # (possibly quantized) scale for each sub-group
-        return self.retrieve_attribute('scale_')
-
-    @property
-    def zero_point(self):
-        # (possibly quantized) zero-point for each sub-group; see Q5_KWeightQuant for example
-        # NOTE: for K-quants this no longer matches `quant_weight.zero_point_`; simple types are
-        # unaffected, since they fall through to the branch below.
-        zero_point = self.retrieve_attribute('zero_point')
-        if zero_point is not None:
-            return zero_point  # see `_GGUFCachedScaleShiftQuantZeroPoint`
-        # real-valued (possibly de-quantized) zero-point for each sub-group
-        return self.retrieve_attribute('zero_point_')
-
-    @property
-    def scale_of_scale(self):
-        # if the scale is quantized, this is its scale (one per super-group)
-        return self.retrieve_attribute('scale_of_scale')
-
-    @property
-    def scale_of_zero_point(self):
-        # if the zero-point is quantized, this is its scale (one per super-group)
-        return self.retrieve_attribute('scale_of_zero_point')
-
-
-class _GGUFGroupwiseIntWeightInferenceHandler(GroupwiseIntWeightInferenceHandler):
-    handled_layer = GGUFGroupwiseWeightQuantProxyFromInjector
-
-
-# TODO: temporary workaround to tag/export GGUF qtypes; should revist
-InferenceManager.handlers.append(_GGUFGroupwiseIntWeightInferenceHandler)
 
 
 class _GGUFBaseQuantMixin(ExtendedInjector):
