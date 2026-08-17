@@ -306,6 +306,7 @@ class ParameterFromStatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
             zero_point_stats_impl: Module,
             zero_point_shape: Tuple[int, ...],
             tracked_parameter_list: List[torch.nn.Parameter],
+            scale_shift_zero_point_impl: Optional[Module] = None,
             zero_point_affine_rescaling_init: Optional[float] = None,
             zero_point_affine_shifting_init: Optional[float] = None,
             dtype: Optional[torch.dtype] = None,
@@ -331,7 +332,13 @@ class ParameterFromStatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
                 device)
         else:
             self.affine_rescaling = Identity()
-        self.scale_shift_zero_point = _ScaleShiftZeroPoint(int_quant, quantize_zero_point)
+        # This is for backward compatibility; see StatsFromParameterZeroPoint for precedent.
+        # Having int_quant/quantize_zero_point required for this interface but not for the else
+        # seems a bit off and might require some clean-up.
+        if scale_shift_zero_point_impl is None:
+            self.scale_shift_zero_point = _ScaleShiftZeroPoint(int_quant, quantize_zero_point)
+        else:
+            self.scale_shift_zero_point = scale_shift_zero_point_impl
         self.init_done: bool = brevitas.jit.Attribute(False, bool)
         self.local_loss_mode: bool = brevitas.jit.Attribute(False, bool)
         self.value = Parameter(torch.full(zero_point_shape, 0.0, dtype=dtype, device=device))
