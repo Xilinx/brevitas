@@ -81,6 +81,8 @@ Q2_K_GROUP_SIZE = 16
 Q2_K_SUB_SCALE_BIT_WIDTH = 4
 Q2_K_SUB_ZP_BIT_WIDTH = 4
 
+GGUF_SCALING_MIN_VAL = 1e-10
+
 
 class _GGUFBaseQuantMixin(ExtendedInjector):
     """Base GGUF quantizer mixin. Carries the defaults shared by every GGUF quantizer:
@@ -88,11 +90,8 @@ class _GGUFBaseQuantMixin(ExtendedInjector):
     proxy_class = GGUFGroupwiseWeightQuantProxyFromInjector
     scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
     scaling_per_output_type = ScalingPerOutputType.GROUP
+    scaling_min_val = GGUF_SCALING_MIN_VAL
     narrow_range = False
-
-    @value
-    def scaling_min_val(module):
-        return torch.finfo(module.weight.dtype).tiny
 
 
 class GGUFQ8_0WeightQuant(_GGUFBaseQuantMixin, Int8WeightPerChannelFloat):
@@ -228,6 +227,7 @@ class __GGUFKQuantScaleZPMixin(ExtendedInjector):
     """Common base for every nested K-quant scale/zero-point sub-injector."""
     narrow_range = False  # scale/zp quantization is always full-range too
     rescaling_int_quant = RescalingIntQuant
+    scaling_min_val = GGUF_SCALING_MIN_VAL
     scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
     scaling_per_output_type = ScalingPerOutputType.GROUP
     restrict_threshold_impl = FloatRestrictValue
@@ -236,10 +236,6 @@ class __GGUFKQuantScaleZPMixin(ExtendedInjector):
     @value
     def tracked_parameter_list(upstream_shape, module):
         return [torch.empty(upstream_shape, dtype=module.weight.dtype, device=module.weight.device)]
-
-    @value
-    def scaling_min_val(module):
-        return torch.finfo(module.weight.dtype).tiny
 
     @value
     def scaling_shape(
