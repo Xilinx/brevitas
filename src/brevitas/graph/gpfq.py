@@ -65,7 +65,8 @@ class GPFQ(GPxQ):
 
         # Update reference to current layer
         current_layer.layer_names.add(self.name)
-        is_quant_enabled = module.weight_quant.is_quant_enabled
+        is_quant_enabled = not module.reference_pass if hasattr(module,
+                                                                 'reference_pass') else module.weight_quant.is_quant_enabled
 
         # NOTE: batch_size = seqlen for language models here
         inp_processed = self.process_input(input)  # [groups, in_features, batch_size]
@@ -90,6 +91,7 @@ class GPFQ(GPxQ):
             self.quant_input = None  # NOTE: set back to None now that we've used it
         else:
             # Compute the normalized H matrix
+            self.nsamples += batch_size
             if self.use_intermediate_buffer:
                 self.B.copy_(inp_processed.bmm(inp_processed.transpose(2, 1)))
                 self.H += self.B
@@ -244,7 +246,10 @@ class gpfq_mode(gpxq_mode):
             act_order: bool = False,
             algorithm_impl: GPFQ = GPFQ,
             device: str = 'cpu',
-            dtype: torch.dtype = torch.float32) -> None:
+            dtype: torch.dtype = torch.float32,
+            functional_state=None,
+            min_samples: int = 0,
+            insufficient_samples: str = 'rtn') -> None:
         if not inplace:
             model = deepcopy(model)
         super().__init__(
@@ -256,7 +261,10 @@ class gpfq_mode(gpxq_mode):
             act_order,
             return_forward_output,
             device,
-            dtype)
+            dtype,
+            functional_state,
+            min_samples,
+            insufficient_samples)
 
         self.algorithm_impl = algorithm_impl
 
@@ -270,17 +278,24 @@ class gpfq_mode(gpxq_mode):
         # Disable quantization
         # TODO: Ensure that removing is_training=False does not cause any regression and remove,
         # if that is the case
-        with quantization_status_manager(
-                self.model,
-                disable_act_quant=True,
-                disable_weight_quant=True,
-                disable_bias_quant=True,
-                is_training=False,
-        ):
-            try:
-                self.orig_forward(*args, **kwargs)
-            except StopFwdException:
-                pass
+        targets = self.functional_targets if self.functional_state is not None else ()
+        for target in targets:
+            target.reference_pass = True
+        try:
+            with quantization_status_manager(
+                    self.model,
+                    disable_act_quant=True,
+                    disable_weight_quant=True,
+                    disable_bias_quant=True,
+                    is_training=False,
+            ):
+                try:
+                    self.orig_forward(*args, **kwargs)
+                except StopFwdException:
+                    pass
+        finally:
+            for target in targets:
+                target.reference_pass = False
 
         if self.return_forward_output:
             # If we want to return the output of the network, we need to disable all hooks

@@ -52,7 +52,8 @@ class Qronos(GPFQ):
         inp_processed = inp_processed.to(self.dtype)
         batch_size = inp_processed.shape[-1]
 
-        is_quant_enabled = module.weight_quant.is_quant_enabled
+        is_quant_enabled = not module.reference_pass if hasattr(module,
+                                                                 'reference_pass') else module.weight_quant.is_quant_enabled
 
         # NOTE: in the gpfq_mode context manager (which we use for this), we first
         # collect quant inputs, then we collect float inputs for the same batch. We

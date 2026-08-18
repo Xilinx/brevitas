@@ -4,6 +4,7 @@
 from copy import deepcopy
 from typing import List
 from typing import Optional
+import warnings
 
 import torch
 import torch.nn as nn
@@ -127,8 +128,14 @@ class MagR(GPTQ):
         self.H = self.H.to(dev)
         for group_index in range(self.groups):
             # approximate maximum singular value (ie, matrix L2 norm)
-            eta = 1. / power_iteration(self.H[group_index], steps=self.power_steps)
-            alpha = self.alpha / (eta * torch.linalg.norm(self.H[group_index], ord=1))
+            singular_value = power_iteration(self.H[group_index], steps=self.power_steps)
+            matrix_norm = torch.linalg.norm(self.H[group_index], ord=1)
+            if singular_value <= 0 or matrix_norm <= 0:
+                warnings.warn(
+                    f'MagR will not be applied to layer {self.name}: empty covariance matrix.')
+                continue
+            eta = 1. / singular_value
+            alpha = self.alpha / (eta * matrix_norm)
             wk = weight[group_index].to(self.dtype)
             gk = weight_orig[group_index].to(self.dtype)  # ground
             for _ in tqdm(range(self.gradient_steps), leave=False):
@@ -181,7 +188,10 @@ class magr_mode(gpxq_mode):
             create_weight_orig: bool = True,
             return_forward_output: bool = False,
             device: str = 'cpu',
-            dtype: torch.dtype = torch.float32) -> None:
+            dtype: torch.dtype = torch.float32,
+            functional_state=None,
+            min_samples: int = 0,
+            insufficient_samples: str = 'rtn') -> None:
         if not inplace:
             model = deepcopy(model)
         super().__init__(
@@ -191,7 +201,10 @@ class magr_mode(gpxq_mode):
             create_weight_orig=create_weight_orig,
             return_forward_output=return_forward_output,
             device=device,
-            dtype=dtype)
+            dtype=dtype,
+            functional_state=functional_state,
+            min_samples=min_samples,
+            insufficient_samples=insufficient_samples)
         self.num_steps = num_steps
         self.alpha = alpha
 
@@ -199,10 +212,7 @@ class magr_mode(gpxq_mode):
         return isinstance(module, (nn.Linear, *SUPPORTED_CONV_OP))
 
     def update(self):
-        for name in tqdm(self.current_layer.layer_names, desc='Updating weights...', leave=True):
-            self.gpxq_layers[name].single_layer_update()
-            self.hook_dict[name].remove()
-        self.current_layer.layer_names.clear()
+        super().update()
 
     def catch_stopfwd(self, *args, **kwargs):
         self.orig_forward(*args, **kwargs)
