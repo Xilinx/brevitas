@@ -20,6 +20,9 @@ import unfoldNd
 
 from brevitas.fx import GraphModule
 from brevitas.graph.calibrate import quantization_status_manager
+from brevitas.graph.functional_quant import FunctionalLinearObservation
+from brevitas.graph.functional_quant import FunctionalLinearTarget
+from brevitas.graph.functional_quant import FunctionalQuantState
 from brevitas.graph.utils import get_batch_dim
 from brevitas.graph.utils import is_conv_transposed
 from brevitas.graph.utils import is_quant_module
@@ -78,7 +81,13 @@ class gpxq_mode(quantization_status_manager):
             act_order: bool = False,
             return_forward_output: bool = False,
             device: str = 'cpu',
-            dtype: torch.dtype = torch.float32) -> None:
+            dtype: torch.dtype = torch.float32,
+            functional_state: Optional[FunctionalQuantState] = None,
+            min_samples: int = 0,
+            insufficient_samples: str = 'rtn') -> None:
+        if functional_state is not None and not inplace:
+            raise ValueError(
+                'Functional GPxQ requires inplace=True because targets own model parameters.')
         if not inplace:
             model = deepcopy(model)
         # Note that if use_quant_activations = True, the super() context manager
@@ -105,6 +114,15 @@ class gpxq_mode(quantization_status_manager):
 
         self.group_of_parallel_layers = group_of_parallel_layers
         self.return_forward_output = return_forward_output
+        if insufficient_samples not in ('rtn', 'error', 'gpxq'):
+            raise ValueError("insufficient_samples must be 'rtn', 'error', or 'gpxq'.")
+        self.functional_state = functional_state
+        self.min_samples = min_samples
+        self.insufficient_samples = insufficient_samples
+        self.functional_targets = []
+        self.functional_observer_handle = None
+        self.active_functional_target = None
+        self.completed_functional_targets = set()
 
         self.orig_forward = self.model.forward
         if isinstance(self.model, (GraphModule, TorchGraphModule)):
@@ -135,6 +153,10 @@ class gpxq_mode(quantization_status_manager):
         dict_of_layers = {
             name: [(name, module)] for name,
             module in self.model.named_modules() if self._is_module_supported(module)}
+        if self.functional_state is not None:
+            self.functional_targets = self.functional_state.iter_linear_targets(self.model)
+            for target in self.functional_targets:
+                dict_of_layers[target.name] = [(target.name, target)]
         if self.group_of_parallel_layers is not None:
             for parallel_layers in self.group_of_parallel_layers:
                 for name in parallel_layers:
@@ -151,6 +173,14 @@ class gpxq_mode(quantization_status_manager):
         # network is highly disrupted during GPxQ
         for _, parallel_layers in dict_of_layers.items():
             for name, module in parallel_layers:
+                if isinstance(module, FunctionalLinearTarget):
+                    optimizer = self.initialize_module_optimizer(
+                        module,
+                        name,
+                        len_parallel_layers=len(parallel_layers),
+                        create_weight_orig=self.create_weight_orig)
+                    self.gpxq_layers[name] = optimizer
+                    continue
                 if len(module._forward_hooks) > 0 or len(module._forward_pre_hooks):
                     warnings.warn(
                         f'Hooks detected during setup for GPxQ. '
@@ -169,21 +199,78 @@ class gpxq_mode(quantization_status_manager):
                     self.gpxq_layers[name] = gpxq_module_optimizer
 
         self.num_layers = len(dict_of_layers)
+        if self.functional_targets:
+            self.functional_observer_handle = self.functional_state.register_linear_observer(
+                self._observe_functional_target)
+            # Ordinary module hooks stop calibration before later functional calls.
+            # Defer expert scheduling until those module targets are exhausted.
+            self._advance_functional_target()
         return self
 
     def __exit__(self, type, value, traceback):
         # Restore original quantization configuration
         super().__exit__(type, value, traceback)
+        if self.functional_observer_handle is not None:
+            self.functional_observer_handle.remove()
+        for handle in self.hook_dict.values():
+            handle.remove()
+        self.hook_dict.clear()
         if isinstance(self.model, (GraphModule, TorchGraphModule)):
             self.model.__class__.forward = self.orig_forward
         else:
             self.model.forward = self.orig_forward
 
     def update(self):
+        active_target = self.active_functional_target
+        if active_target is not None:
+            optimizer = self.gpxq_layers[active_target.name]
+            if optimizer.nsamples < self.min_samples or optimizer.nsamples == 0:
+                self._finish_functional_target(
+                    active_target, optimizer, 'insufficient calibration samples')
+            else:
+                optimizer.single_layer_update()
+                self._finish_functional_target(active_target, optimizer, None)
+            self.current_layer.layer_names.discard(active_target.name)
         for name in self.current_layer.layer_names:
             self.gpxq_layers[name].single_layer_update()
-            self.hook_dict[name].remove()
+            if name in self.hook_dict:
+                self.hook_dict[name].remove()
         self.current_layer.layer_names.clear()
+        self._advance_functional_target()
+
+    def _observe_functional_target(self, observation: FunctionalLinearObservation) -> None:
+        """Collect only the scheduled logical expert's routed activations."""
+        if observation.target is not self.active_functional_target:
+            return
+        optimizer = self.gpxq_layers[observation.target.name]
+        optimizer.update_batch(observation.target, (observation.input,), self.current_layer)
+
+    def _finish_functional_target(
+            self, target: FunctionalLinearTarget, optimizer: 'GPxQ', reason: Optional[str]) -> None:
+        """Release one target and retain ordinary proxy quantization on fallback."""
+        if reason is not None:
+            if self.insufficient_samples == 'error':
+                raise RuntimeError(
+                    f'Functional GPxQ target {target.name} has {optimizer.nsamples} samples.')
+            if self.insufficient_samples == 'gpxq':
+                optimizer.single_layer_update()
+            else:
+                warnings.warn(
+                    f'Functional GPxQ target {target.name} uses RTN fallback: {reason}.',
+                    UserWarning)
+                for buffer in ('H', 'G', 'B'):
+                    if hasattr(optimizer, buffer):
+                        delattr(optimizer, buffer)
+        self.completed_functional_targets.add(target.name)
+
+    def _advance_functional_target(self) -> None:
+        """Move the observer to the next functional target after each update cycle."""
+        if self.hook_dict:
+            return
+        self.active_functional_target = next((
+            target for target in self.functional_targets
+            if target.name not in self.completed_functional_targets),
+                                             None)
 
     @abstractmethod
     def catch_stopfwd(self, *args, **kwargs):
@@ -211,7 +298,8 @@ class GPxQ(ABC):
 
         weight_shape = torch.tensor(layer.weight.shape)
 
-        if create_weight_orig and not hasattr(self.layer, 'weight_orig'):
+        if create_weight_orig and not isinstance(
+                self.layer, FunctionalLinearTarget) and not hasattr(self.layer, 'weight_orig'):
             self.layer.register_buffer('weight_orig', layer.weight.detach().clone().cpu())
 
         # By default, use groups = 1
@@ -242,6 +330,11 @@ class GPxQ(ABC):
     def process_input(self, inp):
         # Input is a tuple, so we take first element
         inp = inp[0]
+        if isinstance(self.layer, FunctionalLinearTarget):
+            inp = _unpack_quant_tensor(inp)
+            if inp.dim() == 1:
+                inp = inp.unsqueeze(0)
+            return inp.reshape(-1, inp.shape[-1]).t().unsqueeze(0)
         if is_quant_module(self.layer):
             inp = self.layer.input_quant(inp)
             is_quant_enabled = self.layer.weight_quant.is_quant_enabled
@@ -311,6 +404,14 @@ class GPxQ(ABC):
         pass
 
     def get_quant_weights(self, i, i1, permutation_list, with_quant_history=False):
+
+        if isinstance(self.layer, FunctionalLinearTarget):
+            quant_weight = self.layer.quant_weight().unsqueeze(0)
+            i = i1 + i
+            if with_quant_history:
+                return quant_weight[:, :, permutation_list[0][:i]]
+            index = permutation_list[0][i]
+            return quant_weight[:, :, index:index + 1].squeeze(2)
 
         # If the weight quantizer has not been initialized, raise an error
         for m in self.layer.weight_quant.modules():

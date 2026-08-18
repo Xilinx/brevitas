@@ -239,7 +239,10 @@ class gptq_mode(gpxq_mode):
             act_order: bool = False,
             gptq_class: GPTQ = GPTQ,
             device: str = 'cpu',
-            dtype: torch.dtype = torch.float32) -> None:
+            dtype: torch.dtype = torch.float32,
+            functional_state=None,
+            min_samples: int = 0,
+            insufficient_samples: str = 'rtn') -> None:
         if not inplace:
             model = deepcopy(model)
         super().__init__(
@@ -251,7 +254,10 @@ class gptq_mode(gpxq_mode):
             act_order,
             return_forward_output,
             device,
-            dtype)
+            dtype,
+            functional_state,
+            min_samples,
+            insufficient_samples)
 
         # How many subblock to use during GPTQ for each layer
         self.num_blocks = num_blocks
