@@ -25,54 +25,6 @@ import torch
 
 GROUP_MAX_EPS = 1e-30
 
-
-def _make_qx_quants(x: np.ndarray, nmax: int) -> np.ndarray:
-    """Per-block symmetric scale search (ggml-quants.c:make_qx_quants, rmse_type=1).
-
-    For every block (the last axis of ``x``), return the scale ``s`` that minimizes
-    the weighted reconstruction error of ``x ~= s * round(x / s)`` with importance
-    weights ``w = x**2``. All-zero blocks get scale 0. Used for Q6_K sub-blocks.
-    """
-    # Anchor on the largest-magnitude element; its sign sets the scale sign.
-    amax_idx = np.abs(x).argmax(axis=-1, keepdims=True)
-    max_val = np.take_along_axis(x, amax_idx, axis=-1).squeeze(-1).astype(np.float32)
-    nonzero = np.abs(max_val) >= GROUP_MAX_EPS
-    safe_max = np.where(nonzero, max_val, np.float32(1.0))
-    w = (x * x).astype(np.float32)  # importance weights (rmse_type=1)
-
-    def _fit(iscale):
-        # Quantize x to fixed integer codes L with the trial inverse-scale, then
-        # solve for the continuous scale s that minimizes the weighted error
-        #   E(s) = sum_i w_i (x_i - s * L_i)^2.
-        # dE/ds = 0 gives the closed-form least-squares optimum s = sumlx / suml2,
-        # so the residual (x - s*L) is never formed explicitly. Return the two
-        # sufficient statistics; the resulting error reduction is sumlx^2 / suml2.
-        L = _gguf_quants.np_roundf(iscale[..., None] * x).clip(-nmax, nmax - 1).astype(np.float32)
-        sumlx = (w * x * L).sum(axis=-1)  # sum w * x * L
-        suml2 = (w * L * L).sum(axis=-1)  # sum w * L^2
-        return sumlx, suml2
-
-    # Step 1: initial guess maps the max-magnitude element to the range edge.
-    sumlx, suml2 = _fit(np.where(nonzero, -np.float32(nmax) / safe_max, np.float32(0.0)))
-    scale = np.where(suml2 != 0, sumlx / np.where(suml2 != 0, suml2, 1.0), np.float32(0.0))
-    best = scale * sumlx  # error reduction sumlx^2/suml2; maximizing it minimizes E
-
-    # Step 2: try a small grid; keep the one with the largest error reduction per block.
-    #  The test sumlx^2 > best*suml2 is that comparison cross-multiplied to avoid a division.
-    for is_val in range(-9, 10):
-        if is_val == 0:
-            continue
-        iscale = np.where(
-            nonzero, -(np.float32(nmax) + np.float32(0.1) * is_val) / safe_max, np.float32(0.0))
-        sumlx, suml2 = _fit(iscale)
-        better = (suml2 > 0) & (sumlx * sumlx > best * suml2)
-        new_scale = np.where(suml2 != 0, sumlx / np.where(suml2 != 0, suml2, 1.0), np.float32(0.0))
-        scale = np.where(better, new_scale, scale)
-        best = np.where(better, new_scale * sumlx, best)
-
-    return np.where(nonzero, scale, np.float32(0.0)).astype(np.float32)
-
-
 GGML_QUANT_BLOCK = {}
 
 
@@ -336,23 +288,6 @@ def q2_k_quant_block(
     return _q2_k_pack(q_scales, q_mins, output_d, output_dmin, codes)
 
 
-def _q6_k_quantize_scales(sub_scales: np.ndarray):
-    # Quantize the 16 per-sub-block scales to the Q6_K format: an fp16 super-block
-    # scale d plus 16 int8 codes, with the max-magnitude scale anchored at -128.
-    abs_scales = np.abs(sub_scales)
-    nonzero = abs_scales.max(axis=-1) >= GROUP_MAX_EPS
-    imax = abs_scales.argmax(axis=-1, keepdims=True)
-    max_scale = np.take_along_axis(sub_scales, imax, axis=-1).squeeze(-1)
-    safe_max_scale = np.where(max_scale != 0, max_scale, np.float32(1.0))
-    iscale = np.where(nonzero, np.float32(-128.0) / safe_max_scale, np.float32(0.0))
-    safe_iscale = np.where(iscale != 0, iscale, np.float32(1.0))
-    d = np.where(nonzero, np.float32(1.0) / safe_iscale, np.float32(0.0))
-    q_scales = np.clip(_gguf_quants.np_roundf(iscale[:, None] * sub_scales), -128,
-                       127).astype(np.int8)
-    q_scales = np.where(nonzero[:, None], q_scales, np.int8(0))
-    return d, q_scales, nonzero
-
-
 def _q6_k_pack(L: np.ndarray, q_scales: np.ndarray, d: np.ndarray, nonzero: np.ndarray):
     # Pack codes L (uint8, [0,63]) into ql (128B) and qh (64B), interleaving four
     # 32-elem groups per 128-elem half-block, then the int8 scales and fp16 d.
@@ -381,44 +316,18 @@ def _q6_k_pack(L: np.ndarray, q_scales: np.ndarray, d: np.ndarray, nonzero: np.n
 
 @register_block(gguf.GGMLQuantizationType.Q6_K)
 def q6_k_quant_block(blocks: np.array, scale=None, zp=None, d_scale=None):
-    # Adaptation of ggml-quants.c:quantize_row_q6_K_ref.
-    #   scale is None  -> blocks are raw floats; derive the 16 sub-block scales.
-    #   scale given,
-    #     d_scale None -> blocks are pre-quantized codes in [-32, 31] and scale holds
-    #                     the 16 per-sub-block float scales; quantize them here.
-    #     d_scale given -> use Brevitas' nested scale as-is: ``scale`` is the 16
-    #                      per-sub-block scales d_eff = q_scale * d_scale and
-    #                      ``d_scale`` the per-super-block fp16 factor, so the int8
-    #                      sub-scales are scale / d_scale. This keeps the written
-    #                      block bit-consistent with the calibrated quantization.
+    # Pack pre-quantized codes in [-32, 31] with the 16 sub-block scales and their fp16
+    # super-scale d_scale. Q6_K uses 8-bit signed sub-scales.
+    assert scale is not None and d_scale is not None
     nb = blocks.shape[0]
-    if scale is None:
-        sub = blocks.reshape(nb, QK_K // 16, 16).astype(np.float32)
-        # Step 1: per-sub-block symmetric scale (16 sub-blocks of 16).
-        sub_scales = _make_qx_quants(sub, nmax=32)
-        # Step 2: quantize the 16 scales to int8 + an fp16 super-block scale d.
-        d, q_scales, nonzero = _q6_k_quantize_scales(sub_scales)
-        # Step 3: recompute the 6-bit codes from the quantized scale d * q_scales
-        # (stored as L + 32 in [0, 63]), matching llama.cpp's two-pass quantization.
-        d_eff = d[:, None].astype(np.float32) * q_scales.astype(np.float32)
-        inv_d_eff = np.where(d_eff != 0, np.float32(1.0) / np.where(d_eff != 0, d_eff, 1.0), 0.0)
-        L = _gguf_quants.np_roundf(sub * inv_d_eff[:, :, None]).clip(-32, 31).astype(np.int32) + 32
-        L = np.where(nonzero[:, None, None], L, 0).astype(np.uint8).reshape(nb, QK_K)
-    elif d_scale is None:
-        sub_scales = scale.reshape(nb, QK_K // 16).astype(np.float32)
-        d, q_scales, nonzero = _q6_k_quantize_scales(sub_scales)
-        L = (blocks.astype(np.int32) + 32).clip(0, 63).astype(np.uint8).reshape(nb, QK_K)
-    else:
-        # Use the Brevitas-calibrated nested scale directly (no re-quantization).
-        sub_scales = scale.reshape(nb, QK_K // 16).astype(np.float32)
-        d = d_scale.reshape(nb).astype(np.float32)
-        nonzero = np.abs(sub_scales).max(axis=-1) >= GROUP_MAX_EPS
-        inv_d = np.where(d != 0, np.float32(1.0) / np.where(d != 0, d, 1.0), np.float32(0.0))
-        q_scales = np.clip(_gguf_quants.np_roundf(inv_d[:, None] * sub_scales), -128,
-                           127).astype(np.int8)
-        q_scales = np.where(nonzero[:, None], q_scales, np.int8(0))
-        L = (blocks.astype(np.int32) + 32).clip(0, 63).astype(np.uint8).reshape(nb, QK_K)
-
+    sub_scales = scale.reshape(nb, QK_K // 16).astype(np.float32)
+    d = d_scale.reshape(nb).astype(np.float32)
+    nonzero = np.abs(sub_scales).max(axis=-1) >= GROUP_MAX_EPS
+    inv_d = np.where(d != 0, np.float32(1.0) / np.where(d != 0, d, 1.0), np.float32(0.0))
+    q_scales = np.clip(_gguf_quants.np_roundf(inv_d[:, None] * sub_scales), -128,
+                       127).astype(np.int8)
+    q_scales = np.where(nonzero[:, None], q_scales, np.int8(0))
+    L = (blocks.astype(np.int32) + 32).clip(0, 63).astype(np.uint8).reshape(nb, QK_K)
     return _q6_k_pack(L, q_scales, d, nonzero)
 
 
@@ -476,11 +385,3 @@ def q3_k_quant_block(blocks: np.array, scale=None, zp=None, d_scale=None):
     d_for_pack = np.where(nonzero, d, np.float32(0.0))
     sc_biased = (q_scales.astype(np.int16) + np.int16(32)).astype(np.uint8)
     return _q3_k_pack(L, sc_biased, d_for_pack)
-
-
-# gguf ships only the K-family dequantizer, so route gguf.quants.quantize(data, Q6_K)
-# through our encoder; without this the convert.py pass-through path (the token_embd /
-# output bump, or any non-Brevitas-quantized override tensor) would regress Q6_K
-# targets back to a lower-precision fallback dtype.
-_gguf_quants.Q6_K.quantize_blocks = classmethod(
-    lambda cls, blocks: q6_k_quant_block(blocks, scale=None))

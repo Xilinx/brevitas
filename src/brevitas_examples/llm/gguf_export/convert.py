@@ -110,9 +110,9 @@ def _has_quantize_blocks(cls: _gguf_quants.__Quant) -> bool:
     return True
 
 
-# qtypes valid as override_qtype: everything gguf (or our monkey patches in quant.py) can
-# encode, plus pass-through qtypes. Derived from gguf's registry so natively supported quants
-# (e.g. Q5_0) are picked up automatically. ModelBase asserts override_qtype against this.
+# qtypes valid as override_qtype: everything gguf can encode, plus pass-through
+# qtypes. Derived from gguf's registry so natively supported quants (e.g. Q5_0)
+# are picked up automatically. ModelBase asserts override_qtype against this.
 SUPPORTED_OVERRIDE_QTYPES = tuple(
     qtype for qtype, cls in _gguf_quants._type_traits.items() if _has_quantize_blocks(cls))
 # appending F32 and F16 as valid override qtypes, they don't have (or need) a quantizer
@@ -189,7 +189,7 @@ class ModelBase:
             hparams: Optional[dict[str, Any]] = None,
             remote_hf_model_id: Optional[str] = None,
             override_model_tensors: tuple = GGUF_OVERRIDE_MODEL_TENSORS,
-            override_qtype: gguf.GGMLQuantizationType = gguf.GGMLQuantizationType.Q6_K):
+            override_qtype: Optional[gguf.GGMLQuantizationType] = None):
         if type(self) is ModelBase or \
                 type(self) is TextModel or \
                 type(self) is MmprojModel:
