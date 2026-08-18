@@ -45,7 +45,9 @@ def _custom_export(weight: np.ndarray, weight_quant, qtype) -> np.ndarray:
     out_features, in_features = weight.shape
     layer = qnn.QuantLinear(in_features, out_features, bias=False, weight_quant=weight_quant)
     layer.weight.data = torch.from_numpy(weight.copy())
+    layer.eval()
     # Initialize the scale/zero-point first. Caching before this step raises RuntimeError.
+    # The cache is written only in eval mode.
     layer.quant_weight()
     prior = _enable_gguf_export_caching(layer)
     try:
