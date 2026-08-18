@@ -483,10 +483,9 @@ def quantize_llm(args, extra_args=None):
             quantizer_name = parse_custom_quantizer(args.custom_quantizer)
             custom_quantizer = QUANTIZERS_REGISTRY.get(quantizer_name)
             quantizers_dict = custom_quantizer.override_quantizers_dict(quantizers_dict)
-        # The embedding (first layer) is quantized only when first/last-layer
-        # quantization is requested. Its weight quantizer is the same one used for
-        # the linear layers, so a custom quantizer that branches on the module
-        # name/type (e.g. embedding -> Q6_K) is honoured.
+        # Quantize the embedding only when first/last-layer quantization is requested.
+        # The embedding uses the same weight quantizer as the linear layers.
+        # A custom quantizer that branches on module name or type still applies.
         layer_map = generate_quant_maps(
             **quantizers_dict,
             dtype=dtype,
