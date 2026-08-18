@@ -270,7 +270,8 @@ def _custom_q6_k_export(weight: np.ndarray, weight_quant=None) -> np.ndarray:
     # off the QuantRestrictValue, mirroring convert.py's Q6_K branch.
     restrict = next(m for m in layer.weight_quant.modules() if isinstance(m, QuantRestrictValue))
     quant_scale, scale_scale, *_ = restrict.float_to_int_impl(scale)
-    block = ggml_quant(quant_data, Q6_K, quant_scale, zp, d_scale=scale_scale)
+    block = ggml_quant(
+        quant_data, Q6_K, scale=quant_scale, zero_point=zp, scale_of_scale=scale_scale)
     # ggml_quant squeezes singleton dims; normalize to (n_rows, type_size).
     _, type_size = GGML_QUANT_SIZES[Q6_K]
     return block.reshape(out_features, type_size)
@@ -385,11 +386,10 @@ def _custom_q5_k_export(weight: np.ndarray) -> np.ndarray:
     block = ggml_quant(
         quant_data,
         Q5_K,
-        quant_scale,
-        quant_zp,
-        wmin_m=quant_zp,
-        d_scale=scale_scale,
-        d_wmin_m=scale_zp)
+        scale=quant_scale,
+        zero_point=quant_zp,
+        scale_of_scale=scale_scale,
+        scale_of_zero_point=scale_zp)
     _, type_size = GGML_QUANT_SIZES[Q5_K]
     return block.reshape(out_features, type_size)
 
