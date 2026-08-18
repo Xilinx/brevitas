@@ -110,11 +110,6 @@ def _resolve_spec(element: Any, module: nn.Module, module_name: str,
     return resolved_quantizer, {**di_kwargs, **resolved_di_kwargs}
 
 
-def _call_key(module_name: str, func: Callable, index: int) -> Tuple[str, Callable, int]:
-    """Create the internal identity of a prepared functional call site."""
-    return module_name, func, index
-
-
 def _module_key(
         module_name: str,
         func: Callable,
@@ -547,7 +542,7 @@ class _FunctionalQuantBuilder(_HookedMode):
             kwargs: Dict[str, Any]) -> Any:
         """Record operand provenance and requirements without mutating the model."""
         slots, values = _logical_arguments(func, args, kwargs)
-        call_key = _call_key(name, func, index)
+        call_key = (name, func, index)
         discovered = self.discovered_calls.setdefault(call_key, {})
         call = self.state.calls.setdefault(call_key, _PreparedCall())
         for arg_idx, value, replace in slots:
@@ -701,7 +696,7 @@ class functional_quantization_mode(_HookedMode):
         name, _ = self.module_stack[-1]
         index = self.counters[name][func]
         self.counters[name][func] += 1
-        call = self.state.calls.get(_call_key(name, func, index))
+        call = self.state.calls.get((name, func, index))
         if call is None:
             if self._unprepared_call_is_passthrough(func, self.module_stack[-1][1], name, index, args, kwargs):
                 return func(*args, **kwargs)
