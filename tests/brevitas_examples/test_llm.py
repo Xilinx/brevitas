@@ -118,7 +118,7 @@ def test_functional_quant_map_modes(functional_mode, quant_sdpa, expected_functi
                                       quant_sdpa)
     assert set(quant_map) == expected_functions
     if functional_mode == 'input':
-        assert callable(quant_map[torch.nn.functional.linear])
+        assert quant_map[torch.nn.functional.linear] is input_quant
         assert quant_map[torch.matmul] is input_quant
     elif functional_mode == 'weight':
         assert quant_map[torch.matmul] == (None, None, weight_quant)

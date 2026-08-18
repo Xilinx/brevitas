@@ -28,7 +28,6 @@ from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.quantize import prepare_functional_quantization
 from brevitas.graph.utils import get_module
 from brevitas.graph.utils import remove_weight_orig
-import brevitas.nn as qnn
 from brevitas.utils.logging import setup_logger
 from brevitas.utils.python_utils import hooked_on_a_function
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
@@ -108,22 +107,14 @@ def _functional_quant_map(quantizers_dict, functional_quantization=None, quant_s
     input_quant = quantizers_dict.get('linear_input_quant')
     weight_quant = quantizers_dict.get('weight_quant')
 
-    def skip_quant_linear(module, module_name, call_index, quantizer):
-        """Avoid quantizing calls already owned by a Brevitas QuantLinear."""
-        return None if isinstance(module, qnn.QuantLinear) else quantizer
-
-    input_resolver = lambda module, name, index: skip_quant_linear(module, name, index, input_quant)
-    weight_resolver = lambda module, name, index: skip_quant_linear(
-        module, name, index, weight_quant)
-
     if functional_quantization == 'input':
-        linear_spec = input_resolver
+        linear_spec = input_quant
         matmul_spec = input_quant
     elif functional_quantization == 'weight':
-        linear_spec = (None, None, weight_resolver)
+        linear_spec = (None, None, weight_quant)
         matmul_spec = (None, None, weight_quant)
     elif functional_quantization == 'all':
-        linear_spec = (input_resolver, input_resolver, weight_resolver)
+        linear_spec = (input_quant, input_quant, weight_quant)
         matmul_spec = (input_quant, input_quant, weight_quant)
     else:
         linear_spec = matmul_spec = None
