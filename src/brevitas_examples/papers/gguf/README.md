@@ -1,7 +1,28 @@
 # GGUF
 
-Use Brevitas to calibrate and export quantized LLMs to [GGUF](https://github.com/ggml-org/ggml).
-Run the exported models with llama.cpp, Ollama, and compatible runtimes.
+This example shows how to use Brevitas to calibrate and export quantized LLMs to
+[GGUF](https://github.com/ggml-org/ggml). You can run the exported models with llama.cpp and
+other compatible runtimes.
+
+Calibration can improve model accuracy before export. Round-to-nearest (RTN) provides a simple
+baseline by rounding each weight to the nearest supported value on a fixed (possibly nested) grid.
+[Qronos](https://xilinx.github.io/brevitas/v0.13.0/papers/qronos.html) is a post-training
+quantization algorithm that goes further: it uses calibration data to correct quantization error
+as it quantizes the model.
+
+The table reports `llama-perplexity` results for GGUF models exported by Brevitas. Each RTN and
+Qronos row uses the same GGUF recipe and model size. The difference shows the effect of calibration.
+Lower PPL is better.
+
+| Recipe | Algorithm | 1B | 3B |
+|---|---|---:|---:|
+| Q2_K | RTN | 30.60 | 15.04 |
+| Q2_K | Qronos | 18.17 | 12.60 |
+
+The Qronos results above use the provided configurations for [Llama-3.2-1B-Instruct](llama3-1b-q2_k.yml)
+and [Llama-3.2-3B-Instruct](llama3-3b-q2_k.yml). Brevitas also provides a native evaluation harness.
+The sections below describe the available GGUF recipes and configuration options, then compare
+in-process PPL with `llama-perplexity` across the supported formats.
 
 ## Quick Start
 
