@@ -15,6 +15,7 @@ from brevitas.graph.quantize import functional_quantization_mode
 from brevitas.graph.quantize import prepare_functional_quantization
 from brevitas.graph.quantize import remove_functional_quantization
 from brevitas.nn import QuantIdentity
+from brevitas.nn import QuantLinear
 from brevitas.proxy.groupwise_int_runtime_quant import GroupwiseActQuantProxyFromInjector
 from brevitas.quant.experimental.mx_quant_ocp import MXInt8Act
 from brevitas.quant.experimental.mx_quant_ocp import MXInt8Weight
@@ -32,6 +33,22 @@ class SimpleLinearModel(nn.Module):
     def __init__(self, in_features: int, out_features: int) -> None:
         super().__init__()
         self.linear = nn.Linear(in_features, out_features)
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self.linear(x)
+
+
+class QuantLinearFunctionalModel(nn.Module):
+    """QuantLinear whose internal functional call already receives QuantTensors."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.linear = QuantLinear(
+            4,
+            3,
+            input_quant=Int8ActPerTensorFloat,
+            weight_quant=Int8WeightPerTensorFloat,
+            return_quant_tensor=True)
 
     def forward(self, x: Tensor) -> Tensor:
         return self.linear(x)
@@ -417,6 +434,19 @@ class TestFunctionalQuantizationMode:
             out = model(x)
         state.remove_parametrizations()
         assert out.shape == (2, 3)
+
+    def test_quant_linear_internal_call_is_functional_noop(self):
+        """Already quantized QuantLinear operands need no functional quantizer."""
+        model = QuantLinearFunctionalModel()
+        state = prepare_functional_quantization(
+            model,
+            {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)},
+            example_inputs=(torch.randn(2, 4),))
+        assert len(state.quantizers) == 0
+        with functional_quantization_mode(state):
+            out = model(torch.randn(2, 4))
+        assert out.shape == (2, 3)
+        state.cleanup()
 
     def test_hooks_removed_on_exit(self):
         """Test that all application hooks are removed when the context manager exits."""
