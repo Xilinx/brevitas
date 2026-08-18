@@ -281,6 +281,16 @@ def create_args_parser() -> ArgumentParser:
     parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
     parser.add_argument('--gpfq', action='store_true', help='Apply GPFQ.')
     parser.add_argument(
+        '--gpxq-min-samples',
+        type=int,
+        default=0,
+        help='Minimum samples required before a functional GPxQ target is optimized.')
+    parser.add_argument(
+        '--gpxq-insufficient-samples',
+        choices=('rtn', 'error', 'gpxq'),
+        default='rtn',
+        help='Policy for functional GPxQ targets below --gpxq-min-samples.')
+    parser.add_argument(
         '--gpxq-act-order', action='store_true', help='Apply GPxQ activation ordering.')
     parser.add_argument(
         '--gpxq-use-quant-activations',

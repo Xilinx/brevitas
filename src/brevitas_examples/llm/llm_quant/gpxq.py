@@ -30,11 +30,14 @@ def _gpxq_block_optimization_callback(block, gpxq, cached_args, cached_kwargs):
 
 
 def _magr_block_optimization_callback(block, magr, cached_args, cached_kwargs):
-    for args, kwargs in zip(cached_args, cached_kwargs):
-        args = send_to_device(args, 'cuda')
-        kwargs = send_to_device(kwargs, 'cuda')
-        block(*args, **kwargs)
-    magr.update()
+    while True:
+        for args, kwargs in zip(cached_args, cached_kwargs):
+            args = send_to_device(args, 'cuda')
+            kwargs = send_to_device(kwargs, 'cuda')
+            block(*args, **kwargs)
+        magr.update()
+        if magr.active_functional_target is None:
+            return
 
 
 @torch.no_grad()
@@ -119,16 +122,24 @@ def apply_gptq(
         max_accumulator_bit_width=None,
         max_accumulator_tile_size=None,
         buffer_device='cpu',
-        buffer_dtype=torch.float32):
+        buffer_dtype=torch.float32,
+        functional_state=None,
+        min_samples=0,
+        insufficient_samples='rtn'):
     context_manager_kwargs = {
         'act_order': act_order,
         'group_of_parallel_layers': group_of_parallel_layers,
         'create_weight_orig': create_weight_orig,
         'use_quant_activations': use_quant_activations,
         'device': buffer_device,
-        'dtype': buffer_dtype}
+        'dtype': buffer_dtype,
+        'functional_state': functional_state,
+        'min_samples': min_samples,
+        'insufficient_samples': insufficient_samples}
     context_manager_func = gptq_mode
     if max_accumulator_bit_width is not None:
+        if functional_state is not None:
+            raise RuntimeError('AXE GPxQ modes do not support functional targets.')
         context_manager_func = a2gptq_mode
         context_manager_kwargs.update(
             max_accumulator_bit_width=max_accumulator_bit_width,
@@ -155,7 +166,10 @@ def _dual_optimization_callback(
         max_accumulator_bit_width=None,
         max_accumulator_tile_size=None,
         device='cpu',
-        dtype=torch.float32):
+        dtype=torch.float32,
+        functional_state=None,
+        min_samples=0,
+        insufficient_samples='rtn'):
     """
     This wraps gpfq_mode, which can be used for any layerwise PTQ algorithm that
     optimizes the mismatched objective function || XW - \tilde{X}Q ||, where
@@ -170,9 +184,14 @@ def _dual_optimization_callback(
         'create_weight_orig': True,
         'algorithm_impl': algorithm_impl,
         'device': device,
-        'dtype': dtype}
+        'dtype': dtype,
+        'functional_state': functional_state,
+        'min_samples': min_samples,
+        'insufficient_samples': insufficient_samples}
     context_manager_func = gpfq_mode
     if max_accumulator_bit_width is not None:
+        if functional_state is not None:
+            raise RuntimeError('AXE GPxQ modes do not support functional targets.')
         context_manager_func = a2gpfq_mode
         context_manager_kwargs.update(
             max_accumulator_bit_width=max_accumulator_bit_width,
@@ -199,7 +218,10 @@ def apply_gpfq(
         max_accumulator_bit_width=None,
         max_accumulator_tile_size=None,
         buffer_device='cpu',
-        buffer_dtype=torch.float32):
+        buffer_dtype=torch.float32,
+        functional_state=None,
+        min_samples=0,
+        insufficient_samples='rtn'):
     # We use the dual optimization callback, which uses two forward passes to correct
     # quantization error in both the weights and activations from previous layers
     _dual_optimization_callback(
@@ -212,7 +234,10 @@ def apply_gpfq(
         max_accumulator_bit_width=max_accumulator_bit_width,
         max_accumulator_tile_size=max_accumulator_tile_size,
         device=buffer_device,
-        dtype=buffer_dtype)
+        dtype=buffer_dtype,
+        functional_state=functional_state,
+        min_samples=min_samples,
+        insufficient_samples=insufficient_samples)
 
 
 @torch.no_grad()
@@ -224,7 +249,10 @@ def apply_qronos(
         block_name=None,
         alpha=1e-6,
         buffer_device='cpu',
-        buffer_dtype=torch.float32):
+        buffer_dtype=torch.float32,
+        functional_state=None,
+        min_samples=0,
+        insufficient_samples='rtn'):
     assert alpha > 0, "Error: alpha needs to be strictly positive"
     # We use the dual optimization callback, which uses two forward passes to correct
     # quantization error in both the weights and activations from previous layers
@@ -236,7 +264,10 @@ def apply_qronos(
         group_of_parallel_layers=group_of_parallel_layers,
         algorithm_impl=partial(Qronos, alpha=alpha),
         device=buffer_device,
-        dtype=buffer_dtype)
+        dtype=buffer_dtype,
+        functional_state=functional_state,
+        min_samples=min_samples,
+        insufficient_samples=insufficient_samples)
 
 
 @torch.no_grad()
@@ -249,7 +280,10 @@ def apply_magr(
         alpha=0.01,
         num_steps=200,
         buffer_device='cpu',
-        buffer_dtype=torch.float32):
+        buffer_dtype=torch.float32,
+        functional_state=None,
+        min_samples=0,
+        insufficient_samples='rtn'):
     if block_name is not None:
         context_manager_kwargs = {
             'group_of_parallel_layers': group_of_parallel_layers,
@@ -257,7 +291,10 @@ def apply_magr(
             'alpha': alpha,
             'num_steps': num_steps,
             'device': buffer_device,
-            'dtype': buffer_dtype}
+            'dtype': buffer_dtype,
+            'functional_state': functional_state,
+            'min_samples': min_samples,
+            'insufficient_samples': insufficient_samples}
         block_optimization(
             model,
             dataloader,
@@ -270,10 +307,16 @@ def apply_magr(
                        group_of_parallel_layers=group_of_parallel_layers,
                        create_weight_orig=create_weight_orig,
                        num_steps=num_steps,
-                       alpha=alpha,
-                       device=buffer_device,
-                       dtype=buffer_dtype) as magr:
-            magr_model = magr.model
-            for inps in tqdm(dataloader, desc="Calculating covariances..."):
-                magr_model(**inps)
-            magr.update()
+                        alpha=alpha,
+                        device=buffer_device,
+                        dtype=buffer_dtype,
+                        functional_state=functional_state,
+                        min_samples=min_samples,
+                        insufficient_samples=insufficient_samples) as magr:
+            while True:
+                magr_model = magr.model
+                for inps in tqdm(dataloader, desc="Calculating covariances..."):
+                    magr_model(**inps)
+                magr.update()
+                if magr.active_functional_target is None:
+                    break

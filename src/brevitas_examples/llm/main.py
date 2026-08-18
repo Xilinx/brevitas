@@ -107,15 +107,27 @@ def _functional_quant_map(quantizers_dict, functional_quantization=None, quant_s
     input_quant = quantizers_dict.get('linear_input_quant')
     weight_quant = quantizers_dict.get('weight_quant')
 
+    def functional_weight(module, module_name, call_index):
+        """Select owner axes for standard stacked eager MoE expert projections."""
+        if hasattr(module, 'gate_up_proj') and hasattr(module, 'down_proj'):
+            return weight_quant, {'output_channel_dim': 1, 'group_dim': 2}
+        return weight_quant
+
+    def functional_matmul_weight(module, module_name, call_index):
+        """Select GPT-OSS [expert, input, output] owner axes."""
+        if hasattr(module, 'gate_up_proj') and getattr(module.gate_up_proj, 'dim', lambda: 0)() == 3:
+            return weight_quant, {'output_channel_dim': 2, 'group_dim': 1}
+        return weight_quant
+
     if functional_quantization == 'input':
         linear_spec = input_quant
         matmul_spec = input_quant
     elif functional_quantization == 'weight':
-        linear_spec = (None, None, weight_quant)
-        matmul_spec = (None, None, weight_quant)
+        linear_spec = (None, None, functional_weight)
+        matmul_spec = (None, None, functional_matmul_weight)
     elif functional_quantization == 'all':
-        linear_spec = (input_quant, input_quant, weight_quant)
-        matmul_spec = (input_quant, input_quant, weight_quant)
+        linear_spec = (input_quant, input_quant, functional_weight)
+        matmul_spec = (input_quant, input_quant, functional_matmul_weight)
     else:
         linear_spec = matmul_spec = None
 
@@ -449,7 +461,7 @@ def quantize_llm(args, extra_args=None):
         print("Act equalization applied.")
         remove_hooks(model)
 
-    if args.magr and not args.load_checkpoint:
+    if args.magr and not args.load_checkpoint and args.functional_quantization is None:
         print("Applying MagR...")
         model = offload_model(model)
         apply_magr(
@@ -704,7 +716,10 @@ def quantize_llm(args, extra_args=None):
                 block_name=args.gpxq_block_name,
                 buffer_device=args.gpxq_buffer_device,
                 max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
-                max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
+                max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size,
+                functional_state=fq_state,
+                min_samples=args.gpxq_min_samples,
+                insufficient_samples=args.gpxq_insufficient_samples)
             print("GPTQ applied.")
 
         if args.gpfq and not args.load_checkpoint:
@@ -716,7 +731,10 @@ def quantize_llm(args, extra_args=None):
                 block_name=args.gpxq_block_name,
                 buffer_device=args.gpxq_buffer_device,
                 max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
-                max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
+                max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size,
+                functional_state=fq_state,
+                min_samples=args.gpxq_min_samples,
+                insufficient_samples=args.gpxq_insufficient_samples)
             print("GPFQ applied.")
 
         if args.qronos and not args.load_checkpoint:
@@ -727,8 +745,24 @@ def quantize_llm(args, extra_args=None):
                 alpha=args.qronos_alpha,
                 act_order=args.gpxq_act_order,
                 block_name=args.gpxq_block_name,
-                buffer_device=args.gpxq_buffer_device)
+                buffer_device=args.gpxq_buffer_device,
+                functional_state=fq_state,
+                min_samples=args.gpxq_min_samples,
+                insufficient_samples=args.gpxq_insufficient_samples)
             print("Qronos applied.")
+
+        if args.magr and args.functional_quantization is not None and not args.load_checkpoint:
+            print("Applying MagR...")
+            apply_magr(
+                model,
+                calibration_loader,
+                create_weight_orig=not args.disable_create_weight_orig,
+                alpha=args.magr_alpha,
+                buffer_device=args.gpxq_buffer_device,
+                functional_state=fq_state,
+                min_samples=args.gpxq_min_samples,
+                insufficient_samples=args.gpxq_insufficient_samples)
+            print("MagR applied.")
 
         if args.bias_corr and not args.load_checkpoint:
             print("Applying bias correction...")
