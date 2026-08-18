@@ -332,9 +332,6 @@ class ParameterFromStatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
                 device)
         else:
             self.affine_rescaling = Identity()
-        # This is for backward compatibility; see StatsFromParameterZeroPoint for precedent.
-        # Having int_quant/quantize_zero_point required for this interface but not for the else
-        # seems a bit off and might require some clean-up.
         if scale_shift_zero_point_impl is None:
             self.scale_shift_zero_point = _ScaleShiftZeroPoint(int_quant, quantize_zero_point)
         else:
