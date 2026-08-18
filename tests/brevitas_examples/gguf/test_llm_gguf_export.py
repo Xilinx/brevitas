@@ -1,7 +1,6 @@
 # Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from gguf import GGML_QUANT_SIZES
 from gguf import QK_K
 import gguf.quants as gguf_quants
 import numpy as np
@@ -9,7 +8,6 @@ import pytest
 import pytest_cases
 
 from brevitas_examples.llm.gguf_export.convert import SUPPORTED_OVERRIDE_QTYPES
-from brevitas_examples.llm.gguf_export.quant import _q6_k_quantize_scales
 from brevitas_examples.llm.gguf_export.quant import q2_k_quant_block
 from brevitas_examples.llm.gguf_export.quant import q3_k_quant_block
 from brevitas_examples.llm.gguf_export.quant import q4_0_quant_block
@@ -147,62 +145,16 @@ def test_q6_k_pack():
     to exactly (d*q_scale)*code."""
     rng = np.random.default_rng(4)
     nb = 4
+    n_sub = QK_K // 16
     codes = rng.integers(-32, 32, size=(nb, QK_K)).astype(np.float32)  # signed [-32, 31]
-    scales = (np.abs(rng.standard_normal((nb, QK_K // 16))) + 0.05).astype(np.float32)
-    q = q6_k_quant_block(codes.copy(), scale=scales)
-    x_hat = gguf_quants.dequantize(q, Q6_K).reshape(nb, QK_K // 16, 16)
-    d, q_scales, _ = _q6_k_quantize_scales(scales)
-    eff = fp16(d)[:, None] * q_scales.astype(np.float32)  # effective per-sub-block scale
-    expected = eff[:, :, None] * codes.reshape(nb, QK_K // 16, 16)
+    scales = (np.abs(rng.standard_normal((nb, n_sub))) + 0.05).astype(np.float32)
+    d_scale = scales.max(1, keepdims=True) / 128
+    q = q6_k_quant_block(codes.copy(), scale=scales, d_scale=d_scale)
+    x_hat = gguf_quants.dequantize(q, Q6_K).reshape(nb, n_sub, 16)
+    q_scales = np.round(scales / d_scale).clip(-128, 127)
+    eff = fp16(d_scale)[:, :, None] * q_scales[:, :, None]
+    expected = eff * codes.reshape(nb, n_sub, 16)
     np.testing.assert_allclose(x_hat, expected, rtol=0, atol=0)
-
-
-@pytest.mark.llm
-class TestQ6KQuant:
-    """``q6_k_quant_block`` is the only encoder that also quantizes.
-
-    The other ``*_quant_block`` functions consume pre-quantized codes and
-    calibrated scales. ``q6_k_quant_block`` also quantizes raw floats when
-    ``scale is None`` (an adaptation of ``quantize_row_q6_K_ref``).
-
-    gguf 0.18.0 ships a Q6_K dequantizer but no quantizer. The export
-    module monkey-patches ``gguf.quants.Q6_K.quantize_blocks`` so that
-    ``gguf.quants.quantize(data, Q6_K)`` uses this encoder when custom
-    quantizers are not used. See PR #1532; should revisit now that we have
-    our custom quantizers.
-    """
-
-    encoder = staticmethod(q6_k_quant_block)
-    qtype = Q6_K
-
-    def test_dispatch(self):
-        """gguf.quants.quantize(data, Q6_K) routes through our patched encoder.
-
-        Without the patch the convert.py pass-through path would regress Q6_K
-        targets to F32."""
-        x = normal(5, 4)
-        via_gguf = gguf_quants.quantize(x, self.qtype)
-        type_size = GGML_QUANT_SIZES[self.qtype][1]
-        np.testing.assert_array_equal(via_gguf.reshape(-1, type_size), self.encoder(x))
-
-    def test_block_size(self):
-        """The encoder emits exactly the on-disk block size from GGML_QUANT_SIZES."""
-        _, type_size = GGML_QUANT_SIZES[self.qtype]
-        q = self.encoder(normal(0, 5))
-        assert q.dtype == np.uint8
-        assert q.shape == (5, type_size)
-
-    @pytest_cases.parametrize("x", list(MODEL_TENSORS.values()), ids=list(MODEL_TENSORS))
-    def test_quant_error(self, x):
-        """Quantize then decode; every element lands within one Q6_K step.
-
-        The 64 signed levels span [-amax, amax], so the step is roughly amax/2^5
-        and the round-to-nearest floor is s / 2; we bound by one extra full step (2x)
-        to account for the possible deviation induced from scale search or error from
-        scale quantization, which gives us s = amax / 32"""
-        x_hat = gguf_quants.dequantize(self.encoder(x), self.qtype)
-        amax = np.abs(x).max()
-        assert np.abs(x - x_hat).max() <= amax / 32
 
 
 # --- Override qtype round-trip through gguf.quants.quantize ---
@@ -213,8 +165,8 @@ class TestQ6KQuant:
     "qtype", list(SUPPORTED_OVERRIDE_QTYPES), ids=[t.name for t in SUPPORTED_OVERRIDE_QTYPES])
 def test_override_qtype_encodes(qtype):
     # Every override qtype must round-trip through gguf.quants.quantize -- via a native
-    # encoder (Q4_0/Q4_1/Q8_0), a float cast (F32/F16), or one of our monkey-patched
-    # K-quant encoders (Q4_K/Q6_K). Guards the registry ModelBase asserts against.
+    # encoder (Q4_0/Q4_1/Q8_0) or a float cast (F32/F16). Guards the registry
+    # ModelBase asserts against.
     x = normal(0, 8)
     x_hat = gguf_quants.dequantize(gguf_quants.quantize(x, qtype), qtype).reshape(x.shape)
     assert np.isfinite(x_hat).all()
