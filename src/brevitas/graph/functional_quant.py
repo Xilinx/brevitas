@@ -5,6 +5,7 @@ from collections import defaultdict
 import contextlib
 from dataclasses import dataclass
 from dataclasses import field
+from itertools import product
 from typing import Any
 from typing import Callable
 from typing import Dict
@@ -34,6 +35,7 @@ from brevitas.quant_tensor import QuantTensor
 
 __all__ = [
     'FunctionalQuantState',
+    'FunctionalLinearTarget',
     'functional_quantization_mode',
     'grouped_mm_functions',
     'prepare_functional_quantization',
@@ -205,17 +207,49 @@ class _WeightQuantHolder(nn.Module):
 
 class _QuantParametrization(nn.Module):
 
-    def __init__(self, state: 'FunctionalQuantState', proxy: nn.Module) -> None:
+    def __init__(
+            self,
+            state: 'FunctionalQuantState',
+            proxy: nn.Module,
+            owner_id: str) -> None:
         """Store the mode state and proxy that quantize a parameter on demand."""
         super().__init__()
         self._state = state
         self.proxy = proxy
+        self.owner_id = owner_id
 
     def forward(self, value: Tensor) -> Tensor:
         """Return the original parameter or its quantized proxy output."""
         if not self._state.enabled:
             return value
-        return self.proxy(value)
+        if getattr(self.proxy, 'disable_quant', False):
+            return _FunctionalReferenceTensor(value, self.owner_id)
+        quantized_value = self.proxy(value)
+        # QuantTensor preserves these optional attributes when expert indexing creates
+        # a new QuantTensor. They are consumed only by FunctionalQuantState.
+        if isinstance(quantized_value, QuantTensor):
+            quantized_value._functional_owner_id = self.owner_id
+            quantized_value._functional_view_indices = ()
+        return quantized_value
+
+
+class _FunctionalReferenceTensor(Tensor):
+    """Carry owner provenance through a disabled functional weight proxy."""
+
+    @staticmethod
+    def __new__(cls, value: Tensor, owner_id: str, indices: Tuple[int, ...] = ()):
+        return value.as_subclass(cls)
+
+    def __init__(self, value: Tensor, owner_id: str, indices: Tuple[int, ...] = ()):
+        self._functional_owner_id = owner_id
+        self._functional_view_indices = indices
+
+    def __getitem__(self, index):
+        if not isinstance(index, int):
+            raise TypeError('Functional reference parameters require integer indexing.')
+        return _FunctionalReferenceTensor(
+            self.as_subclass(Tensor)[index],
+            self._functional_owner_id, (*self._functional_view_indices, index))
 
 
 @dataclass
@@ -236,6 +270,8 @@ class _DiscoveredArgument:
     fallback_quant_class: Optional[Type] = None
     fallback_di_kwargs: Dict[str, Any] = field(default_factory=dict)
     example_device: Optional[torch.device] = None
+    view_indices: Tuple[int, ...] = ()
+    transpose_weight: bool = False
 
 
 @dataclass
@@ -244,6 +280,79 @@ class _OwnerPlan:
     di_kwargs: Dict[str, Any]
     quantizer_key: str
     error: Optional[str] = None
+
+
+@dataclass
+class _FunctionalWeightOwner:
+    owner: nn.Module
+    owner_name: str
+    parameter_name: str
+    proxy: nn.Module
+    parametrization: _QuantParametrization
+
+    @property
+    def id(self) -> str:
+        return f'{self.owner_name + ":" if self.owner_name else ""}{self.parameter_name}'
+
+    @property
+    def original_parameter(self) -> nn.Parameter:
+        return getattr(self.owner.parametrizations, self.parameter_name).original
+
+
+@dataclass
+class FunctionalLinearTarget:
+    """One canonical linear matrix view backed by a functional weight owner."""
+
+    owner_id: str
+    owner: _FunctionalWeightOwner
+    view_indices: Tuple[int, ...]
+    transpose_weight: bool
+    reference_weight: Optional[Tensor] = None
+    reference_pass: bool = False
+
+    @property
+    def name(self) -> str:
+        suffix = ''.join(f'[{index}]' for index in self.view_indices)
+        return f'{self.owner_id}{suffix}'
+
+    @property
+    def weight(self) -> Tensor:
+        weight = self.owner.original_parameter[self.view_indices]
+        return weight.t() if self.transpose_weight else weight
+
+    def quant_weight(self) -> Tensor:
+        weight = self.owner.proxy(self.owner.original_parameter)[self.view_indices]
+        value = weight.value if isinstance(weight, QuantTensor) else weight
+        return value.t() if self.transpose_weight else value
+
+    @property
+    def weight_quant(self) -> nn.Module:
+        """Expose the shared owner proxy through the GPxQ layer contract."""
+        return self.owner.proxy
+
+    @property
+    def weight_orig(self) -> Tensor:
+        """Preserve this target's floating matrix before its first update."""
+        if self.reference_weight is None:
+            self.reference_weight = self.weight.detach().clone().cpu()
+        return self.reference_weight
+
+    def writeback(self, value: Tensor) -> None:
+        native_value = value.t() if self.transpose_weight else value
+        with torch.no_grad():
+            self.owner.original_parameter[self.view_indices].copy_(native_value)
+
+
+@dataclass(frozen=True)
+class FunctionalLinearObservation:
+    """An intercepted functional linear operation resolved to a stable target."""
+
+    target: FunctionalLinearTarget
+    input: Tensor
+    function: Callable
+    module: nn.Module
+    module_name: str
+    call_index: int
 
 
 class FunctionalQuantState:
@@ -260,6 +369,9 @@ class FunctionalQuantState:
         self.specs = _parse_quant_map(quant_map)
         self.function_indices = {func: index for index, func in enumerate(self.specs)}
         self.calls: Dict[Tuple[str, Callable, int], _PreparedCall] = {}
+        self.owners: Dict[str, _FunctionalWeightOwner] = {}
+        self.linear_targets: Dict[Tuple[str, Tuple[int, ...]], FunctionalLinearTarget] = {}
+        self.linear_observers: List[Callable[[FunctionalLinearObservation], None]] = []
         self.registered_parametrizations: List[Tuple[nn.Module, str]] = []
         self.parametrizations_removed = False
         self.enabled = False
@@ -297,7 +409,41 @@ class FunctionalQuantState:
         if getattr(self.model, _STATE_NAME, None) is self:
             delattr(self.model, _STATE_NAME)
         self.calls.clear()
+        self.owners.clear()
+        self.linear_targets.clear()
+        self.linear_observers.clear()
         self._closed = True
+
+    def register_linear_observer(self, observer: Callable[[FunctionalLinearObservation], None]):
+        """Observe parameter-backed functional linear calls during an active mode."""
+        self.linear_observers.append(observer)
+
+        class _Handle:
+
+            def remove(handle_self) -> None:
+                if observer in self.linear_observers:
+                    self.linear_observers.remove(observer)
+
+        return _Handle()
+
+    def iter_linear_targets(self,
+                            module_scope: Optional[nn.Module] = None
+                           ) -> List[FunctionalLinearTarget]:
+        """Return prepared functional linear targets, optionally restricted to a subtree."""
+        if module_scope is None:
+            return list(self.linear_targets.values())
+        modules = set(module_scope.modules())
+        return [target for target in self.linear_targets.values() if target.owner.owner in modules]
+
+    def _target_from_weight(self, value: Any) -> Optional[FunctionalLinearTarget]:
+        """Resolve a QuantTensor expert view to its prepared logical target."""
+        if not isinstance(value, Tensor):
+            return None
+        owner_id = getattr(value, '_functional_owner_id', None)
+        indices = getattr(value, '_functional_view_indices', None)
+        if owner_id is None or not isinstance(indices, tuple):
+            return None
+        return self.linear_targets.get((owner_id, indices))
 
     def _assert_open(self) -> None:
         """Raise if this state was already cleaned up."""
@@ -346,6 +492,31 @@ class _HookedMode(TorchFunctionMode):
             self.module_stack.append((name, module))
 
         return hook
+
+    def _notify_linear_observers(
+            self,
+            name: str,
+            module: nn.Module,
+            func: Callable,
+            index: int,
+            args: Tuple[Any, ...],
+            kwargs: Dict[str, Any]) -> None:
+        """Report supported parameter-backed linear calls without using call order as identity."""
+        if not self.state.linear_observers or func not in (torch.nn.functional.linear,
+                                                           torch.matmul,
+                                                           torch.Tensor.matmul,
+                                                           torch.Tensor.__matmul__):
+            return
+        slots, _ = _logical_arguments(func, args, kwargs)
+        values = {arg_idx: value for arg_idx, value, _ in slots}
+        if not isinstance(values.get(0), Tensor):
+            return
+        target = self.state._target_from_weight(values.get(1))
+        if target is None:
+            return
+        observation = FunctionalLinearObservation(target, values[0], func, module, name, index)
+        for observer in tuple(self.state.linear_observers):
+            observer(observation)
 
     def _post_hook(self, name: str) -> Callable:
         """Create an always-call hook that removes a completed module entry."""
@@ -477,6 +648,36 @@ class _FunctionalQuantBuilder(_HookedMode):
         self.owner_plans: Dict[Tuple[nn.Module, str], _OwnerPlan] = {}
         self.parameter_owners: Dict[int, Tuple[nn.Module, str]] = {}
         self.aliased_parameters = set()
+        self.module_names: Dict[int, str] = {}
+
+    def _build_parameter_owners(self) -> None:
+        """Map parameters to owners and retain stable module names for target IDs."""
+        super()._build_parameter_owners()
+        self.module_names = {id(module): name for name, module in self.model.named_modules()}
+
+    @staticmethod
+    def _view_indices(owner: Tuple[nn.Module, str], value: Tensor,
+                      is_direct_parameter: bool) -> Optional[Tuple[int, ...]]:
+        """Resolve direct or leading-index parameter views to stable owner indices."""
+        if is_direct_parameter:
+            return ()
+        owner_value = getattr(owner[0], owner[1])
+        rank_delta = owner_value.dim() - value.dim()
+        if rank_delta <= 0 or tuple(value.shape) != tuple(owner_value.shape[rank_delta:]) or tuple(
+                value.stride()) != tuple(owner_value.stride()[rank_delta:]):
+            return None
+        offset = value.storage_offset() - owner_value.storage_offset()
+        indices = []
+        for axis in range(rank_delta):
+            stride = owner_value.stride()[axis]
+            if stride == 0 or offset % stride:
+                return None
+            index = offset // stride
+            if not 0 <= index < owner_value.shape[axis]:
+                return None
+            indices.append(index)
+            offset -= index * stride
+        return tuple(indices) if offset == 0 else None
 
     def _owner_quant_kwargs(
             self,
@@ -551,6 +752,16 @@ class _FunctionalQuantBuilder(_HookedMode):
         if owner is None:
             return _DiscoveredArgument(quant_class, di_kwargs)
 
+        view_indices = self._view_indices(owner, value, is_direct_parameter)
+        if view_indices is None:
+            return _DiscoveredArgument(
+                quant_class,
+                di_kwargs,
+                owner,
+                fallback_quant_class=None,
+                fallback_di_kwargs={},
+                example_device=value.device)
+
         fallback_spec = self._fallback_spec_for(func, arg_idx)
         fallback_quant_class, fallback_di_kwargs = _resolve_spec(fallback_spec, module, name, index)
         owner_di_kwargs, error = self._owner_quant_kwargs(
@@ -581,7 +792,9 @@ class _FunctionalQuantBuilder(_HookedMode):
             owner,
             fallback_quant_class,
             fallback_di_kwargs,
-            value.device)
+            value.device,
+            view_indices,
+            func in (torch.matmul, torch.Tensor.matmul, torch.Tensor.__matmul__))
 
     def _discover_call(
             self,
@@ -626,9 +839,49 @@ class _FunctionalQuantBuilder(_HookedMode):
             parameter = getattr(owner_module, owner_name)
             proxy = self._create_weight(plan.quant_class, plan.di_kwargs, parameter)
             self._add_quantizer(plan.quantizer_key, proxy)
+            owner_name_qualified = self.module_names[id(owner_module)]
+            owner_id = f'{owner_name_qualified + ":" if owner_name_qualified else ""}{owner_name}'
             register_parametrization(
-                owner_module, owner_name, _QuantParametrization(self.state, proxy))
+                owner_module,
+                owner_name,
+                _QuantParametrization(self.state, proxy, owner_id))
             self.state.registered_parametrizations.append(owner)
+            owner_record = _FunctionalWeightOwner(
+                owner_module,
+                owner_name_qualified,
+                owner_name,
+                proxy,
+                getattr(owner_module.parametrizations, owner_name)[-1])
+            self.state.owners[owner_id] = owner_record
+
+            # A direct matrix has one target. For a stack, preparation may observe
+            # only some routes, so enumerate all leading-index expert matrices.
+            original = owner_record.original_parameter
+            direct_transpose_weight = False
+            for call_key, argument_map in self.discovered_calls.items():
+                for argument in argument_map.values():
+                    # Functional quantization supports bmm inference, but its
+                    # gathered/batched parameter semantics are not yet a GPxQ
+                    # logical matrix target.
+                    if argument.parameter_owner == owner and call_key[1] is torch.bmm:
+                        continue
+                    if argument.parameter_owner != owner or not argument.view_indices:
+                        if argument.parameter_owner == owner and argument.view_indices == ():
+                            direct_transpose_weight = argument.transpose_weight
+                        continue
+                    leading_dims = original.shape[:-2]
+                    for indices in product(*(range(size) for size in leading_dims)):
+                        key = (owner_id, tuple(indices))
+                        existing = self.state.linear_targets.get(key)
+                        if existing is not None and existing.transpose_weight != argument.transpose_weight:
+                            raise RuntimeError(
+                                f"Functional parameter '{owner_id}' is used with incompatible linear layouts."
+                            )
+                        self.state.linear_targets[key] = FunctionalLinearTarget(
+                            owner_id, owner_record, tuple(indices), argument.transpose_weight)
+            if original.dim() == 2:
+                self.state.linear_targets[(owner_id, ())] = FunctionalLinearTarget(
+                    owner_id, owner_record, (), direct_transpose_weight)
 
         for call_key, arguments in self.discovered_calls.items():
             name, func, index = call_key
@@ -680,6 +933,7 @@ class _FunctionalQuantBuilder(_HookedMode):
         name, module = self.module_stack[-1]
         index = self.counters[name][canonical_func]
         self.counters[name][canonical_func] += 1
+        self._notify_linear_observers(name, module, canonical_func, index, args, kwargs)
         return self._discover_call(name, module, canonical_func, func, index, args, kwargs)
 
 
@@ -749,9 +1003,10 @@ class functional_quantization_mode(_HookedMode):
         canonical_func = _canonical_function(func)
         if not self.enabled or not self.state.enabled or canonical_func not in self.state.specs or not self.module_stack:
             return func(*args, **kwargs)
-        name, _ = self.module_stack[-1]
+        name, module = self.module_stack[-1]
         index = self.counters[name][canonical_func]
         self.counters[name][canonical_func] += 1
+        self._notify_linear_observers(name, module, canonical_func, index, args, kwargs)
         call = self.state.calls.get((name, canonical_func, index))
         if call is None:
             if self._unprepared_call_is_passthrough(canonical_func,

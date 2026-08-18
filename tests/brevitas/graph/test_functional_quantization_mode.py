@@ -366,6 +366,45 @@ class TestFunctionalQuantizationMode:
             output = model(
                 torch.randn(4, 256, dtype=torch.bfloat16), torch.tensor([2, 4], dtype=torch.int32))
         assert output.dtype == torch.bfloat16
+
+    def test_stacked_weight_exposes_all_expert_targets(self):
+        """One observed expert prepares stable targets for the full stacked owner."""
+        model = StackedFunctionalWeightModel()
+        weight_spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 1, 'group_dim': 2})
+        state = prepare_functional_quantization(
+            model, {F.linear: (None, None, weight_spec)}, example_inputs=(torch.randn(2, 4), 0))
+        targets = state.iter_linear_targets()
+        assert [target.name for target in targets] == ['weight[0]', 'weight[1]']
+        assert all(target.weight.shape == (3, 4) for target in targets)
+        state.cleanup()
+
+    def test_matmul_target_uses_canonical_linear_orientation(self):
+        """GPT-OSS-style [expert, input, output] targets expose [output, input]."""
+        model = TransposedStackedFunctionalWeightModel()
+        weight_spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 2, 'group_dim': 1})
+        spec = (None, None, weight_spec)
+        state = prepare_functional_quantization(
+            model, {
+                torch.matmul: spec, torch.Tensor.matmul: spec, torch.Tensor.__matmul__: spec},
+            example_inputs=(torch.randn(2, 4), 0))
+        targets = state.iter_linear_targets()
+        assert [target.weight.shape for target in targets] == [(3, 4), (3, 4)]
+        state.cleanup()
+
+    def test_linear_observer_resolves_dynamic_expert_view(self):
+        """Observer identity follows the indexed owner view, not the call ordinal."""
+        model = StackedFunctionalWeightModel()
+        weight_spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 1, 'group_dim': 2})
+        state = prepare_functional_quantization(
+            model, {F.linear: (None, None, weight_spec)}, example_inputs=(torch.randn(2, 4), 0))
+        observed = []
+        handle = state.register_linear_observer(
+            lambda observation: observed.append(observation.target.name))
+        with functional_quantization_mode(state):
+            model(torch.randn(2, 4), 1)
+            model(torch.randn(2, 4), 0)
+        handle.remove()
+        assert observed == ['weight[1]', 'weight[0]']
         state.cleanup()
 
     def test_unsupported_weight_view_warns_and_uses_activation_fallback(self):
