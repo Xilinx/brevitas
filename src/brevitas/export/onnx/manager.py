@@ -35,6 +35,7 @@ from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.logging import setup_logger
 
 from ..manager import _override_act_caching_mode
+from ..manager import _override_cache_class
 from ..manager import _restore_act_caching_mode
 from ..manager import BaseManager
 from ..manager import ExportContext
@@ -229,10 +230,20 @@ class ONNXDynamoExportMixin:
 
     @classmethod
     def set_export_mode(cls, model: Module, enabled: bool):
-        # NOTE: this QuantTensor-disabling logic is not ONNX-specific and could move to a generic
-        # (backend-agnostic) DynamoExportMixin; deferred to avoid an import cycle (it needs
-        # QuantizationStatusManager and _override_create_quant_tensor).
-        super().set_export_mode(model=model, enabled=enabled)
+        if enabled:
+            model.apply(lambda module: _override_cache_class(module, enabled=True))
+        try:
+            # NOTE: this QuantTensor-disabling logic is not ONNX-specific and could move to a generic
+            # (backend-agnostic) DynamoExportMixin; deferred to avoid an import cycle (it needs
+            # QuantizationStatusManager and _override_create_quant_tensor).
+            super().set_export_mode(model=model, enabled=enabled)
+        except Exception:
+            if enabled:
+                model.apply(lambda module: _override_cache_class(module, enabled=False))
+            raise
+        finally:
+            if not enabled:
+                model.apply(lambda module: _override_cache_class(module, enabled=False))
         # torch.export cannot trace QuantTensor objects, so we disable their creation
         # during export and restore the original behaviour afterwards.
         if enabled:
