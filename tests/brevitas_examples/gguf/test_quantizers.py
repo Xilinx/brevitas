@@ -93,7 +93,7 @@ class _CustomQuantTests:
         assert block.shape == (x.shape[0], _packed_row_size(x.shape[1], self.qtype))
 
     @pytest_cases.parametrize("x", list(MODEL_TENSORS.values()), ids=list(MODEL_TENSORS))
-    def test_export_is_bit_consistent_with_calibration(self, x):
+    def test_export_is_consistent_with_calibration(self, x):
         """Decoding the exported block reproduces Brevitas reconstruction, up to
         the fp16 rounding of the super-block d / dmin factors stored on disk."""
         layer = qnn.QuantLinear(x.shape[1], x.shape[0], bias=False, weight_quant=self.weight_quant)
