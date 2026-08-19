@@ -425,14 +425,12 @@ class gptq_mode(gpxq_mode):
             dtype,
             functional_state,
             min_samples,
-            insufficient_samples)
+            insufficient_samples,
+            expert_batch_size)
 
         # How many subblock to use during GPTQ for each layer
         self.num_blocks = num_blocks
         self.gptq_class = gptq_class
-        if expert_batch_size < 1:
-            raise ValueError('expert_batch_size must be positive.')
-        self.expert_batch_size = expert_batch_size
 
     def _update_functional_targets(self, targets, progress) -> int:
         if self.expert_batch_size == 1:

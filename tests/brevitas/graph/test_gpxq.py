@@ -195,6 +195,30 @@ def test_functional_gptq_expert_batch_matches_scalar(act_order):
     torch.testing.assert_close(results[0], results[1], atol=1e-5, rtol=1e-5)
 
 
+@torch.no_grad()
+def test_functional_magr_expert_batch_matches_scalar():
+    torch.manual_seed(2)
+    base_model = _FunctionalRoutedExperts().eval()
+    x = torch.randn(16, 4)
+    offsets = torch.tensor([4, 8, 12, 16])
+    quant_map = {torch.nn.functional.linear: (None, None, _functional_weight_spec(1, 2))}
+    results = []
+    for batch_size in (1, 2):
+        model = deepcopy(base_model)
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x, offsets))
+        with functional_quantization_mode(state):
+            with magr_mode(model,
+                           functional_state=state,
+                           min_samples=1,
+                           num_steps=2,
+                           expert_batch_size=batch_size) as mode:
+                mode.model(x, offsets)
+                mode.update()
+        results.append(model.parametrizations.weight.original.detach().clone())
+        state.cleanup()
+    torch.testing.assert_close(results[0], results[1], atol=1e-5, rtol=1e-5)
+
+
 def test_functional_gptq_expert_batch_size_must_be_positive():
     with pytest.raises(ValueError, match='expert_batch_size must be positive'):
         gptq_mode(nn.Linear(4, 3), expert_batch_size=0)

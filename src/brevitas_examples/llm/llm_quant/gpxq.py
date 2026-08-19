@@ -291,7 +291,8 @@ def apply_magr(
         buffer_dtype=torch.float32,
         functional_state=None,
         min_samples=0,
-        insufficient_samples='rtn'):
+        insufficient_samples='rtn',
+        expert_batch_size=1):
     if block_name is not None:
         context_manager_kwargs = {
             'group_of_parallel_layers': group_of_parallel_layers,
@@ -302,7 +303,8 @@ def apply_magr(
             'dtype': buffer_dtype,
             'functional_state': functional_state,
             'min_samples': min_samples,
-            'insufficient_samples': insufficient_samples}
+            'insufficient_samples': insufficient_samples,
+            'expert_batch_size': expert_batch_size}
         block_optimization(
             model,
             dataloader,
@@ -320,7 +322,8 @@ def apply_magr(
                        dtype=buffer_dtype,
                        functional_state=functional_state,
                        min_samples=min_samples,
-                       insufficient_samples=insufficient_samples) as magr:
+                       insufficient_samples=insufficient_samples,
+                       expert_batch_size=expert_batch_size) as magr:
             while True:
                 magr_model = magr.model
                 for inps in tqdm(dataloader, desc="Calculating covariances..."):

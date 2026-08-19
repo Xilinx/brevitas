@@ -148,6 +148,73 @@ class MagR(GPTQ):
         if hasattr(self.layer, 'offload_params'):
             self.layer.offload_params(self.layer)
 
+    @staticmethod
+    def batched_layer_update(optimizers):
+        """Apply MagR to a compatible batch of functional expert matrices."""
+        if not optimizers:
+            return []
+        first = optimizers[0]
+        if any(optimizer.groups != 1 or optimizer.columns != first.columns or
+               optimizer.layer.weight.shape != first.layer.weight.shape or
+               optimizer.gradient_steps != first.gradient_steps or
+               optimizer.power_steps != first.power_steps or optimizer.alpha != first.alpha
+               for optimizer in optimizers):
+            raise ValueError('Batched functional MagR requires compatible expert optimizers.')
+        for optimizer in optimizers:
+            if optimizer.use_intermediate_buffer and hasattr(optimizer, 'B'):
+                del optimizer.B
+
+        targets = [optimizer.layer for optimizer in optimizers]
+        weight = torch.stack([target.weight.detach() for target in targets])
+        weight_orig = torch.stack([target.weight_orig.to(weight.device) for target in targets])
+        hessian = torch.empty((len(optimizers), first.columns, first.columns),
+                              dtype=first.dtype,
+                              device=weight.device)
+        for index, optimizer in enumerate(optimizers):
+            hessian[index].copy_(optimizer.H[0].to(weight.device))
+            del optimizer.H
+
+        scale = hessian.amax(dim=(-2, -1)).abs()
+        valid = scale > 0
+        normalized = hessian / torch.where(valid, scale, torch.ones_like(scale))[:, None, None]
+        generator = torch.Generator(device=weight.device).manual_seed(42)
+        vector = torch.rand(
+            first.columns, device=weight.device, dtype=first.dtype,
+            generator=generator).expand(len(optimizers), -1).clone()
+        for _ in range(first.power_steps):
+            next_vector = torch.bmm(normalized, vector.unsqueeze(2)).squeeze(2)
+            vector = next_vector / (
+                torch.linalg.vector_norm(next_vector, dim=1, keepdim=True) + 1e-12)
+        singular_value = torch.bmm(vector.unsqueeze(1), torch.bmm(
+            normalized, vector.unsqueeze(2))).flatten() * scale
+        matrix_norm = torch.linalg.matrix_norm(hessian, ord=1)
+        valid &= (singular_value > 0) & (
+            matrix_norm > 0) & torch.isfinite(singular_value) & torch.isfinite(matrix_norm)
+        failed = [targets[index] for index in torch.where(~valid)[0].tolist()]
+        if not valid.any():
+            return failed
+
+        indices = torch.where(valid)[0]
+        targets = [targets[index] for index in indices.tolist()]
+        weight = weight.index_select(0, indices)
+        weight_orig = weight_orig.index_select(0, indices)
+        hessian = hessian.index_select(0, indices)
+        eta = 1. / singular_value.index_select(0, indices)
+        alpha = first.alpha / (eta * matrix_norm.index_select(0, indices))
+        wk = weight.to(first.dtype)
+        gk = weight_orig.to(first.dtype)
+        rows = wk.shape[1]
+        for _ in range(first.gradient_steps):
+            vk = wk - eta[:, None, None] * torch.bmm(wk - gk, hessian)
+            projected = _project_onto_l1_ball((vk / alpha[:, None, None]).reshape(
+                -1, first.columns)).reshape(len(targets), rows, first.columns)
+            wk = vk - alpha[:, None, None] * projected
+        if not torch.isfinite(wk).all():
+            raise RuntimeError('Batched functional MagR produced non-finite weights.')
+        for index, target in enumerate(targets):
+            target.writeback(wk[index].to(weight.dtype))
+        return failed
+
 
 class magr_mode(gpxq_mode):
     """
@@ -191,7 +258,8 @@ class magr_mode(gpxq_mode):
             dtype: torch.dtype = torch.float32,
             functional_state=None,
             min_samples: int = 0,
-            insufficient_samples: str = 'rtn') -> None:
+            insufficient_samples: str = 'rtn',
+            expert_batch_size: int = 1) -> None:
         if not inplace:
             model = deepcopy(model)
         super().__init__(
@@ -204,9 +272,22 @@ class magr_mode(gpxq_mode):
             dtype=dtype,
             functional_state=functional_state,
             min_samples=min_samples,
-            insufficient_samples=insufficient_samples)
+            insufficient_samples=insufficient_samples,
+            expert_batch_size=expert_batch_size)
         self.num_steps = num_steps
         self.alpha = alpha
+
+    def _update_functional_targets(self, targets, progress) -> int:
+        if self.expert_batch_size == 1:
+            return super()._update_functional_targets(targets, progress)
+        failed = []
+        for start in range(0, len(targets), self.expert_batch_size):
+            batch_targets = targets[start:start + self.expert_batch_size]
+            optimizers = [self.gpxq_layers[target.name] for target in batch_targets]
+            failed.extend(MagR.batched_layer_update(optimizers))
+            progress.set_postfix(batch=len(batch_targets), failed=len(failed))
+            progress.update(len(batch_targets))
+        return len(failed)
 
     def _is_module_supported(self, module):
         return isinstance(module, (nn.Linear, *SUPPORTED_CONV_OP))

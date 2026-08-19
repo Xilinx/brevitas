@@ -280,10 +280,12 @@ def create_args_parser() -> ArgumentParser:
         '--qronos-alpha', default=1e-6, type=float, help='Alpha for Qronos. Default: 1e-6')
     parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
     parser.add_argument(
+        '--gpxq-expert-batch-size',
         '--gptq-expert-batch-size',
+        dest='gpxq_expert_batch_size',
         type=int,
         default=1,
-        help='Maximum number of compatible functional experts updated in one GPTQ tensor batch.')
+        help='Maximum number of compatible functional experts updated in one GPxQ tensor batch.')
     parser.add_argument('--gpfq', action='store_true', help='Apply GPFQ.')
     parser.add_argument(
         '--gpxq-min-samples',
@@ -592,7 +594,7 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
         assert not args.convert_layernorm_to_rmsnorm, 'LayerNorm is automatically replaced with RMSNorm when running with --rotation=fused_no_fx. Remove the flag --convert-layernorm-to-rmsnorm'
         assert args.replace_rmsnorm, 'Graph rotation requires to replace HF RMSNorm with PyTorch ones (torch 2.4+ require)'
     if not args.no_quantize:
-        assert args.gptq_expert_batch_size > 0, 'GPTQ expert batch size must be positive.'
+        assert args.gpxq_expert_batch_size > 0, 'GPxQ expert batch size must be positive.'
         if args.weight_quant_rescaling_init is not None:
             assert args.weight_quant_rescaling_init > 0, \
                 'Error: weight_quant_rescaling_init must be positive.'

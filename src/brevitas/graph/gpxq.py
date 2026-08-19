@@ -87,7 +87,8 @@ class gpxq_mode(quantization_status_manager):
             dtype: torch.dtype = torch.float32,
             functional_state: Optional[FunctionalQuantState] = None,
             min_samples: int = 0,
-            insufficient_samples: str = 'rtn') -> None:
+            insufficient_samples: str = 'rtn',
+            expert_batch_size: int = 1) -> None:
         if functional_state is not None and not inplace:
             raise ValueError(
                 'Functional GPxQ requires inplace=True because targets own model parameters.')
@@ -120,11 +121,14 @@ class gpxq_mode(quantization_status_manager):
         self.return_forward_output = return_forward_output
         if min_samples < 0:
             raise ValueError('min_samples must be non-negative.')
+        if expert_batch_size < 1:
+            raise ValueError('expert_batch_size must be positive.')
         if insufficient_samples not in ('rtn', 'error', 'gpxq'):
             raise ValueError("insufficient_samples must be 'rtn', 'error', or 'gpxq'.")
         self.functional_state = functional_state
         self.min_samples = min_samples
         self.insufficient_samples = insufficient_samples
+        self.expert_batch_size = expert_batch_size
         self.functional_targets = []
         self.functional_target_groups = []
         self.functional_collection_seconds = {}
