@@ -23,6 +23,7 @@ from brevitas.quant.base import MSEWeightZeroPoint
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
+from tests.marker import jit_disabled_for_local_loss
 
 ZP_BIT_WIDTH = 6
 SCALE_BIT_WIDTH = 6
@@ -159,6 +160,7 @@ def test_quant_scale():
     linear(torch.randn(1, 512))
 
 
+@jit_disabled_for_local_loss()
 def test_quant_scale_zero_point_parameter_from_stats():
     linear = qnn.QuantLinear(256, 16, weight_quant=QuantScaleQuantZPParameterFromStats)
     tensor_quant = linear.weight_quant.tensor_quant
