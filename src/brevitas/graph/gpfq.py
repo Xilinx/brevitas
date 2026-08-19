@@ -12,6 +12,7 @@ from torch import Tensor
 import torch.nn as nn
 
 from brevitas.graph.calibrate import quantization_status_manager
+from brevitas.graph.functional_quant import FunctionalLinearTargetBatch
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
@@ -200,6 +201,102 @@ class GPFQ(GPxQ):
         if hasattr(self.layer, 'offload_params'):
             self.layer.offload_params(self.layer)
 
+    @staticmethod
+    def batched_layer_update(optimizers):
+        """Apply GPFQ to a compatible batch of functional expert matrices."""
+        if not optimizers:
+            return []
+        first = optimizers[0]
+        columns = first.columns
+        if any(optimizer.groups != 1 or optimizer.columns != columns or optimizer.act_order !=
+               first.act_order or optimizer.layer.weight.shape != first.layer.weight.shape
+               for optimizer in optimizers):
+            raise ValueError('Batched functional GPFQ requires compatible expert optimizers.')
+        for optimizer in optimizers:
+            assert not optimizer.layer.weight_quant.requires_quant_input, \
+                'Error: GPFQ does not support weight quantizers that require metadata from input quantizers.'
+            assert optimizer.quant_input is None, 'GPFQ quantized and reference inputs are unbalanced.'
+            if optimizer.use_intermediate_buffer and hasattr(optimizer, 'B'):
+                del optimizer.B
+
+        targets = [optimizer.layer for optimizer in optimizers]
+        weight = torch.stack([target.weight.detach() for target in targets])
+        weight_orig = torch.stack([target.weight_orig.to(weight.device) for target in targets])
+        device = weight.device
+        dtype = weight.dtype
+        hessian = torch.cat([optimizer.H for optimizer in optimizers], dim=0)
+        cross_covariance = torch.cat([optimizer.G for optimizer in optimizers], dim=0)
+        for optimizer in optimizers:
+            del optimizer.H, optimizer.G
+
+        diagonal_h = hessian.diagonal(dim1=-2, dim2=-1)
+        dead = diagonal_h == 0
+        weight.masked_fill_(dead.to(device).unsqueeze(1), 0)
+        if first.act_order:
+            permutation = torch.argsort(diagonal_h, dim=-1, descending=True)
+            hessian = torch.gather(hessian, 1, permutation.unsqueeze(-1).expand(-1, -1, columns))
+            hessian = torch.gather(hessian, 2, permutation.unsqueeze(1).expand(-1, columns, -1))
+            cross_covariance = torch.gather(
+                cross_covariance, 1, permutation.unsqueeze(-1).expand(-1, -1, columns))
+            cross_covariance = torch.gather(
+                cross_covariance, 2, permutation.unsqueeze(1).expand(-1, columns, -1))
+        else:
+            permutation = torch.arange(columns, device=hessian.device).expand(len(optimizers), -1)
+
+        diagonal_g = cross_covariance.diagonal(dim1=-2, dim2=-1)
+        diagonal_h = hessian.diagonal(dim1=-2, dim2=-1)
+        ds = torch.where(
+            diagonal_g * diagonal_h != 0, diagonal_g / diagonal_h, torch.zeros_like(diagonal_g))
+        reciprocal_h = torch.where(diagonal_h != 0, 1. / diagonal_h, torch.zeros_like(diagonal_h))
+        lg = reciprocal_h.unsqueeze(2) * torch.tril(cross_covariance, diagonal=-1)
+        lh = reciprocal_h.unsqueeze(2) * torch.tril(hessian, diagonal=-1)
+        del hessian, cross_covariance
+
+        permutation_weight = permutation.to(device)
+        batch_quant = None
+        use_batch_quant = False
+        if all(getattr(target.owner.proxy, 'is_groupwise', False) for target in targets):
+            try:
+                batch_quant = FunctionalLinearTargetBatch(targets, weight)
+                use_batch_quant = torch.equal(
+                    batch_quant.quant_weight(weight),
+                    torch.stack([
+                        target.quantize(weight[index]) for index, target in enumerate(targets)]))
+            except (AttributeError, RuntimeError, TypeError, ValueError):
+                batch_quant = None
+
+        def quantize(value):
+            if use_batch_quant:
+                return batch_quant.quant_weight(value)
+            return torch.stack([
+                target.quantize(value[index]) for index, target in enumerate(targets)])
+
+        def gather_columns(value, indices):
+            return torch.gather(value, 2, indices.unsqueeze(1).expand(-1, value.shape[1], -1))
+
+        def scatter_column(value, indices, update):
+            return value.scatter(
+                2, indices[:, None, None].expand(-1, value.shape[1], 1), update.unsqueeze(2))
+
+        for step in range(columns):
+            quant_weight = quantize(weight)
+            history_indices = permutation_weight[:, :step]
+            weight_history = gather_columns(weight_orig, history_indices).to(first.dtype)
+            quant_history = gather_columns(quant_weight, history_indices).to(first.dtype)
+            lw = torch.bmm(weight_history, lg[:, step, :step].to(device).unsqueeze(2)).squeeze(2)
+            lq = torch.bmm(quant_history, lh[:, step, :step].to(device).unsqueeze(2)).squeeze(2)
+            current_indices = permutation_weight[:, step]
+            current_weight = gather_columns(weight,
+                                            current_indices[:, None]).squeeze(2).to(first.dtype)
+            q_arg = ds[:, step].to(device).unsqueeze(1) * current_weight + lw - lq
+            if not torch.isfinite(q_arg).all():
+                raise RuntimeError('Batched functional GPFQ produced non-finite weights.')
+            weight = scatter_column(weight, current_indices, q_arg.to(dtype))
+
+        for index, target in enumerate(targets):
+            target.writeback(weight[index])
+        return []
+
 
 class gpfq_mode(gpxq_mode):
     """
@@ -250,7 +347,8 @@ class gpfq_mode(gpxq_mode):
             dtype: torch.dtype = torch.float32,
             functional_state=None,
             min_samples: int = 0,
-            insufficient_samples: str = 'rtn') -> None:
+            insufficient_samples: str = 'rtn',
+            expert_batch_size: int = 1) -> None:
         if not inplace:
             model = deepcopy(model)
         super().__init__(
@@ -265,9 +363,22 @@ class gpfq_mode(gpxq_mode):
             dtype,
             functional_state,
             min_samples,
-            insufficient_samples)
+            insufficient_samples,
+            expert_batch_size)
 
         self.algorithm_impl = algorithm_impl
+
+    def _update_functional_targets(self, targets, progress) -> int:
+        if self.expert_batch_size == 1 or not hasattr(self.algorithm_impl, 'batched_layer_update'):
+            return super()._update_functional_targets(targets, progress)
+        failed = []
+        for start in range(0, len(targets), self.expert_batch_size):
+            batch_targets = targets[start:start + self.expert_batch_size]
+            optimizers = [self.gpxq_layers[target.name] for target in batch_targets]
+            failed.extend(self.algorithm_impl.batched_layer_update(optimizers))
+            progress.set_postfix(batch=len(batch_targets), failed=len(failed))
+            progress.update(len(batch_targets))
+        return len(failed)
 
     def catch_stopfwd(self, *args, **kwargs):
         # Collect quant input

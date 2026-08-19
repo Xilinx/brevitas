@@ -738,7 +738,8 @@ def quantize_llm(args, extra_args=None):
                 max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size,
                 functional_state=fq_state,
                 min_samples=args.gpxq_min_samples,
-                insufficient_samples=args.gpxq_insufficient_samples)
+                insufficient_samples=args.gpxq_insufficient_samples,
+                expert_batch_size=args.gpxq_expert_batch_size)
             print("GPFQ applied.")
 
         if args.qronos and not args.load_checkpoint:

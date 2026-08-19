@@ -177,7 +177,8 @@ def _dual_optimization_callback(
         dtype=torch.float32,
         functional_state=None,
         min_samples=0,
-        insufficient_samples='rtn'):
+        insufficient_samples='rtn',
+        expert_batch_size=1):
     """
     This wraps gpfq_mode, which can be used for any layerwise PTQ algorithm that
     optimizes the mismatched objective function || XW - \tilde{X}Q ||, where
@@ -195,12 +196,14 @@ def _dual_optimization_callback(
         'dtype': dtype,
         'functional_state': functional_state,
         'min_samples': min_samples,
-        'insufficient_samples': insufficient_samples}
+        'insufficient_samples': insufficient_samples,
+        'expert_batch_size': expert_batch_size}
     context_manager_func = gpfq_mode
     if max_accumulator_bit_width is not None:
         if functional_state is not None:
             raise RuntimeError('AXE GPxQ modes do not support functional targets.')
         context_manager_func = a2gpfq_mode
+        context_manager_kwargs.pop('expert_batch_size')
         context_manager_kwargs.update(
             max_accumulator_bit_width=max_accumulator_bit_width,
             max_accumulator_tile_size=max_accumulator_tile_size)
@@ -229,7 +232,8 @@ def apply_gpfq(
         buffer_dtype=torch.float32,
         functional_state=None,
         min_samples=0,
-        insufficient_samples='rtn'):
+        insufficient_samples='rtn',
+        expert_batch_size=1):
     # We use the dual optimization callback, which uses two forward passes to correct
     # quantization error in both the weights and activations from previous layers
     _dual_optimization_callback(
@@ -245,7 +249,8 @@ def apply_gpfq(
         dtype=buffer_dtype,
         functional_state=functional_state,
         min_samples=min_samples,
-        insufficient_samples=insufficient_samples)
+        insufficient_samples=insufficient_samples,
+        expert_batch_size=expert_batch_size)
 
 
 @torch.no_grad()
