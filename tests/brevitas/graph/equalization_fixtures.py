@@ -565,11 +565,11 @@ def mha_input(batch_first, batch_size=MHA_BATCH_SIZE):
 
 @pytest_cases.fixture
 @pytest_cases.parametrize('batch_first', [True, False])
-def vanilla_mha_model(batch_first):
-    # A bare torch.nn.MultiheadAttention. This is the realistic target for activation
-    # equalization, which runs on the float model before quantization operators are inserted.
+def mha_model(batch_first):
+    # Layerwise activation equalization hooks each supported layer independently, so a lone MHA
+    # yields exactly one hooked module.
 
-    class VanillaMHAModel(nn.Module):
+    class MHAModel(nn.Module):
         batch_first = False
 
         def __init__(self) -> None:
@@ -581,17 +581,17 @@ def vanilla_mha_model(batch_first):
             out, _ = self.mha(x, x, x)
             return out
 
-    VanillaMHAModel.batch_first = batch_first
-    return VanillaMHAModel
+    MHAModel.batch_first = batch_first
+    return MHAModel
 
 
 @pytest_cases.fixture
 @pytest_cases.parametrize('batch_first', [True, False])
-def vanilla_linear_mha_model(batch_first):
+def mha_with_source_model(batch_first):
     # Linear -> ReLU -> MHA. Provides a source (the Linear) so that graph-mode activation
     # equalization forms a region around the MHA sink.
 
-    class VanillaLinearMHAModel(nn.Module):
+    class MHAWithSourceModel(nn.Module):
         batch_first = False
 
         def __init__(self) -> None:
@@ -607,8 +607,8 @@ def vanilla_linear_mha_model(batch_first):
             out, _ = self.mha(x, x, x)
             return out
 
-    VanillaLinearMHAModel.batch_first = batch_first
-    return VanillaLinearMHAModel
+    MHAWithSourceModel.batch_first = batch_first
+    return MHAWithSourceModel
 
 
 @pytest_cases.fixture

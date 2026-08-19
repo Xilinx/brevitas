@@ -253,13 +253,11 @@ def test_act_equalization_torchvision_models(model_dict: dict, layerwise: bool, 
     assert any([shape != () for shape in shape_scale_regions])
 
 
-def test_act_equalization_vanilla_mha_layerwise(vanilla_mha_model):
-    # Activation equalization runs on the float model, before quantization operators are
-    # inserted, so the realistic target is a plain nn.MultiheadAttention. In layerwise mode the
-    # whole MHA module is hooked (nothing internal such as out_proj), and batch_first only
-    # permutes the module's I/O. The batch dimension is therefore 0 when batch_first=True (N, L, E)
-    # and 1 when batch_first=False (L, N, E).
-    model_class = vanilla_mha_model
+def test_act_equalization_mha_layerwise(mha_model):
+    # In layerwise mode the whole MHA module is hooked (nothing internal such as out_proj), and
+    # batch_first only permutes the module's I/O. The batch dimension is therefore 0 when
+    # batch_first=True (N, L, E) and 1 when batch_first=False (L, N, E).
+    model_class = mha_model
     batch_first = model_class.batch_first
 
     torch.manual_seed(SEED)
@@ -286,11 +284,11 @@ def test_act_equalization_vanilla_mha_layerwise(vanilla_mha_model):
     assert torch.allclose(expected_out, out, atol=ATOL)
 
 
-def test_act_equalization_vanilla_mha_graph(vanilla_linear_mha_model):
+def test_act_equalization_mha_graph(mha_with_source_model):
     # Graph-mode counterpart of the layerwise test. A source (the Linear) is required so that a
     # region forms around the MHA sink. Graph mode already derives batch_dim from
     # module.batch_first, so this acts as a control that stays green.
-    model_class = vanilla_linear_mha_model
+    model_class = mha_with_source_model
     batch_first = model_class.batch_first
 
     torch.manual_seed(SEED)
@@ -317,7 +315,7 @@ def test_act_equalization_vanilla_mha_graph(vanilla_linear_mha_model):
 
 
 @pytest_cases.parametrize('layerwise', [True, False])
-def test_act_equalization_vanilla_mha_layout_equivalence(layerwise):
+def test_act_equalization_mha_layout_equivalence(layerwise):
     # With the correct batch dimension, activation equalization must compute identical scaling
     # factors regardless of whether the same data is presented as (N, L, E) (batch_first=True) or
     # (L, N, E) (batch_first=False). We use scale_computation_type='range' which, unlike the
