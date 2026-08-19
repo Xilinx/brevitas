@@ -35,6 +35,7 @@ from brevitas.quant_tensor import QuantTensor
 __all__ = [
     'FunctionalQuantState',
     'functional_quantization_mode',
+    'grouped_mm_functions',
     'prepare_functional_quantization',
     'remove_functional_quantization']
 
@@ -44,10 +45,42 @@ QuantResolvable = Optional[Union[Type, QuantResolver]]
 QuantSpecElement = Union[QuantResolvable, Tuple[QuantResolvable, Dict[str, Any]]]
 QuantSpecType = Union[QuantSpecElement, Tuple[QuantSpecElement, ...]]
 
+
+def _grouped_mm_key(*args, **kwargs):
+    raise RuntimeError('The canonical grouped-MM key must never be executed.')
+
+
+def grouped_mm_functions() -> Tuple[Callable, ...]:
+    """Return grouped-MM callables available in the current Torch/Transformers runtime."""
+    functions = []
+    for owner, name in ((torch, '_grouped_mm'), (torch.nn.functional, 'grouped_mm')):
+        func = getattr(owner, name, None)
+        if func is not None:
+            functions.append(func)
+    for namespace, name in (('aten', '_grouped_mm'), ('transformers', 'grouped_mm_fallback')):
+        try:
+            packet = getattr(getattr(torch.ops, namespace), name)
+            # Accessing an unknown torch.ops attribute creates a placeholder packet.
+            if packet._schemas:
+                functions.append(packet)
+                default = getattr(packet, 'default', None)
+                if default is not None:
+                    functions.append(default)
+        except (AttributeError, RuntimeError):
+            pass
+    return tuple(dict.fromkeys(functions))
+
+
+def _canonical_function(func: Callable) -> Callable:
+    return _grouped_mm_key if any(
+        func is candidate for candidate in grouped_mm_functions()) else func
+
+
 _CONTAINER_NAME = '_functional_quantizers'
 _STATE_NAME = '_functional_quantization_state'
 _MISSING = object()
 _PARAMETER_DISPATCH_FUNCTIONS = {
+    _grouped_mm_key,
     torch.nn.functional.linear,
     torch.bmm,
     torch.matmul,
@@ -68,6 +101,11 @@ _FUNCTION_ARGUMENT_NAMES[torch.Tensor.matmul] = ('input', 'other')
 if hasattr(torch.nn.functional, 'scaled_dot_product_attention'):
     _FUNCTION_ARGUMENT_NAMES[torch.nn.functional.scaled_dot_product_attention] = (
         'query', 'key', 'value')
+_FUNCTION_ARGUMENT_NAMES[_grouped_mm_key] = (('input', 'self', 'mat_a'),
+                                             ('weight', 'mat2', 'mat_b'),
+                                             'offs',
+                                             'bias',
+                                             'out_dtype')
 
 
 def _is_di_kwargs_pair(element: Any) -> bool:
@@ -79,8 +117,12 @@ def _parse_quant_map(quant_map: Dict[Callable, QuantSpecType]) -> Dict[Callable,
     """Normalize each function specification to a positional list."""
     parsed = {}
     for func, spec in quant_map.items():
-        parsed[func] = list(spec) if isinstance(spec, tuple) and not _is_di_kwargs_pair(spec) else [
+        func = _canonical_function(func)
+        normalized = list(spec) if isinstance(spec, tuple) and not _is_di_kwargs_pair(spec) else [
             spec]
+        if func in parsed and parsed[func] != normalized:
+            raise ValueError('Grouped-MM aliases must use the same functional quantization spec.')
+        parsed[func] = normalized
     return parsed
 
 
@@ -138,8 +180,9 @@ def _logical_arguments(
         slots.append(
             (index, value, lambda replacement, index=index: values.__setitem__(index, replacement)))
     for index in range(len(values), len(names)):
-        name = names[index]
-        if name in kwargs:
+        aliases = names[index] if isinstance(names[index], tuple) else (names[index],)
+        name = next((alias for alias in aliases if alias in kwargs), None)
+        if name is not None:
             slots.append((
                 index,
                 kwargs[name],
@@ -210,10 +253,7 @@ class FunctionalQuantState:
     :meth:`cleanup` or :func:`remove_functional_quantization` to remove them.
     """
 
-    def __init__(
-            self,
-            model: nn.Module,
-            quant_map: Dict[Callable, QuantSpecType]) -> None:
+    def __init__(self, model: nn.Module, quant_map: Dict[Callable, QuantSpecType]) -> None:
         """Attach the retained quantizer container and initialize prepared state."""
         self.model = model
         self.quant_map = quant_map
@@ -330,15 +370,15 @@ class _HookedMode(TorchFunctionMode):
                 continue
             for name, parameter in module.named_parameters(recurse=False):
                 owner = (module, name)
-                if id(parameter) in self.parameter_owners and self.parameter_owners[
-                        id(parameter)] != owner:
+                if id(parameter
+                     ) in self.parameter_owners and self.parameter_owners[id(parameter)] != owner:
                     self.aliased_parameters.add(id(parameter))
                 self.parameter_owners[id(parameter)] = owner
             for name in getattr(module, 'parametrizations', {}):
                 original = getattr(module.parametrizations, name).original
                 owner = (module, name)
-                if id(original) in self.parameter_owners and self.parameter_owners[
-                        id(original)] != owner:
+                if id(original
+                     ) in self.parameter_owners and self.parameter_owners[id(original)] != owner:
                     self.aliased_parameters.add(id(original))
                 self.parameter_owners[id(original)] = owner
 
@@ -355,6 +395,7 @@ class _HookedMode(TorchFunctionMode):
         Returns ``((owner_module, parameter_name), is_direct_parameter)`` on a
         match, or ``(None, False)`` when the tensor is unrelated to a parameter.
         """
+
         def lookup():
             owner = self.parameter_owners.get(id(value))
             if owner is not None:
@@ -430,8 +471,7 @@ class _FunctionalQuantBuilder(_HookedMode):
     def __init__(self, state: FunctionalQuantState) -> None:
         """Initialize a builder that discovers calls before parametrizing owners."""
         super().__init__(state)
-        self.discovered_calls: Dict[Tuple[str, Callable, int], Dict[int,
-                                                                  _DiscoveredArgument]] = {}
+        self.discovered_calls: Dict[Tuple[str, Callable, int], Dict[int, _DiscoveredArgument]] = {}
         self.owner_plans: Dict[Tuple[nn.Module, str], _OwnerPlan] = {}
         self.parameter_owners: Dict[int, Tuple[nn.Module, str]] = {}
         self.aliased_parameters = set()
@@ -451,11 +491,22 @@ class _FunctionalQuantBuilder(_HookedMode):
         required = ('output_channel_dim', 'group_dim')
         if not is_direct_parameter:
             rank_delta = owner_value.dim() - value.dim()
-            if rank_delta <= 0 or tuple(value.shape) != tuple(
-                    owner_value.shape[rank_delta:]) or tuple(value.stride()) != tuple(
-                        owner_value.stride()[rank_delta:]):
+            is_leading_index = rank_delta > 0 and tuple(value.shape) == tuple(
+                owner_value.shape[rank_delta:]) and tuple(value.stride()) == tuple(
+                    owner_value.stride()[rank_delta:])
+            is_last_two_transpose = False
+            if owner_value.dim() >= 2:
+                transposed_shape = (
+                    *owner_value.shape[:-2], owner_value.shape[-1], owner_value.shape[-2])
+                transposed_stride = (
+                    *owner_value.stride()[:-2], owner_value.stride()[-1], owner_value.stride()[-2])
+                is_last_two_transpose = (
+                    value.dim() == owner_value.dim() and tuple(value.shape) == transposed_shape and
+                    tuple(value.stride()) == transposed_stride and
+                    value.storage_offset() == owner_value.storage_offset())
+            if not is_leading_index and not is_last_two_transpose:
                 return owner_di_kwargs, (
-                    'only views produced by indexing leading owner dimensions are supported')
+                    'only leading-index views and final-two-axis transpose views are supported')
             missing = [name for name in required if name not in owner_di_kwargs]
             if missing:
                 return owner_di_kwargs, (
@@ -468,7 +519,8 @@ class _FunctionalQuantBuilder(_HookedMode):
             if name not in owner_di_kwargs:
                 continue
             axis = owner_di_kwargs[name]
-            if not isinstance(axis, int) or isinstance(axis, bool) or not -owner_dim <= axis < owner_dim:
+            if not isinstance(axis, int) or isinstance(axis,
+                                                       bool) or not -owner_dim <= axis < owner_dim:
                 return owner_di_kwargs, f'{name} is not a valid owner axis'
             axis = axis if axis >= 0 else owner_dim + axis
             owner_di_kwargs[name] = axis
@@ -486,12 +538,7 @@ class _FunctionalQuantBuilder(_HookedMode):
         return _MISSING
 
     def _discover_argument(
-            self,
-            name: str,
-            module: nn.Module,
-            func: Callable,
-            index: int,
-            arg_idx: int,
+            self, name: str, module: nn.Module, func: Callable, index: int, arg_idx: int,
             value: Tensor) -> Optional[_DiscoveredArgument]:
         """Classify one operand and record any owner-level weight requirement."""
         owner, is_direct_parameter = self._parameter_owner(value)
@@ -503,8 +550,7 @@ class _FunctionalQuantBuilder(_HookedMode):
             return _DiscoveredArgument(quant_class, di_kwargs)
 
         fallback_spec = self._fallback_spec_for(func, arg_idx)
-        fallback_quant_class, fallback_di_kwargs = _resolve_spec(
-            fallback_spec, module, name, index)
+        fallback_quant_class, fallback_di_kwargs = _resolve_spec(fallback_spec, module, name, index)
         owner_di_kwargs, error = self._owner_quant_kwargs(
             value, owner, is_direct_parameter, di_kwargs)
         owner_value = value if is_direct_parameter else getattr(owner[0], owner[1], None)
@@ -518,7 +564,10 @@ class _FunctionalQuantBuilder(_HookedMode):
         plan = self.owner_plans.get(owner)
         if plan is None:
             self.owner_plans[owner] = _OwnerPlan(
-                quant_class, owner_di_kwargs, quantizer_key, error)
+                quant_class=quant_class,
+                di_kwargs=owner_di_kwargs,
+                quantizer_key=quantizer_key,
+                error=error)
         elif plan.error is None:
             if error is not None:
                 plan.error = error
@@ -537,6 +586,7 @@ class _FunctionalQuantBuilder(_HookedMode):
             name: str,
             module: nn.Module,
             func: Callable,
+            actual_func: Callable,
             index: int,
             args: Tuple[Any, ...],
             kwargs: Dict[str, Any]) -> Any:
@@ -548,19 +598,17 @@ class _FunctionalQuantBuilder(_HookedMode):
         for arg_idx, value, replace in slots:
             if not isinstance(value, Tensor) or isinstance(value, QuantTensor):
                 continue
-            argument = self._discover_argument(
-                name, module, func, index, arg_idx, value)
+            argument = self._discover_argument(name, module, func, index, arg_idx, value)
             if argument is not None:
                 discovered[arg_idx] = argument
                 if argument.parameter_owner is None:
-                    key = _module_key(
-                        name, func, self.state.function_indices[func], index, arg_idx)
+                    key = _module_key(name, func, self.state.function_indices[func], index, arg_idx)
                     quantizer = self._create_activation(
                         argument.quant_class, argument.di_kwargs, value.device)
                     self._add_quantizer(key, quantizer)
                     call.arguments[arg_idx] = _PreparedArgument(key)
                     replace(quantizer(value))
-        return func(*tuple(values), **kwargs)
+        return actual_func(*tuple(values), **kwargs)
 
     def _register_owner_quantizers(self) -> None:
         """Finalize owner parametrizations and unsupported-view fallback mappings."""
@@ -588,8 +636,7 @@ class _FunctionalQuantBuilder(_HookedMode):
                     continue
                 owner_plan = self.owner_plans[argument.parameter_owner]
                 if owner_plan.error is not None and argument.fallback_quant_class is not None:
-                    key = _module_key(
-                        name, func, self.state.function_indices[func], index, arg_idx)
+                    key = _module_key(name, func, self.state.function_indices[func], index, arg_idx)
                     quantizer = self._create_activation(
                         argument.fallback_quant_class,
                         argument.fallback_di_kwargs,
@@ -598,8 +645,7 @@ class _FunctionalQuantBuilder(_HookedMode):
                     call.arguments[arg_idx] = _PreparedArgument(key)
 
     def _run_forward(
-            self,
-            example_inputs: Optional[Tuple[Any, ...]],
+            self, example_inputs: Optional[Tuple[Any, ...]],
             example_kwargs: Optional[Dict[str, Any]]) -> None:
         """Run one hooked preparation forward and reset transient counters."""
         self._attach_hooks()
@@ -626,12 +672,13 @@ class _FunctionalQuantBuilder(_HookedMode):
             self, func: Callable, types: Tuple[Type, ...], args=(), kwargs=None) -> Any:
         """Create and apply quantizers while discovering each configured call."""
         kwargs = {} if kwargs is None else dict(kwargs)
-        if func not in self.state.quant_map or not self.module_stack:
+        canonical_func = _canonical_function(func)
+        if canonical_func not in self.state.specs or not self.module_stack:
             return func(*args, **kwargs)
         name, module = self.module_stack[-1]
-        index = self.counters[name][func]
-        self.counters[name][func] += 1
-        return self._discover_call(name, module, func, index, args, kwargs)
+        index = self.counters[name][canonical_func]
+        self.counters[name][canonical_func] += 1
+        return self._discover_call(name, module, canonical_func, func, index, args, kwargs)
 
 
 class functional_quantization_mode(_HookedMode):
@@ -680,10 +727,12 @@ class functional_quantization_mode(_HookedMode):
             if not isinstance(value, Tensor) or isinstance(value, QuantTensor):
                 continue
             runtime_spec = self._spec_for(func, arg_idx, False)
-            parameter_spec = self._spec_for(func, arg_idx, True)
             runtime_quant, _ = _resolve_spec(runtime_spec, module, name, index)
+            if runtime_quant is not None:
+                return False
+            parameter_spec = self._spec_for(func, arg_idx, True)
             parameter_quant, _ = _resolve_spec(parameter_spec, module, name, index)
-            if runtime_quant is not None or parameter_quant is not None:
+            if parameter_quant is not None:
                 return False
         return True
 
@@ -691,19 +740,25 @@ class functional_quantization_mode(_HookedMode):
             self, func: Callable, types: Tuple[Type, ...], args=(), kwargs=None) -> Any:
         """Route an intercepted call through its prepared argument quantizers."""
         kwargs = {} if kwargs is None else dict(kwargs)
-        if not self.enabled or not self.state.enabled or func not in self.state.quant_map or not self.module_stack:
+        canonical_func = _canonical_function(func)
+        if not self.enabled or not self.state.enabled or canonical_func not in self.state.specs or not self.module_stack:
             return func(*args, **kwargs)
         name, _ = self.module_stack[-1]
-        index = self.counters[name][func]
-        self.counters[name][func] += 1
-        call = self.state.calls.get((name, func, index))
+        index = self.counters[name][canonical_func]
+        self.counters[name][canonical_func] += 1
+        call = self.state.calls.get((name, canonical_func, index))
         if call is None:
-            if self._unprepared_call_is_passthrough(func, self.module_stack[-1][1], name, index, args, kwargs):
+            if self._unprepared_call_is_passthrough(canonical_func,
+                                                    self.module_stack[-1][1],
+                                                    name,
+                                                    index,
+                                                    args,
+                                                    kwargs):
                 return func(*args, **kwargs)
             raise RuntimeError(
                 'No prepared quantizer found for this functional call site; ensure example inputs exercise it.'
             )
-        slots, values = _logical_arguments(func, args, kwargs)
+        slots, values = _logical_arguments(canonical_func, args, kwargs)
         for arg_idx, value, replace in slots:
             prepared = call.arguments.get(arg_idx)
             if prepared is None or isinstance(value, QuantTensor) or not isinstance(value, Tensor):
