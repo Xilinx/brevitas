@@ -753,7 +753,8 @@ def quantize_llm(args, extra_args=None):
                 buffer_device=args.gpxq_buffer_device,
                 functional_state=fq_state,
                 min_samples=args.gpxq_min_samples,
-                insufficient_samples=args.gpxq_insufficient_samples)
+                insufficient_samples=args.gpxq_insufficient_samples,
+                expert_batch_size=args.gpxq_expert_batch_size)
             print("Qronos applied.")
 
         if args.magr and args.functional_quantization is not None and not args.load_checkpoint:

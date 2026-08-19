@@ -13,6 +13,7 @@ except:
 
 import warnings
 
+from brevitas.graph.functional_quant import FunctionalLinearTargetBatch
 from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.utils import is_conv_transposed
@@ -266,6 +267,204 @@ class Qronos(GPFQ):
                     error_block[group_index].matmul(self.L[group_index, i1 - 1:i2 - 1,
                                                            i2 - 1:])).to(dtype)
         del self.L  # memory management
+
+    @staticmethod
+    def batched_layer_update(optimizers, beta: int = 1e4):
+        """Apply Qronos to a compatible batch of functional expert matrices."""
+        if not optimizers:
+            return []
+        first = optimizers[0]
+        columns = first.columns
+        blocksize = first.blocksize
+        if any(optimizer.groups != 1 or optimizer.columns != columns or
+               optimizer.blocksize != blocksize or optimizer.act_order != first.act_order or
+               optimizer.alpha != first.alpha or
+               optimizer.layer.weight.shape != first.layer.weight.shape
+               for optimizer in optimizers):
+            raise ValueError('Batched functional Qronos requires compatible expert optimizers.')
+        for optimizer in optimizers:
+            assert not optimizer.layer.weight_quant.requires_quant_input, \
+                'Error: Qronos does not support weight quantizers that require metadata from input quantizers.'
+            assert optimizer.quant_input is None, 'Qronos quantized and reference inputs are unbalanced.'
+            if optimizer.use_intermediate_buffer and hasattr(optimizer, 'B'):
+                del optimizer.B
+
+        targets = [optimizer.layer for optimizer in optimizers]
+        weight = torch.stack([target.weight.detach() for target in targets])
+        weight_orig = torch.stack([target.weight_orig.to(weight.device) for target in targets])
+        device = weight.device
+        dtype = weight.dtype
+        hessian = torch.cat([optimizer.H for optimizer in optimizers], dim=0)
+        cross_covariance = torch.cat([optimizer.G for optimizer in optimizers], dim=0)
+        for optimizer in optimizers:
+            del optimizer.H, optimizer.G
+
+        diagonal_h = hessian.diagonal(dim1=-2, dim2=-1)
+        dead = diagonal_h == 0
+        weight.masked_fill_(dead.to(device).unsqueeze(1), 0)
+        if first.act_order:
+            permutation = torch.argsort(diagonal_h, dim=-1, descending=True)
+            hessian = torch.gather(hessian, 1, permutation.unsqueeze(-1).expand(-1, -1, columns))
+            hessian = torch.gather(hessian, 2, permutation.unsqueeze(1).expand(-1, columns, -1))
+            cross_covariance = torch.gather(
+                cross_covariance, 1, permutation.unsqueeze(-1).expand(-1, -1, columns))
+            cross_covariance = torch.gather(
+                cross_covariance, 2, permutation.unsqueeze(1).expand(-1, columns, -1))
+        else:
+            permutation = torch.arange(columns, device=hessian.device).expand(len(optimizers), -1)
+        if not torch.isfinite(hessian).all() or not torch.isfinite(cross_covariance).all():
+            raise RuntimeError('Batched functional Qronos received non-finite covariance matrices.')
+
+        diagonal_h = hessian.diagonal(dim1=-2, dim2=-1)
+        reciprocal_h = torch.where(diagonal_h != 0, 1. / diagonal_h, torch.zeros_like(diagonal_h))
+        upper_h = torch.triu(hessian, diagonal=1)
+
+        scale = hessian.amax(dim=(-2, -1)).abs()
+        valid_scale = scale > 0
+        normalized = hessian / torch.where(valid_scale, scale,
+                                           torch.ones_like(scale))[:, None, None]
+        generator = torch.Generator(device=hessian.device).manual_seed(42)
+        vector = torch.rand(
+            columns, device=hessian.device, dtype=first.dtype,
+            generator=generator).expand(len(optimizers), -1).clone()
+        for _ in range(30):
+            next_vector = torch.bmm(normalized, vector.unsqueeze(2)).squeeze(2)
+            vector = next_vector / (
+                torch.linalg.vector_norm(next_vector, dim=1, keepdim=True) + 1e-12)
+        singular_value = torch.bmm(vector.unsqueeze(1), torch.bmm(
+            normalized, vector.unsqueeze(2))).flatten() * scale
+        damp = first.alpha * singular_value
+        inverse_input = hessian.clone()
+        diag_index = torch.arange(columns, device=hessian.device)
+        inverse_input[:, diag_index, diag_index] += damp.unsqueeze(1)
+        chol, info = torch.linalg.cholesky_ex(inverse_input, check_errors=False)
+        valid = (info == 0) & valid_scale & torch.isfinite(damp)
+        failed = [targets[index] for index in torch.where(~valid)[0].tolist()]
+        if not valid.any():
+            return failed
+
+        valid_indices = torch.where(valid)[0]
+        targets = [targets[index] for index in valid_indices.tolist()]
+        weight = weight.index_select(0, valid_indices.to(device))
+        weight_orig = weight_orig.index_select(0, valid_indices.to(device))
+        hessian = hessian[valid]
+        cross_covariance = cross_covariance[valid]
+        reciprocal_h = reciprocal_h[valid]
+        upper_h = upper_h[valid]
+        permutation = permutation[valid]
+        damp = damp[valid]
+        try:
+            inverse_h = torch.cholesky_inverse(chol[valid])
+        except RuntimeError:
+            return failed + targets
+
+        permutation_weight = permutation.to(device)
+
+        def gather_columns(value, indices):
+            return torch.gather(value, 2, indices.unsqueeze(1).expand(-1, value.shape[1], -1))
+
+        def scatter_columns(value, indices, update):
+            return value.scatter(2, indices.unsqueeze(1).expand(-1, value.shape[1], -1), update)
+
+        ordered_weight = gather_columns(weight, permutation_weight).to(first.dtype)
+        ordered_weight_orig = gather_columns(weight_orig, permutation_weight).to(first.dtype)
+        gw = torch.bmm(
+            ordered_weight_orig,
+            (cross_covariance[:, :, 0] *
+             reciprocal_h[:, 0].unsqueeze(1)).to(device).unsqueeze(2)).squeeze(2)
+        uv = torch.bmm(
+            ordered_weight, (upper_h[:, 0, :] *
+                             reciprocal_h[:, 0].unsqueeze(1)).to(device).unsqueeze(2)).squeeze(2)
+        ordered_weight[:, :, 0] = gw - uv
+
+        a_matrix = inverse_h[:, 1:, 1:]
+        b_vector = inverse_h[:, 1:, 0]
+        a_matrix = a_matrix - b_vector.unsqueeze(2) * b_vector.unsqueeze(
+            1) / inverse_h[:, 0, 0][:, None, None]
+        inverse_h = a_matrix
+
+        weight = scatter_columns(weight, permutation_weight, ordered_weight.to(dtype))
+        quant_weight = torch.stack([
+            target.quantize(weight[index]) for index, target in enumerate(targets)])
+        if all(getattr(target.owner.proxy, 'is_groupwise', False) for target in targets):
+            try:
+                batch_quant = FunctionalLinearTargetBatch(targets, weight)
+                candidate = batch_quant.quant_weight(weight)
+                if torch.equal(candidate, quant_weight):
+                    quant_weight = candidate
+            except (AttributeError, RuntimeError, TypeError, ValueError):
+                pass
+        quant_history = gather_columns(quant_weight, permutation_weight[:, :1]).to(first.dtype)
+        identity = torch.diag_embed(damp[:, None].expand(-1, columns)).to(device)
+        gh = cross_covariance.to(device) + identity
+        gw = torch.bmm(ordered_weight_orig, torch.bmm(gh[:, :, 1:], inverse_h.to(device)))
+        hq = torch.bmm(
+            quant_history, torch.bmm(hessian[:, :1, 1:].to(device), inverse_h.to(device)))
+        ordered_weight[:, :, 1:] = gw - hq
+        weight = scatter_columns(weight, permutation_weight, ordered_weight.to(dtype))
+        del cross_covariance, hessian
+
+        upper, upper_info = torch.linalg.cholesky_ex(
+            inverse_h * beta, upper=True, check_errors=False)
+        second_valid = upper_info == 0
+        failed.extend([targets[index] for index in torch.where(~second_valid)[0].tolist()])
+        if not second_valid.any():
+            return failed
+        second_indices = torch.where(second_valid)[0]
+        targets = [targets[index] for index in second_indices.tolist()]
+        weight = weight.index_select(0, second_indices.to(device))
+        permutation_weight = permutation_weight.index_select(0, second_indices.to(device))
+        l_factor = upper[second_valid] / math.sqrt(beta)
+
+        batch_quant = None
+        use_batch_quant = False
+        if all(getattr(target.owner.proxy, 'is_groupwise', False) for target in targets):
+            try:
+                batch_quant = FunctionalLinearTargetBatch(targets, weight)
+                use_batch_quant = torch.equal(
+                    batch_quant.quant_weight(weight),
+                    torch.stack([
+                        target.quantize(weight[index]) for index, target in enumerate(targets)]))
+            except (AttributeError, RuntimeError, TypeError, ValueError):
+                batch_quant = None
+
+        def quantize(value):
+            if use_batch_quant:
+                return batch_quant.quant_weight(value)
+            return torch.stack([
+                target.quantize(value[index]) for index, target in enumerate(targets)])
+
+        for i1 in range(1, columns, blocksize):
+            i2 = min(i1 + blocksize, columns)
+            count = i2 - i1
+            block_indices = permutation_weight[:, i1:i2]
+            error_block = torch.zeros((len(targets), weight.shape[1], count),
+                                      dtype=first.dtype,
+                                      device=device)
+            inverse_block = l_factor[:, i1 - 1:i2 - 1, i1 - 1:i2 - 1]
+            for index in range(count):
+                quant_weight = quantize(weight)
+                column_indices = block_indices[:, index:index + 1]
+                q = gather_columns(quant_weight, column_indices).squeeze(2).to(first.dtype)
+                w = gather_columns(weight, column_indices).squeeze(2).to(first.dtype)
+                divisor = inverse_block[:, index, index].to(device).unsqueeze(1)
+                error = (w - q) / divisor
+                error_block[:, :, index] = error
+                remaining_indices = block_indices[:, index:]
+                remaining = gather_columns(weight, remaining_indices)
+                inverse_row = inverse_block[:, index, index:].to(device)
+                remaining -= (error.unsqueeze(2) * inverse_row.unsqueeze(1)).to(dtype)
+                weight = scatter_columns(weight, remaining_indices, remaining)
+            if i2 < columns:
+                tail_indices = permutation_weight[:, i2:]
+                tail = gather_columns(weight, tail_indices)
+                correction = torch.bmm(error_block, l_factor[:, i1 - 1:i2 - 1,
+                                                             i2 - 1:].to(device)).to(dtype)
+                weight = scatter_columns(weight, tail_indices, tail - correction)
+
+        for index, target in enumerate(targets):
+            target.writeback(weight[index])
+        return failed
 
         if hasattr(self.layer, 'offload_params'):
             self.layer.offload_params(self.layer)

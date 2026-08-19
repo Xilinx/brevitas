@@ -265,7 +265,8 @@ def apply_qronos(
         buffer_dtype=torch.float32,
         functional_state=None,
         min_samples=0,
-        insufficient_samples='rtn'):
+        insufficient_samples='rtn',
+        expert_batch_size=1):
     assert alpha > 0, "Error: alpha needs to be strictly positive"
     # We use the dual optimization callback, which uses two forward passes to correct
     # quantization error in both the weights and activations from previous layers
@@ -280,7 +281,8 @@ def apply_qronos(
         dtype=buffer_dtype,
         functional_state=functional_state,
         min_samples=min_samples,
-        insufficient_samples=insufficient_samples)
+        insufficient_samples=insufficient_samples,
+        expert_batch_size=expert_batch_size)
 
 
 @torch.no_grad()
