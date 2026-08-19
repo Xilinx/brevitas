@@ -369,13 +369,16 @@ class gpfq_mode(gpxq_mode):
         self.algorithm_impl = algorithm_impl
 
     def _update_functional_targets(self, targets, progress) -> int:
-        if self.expert_batch_size == 1 or not hasattr(self.algorithm_impl, 'batched_layer_update'):
+        batch_impl = getattr(self.algorithm_impl, 'batched_layer_update', None)
+        if batch_impl is None and hasattr(self.algorithm_impl, 'func'):
+            batch_impl = getattr(self.algorithm_impl.func, 'batched_layer_update', None)
+        if self.expert_batch_size == 1 or batch_impl is None:
             return super()._update_functional_targets(targets, progress)
         failed = []
         for start in range(0, len(targets), self.expert_batch_size):
             batch_targets = targets[start:start + self.expert_batch_size]
             optimizers = [self.gpxq_layers[target.name] for target in batch_targets]
-            failed.extend(self.algorithm_impl.batched_layer_update(optimizers))
+            failed.extend(batch_impl(optimizers))
             progress.set_postfix(batch=len(batch_targets), failed=len(failed))
             progress.update(len(batch_targets))
         return len(failed)

@@ -166,7 +166,10 @@ class MagR(GPTQ):
 
         targets = [optimizer.layer for optimizer in optimizers]
         weight = torch.stack([target.weight.detach() for target in targets])
-        weight_orig = torch.stack([target.weight_orig.to(weight.device) for target in targets])
+        weight_orig = torch.stack([
+            target.weight_orig.to(weight.device)
+            if optimizer.create_weight_orig else target.weight.detach().clone() for target,
+            optimizer in zip(targets, optimizers)])
         hessian = torch.empty((len(optimizers), first.columns, first.columns),
                               dtype=first.dtype,
                               device=weight.device)

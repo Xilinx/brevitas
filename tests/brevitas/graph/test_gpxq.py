@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from copy import deepcopy
+from functools import partial
 import math
 
 import numpy as np
@@ -220,6 +221,34 @@ def test_functional_magr_expert_batch_matches_scalar():
 
 
 @torch.no_grad()
+def test_functional_magr_batch_ignores_cached_reference_when_disabled():
+    base_model = _FunctionalRoutedExperts(num_experts=2).eval()
+    x = torch.randn(8, 4)
+    offsets = torch.tensor([4, 8])
+    quant_map = {torch.nn.functional.linear: (None, None, _functional_weight_spec(1, 2))}
+    results = []
+    for batch_size in (1, 2):
+        model = deepcopy(base_model)
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x, offsets))
+        for target in state.iter_linear_targets():
+            target.weight_orig
+        with torch.no_grad():
+            model.parametrizations.weight.original.add_(0.25)
+        with functional_quantization_mode(state):
+            with magr_mode(model,
+                           functional_state=state,
+                           create_weight_orig=False,
+                           min_samples=1,
+                           num_steps=1,
+                           expert_batch_size=batch_size) as mode:
+                mode.model(x, offsets)
+                mode.update()
+        results.append(model.parametrizations.weight.original.detach().clone())
+        state.cleanup()
+    torch.testing.assert_close(results[0], results[1], atol=1e-5, rtol=1e-5)
+
+
+@torch.no_grad()
 @pytest.mark.parametrize('act_order', [False, True])
 def test_functional_gpfq_expert_batch_matches_scalar(act_order):
     torch.manual_seed(3)
@@ -268,6 +297,12 @@ def test_functional_qronos_expert_batch_matches_scalar(act_order):
         results.append(model.parametrizations.weight.original.detach().clone())
         state.cleanup()
     torch.testing.assert_close(results[0], results[1], atol=1e-4, rtol=1e-4)
+
+
+def test_qronos_partial_exposes_batched_update():
+    algorithm_impl = partial(Qronos, alpha=1e-5)
+    batch_impl = getattr(algorithm_impl.func, 'batched_layer_update', None)
+    assert batch_impl is Qronos.batched_layer_update
 
 
 def test_functional_gptq_expert_batch_size_must_be_positive():
