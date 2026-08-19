@@ -338,9 +338,11 @@ class _HookedMode(TorchFunctionMode):
         self.counters.clear()
 
     def _pre_hook(self, name: str) -> Callable:
-        """Create a pre-hook that records entry into a named module."""
+        """Create a pre-hook that resets and records each managed forward root."""
 
         def hook(module: nn.Module, args: Tuple[Any, ...]) -> None:
+            if not self.module_stack:
+                self.counters.clear()
             self.module_stack.append((name, module))
 
         return hook

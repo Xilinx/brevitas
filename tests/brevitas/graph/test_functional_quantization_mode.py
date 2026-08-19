@@ -95,6 +95,27 @@ class ModelWithMultiLinear(nn.Module):
         return self.block(x)
 
 
+class FunctionalBlock(nn.Module):
+    """One functional linear call, suitable for direct block execution tests."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.weight = nn.Parameter(torch.randn(3, 4))
+
+    def forward(self, x: Tensor) -> Tensor:
+        return F.linear(x, self.weight)
+
+
+class ModelWithFunctionalBlock(nn.Module):
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.block = FunctionalBlock()
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self.block(x)
+
+
 class BmmModel(nn.Module):
     """Model that calls torch.bmm with two non-parameter tensors."""
 
@@ -525,6 +546,20 @@ class TestFunctionalQuantizationMode:
                 for count in module_counters.values():
                     assert count == 0
         state.remove_parametrizations()
+
+    def test_counters_reset_for_direct_block_forward(self):
+        """Direct block calls use a fresh call-site sequence like GPTQ block execution."""
+        model = ModelWithFunctionalBlock()
+        x = torch.randn(2, 4)
+        state = prepare_functional_quantization(
+            model, {F.linear: (None, None, Int8WeightPerTensorFloat)}, example_inputs=(x,))
+
+        with functional_quantization_mode(state):
+            first = model.block(x)
+            second = model.block(x)
+
+        assert first.shape == second.shape == (2, 3)
+        state.cleanup()
 
     def test_multiple_forward_passes(self):
         """Test that multiple forward passes work correctly."""
