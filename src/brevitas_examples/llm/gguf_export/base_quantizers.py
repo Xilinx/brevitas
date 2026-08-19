@@ -90,8 +90,12 @@ class _GGUFBaseQuantMixin(ExtendedInjector):
     proxy_class = GGUFGroupwiseWeightQuantProxyFromInjector
     scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
     scaling_per_output_type = ScalingPerOutputType.GROUP
-    scaling_min_val = GGUF_SCALING_MIN_VAL
     narrow_range = False
+
+    @value
+    def scaling_min_val(module):
+        # Use dtype tiny for fp16 models. Keep the floor for fp32
+        return max(torch.finfo(module.weight.dtype).tiny, GGUF_SCALING_MIN_VAL)
 
 
 class GGUFQ8_0WeightQuant(_GGUFBaseQuantMixin, Int8WeightPerChannelFloat):
@@ -227,11 +231,14 @@ class __GGUFKQuantScaleZPMixin(ExtendedInjector):
     """Common base for every nested K-quant scale/zero-point sub-injector."""
     narrow_range = False  # scale/zp quantization is always full-range too
     rescaling_int_quant = RescalingIntQuant
-    scaling_min_val = GGUF_SCALING_MIN_VAL
     scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
     scaling_per_output_type = ScalingPerOutputType.GROUP
     restrict_threshold_impl = FloatRestrictValue
     float_to_int_impl = RoundSte  # default rounding type
+
+    @value
+    def scaling_min_val(module):
+        return max(torch.finfo(module.weight.dtype).tiny, GGUF_SCALING_MIN_VAL)
 
     @value
     def tracked_parameter_list(upstream_shape, module):
