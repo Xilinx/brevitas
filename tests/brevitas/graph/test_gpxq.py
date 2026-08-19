@@ -433,9 +433,9 @@ def test_gpxq_quant_mha(quant_mha_gpxq_model, gpxq_key):
     # DataLoader batches along dim 0; a per-sample tensor of (seq_len, embed_dim) yields
     # batches that both batch_first settings can consume.
     n_samples = 32
-    inp = torch.randn(n_samples, QUANT_MHA_SEQ_LEN, QUANT_MHA_EMBED_DIM)
+    inp = torch.randn(n_samples, MHA_SEQ_LEN, MHA_EMBED_DIM)
     with torch.no_grad():
-        model(inp[:QUANT_MHA_BATCH_SIZE])  # forward pass to collect scaling factors
+        model(inp[:MHA_BATCH_SIZE])  # forward pass to collect scaling factors
 
     dataset = TensorDataset(inp, inp)
     dataloader = DataLoader(dataset, batch_size=16, num_workers=0, pin_memory=True, shuffle=False)
@@ -444,7 +444,7 @@ def test_gpxq_quant_mha(quant_mha_gpxq_model, gpxq_key):
     apply_gpxq(calib_loader=dataloader, model=model, act_order=False, use_quant_activations=False)
 
     with torch.no_grad():
-        out = model(inp[:QUANT_MHA_BATCH_SIZE])
+        out = model(inp[:MHA_BATCH_SIZE])
     assert torch.isfinite(out).all()
 
 

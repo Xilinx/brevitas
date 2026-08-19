@@ -543,71 +543,81 @@ list_of_quant_fixtures = [
 toy_quant_model = fixture_union(
     'toy_quant_model', list_of_quant_fixtures, ids=list_of_quant_fixtures)
 
-# QuantMultiheadAttention fixtures for exercising the internal-projection batch-dim
-# signalling that PTQ algorithms (activation equalization, GPxQ) rely on.
-QUANT_MHA_EMBED_DIM = 24
-QUANT_MHA_NUM_HEADS = 4
+# Multihead-attention fixtures for exercising batch-dim detection during equalization/GPxQ.
+MHA_EMBED_DIM = 24
+MHA_NUM_HEADS = 4
 # Sequence length and batch size are deliberately different so that a wrong batch_dim
 # would lead to a detectable difference (shape or values).
-QUANT_MHA_SEQ_LEN = 8
-QUANT_MHA_BATCH_SIZE = 5
+MHA_SEQ_LEN = 8
+MHA_BATCH_SIZE = 5
+
+
+def mha_input(batch_first, batch_size=MHA_BATCH_SIZE):
+    # Returns a self-attention input laid out according to batch_first:
+    #   batch_first=True  -> (N, L, E)
+    #   batch_first=False -> (L, N, E)
+    if batch_first:
+        shape = (batch_size, MHA_SEQ_LEN, MHA_EMBED_DIM)
+    else:
+        shape = (MHA_SEQ_LEN, batch_size, MHA_EMBED_DIM)
+    return torch.randn(shape)
 
 
 @pytest_cases.fixture
 @pytest_cases.parametrize('batch_first', [True, False])
-@pytest_cases.parametrize('packed_in_proj', [True, False])
-def quant_mha_model(batch_first, packed_in_proj):
+def vanilla_mha_model(batch_first):
+    # A bare torch.nn.MultiheadAttention. This is the realistic target for activation
+    # equalization, which runs on the float model before quantization operators are inserted.
 
-    class QuantMHAModel(nn.Module):
+    class VanillaMHAModel(nn.Module):
         batch_first = False
-        packed_in_proj = True
 
         def __init__(self) -> None:
             super().__init__()
-            # Disable all quantization so that the test isolates the batch-dim
-            # signalling and equalization output-preservation from quant noise.
-            self.mha = qnn.QuantMultiheadAttention(
-                embed_dim=QUANT_MHA_EMBED_DIM,
-                num_heads=QUANT_MHA_NUM_HEADS,
-                batch_first=self.batch_first,
-                packed_in_proj=self.packed_in_proj,
-                in_proj_input_quant=None,
-                in_proj_weight_quant=None,
-                in_proj_bias_quant=None,
-                softmax_input_quant=None,
-                attn_output_weights_quant=None,
-                q_scaled_quant=None,
-                k_transposed_quant=None,
-                v_quant=None,
-                out_proj_input_quant=None,
-                out_proj_weight_quant=None,
-                out_proj_bias_quant=None,
-                out_proj_output_quant=None)
+            self.mha = nn.MultiheadAttention(
+                MHA_EMBED_DIM, MHA_NUM_HEADS, batch_first=self.batch_first)
 
         def forward(self, x):
             out, _ = self.mha(x, x, x)
             return out
 
-    # Expose the parametrization so tests can build correctly-shaped inputs.
-    QuantMHAModel.batch_first = batch_first
-    QuantMHAModel.packed_in_proj = packed_in_proj
-    return QuantMHAModel
+    VanillaMHAModel.batch_first = batch_first
+    return VanillaMHAModel
 
 
-def quant_mha_input(batch_first):
-    if batch_first:
-        shape = (QUANT_MHA_BATCH_SIZE, QUANT_MHA_SEQ_LEN, QUANT_MHA_EMBED_DIM)
-    else:
-        shape = (QUANT_MHA_SEQ_LEN, QUANT_MHA_BATCH_SIZE, QUANT_MHA_EMBED_DIM)
-    return torch.randn(shape)
+@pytest_cases.fixture
+@pytest_cases.parametrize('batch_first', [True, False])
+def vanilla_linear_mha_model(batch_first):
+    # Linear -> ReLU -> MHA. Provides a source (the Linear) so that graph-mode activation
+    # equalization forms a region around the MHA sink.
+
+    class VanillaLinearMHAModel(nn.Module):
+        batch_first = False
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.linear = nn.Linear(MHA_EMBED_DIM, MHA_EMBED_DIM)
+            self.relu = nn.ReLU()
+            self.mha = nn.MultiheadAttention(
+                MHA_EMBED_DIM, MHA_NUM_HEADS, batch_first=self.batch_first)
+
+        def forward(self, x):
+            x = self.linear(x)
+            x = self.relu(x)
+            out, _ = self.mha(x, x, x)
+            return out
+
+    VanillaLinearMHAModel.batch_first = batch_first
+    return VanillaLinearMHAModel
 
 
 @pytest_cases.fixture
 @pytest_cases.parametrize('batch_first', [True, False])
 @pytest_cases.parametrize('packed_in_proj', [True, False])
 def quant_mha_gpxq_model(batch_first, packed_in_proj):
-    # Same as quant_mha_model but with weight quantization enabled on the internal projections,
-    # so that GPxQ algorithms collect and optimize them.
+    # QuantMultiheadAttention with weight quantization enabled on the internal projections, so
+    # that GPxQ (which runs after quantization) collects and optimizes them. GPxQ hooks the
+    # internal projection QuantLinear layers, which always operate on (L, N, E) tensors.
     weight_quant = _set_weight_quant_to_param(Int8WeightPerTensorFloat)
 
     class QuantMHAGPxQModel(nn.Module):
@@ -617,8 +627,8 @@ def quant_mha_gpxq_model(batch_first, packed_in_proj):
         def __init__(self) -> None:
             super().__init__()
             self.mha = qnn.QuantMultiheadAttention(
-                embed_dim=QUANT_MHA_EMBED_DIM,
-                num_heads=QUANT_MHA_NUM_HEADS,
+                embed_dim=MHA_EMBED_DIM,
+                num_heads=MHA_NUM_HEADS,
                 batch_first=self.batch_first,
                 packed_in_proj=self.packed_in_proj,
                 in_proj_input_quant=None,

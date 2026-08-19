@@ -1368,8 +1368,8 @@ class LayerwiseActivationEqualization(ActivationEqualization):
             name = list(region.sinks.keys())[0]
             module = region.get_module_from_name(name)
             batch_dim = 0
-            if hasattr(region, 'batch_first'):
-                batch_dim = 0 if region.batch_first else 1
+            if hasattr(module, 'batch_first') and not module.batch_first:
+                batch_dim = 1
 
             hook_fn = partial(
                 self.forward_stats_hook, name=module, batch_dim=batch_dim, use_inp=True)
