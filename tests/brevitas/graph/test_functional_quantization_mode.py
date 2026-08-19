@@ -1465,6 +1465,38 @@ class TestFunctionalQuantizationMode:
         with pytest.raises(ValueError):
             prepare_functional_quantization(model, quant_map)
 
+    def test_unprepared_runtime_call_skips_weight_resolver(self):
+        """A later runtime-only call does not resolve the parameter weight spec."""
+
+        class MaybeRuntimeLinear(nn.Module):
+
+            def __init__(self):
+                super().__init__()
+                self.weight = nn.Parameter(torch.randn(3, 4))
+                self.register_buffer('runtime_weight', torch.randn(3, 3))
+
+            def forward(self, x, run_runtime=False):
+                x = F.linear(x, self.weight)
+                if run_runtime:
+                    x = F.linear(x, self.runtime_weight)
+                return x
+
+        def weight_resolver(module, name, index):
+            if index != 0:
+                raise AssertionError('Weight resolver ran for a runtime-only operand.')
+            return Int8WeightPerTensorFloat
+
+        model = MaybeRuntimeLinear()
+        x = torch.randn(2, 4)
+        state = prepare_functional_quantization(
+            model, {F.linear: (None, None, weight_resolver)}, example_inputs=(x,))
+
+        with functional_quantization_mode(state):
+            output = model(x, run_runtime=True)
+
+        assert output.shape == (2, 3)
+        state.cleanup()
+
     def test_unprepared_call_site_raises(self):
         """Applying to a call site not seen during prepare fails fast."""
 
