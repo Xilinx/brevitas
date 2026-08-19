@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from dataclasses import field
 from functools import partial
 from operator import attrgetter
+from time import perf_counter
 from typing import List
 from typing import Optional
 from typing import Set
@@ -16,6 +17,7 @@ import warnings
 import torch
 from torch.fx import GraphModule as TorchGraphModule
 import torch.nn as nn
+from tqdm import tqdm
 import unfoldNd
 
 from brevitas.fx import GraphModule
@@ -39,6 +41,7 @@ SUPPORTED_CONV_OP = (
 class LayerHandler:
     layer_names: Set = field(default_factory=set)
     forward_count: int = 0
+    stop_forward: bool = True
 
 
 class gpxq_mode(quantization_status_manager):
@@ -104,6 +107,7 @@ class gpxq_mode(quantization_status_manager):
         self.gpxq_layers = dict()
         # reference for each layer to update
         self.current_layer = LayerHandler()
+        self.functional_layer = LayerHandler(stop_forward=False)
         # How many layer to optimize
         self.num_layers = 0
         # Quantize following magnitude of activation
@@ -114,15 +118,19 @@ class gpxq_mode(quantization_status_manager):
 
         self.group_of_parallel_layers = group_of_parallel_layers
         self.return_forward_output = return_forward_output
+        if min_samples < 0:
+            raise ValueError('min_samples must be non-negative.')
         if insufficient_samples not in ('rtn', 'error', 'gpxq'):
             raise ValueError("insufficient_samples must be 'rtn', 'error', or 'gpxq'.")
         self.functional_state = functional_state
         self.min_samples = min_samples
         self.insufficient_samples = insufficient_samples
         self.functional_targets = []
+        self.functional_target_groups = []
+        self.functional_collection_seconds = {}
         self.functional_observer_handle = None
-        self.active_functional_target = None
-        self.completed_functional_targets = set()
+        self.active_functional_group = None
+        self.completed_functional_owners = set()
 
         self.orig_forward = self.model.forward
         if isinstance(self.model, (GraphModule, TorchGraphModule)):
@@ -155,8 +163,10 @@ class gpxq_mode(quantization_status_manager):
             module in self.model.named_modules() if self._is_module_supported(module)}
         if self.functional_state is not None:
             self.functional_targets = self.functional_state.iter_linear_targets(self.model)
+            target_groups = {}
             for target in self.functional_targets:
-                dict_of_layers[target.name] = [(target.name, target)]
+                target_groups.setdefault(target.owner_id, []).append(target)
+            self.functional_target_groups = list(target_groups.values())
         if self.group_of_parallel_layers is not None:
             for parallel_layers in self.group_of_parallel_layers:
                 for name in parallel_layers:
@@ -173,15 +183,10 @@ class gpxq_mode(quantization_status_manager):
         # network is highly disrupted during GPxQ
         for _, parallel_layers in dict_of_layers.items():
             for name, module in parallel_layers:
-                if isinstance(module, FunctionalLinearTarget):
-                    optimizer = self.initialize_module_optimizer(
-                        module,
-                        name,
-                        len_parallel_layers=len(parallel_layers),
-                        create_weight_orig=self.create_weight_orig)
-                    self.gpxq_layers[name] = optimizer
-                    continue
-                if len(module._forward_hooks) > 0 or len(module._forward_pre_hooks):
+                hooks = tuple(module._forward_hooks.values()) + tuple(
+                    module._forward_pre_hooks.values())
+                if any(not getattr(hook, '_brevitas_functional_quantization_hook', False)
+                       for hook in hooks):
                     warnings.warn(
                         f'Hooks detected during setup for GPxQ. '
                         f'Behaviour might deviate from what expected.')
@@ -198,8 +203,16 @@ class gpxq_mode(quantization_status_manager):
                     self.hook_dict[name] = module.register_forward_pre_hook(hook_fn)
                     self.gpxq_layers[name] = gpxq_module_optimizer
 
-        self.num_layers = len(dict_of_layers)
-        if self.functional_targets:
+        for group in self.functional_target_groups:
+            for target in group:
+                self.gpxq_layers[target.name] = self.initialize_module_optimizer(
+                    target,
+                    target.name,
+                    len_parallel_layers=1,
+                    create_weight_orig=self.create_weight_orig)
+
+        self.num_layers = len(dict_of_layers) + len(self.functional_target_groups)
+        if self.functional_target_groups:
             self.functional_observer_handle = self.functional_state.register_linear_observer(
                 self._observe_functional_target)
             # Ordinary module hooks stop calibration before later functional calls.
@@ -221,29 +234,78 @@ class gpxq_mode(quantization_status_manager):
             self.model.forward = self.orig_forward
 
     def update(self):
-        active_target = self.active_functional_target
-        if active_target is not None:
-            optimizer = self.gpxq_layers[active_target.name]
-            if optimizer.nsamples < self.min_samples or optimizer.nsamples == 0:
-                self._finish_functional_target(
-                    active_target, optimizer, 'insufficient calibration samples')
-            else:
-                optimizer.single_layer_update()
-                self._finish_functional_target(active_target, optimizer, None)
-            self.current_layer.layer_names.discard(active_target.name)
-        for name in self.current_layer.layer_names:
+        for name in tuple(self.current_layer.layer_names):
             self.gpxq_layers[name].single_layer_update()
-            if name in self.hook_dict:
-                self.hook_dict[name].remove()
+            handle = self.hook_dict.pop(name, None)
+            if handle is not None:
+                handle.remove()
         self.current_layer.layer_names.clear()
+
+        if self.active_functional_group is not None:
+            self._update_functional_group(self.active_functional_group)
+
         self._advance_functional_target()
 
     def _observe_functional_target(self, observation: FunctionalLinearObservation) -> None:
-        """Collect only the scheduled logical expert's routed activations."""
-        if observation.target is not self.active_functional_target:
+        """Collect routed activations for every expert in the scheduled owner."""
+        if self.active_functional_group is None or observation.target.owner_id != self.active_functional_group[
+                0].owner_id:
             return
         optimizer = self.gpxq_layers[observation.target.name]
-        optimizer.update_batch(observation.target, (observation.input,), self.current_layer)
+        start = perf_counter()
+        optimizer.update_batch(observation.target, (observation.input,), self.functional_layer)
+        owner_id = observation.target.owner_id
+        self.functional_collection_seconds[owner_id] = self.functional_collection_seconds.get(
+            owner_id, 0.) + perf_counter() - start
+
+    @property
+    def active_functional_target(self) -> Optional[FunctionalLinearTarget]:
+        """Expose the active owner's first target for existing callback compatibility."""
+        if self.active_functional_group is None:
+            return None
+        return self.active_functional_group[0]
+
+    def _update_functional_group(self, group) -> None:
+        """Update all expert matrices of one owner after a shared calibration sweep."""
+        owner_id = group[0].owner_id
+        insufficient = [(target, self.gpxq_layers[target.name])
+                        for target in group
+                        if self.gpxq_layers[target.name].nsamples == 0 or
+                        self.gpxq_layers[target.name].nsamples < self.min_samples]
+        if insufficient and self.insufficient_samples == 'error':
+            details = ', '.join(
+                f'{target.name} ({optimizer.nsamples} samples)' for target,
+                optimizer in insufficient)
+            raise RuntimeError(
+                f'Functional GPxQ owner {owner_id} has insufficient calibration samples: {details}.'
+            )
+
+        insufficient_names = {target.name for target, _ in insufficient}
+        update_start = perf_counter()
+        progress = tqdm(
+            group, desc=f'GPTQ {owner_id}', unit='expert', leave=False, disable=len(group) < 8)
+        for target in progress:
+            optimizer = self.gpxq_layers[target.name]
+            target_start = perf_counter()
+            if target.name in insufficient_names:
+                self._finish_functional_target(
+                    target, optimizer, 'insufficient calibration samples')
+            else:
+                optimizer.single_layer_update()
+            progress.set_postfix(
+                samples=optimizer.nsamples, seconds=f'{perf_counter() - target_start:.1f}')
+        progress.close()
+
+        collection_seconds = self.functional_collection_seconds.pop(owner_id, 0.)
+        tqdm.write(
+            f'Functional GPxQ {owner_id}: {len(group)} experts, '
+            f'{len(group) - len(insufficient)} optimized, {len(insufficient)} fallback, '
+            f'collection {collection_seconds:.1f}s, update {perf_counter() - update_start:.1f}s.')
+
+        self.completed_functional_owners.add(owner_id)
+        self.functional_layer.layer_names.clear()
+        self.functional_layer.forward_count = 0
+        self.active_functional_group = None
 
     def _finish_functional_target(
             self, target: FunctionalLinearTarget, optimizer: 'GPxQ', reason: Optional[str]) -> None:
@@ -261,16 +323,15 @@ class gpxq_mode(quantization_status_manager):
                 for buffer in ('H', 'G', 'B'):
                     if hasattr(optimizer, buffer):
                         delattr(optimizer, buffer)
-        self.completed_functional_targets.add(target.name)
 
     def _advance_functional_target(self) -> None:
-        """Move the observer to the next functional target after each update cycle."""
+        """Move the observer to the next functional owner after each update cycle."""
         if self.hook_dict:
             return
-        self.active_functional_target = next((
-            target for target in self.functional_targets
-            if target.name not in self.completed_functional_targets),
-                                             None)
+        self.active_functional_group = next((
+            group for group in self.functional_target_groups
+            if group[0].owner_id not in self.completed_functional_owners),
+                                            None)
 
     @abstractmethod
     def catch_stopfwd(self, *args, **kwargs):

@@ -11,6 +11,8 @@ import warnings
 
 import numpy as np
 import torch
+
+torch._dynamo.config.recompile_limit = 1000
 from torch.utils.data import DataLoader
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
@@ -115,7 +117,8 @@ def _functional_quant_map(quantizers_dict, functional_quantization=None, quant_s
 
     def functional_matmul_weight(module, module_name, call_index):
         """Select GPT-OSS [expert, input, output] owner axes."""
-        if hasattr(module, 'gate_up_proj') and getattr(module.gate_up_proj, 'dim', lambda: 0)() == 3:
+        if hasattr(module, 'gate_up_proj') and getattr(module.gate_up_proj, 'dim',
+                                                       lambda: 0)() == 3:
             return weight_quant, {'output_channel_dim': 2, 'group_dim': 1}
         return weight_quant
 

@@ -65,8 +65,8 @@ class GPFQ(GPxQ):
 
         # Update reference to current layer
         current_layer.layer_names.add(self.name)
-        is_quant_enabled = not module.reference_pass if hasattr(module,
-                                                                 'reference_pass') else module.weight_quant.is_quant_enabled
+        is_quant_enabled = not module.reference_pass if hasattr(
+            module, 'reference_pass') else module.weight_quant.is_quant_enabled
 
         # NOTE: batch_size = seqlen for language models here
         inp_processed = self.process_input(input)  # [groups, in_features, batch_size]
@@ -107,7 +107,8 @@ class GPFQ(GPxQ):
         current_layer.forward_count += 1
         if current_layer.forward_count == self.len_parallel_layers:
             current_layer.forward_count = 0
-            raise StopFwdException
+            if current_layer.stop_forward:
+                raise StopFwdException
 
     def single_layer_update(self):
         assert not self.layer.weight_quant.requires_quant_input, \
@@ -279,6 +280,8 @@ class gpfq_mode(gpxq_mode):
         # TODO: Ensure that removing is_training=False does not cause any regression and remove,
         # if that is the case
         targets = self.functional_targets if self.functional_state is not None else ()
+        if self.functional_state is not None:
+            self.functional_state.reset_active_counters()
         for target in targets:
             target.reference_pass = True
         try:

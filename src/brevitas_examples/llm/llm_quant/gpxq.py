@@ -56,58 +56,63 @@ def block_optimization(
     )
     cache_state = model.config.use_cache
     model.config.use_cache = False
-    blocks = recurse_getattr(model, block_name)
-    first_block = blocks[0]
-    cached_args, cached_kwargs = [], []
+    try:
+        blocks = recurse_getattr(model, block_name)
+        first_block = blocks[0]
+        cached_args, cached_kwargs = [], []
 
-    # Intercept input to first block
-    def intercept_input(module, args, kwargs):
-        args = send_to_device(args, 'cpu')
-        kwargs = send_to_device(kwargs, 'cpu')
-        cached_args.append(args)
-        cached_kwargs.append(kwargs)
-        raise StopFwdException
+        # Intercept input to first block
+        def intercept_input(module, args, kwargs):
+            args = send_to_device(args, 'cpu')
+            kwargs = send_to_device(kwargs, 'cpu')
+            cached_args.append(args)
+            cached_kwargs.append(kwargs)
+            raise StopFwdException
 
-    # Intercept output from block N-1 to set it as input to block N
-    def intercept_output(module, args, kwargs, output):
-        if isinstance(output, tuple):
-            output = output[0]
-        output = send_to_device(output, 'cpu')
-        cached_args.append((output,))
-        raise StopFwdException
+        # Intercept output from block N-1 to set it as input to block N
+        def intercept_output(module, args, kwargs, output):
+            if isinstance(output, tuple):
+                output = output[0]
+            output = send_to_device(output, 'cpu')
+            cached_args.append((output,))
+            raise StopFwdException
 
-    # Collect input to first block
-    hook = first_block.register_forward_pre_hook(intercept_input, with_kwargs=True)
-    with disable_quantization_cm:
-        for inps in dataloader:
-            try:
-                model(**inps)
-            except StopFwdException:
-                pass
-    hook.remove()
-
-    # Iterate through all the blocks
-    for index, block in tqdm(enumerate(blocks), desc="Blocks", total=len(blocks)):
-        with context_manager_func(block, **context_manager_kwargs) as gpxq:
-            block_optimization_callback(block, gpxq, cached_args, cached_kwargs)
-
-        if index < len(blocks) - 1:
-            # Once the block is done, we need to update the input to the next block
-            past_cached_args, past_cached_kwargs = deepcopy(cached_args), deepcopy(cached_kwargs)
-            cached_args = []
-            hook = block.register_forward_hook(intercept_output, with_kwargs=True)
-
+        # Collect input to first block
+        hook = first_block.register_forward_pre_hook(intercept_input, with_kwargs=True)
+        try:
             with disable_quantization_cm:
-                for args, kwargs in zip(past_cached_args, past_cached_kwargs):
+                for inps in dataloader:
                     try:
-                        args = send_to_device(args, 'cuda')
-                        kwargs = send_to_device(kwargs, 'cuda')
-                        block(*args, **kwargs)
+                        model(**inps)
                     except StopFwdException:
                         pass
+        finally:
             hook.remove()
-    # Restore cache state
-    model.config.use_cache = cache_state
+
+        # Iterate through all the blocks
+        for index, block in tqdm(enumerate(blocks), desc="Blocks", total=len(blocks)):
+            with context_manager_func(block, **context_manager_kwargs) as gpxq:
+                block_optimization_callback(block, gpxq, cached_args, cached_kwargs)
+
+            if index < len(blocks) - 1:
+                # Once the block is done, we need to update the input to the next block
+                past_cached_args, past_cached_kwargs = deepcopy(cached_args), deepcopy(cached_kwargs)
+                cached_args = []
+                hook = block.register_forward_hook(intercept_output, with_kwargs=True)
+
+                try:
+                    with disable_quantization_cm:
+                        for args, kwargs in zip(past_cached_args, past_cached_kwargs):
+                            try:
+                                args = send_to_device(args, 'cuda')
+                                kwargs = send_to_device(kwargs, 'cuda')
+                                block(*args, **kwargs)
+                            except StopFwdException:
+                                pass
+                finally:
+                    hook.remove()
+    finally:
+        model.config.use_cache = cache_state
 
 
 @torch.no_grad()
@@ -307,12 +312,12 @@ def apply_magr(
                        group_of_parallel_layers=group_of_parallel_layers,
                        create_weight_orig=create_weight_orig,
                        num_steps=num_steps,
-                        alpha=alpha,
-                        device=buffer_device,
-                        dtype=buffer_dtype,
-                        functional_state=functional_state,
-                        min_samples=min_samples,
-                        insufficient_samples=insufficient_samples) as magr:
+                       alpha=alpha,
+                       device=buffer_device,
+                       dtype=buffer_dtype,
+                       functional_state=functional_state,
+                       min_samples=min_samples,
+                       insufficient_samples=insufficient_samples) as magr:
             while True:
                 magr_model = magr.model
                 for inps in tqdm(dataloader, desc="Calculating covariances..."):

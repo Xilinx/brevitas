@@ -52,8 +52,8 @@ class Qronos(GPFQ):
         inp_processed = inp_processed.to(self.dtype)
         batch_size = inp_processed.shape[-1]
 
-        is_quant_enabled = not module.reference_pass if hasattr(module,
-                                                                 'reference_pass') else module.weight_quant.is_quant_enabled
+        is_quant_enabled = not module.reference_pass if hasattr(
+            module, 'reference_pass') else module.weight_quant.is_quant_enabled
 
         # NOTE: in the gpfq_mode context manager (which we use for this), we first
         # collect quant inputs, then we collect float inputs for the same batch. We
@@ -92,7 +92,8 @@ class Qronos(GPFQ):
         current_layer.forward_count += 1
         if current_layer.forward_count == self.len_parallel_layers:
             current_layer.forward_count = 0
-            raise StopFwdException
+            if current_layer.stop_forward:
+                raise StopFwdException
 
     def single_layer_update(self, beta: int = 1e4):
         assert not self.layer.weight_quant.requires_quant_input, \
@@ -176,6 +177,7 @@ class Qronos(GPFQ):
                 f'Failed to compute the inverse of H for layer {self.name} '
                 f'Forward error correction will be a null operation. '
                 f'Increasing the number of samples might fix this issue.')
+            del self.iH, self.G, self.H
             return
 
         self.iH = self.iH.to(dev)
@@ -230,6 +232,7 @@ class Qronos(GPFQ):
                 f'Failed to compute Cholesky decomposition for layer {self.name} '
                 f'Forward error correction will be a null operation. '
                 f'Increasing the number of samples might fix this issue.')
+            del self.L, self.iH
             return
         del self.iH  # memory management
 

@@ -97,7 +97,8 @@ class GPTQ(GPxQ):
         current_layer.forward_count += 1
         if current_layer.forward_count == self.len_parallel_layers:
             current_layer.forward_count = 0
-            raise StopFwdException
+            if current_layer.stop_forward:
+                raise StopFwdException
 
     def single_layer_update(self, percdamp=.01, c=1e4):
         assert not self.layer.weight_quant.requires_quant_input, "Error: GPTQ does not support weight quantizers that require quantized inputs."

@@ -309,6 +309,8 @@ class FunctionalLinearTarget:
     transpose_weight: bool
     reference_weight: Optional[Tensor] = None
     reference_pass: bool = False
+    target_quant_holder: Optional[_WeightQuantHolder] = None
+    target_quant_proxy: Optional[nn.Module] = None
 
     @property
     def name(self) -> str:
@@ -320,15 +322,46 @@ class FunctionalLinearTarget:
         weight = self.owner.original_parameter[self.view_indices]
         return weight.t() if self.transpose_weight else weight
 
+    def _target_proxy(self, native_weight: Tensor) -> nn.Module:
+        """Build a 2-D proxy so GPTQ never requantizes sibling expert matrices."""
+        if self.target_quant_proxy is None:
+            owner_injector = self.owner.proxy.quant_injector
+            owner_rank = self.owner.original_parameter.dim()
+            dropped_dims = len(self.view_indices)
+            target_di_kwargs = {}
+            for name in ('output_channel_dim', 'group_dim'):
+                axis = getattr(owner_injector, name, None)
+                if axis is None:
+                    continue
+                axis = axis if axis >= 0 else owner_rank + axis
+                if axis < dropped_dims:
+                    raise RuntimeError(
+                        f"Functional target '{self.name}' cannot use owner {name} {axis} after expert indexing."
+                    )
+                target_di_kwargs[name] = axis - dropped_dims
+            self.target_quant_holder = _WeightQuantHolder(
+                native_weight, target_di_kwargs.get('output_channel_dim', 0))
+            target_injector = owner_injector.let(**target_di_kwargs)
+            self.target_quant_proxy = target_injector.proxy_class(
+                self.target_quant_holder, target_injector).to(native_weight.device)
+            self.target_quant_proxy.train(self.owner.proxy.training)
+        else:
+            self.target_quant_holder.weight = native_weight
+            self.target_quant_holder.out_channels = native_weight.shape[
+                self.target_quant_holder.output_channel_dim]
+            self.target_quant_proxy.to(native_weight.device)
+        return self.target_quant_proxy
+
     def quant_weight(self) -> Tensor:
-        weight = self.owner.proxy(self.owner.original_parameter)[self.view_indices]
+        native_weight = self._owner_view(self.owner.original_parameter)
+        weight = self._target_proxy(native_weight)(native_weight)
         value = weight.value if isinstance(weight, QuantTensor) else weight
         return value.t() if self.transpose_weight else value
 
     @property
     def weight_quant(self) -> nn.Module:
-        """Expose the shared owner proxy through the GPxQ layer contract."""
-        return self.owner.proxy
+        """Expose this target's local proxy through the GPxQ layer contract."""
+        return self._target_proxy(self._owner_view(self.owner.original_parameter))
 
     @property
     def weight_orig(self) -> Tensor:
@@ -372,6 +405,8 @@ class FunctionalQuantState:
         self.owners: Dict[str, _FunctionalWeightOwner] = {}
         self.linear_targets: Dict[Tuple[str, Tuple[int, ...]], FunctionalLinearTarget] = {}
         self.linear_observers: List[Callable[[FunctionalLinearObservation], None]] = []
+        self.grouped_target_calls: Dict[Tuple[str, Callable, int], str] = {}
+        self.counter_resetters: List[Callable[[], None]] = []
         self.registered_parametrizations: List[Tuple[nn.Module, str]] = []
         self.parametrizations_removed = False
         self.enabled = False
@@ -412,7 +447,14 @@ class FunctionalQuantState:
         self.owners.clear()
         self.linear_targets.clear()
         self.linear_observers.clear()
+        self.grouped_target_calls.clear()
+        self.counter_resetters.clear()
         self._closed = True
+
+    def reset_active_counters(self) -> None:
+        """Restart prepared call-site ordinals for a nested functional forward."""
+        for reset in tuple(self.counter_resetters):
+            reset()
 
     def register_linear_observer(self, observer: Callable[[FunctionalLinearObservation], None]):
         """Observe parameter-backed functional linear calls during an active mode."""
@@ -471,9 +513,18 @@ class _HookedMode(TorchFunctionMode):
         for name, module in self.model.named_modules():
             if module in excluded or isinstance(module, _QuantParametrization):
                 continue
-            self.hooks.append(module.register_forward_pre_hook(self._pre_hook(name)))
-            self.hooks.append(module.register_forward_hook(self._post_hook(name), always_call=True))
-        self.hooks.append(self.model.register_forward_hook(self._reset_hook, always_call=True))
+            pre_hook = self._pre_hook(name)
+            post_hook = self._post_hook(name)
+            pre_hook._brevitas_functional_quantization_hook = True
+            post_hook._brevitas_functional_quantization_hook = True
+            self.hooks.append(module.register_forward_pre_hook(pre_hook))
+            self.hooks.append(module.register_forward_hook(post_hook, always_call=True))
+
+        def reset_hook(module: nn.Module, args: Tuple[Any, ...], output: Any) -> None:
+            self._reset_hook(module, args, output)
+
+        reset_hook._brevitas_functional_quantization_hook = True
+        self.hooks.append(self.model.register_forward_hook(reset_hook, always_call=True))
 
     def _remove_hooks(self) -> None:
         """Remove managed hooks and discard transient forward state."""
@@ -957,6 +1008,7 @@ class functional_quantization_mode(_HookedMode):
         self._attach_hooks()
         self._previous_enabled = self.state.enabled
         self.state.enabled = self.enabled
+        self.state.counter_resetters.append(self.counters.clear)
         return super().__enter__()
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
@@ -965,6 +1017,8 @@ class functional_quantization_mode(_HookedMode):
             return super().__exit__(exc_type, exc_val, exc_tb)
         finally:
             self.state.enabled = self._previous_enabled
+            if self.counters.clear in self.state.counter_resetters:
+                self.state.counter_resetters.remove(self.counters.clear)
             self._remove_hooks()
             if self.remove_parametrizations_on_exit:
                 self.state.remove_parametrizations()

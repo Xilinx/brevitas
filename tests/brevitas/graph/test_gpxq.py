@@ -10,11 +10,11 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.utils.data import TensorDataset
 
+from brevitas.graph.functional_quant import functional_quantization_mode
+from brevitas.graph.functional_quant import prepare_functional_quantization
 from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gptq import gptq_mode
-from brevitas.graph.functional_quant import functional_quantization_mode
-from brevitas.graph.functional_quant import prepare_functional_quantization
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.magr import magr_mode
@@ -50,22 +50,61 @@ class _FunctionalExpertMatmul(torch.nn.Module):
         return x @ self.weight[expert]
 
 
+class _FunctionalGroupedExperts(torch.nn.Module):
+    """Stacked experts dispatched by grouped-MM cumulative token offsets."""
+
+    def __init__(self):
+        super().__init__()
+        self.weight = torch.nn.Parameter(torch.randn(2, 64, 256, dtype=torch.bfloat16))
+
+    def forward(self, x, offsets):
+        return torch._grouped_mm(x, self.weight.transpose(-2, -1), offs=offsets)
+
+
+class _MixedFunctionalExperts(torch.nn.Module):
+    """An ordinary quantized layer followed by stacked functional experts."""
+
+    def __init__(self):
+        super().__init__()
+        self.input_proj = qnn.QuantLinear(4, 4, bias=False, weight_quant=Int8WeightPerTensorFloat)
+        self.weight = torch.nn.Parameter(torch.randn(2, 3, 4))
+
+    def forward(self, x, expert):
+        return torch.nn.functional.linear(self.input_proj(x), self.weight[expert])
+
+
+class _TwoFunctionalOwners(torch.nn.Module):
+    """Two stacked owners that must be scheduled in projection dependency order."""
+
+    def __init__(self):
+        super().__init__()
+        self.first_weight = torch.nn.Parameter(torch.randn(2, 3, 4))
+        self.second_weight = torch.nn.Parameter(torch.randn(2, 2, 3))
+
+    def forward(self, x, expert):
+        x = torch.nn.functional.linear(x, self.first_weight[expert])
+        return torch.nn.functional.linear(x, self.second_weight[expert])
+
+
 def _functional_weight_spec(output_channel_dim, group_dim):
-    return (Int8WeightPerTensorFloat, {
-        'output_channel_dim': output_channel_dim, 'group_dim': group_dim})
+    return (
+        Int8WeightPerTensorFloat, {
+            'output_channel_dim': output_channel_dim, 'group_dim': group_dim})
 
 
 @torch.no_grad()
 @pytest.mark.parametrize(
     'model_class,quant_map',
     [
-        (_FunctionalExpertLinear, {
-            torch.nn.functional.linear: (None, None, _functional_weight_spec(1, 2))}),
-        (_FunctionalExpertMatmul, {
-            torch.matmul: (None, None, _functional_weight_spec(2, 1)),
-            torch.Tensor.matmul: (None, None, _functional_weight_spec(2, 1)),
-            torch.Tensor.__matmul__: (None, None, _functional_weight_spec(2, 1))}),
-    ],
+        (
+            _FunctionalExpertLinear, {
+                torch.nn.functional.linear: (None, None, _functional_weight_spec(1, 2))}),
+        (
+            _FunctionalExpertMatmul,
+            {
+                torch.matmul: (None, None, _functional_weight_spec(2, 1)),
+                torch.Tensor.matmul: (None, None, _functional_weight_spec(2, 1)),
+                torch.Tensor.__matmul__: (None, None, _functional_weight_spec(2, 1))}),],
     ids=['f_linear', 'gpt_oss_matmul'])
 def test_functional_gptq_updates_only_observed_expert(model_class, quant_map):
     """GPTQ uses a distinct target per expert and leaves inactive slices at RTN."""
@@ -85,16 +124,119 @@ def test_functional_gptq_updates_only_observed_expert(model_class, quant_map):
 
 
 @torch.no_grad()
+def test_functional_targets_share_one_owner_schedule_step():
+    """All expert slices of one stacked owner are calibrated in one replay."""
+    model = _FunctionalExpertLinear().eval()
+    x = torch.randn(8, 4)
+    quant_map = {torch.nn.functional.linear: (None, None, _functional_weight_spec(1, 2))}
+    state = prepare_functional_quantization(model, quant_map, example_inputs=(x, 0))
+    with functional_quantization_mode(state):
+        with gptq_mode(model, functional_state=state, min_samples=1) as mode:
+            assert mode.num_layers == 1
+            mode.model(x, 0)
+            mode.update()
+    state.cleanup()
+
+
+@torch.no_grad()
+def test_functional_target_quantizes_only_its_expert_view():
+    """GPTQ target quantization does not invoke the proxy on the stacked owner."""
+    model = _FunctionalExpertLinear().eval()
+    x = torch.randn(8, 4)
+    quant_map = {torch.nn.functional.linear: (None, None, _functional_weight_spec(1, 2))}
+    state = prepare_functional_quantization(model, quant_map, example_inputs=(x, 0))
+    target = state.iter_linear_targets()[0]
+    target.quant_weight()
+    assert target.target_quant_proxy is not target.owner.proxy
+    assert target.target_quant_holder.weight.shape == (3, 4)
+    state.cleanup()
+
+
+@torch.no_grad()
+def test_functional_gptq_starts_after_ordinary_layers():
+    """Functional owner scheduling begins after ordinary GPxQ hooks are exhausted."""
+    model = _MixedFunctionalExperts().eval()
+    x = torch.randn(8, 4)
+    model(x, 0)  # Initialize the ordinary layer's quantizer before GPTQ.
+    quant_map = {torch.nn.functional.linear: (None, None, _functional_weight_spec(1, 2))}
+    state = prepare_functional_quantization(model, quant_map, example_inputs=(x, 0))
+    before = model.parametrizations.weight.original.detach().clone()
+    with functional_quantization_mode(state):
+        with gptq_mode(model, functional_state=state, min_samples=1) as mode:
+            assert mode.num_layers == 2
+            mode.model(x, 0)
+            mode.update()
+            assert mode.active_functional_target is not None
+            mode.model(x, 0)
+            mode.update()
+    after = model.parametrizations.weight.original.detach()
+    assert not torch.equal(after[0], before[0])
+    torch.testing.assert_close(after[1], before[1])
+    state.cleanup()
+
+
+@torch.no_grad()
+def test_functional_gptq_schedules_stacked_owners_in_order():
+    """One replay per owner updates earlier projections before later ones collect inputs."""
+    model = _TwoFunctionalOwners().eval()
+    x = torch.randn(8, 4)
+    quant_map = {torch.nn.functional.linear: (None, None, _functional_weight_spec(1, 2))}
+    state = prepare_functional_quantization(model, quant_map, example_inputs=(x, 0))
+    before_first = model.parametrizations.first_weight.original.detach().clone()
+    before_second = model.parametrizations.second_weight.original.detach().clone()
+    with functional_quantization_mode(state):
+        with gptq_mode(model, functional_state=state, min_samples=1) as mode:
+            assert mode.num_layers == 2
+            mode.model(x, 0)
+            mode.update()
+            assert mode.active_functional_target.owner_id.endswith('second_weight')
+            mode.model(x, 0)
+            mode.update()
+    after_first = model.parametrizations.first_weight.original.detach()
+    after_second = model.parametrizations.second_weight.original.detach()
+    assert not torch.equal(after_first[0], before_first[0])
+    assert not torch.equal(after_second[0], before_second[0])
+    torch.testing.assert_close(after_first[1], before_first[1])
+    torch.testing.assert_close(after_second[1], before_second[1])
+    state.cleanup()
+
+
+@torch.no_grad()
+@pytest.mark.skipif(not hasattr(torch, '_grouped_mm'), reason='Torch grouped_mm is unavailable')
+def test_functional_grouped_mm_gptq_updates_each_routed_expert():
+    """Grouped-MM observations route each expert's activations to its GPTQ target."""
+    model = _FunctionalGroupedExperts().eval()
+    x = torch.randn(8, 256, dtype=torch.bfloat16)
+    offsets = torch.tensor([3, 8], dtype=torch.int32)
+    quant_map = {
+        torch._grouped_mm: (None, None, _functional_weight_spec(1, 2)),}
+    state = prepare_functional_quantization(model, quant_map, example_inputs=(x, offsets))
+    before = model.parametrizations.weight.original.detach().clone()
+    with functional_quantization_mode(state):
+        with gptq_mode(model, functional_state=state, min_samples=1) as mode:
+            assert mode.num_layers == 1
+            for _ in range(mode.num_layers):
+                mode.model(x, offsets)
+                mode.update()
+    after = model.parametrizations.weight.original.detach()
+    assert not torch.equal(after[0], before[0])
+    assert not torch.equal(after[1], before[1])
+    state.cleanup()
+
+
+@torch.no_grad()
 @pytest.mark.parametrize(
     'model_class,quant_map',
     [
-        (_FunctionalExpertLinear, {
-            torch.nn.functional.linear: (None, None, _functional_weight_spec(1, 2))}),
-        (_FunctionalExpertMatmul, {
-            torch.matmul: (None, None, _functional_weight_spec(2, 1)),
-            torch.Tensor.matmul: (None, None, _functional_weight_spec(2, 1)),
-            torch.Tensor.__matmul__: (None, None, _functional_weight_spec(2, 1))}),
-    ],
+        (
+            _FunctionalExpertLinear, {
+                torch.nn.functional.linear: (None, None, _functional_weight_spec(1, 2))}),
+        (
+            _FunctionalExpertMatmul,
+            {
+                torch.matmul: (None, None, _functional_weight_spec(2, 1)),
+                torch.Tensor.matmul: (None, None, _functional_weight_spec(2, 1)),
+                torch.Tensor.__matmul__: (None, None, _functional_weight_spec(2, 1))}),],
     ids=['f_linear', 'gpt_oss_matmul'])
 @pytest.mark.parametrize('algorithm', ['gpfq', 'qronos', 'magr'])
 def test_functional_gpxq_algorithms_update_observed_expert(model_class, quant_map, algorithm):
@@ -106,11 +248,9 @@ def test_functional_gpxq_algorithms_update_observed_expert(model_class, quant_ma
     if algorithm == 'gpfq':
         context = gpfq_mode(model, functional_state=state, min_samples=1)
     elif algorithm == 'qronos':
-        context = gpfq_mode(
-            model, functional_state=state, min_samples=1, algorithm_impl=Qronos)
+        context = gpfq_mode(model, functional_state=state, min_samples=1, algorithm_impl=Qronos)
     else:
-        context = magr_mode(
-            model, functional_state=state, min_samples=1, num_steps=1, alpha=0.01)
+        context = magr_mode(model, functional_state=state, min_samples=1, num_steps=1, alpha=0.01)
     with functional_quantization_mode(state):
         with context as mode:
             for _ in range(mode.num_layers):
@@ -129,15 +269,16 @@ def test_functional_gptq_insufficient_samples_error():
     x = torch.randn(8, 4)
     quant_map = {torch.nn.functional.linear: (None, None, _functional_weight_spec(1, 2))}
     state = prepare_functional_quantization(model, quant_map, example_inputs=(x, 0))
+    before = model.parametrizations.weight.original.detach().clone()
     with functional_quantization_mode(state):
         with pytest.raises(RuntimeError, match='has 8 samples'):
-            with gptq_mode(
-                    model,
-                    functional_state=state,
-                    min_samples=9,
-                    insufficient_samples='error') as mode:
+            with gptq_mode(model,
+                           functional_state=state,
+                           min_samples=9,
+                           insufficient_samples='error') as mode:
                 mode.model(x, 0)
                 mode.update()
+    torch.testing.assert_close(model.parametrizations.weight.original, before)
     state.cleanup()
 
 
