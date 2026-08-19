@@ -205,17 +205,25 @@ class _WeightQuantHolder(nn.Module):
 
 class _QuantParametrization(nn.Module):
 
-    def __init__(self, state: 'FunctionalQuantState', proxy: nn.Module) -> None:
+    def __init__(
+            self,
+            state: 'FunctionalQuantState',
+            proxy: nn.Module,
+            return_quant_tensor: bool = True) -> None:
         """Store the mode state and proxy that quantize a parameter on demand."""
         super().__init__()
         self._state = state
         self.proxy = proxy
+        self.return_quant_tensor = return_quant_tensor
 
     def forward(self, value: Tensor) -> Tensor:
         """Return the original parameter or its quantized proxy output."""
         if not self._state.enabled:
             return value
-        return self.proxy(value)
+        quantized = self.proxy(value)
+        if not self.return_quant_tensor and isinstance(quantized, QuantTensor):
+            return quantized.value
+        return quantized
 
 
 @dataclass
@@ -243,6 +251,7 @@ class _OwnerPlan:
     quant_class: Type
     di_kwargs: Dict[str, Any]
     quantizer_key: str
+    return_quant_tensor: bool = True
     error: Optional[str] = None
 
 
@@ -483,12 +492,15 @@ class _FunctionalQuantBuilder(_HookedMode):
             value: Tensor,
             owner: Tuple[nn.Module, str],
             is_direct_parameter: bool,
-            di_kwargs: Dict[str, Any]) -> Tuple[Dict[str, Any], Optional[str]]:
+            di_kwargs: Dict[str, Any]) -> Tuple[Dict[str, Any], bool, Optional[str]]:
         """Validate and normalize owner-level weight quantizer configuration."""
         owner_di_kwargs = dict(di_kwargs)
+        return_quant_tensor = owner_di_kwargs.pop('return_quant_tensor', True)
+        if not isinstance(return_quant_tensor, bool):
+            return owner_di_kwargs, True, 'return_quant_tensor must be a bool'
         owner_value = getattr(owner[0], owner[1], None)
         if not isinstance(owner_value, nn.Parameter):
-            return owner_di_kwargs, 'its owner attribute is not an unparametrized Parameter'
+            return owner_di_kwargs, return_quant_tensor, 'its owner attribute is not an unparametrized Parameter'
 
         required = ('output_channel_dim', 'group_dim')
         if not is_direct_parameter:
@@ -511,7 +523,7 @@ class _FunctionalQuantBuilder(_HookedMode):
                     'only leading-index views and final-two-axis transpose views are supported')
             missing = [name for name in required if name not in owner_di_kwargs]
             if missing:
-                return owner_di_kwargs, (
+                return owner_di_kwargs, return_quant_tensor, (
                     'parameter-derived views require the weight quantizer to declare owner-level '
                     f"{', '.join(missing)}")
 
@@ -528,9 +540,9 @@ class _FunctionalQuantBuilder(_HookedMode):
             owner_di_kwargs[name] = axis
             axes.append(axis)
         if len(axes) == 2 and axes[0] == axes[1]:
-            return owner_di_kwargs, (
+            return owner_di_kwargs, return_quant_tensor, (
                 'output_channel_dim and group_dim must refer to different owner axes')
-        return owner_di_kwargs, None
+        return owner_di_kwargs, return_quant_tensor, None
 
     def _fallback_spec_for(self, func: Callable, arg_idx: int) -> Any:
         """Select an unambiguous runtime spec for failed owner quantization."""
@@ -573,7 +585,8 @@ class _FunctionalQuantBuilder(_HookedMode):
         elif plan.error is None:
             if error is not None:
                 plan.error = error
-            elif plan.quant_class is not quant_class or plan.di_kwargs != owner_di_kwargs:
+            elif (plan.quant_class is not quant_class or plan.di_kwargs != owner_di_kwargs or
+                  plan.return_quant_tensor != return_quant_tensor):
                 plan.error = 'the owner is used with incompatible quantizers or matrix layouts'
         return _DiscoveredArgument(
             quant_class,
@@ -627,7 +640,9 @@ class _FunctionalQuantBuilder(_HookedMode):
             proxy = self._create_weight(plan.quant_class, plan.di_kwargs, parameter)
             self._add_quantizer(plan.quantizer_key, proxy)
             register_parametrization(
-                owner_module, owner_name, _QuantParametrization(self.state, proxy))
+                owner_module,
+                owner_name,
+                _QuantParametrization(self.state, proxy, plan.return_quant_tensor))
             self.state.registered_parametrizations.append(owner)
 
         for call_key, arguments in self.discovered_calls.items():
