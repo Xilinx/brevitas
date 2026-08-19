@@ -1,6 +1,7 @@
 # Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from copy import deepcopy
 import math
 
 import numpy as np
@@ -59,6 +60,22 @@ class _FunctionalGroupedExperts(torch.nn.Module):
 
     def forward(self, x, offsets):
         return torch._grouped_mm(x, self.weight.transpose(-2, -1), offs=offsets)
+
+
+class _FunctionalRoutedExperts(torch.nn.Module):
+    """Functional experts with deterministic routed slices for batching parity tests."""
+
+    def __init__(self, num_experts=4):
+        super().__init__()
+        self.weight = torch.nn.Parameter(torch.randn(num_experts, 3, 4))
+
+    def forward(self, x, offsets):
+        outputs = []
+        start = 0
+        for expert, end in enumerate(offsets.tolist()):
+            outputs.append(torch.nn.functional.linear(x[start:end], self.weight[expert]))
+            start = end
+        return torch.cat(outputs)
 
 
 class _MixedFunctionalExperts(torch.nn.Module):
@@ -153,6 +170,37 @@ def test_functional_target_quantizes_only_its_expert_view():
 
 
 @torch.no_grad()
+@pytest.mark.parametrize('act_order', [False, True])
+def test_functional_gptq_expert_batch_matches_scalar(act_order):
+    """Bounded tensor batching preserves independent scalar expert updates."""
+    torch.manual_seed(0)
+    base_model = _FunctionalRoutedExperts().eval()
+    x = torch.randn(16, 4)
+    offsets = torch.tensor([4, 8, 12, 16])
+    quant_map = {torch.nn.functional.linear: (None, None, _functional_weight_spec(1, 2))}
+    results = []
+    for batch_size in (1, 2):
+        model = deepcopy(base_model)
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x, offsets))
+        with functional_quantization_mode(state):
+            with gptq_mode(model,
+                           functional_state=state,
+                           min_samples=1,
+                           act_order=act_order,
+                           expert_batch_size=batch_size) as mode:
+                mode.model(x, offsets)
+                mode.update()
+        results.append(model.parametrizations.weight.original.detach().clone())
+        state.cleanup()
+    torch.testing.assert_close(results[0], results[1], atol=1e-5, rtol=1e-5)
+
+
+def test_functional_gptq_expert_batch_size_must_be_positive():
+    with pytest.raises(ValueError, match='expert_batch_size must be positive'):
+        gptq_mode(nn.Linear(4, 3), expert_batch_size=0)
+
+
+@torch.no_grad()
 def test_functional_gptq_starts_after_ordinary_layers():
     """Functional owner scheduling begins after ordinary GPxQ hooks are exhausted."""
     model = _MixedFunctionalExperts().eval()
@@ -185,7 +233,7 @@ def test_functional_gptq_schedules_stacked_owners_in_order():
     before_first = model.parametrizations.first_weight.original.detach().clone()
     before_second = model.parametrizations.second_weight.original.detach().clone()
     with functional_quantization_mode(state):
-        with gptq_mode(model, functional_state=state, min_samples=1) as mode:
+        with gptq_mode(model, functional_state=state, min_samples=1, expert_batch_size=2) as mode:
             assert mode.num_layers == 2
             mode.model(x, 0)
             mode.update()
@@ -198,6 +246,26 @@ def test_functional_gptq_schedules_stacked_owners_in_order():
     assert not torch.equal(after_second[0], before_second[0])
     torch.testing.assert_close(after_first[1], before_first[1])
     torch.testing.assert_close(after_second[1], before_second[1])
+    state.cleanup()
+
+
+@torch.no_grad()
+def test_functional_batched_gptq_isolates_invalid_hessian():
+    """One failed expert factorization leaves that slice unchanged without blocking siblings."""
+    model = _FunctionalRoutedExperts(num_experts=2).eval()
+    x = torch.randn(8, 4)
+    offsets = torch.tensor([4, 8])
+    quant_map = {torch.nn.functional.linear: (None, None, _functional_weight_spec(1, 2))}
+    state = prepare_functional_quantization(model, quant_map, example_inputs=(x, offsets))
+    before = model.parametrizations.weight.original.detach().clone()
+    with functional_quantization_mode(state):
+        with gptq_mode(model, functional_state=state, min_samples=1, expert_batch_size=2) as mode:
+            mode.model(x, offsets)
+            mode.gpxq_layers['weight[1]'].H.fill_(float('nan'))
+            mode.update()
+    after = model.parametrizations.weight.original.detach()
+    assert not torch.equal(after[0], before[0])
+    torch.testing.assert_close(after[1], before[1])
     state.cleanup()
 
 

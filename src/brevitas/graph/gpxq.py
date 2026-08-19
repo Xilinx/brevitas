@@ -283,29 +283,46 @@ class gpxq_mode(quantization_status_manager):
         insufficient_names = {target.name for target, _ in insufficient}
         update_start = perf_counter()
         progress = tqdm(
-            group, desc=f'GPTQ {owner_id}', unit='expert', leave=False, disable=len(group) < 8)
-        for target in progress:
-            optimizer = self.gpxq_layers[target.name]
-            target_start = perf_counter()
-            if target.name in insufficient_names:
+            total=len(group),
+            desc=f'GPxQ {owner_id}',
+            unit='expert',
+            leave=False,
+            disable=len(group) < 8)
+        update_targets = []
+        fallback_count = 0
+        for target in group:
+            if target.name in insufficient_names and self.insufficient_samples != 'gpxq':
+                optimizer = self.gpxq_layers[target.name]
                 self._finish_functional_target(
                     target, optimizer, 'insufficient calibration samples')
+                fallback_count += 1
+                progress.update()
             else:
-                optimizer.single_layer_update()
-            progress.set_postfix(
-                samples=optimizer.nsamples, seconds=f'{perf_counter() - target_start:.1f}')
+                update_targets.append(target)
+        fallback_count += self._update_functional_targets(update_targets, progress)
         progress.close()
 
         collection_seconds = self.functional_collection_seconds.pop(owner_id, 0.)
         tqdm.write(
             f'Functional GPxQ {owner_id}: {len(group)} experts, '
-            f'{len(group) - len(insufficient)} optimized, {len(insufficient)} fallback, '
+            f'{len(group) - fallback_count} optimized, {fallback_count} fallback, '
             f'collection {collection_seconds:.1f}s, update {perf_counter() - update_start:.1f}s.')
 
         self.completed_functional_owners.add(owner_id)
         self.functional_layer.layer_names.clear()
         self.functional_layer.forward_count = 0
         self.active_functional_group = None
+
+    def _update_functional_targets(self, targets, progress) -> int:
+        """Apply the algorithm to functional targets, returning numerical fallbacks."""
+        for target in targets:
+            optimizer = self.gpxq_layers[target.name]
+            target_start = perf_counter()
+            optimizer.single_layer_update()
+            progress.set_postfix(
+                samples=optimizer.nsamples, seconds=f'{perf_counter() - target_start:.1f}')
+            progress.update()
+        return 0
 
     def _finish_functional_target(
             self, target: FunctionalLinearTarget, optimizer: 'GPxQ', reason: Optional[str]) -> None:

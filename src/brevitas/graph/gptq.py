@@ -5,6 +5,7 @@ from copy import deepcopy
 import math
 from typing import List
 from typing import Optional
+from typing import Sequence
 import warnings
 
 import torch
@@ -14,6 +15,7 @@ try:
 except:
     LinAlgError = RuntimeError
 
+from brevitas.graph.functional_quant import FunctionalLinearTargetBatch
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
@@ -195,6 +197,170 @@ class GPTQ(GPxQ):
         if hasattr(self.layer, 'offload_params'):
             self.layer.offload_params(self.layer)
 
+    @staticmethod
+    def batched_layer_update(optimizers: Sequence['GPTQ'], percdamp=.01, c=1e4):
+        """Update compatible functional expert matrices with batched tensor operations."""
+        if not optimizers:
+            return []
+        first = optimizers[0]
+        columns = first.columns
+        blocksize = first.blocksize
+        act_order = first.act_order
+        if any(optimizer.groups != 1 or optimizer.columns != columns or
+               optimizer.blocksize != blocksize or optimizer.act_order != act_order or
+               optimizer.layer.weight.shape != first.layer.weight.shape
+               for optimizer in optimizers):
+            raise ValueError('Batched functional GPTQ requires compatible expert optimizers.')
+        for optimizer in optimizers:
+            assert not optimizer.layer.weight_quant.requires_quant_input, \
+                'Error: GPTQ does not support weight quantizers that require quantized inputs.'
+            if optimizer.use_intermediate_buffer and hasattr(optimizer, 'B'):
+                del optimizer.B
+
+        targets = [optimizer.layer for optimizer in optimizers]
+        weight = torch.stack([target.weight.detach() for target in targets])
+        weight_device = weight.device
+        weight_dtype = weight.dtype
+        hessian = torch.empty((len(optimizers), columns, columns),
+                              dtype=first.dtype,
+                              device=first.device)
+        for index, optimizer in enumerate(optimizers):
+            hessian[index].copy_(optimizer.H[0])
+            del optimizer.H
+
+        diagonal = hessian.diagonal(dim1=-2, dim2=-1)
+        dead = diagonal == 0
+        diagonal[dead] = 1
+        weight.masked_fill_(dead.to(weight_device).unsqueeze(1), 0)
+        if act_order:
+            permutation = torch.argsort(diagonal, dim=-1, descending=True)
+            hessian = torch.gather(hessian, 1, permutation.unsqueeze(-1).expand(-1, -1, columns))
+            hessian = torch.gather(hessian, 2, permutation.unsqueeze(1).expand(-1, columns, -1))
+        else:
+            permutation = torch.arange(columns, device=hessian.device).expand(len(optimizers), -1)
+
+        diagonal_index = torch.arange(columns, device=hessian.device)
+        damp = percdamp * hessian.diagonal(dim1=-2, dim2=-1).mean(dim=-1)
+        hessian[:, diagonal_index, diagonal_index] += damp.unsqueeze(1)
+        chol, info = torch.linalg.cholesky_ex(hessian, check_errors=False)
+        del hessian
+        valid = info == 0
+        failed = [targets[index] for index in torch.where(~valid)[0].tolist()]
+        if not valid.any():
+            for target in failed:
+                warnings.warn(
+                    f'Failed to compute the inverse Hessian for layer {target.name}; GPTQ will not be applied.'
+                )
+            return failed
+
+        valid_indices = torch.where(valid)[0]
+        targets = [targets[index] for index in valid_indices.tolist()]
+        weight = weight.index_select(0, valid_indices.to(weight_device))
+        permutation = permutation[valid]
+        try:
+            h_inv = torch.cholesky_inverse(chol[valid])
+        except RuntimeError:
+            del chol
+            failed.extend(targets)
+            for target in failed:
+                warnings.warn(
+                    f'Failed to compute the inverse Hessian for layer {target.name}; GPTQ will not be applied.'
+                )
+            return failed
+        del chol
+        inverse_finite = torch.isfinite(h_inv).all(dim=-1).all(dim=-1)
+        if not inverse_finite.all():
+            inverse_failed_indices = torch.where(~inverse_finite)[0].tolist()
+            failed.extend([targets[index] for index in inverse_failed_indices])
+            targets = [target for index, target in enumerate(targets) if inverse_finite[index]]
+            finite_indices = torch.where(inverse_finite)[0]
+            weight = weight.index_select(0, finite_indices.to(weight_device))
+            permutation = permutation[inverse_finite]
+            h_inv = h_inv[inverse_finite]
+        if not targets:
+            for target in failed:
+                warnings.warn(
+                    f'Failed to compute the inverse Hessian for layer {target.name}; GPTQ will not be applied.'
+                )
+            return failed
+        upper, upper_info = torch.linalg.cholesky_ex(h_inv * c, upper=True, check_errors=False)
+        del h_inv
+        second_valid = upper_info == 0
+        second_failed_indices = torch.where(~second_valid)[0].tolist()
+        second_failed = [targets[index] for index in second_failed_indices]
+        failed.extend(second_failed)
+        for target in failed:
+            warnings.warn(
+                f'Failed to compute the inverse Hessian for layer {target.name}; GPTQ will not be applied.'
+            )
+        if not second_valid.any():
+            return failed
+
+        targets = [target for index, target in enumerate(targets) if second_valid[index]]
+        second_valid_indices = torch.where(second_valid)[0]
+        weight = weight.index_select(0, second_valid_indices.to(weight_device))
+        permutation = permutation[second_valid]
+        h_inv = upper[second_valid] / math.sqrt(c)
+        del upper
+        permutation_weight = permutation.to(weight_device)
+        batch_quant = None
+        use_batch_quant = False
+        if all(getattr(target.owner.proxy, 'is_groupwise', False) for target in targets):
+            try:
+                batch_quant = FunctionalLinearTargetBatch(targets, weight)
+                batch_quant_weight = batch_quant.quant_weight(weight)
+                local_quant_weight = torch.stack([
+                    target.quantize(weight[index]) for index, target in enumerate(targets)])
+                use_batch_quant = torch.equal(batch_quant_weight, local_quant_weight)
+                del batch_quant_weight, local_quant_weight
+            except (AttributeError, RuntimeError, TypeError, ValueError):
+                batch_quant = None
+
+        def quantize_weight(value):
+            if use_batch_quant:
+                return batch_quant.quant_weight(value)
+            return torch.stack([
+                target.quantize(value[index]) for index, target in enumerate(targets)])
+
+        def gather_columns(value, indices):
+            return torch.gather(value, 2, indices.unsqueeze(1).expand(-1, value.shape[1], -1))
+
+        def scatter_columns(value, indices, update):
+            return value.scatter(2, indices.unsqueeze(1).expand(-1, value.shape[1], -1), update)
+
+        for i1 in range(0, columns, blocksize):
+            i2 = min(i1 + blocksize, columns)
+            count = i2 - i1
+            block_indices = permutation_weight[:, i1:i2]
+            error_block = torch.zeros((len(targets), weight.shape[1], count),
+                                      dtype=first.dtype,
+                                      device=weight_device)
+            h_inv_block = h_inv[:, i1:i2, i1:i2]
+            for index in range(count):
+                quant_weight = quantize_weight(weight)
+                column_indices = block_indices[:, index:index + 1]
+                q = gather_columns(quant_weight, column_indices).squeeze(2).to(first.dtype)
+                w = gather_columns(weight, column_indices).squeeze(2).to(first.dtype)
+                divisor = h_inv_block[:, index, index].to(weight_device).unsqueeze(1)
+                error = (w - q) / divisor
+                error_block[:, :, index] = error
+                remaining_indices = block_indices[:, index:]
+                remaining = gather_columns(weight, remaining_indices)
+                h_row = h_inv_block[:, index, index:].to(weight_device)
+                remaining -= (error.unsqueeze(2) * h_row.unsqueeze(1)).to(weight_dtype)
+                weight = scatter_columns(weight, remaining_indices, remaining)
+
+            if i2 < columns:
+                tail_indices = permutation_weight[:, i2:]
+                tail = gather_columns(weight, tail_indices)
+                correction = torch.bmm(error_block, h_inv[:, i1:i2,
+                                                          i2:].to(weight_device)).to(weight_dtype)
+                weight = scatter_columns(weight, tail_indices, tail - correction)
+
+        for index, target in enumerate(targets):
+            target.writeback(weight[index])
+        return failed
+
 
 class gptq_mode(gpxq_mode):
     """
@@ -243,7 +409,8 @@ class gptq_mode(gpxq_mode):
             dtype: torch.dtype = torch.float32,
             functional_state=None,
             min_samples: int = 0,
-            insufficient_samples: str = 'rtn') -> None:
+            insufficient_samples: str = 'rtn',
+            expert_batch_size: int = 1) -> None:
         if not inplace:
             model = deepcopy(model)
         super().__init__(
@@ -263,6 +430,21 @@ class gptq_mode(gpxq_mode):
         # How many subblock to use during GPTQ for each layer
         self.num_blocks = num_blocks
         self.gptq_class = gptq_class
+        if expert_batch_size < 1:
+            raise ValueError('expert_batch_size must be positive.')
+        self.expert_batch_size = expert_batch_size
+
+    def _update_functional_targets(self, targets, progress) -> int:
+        if self.expert_batch_size == 1:
+            return super()._update_functional_targets(targets, progress)
+        failed = []
+        for start in range(0, len(targets), self.expert_batch_size):
+            batch_targets = targets[start:start + self.expert_batch_size]
+            optimizers = [self.gpxq_layers[target.name] for target in batch_targets]
+            failed.extend(self.gptq_class.batched_layer_update(optimizers))
+            progress.set_postfix(batch=len(batch_targets), failed=len(failed))
+            progress.update(len(batch_targets))
+        return len(failed)
 
     def catch_stopfwd(self, *args, **kwargs):
         try:

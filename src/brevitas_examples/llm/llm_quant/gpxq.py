@@ -130,7 +130,8 @@ def apply_gptq(
         buffer_dtype=torch.float32,
         functional_state=None,
         min_samples=0,
-        insufficient_samples='rtn'):
+        insufficient_samples='rtn',
+        expert_batch_size=1):
     context_manager_kwargs = {
         'act_order': act_order,
         'group_of_parallel_layers': group_of_parallel_layers,
@@ -140,12 +141,14 @@ def apply_gptq(
         'dtype': buffer_dtype,
         'functional_state': functional_state,
         'min_samples': min_samples,
-        'insufficient_samples': insufficient_samples}
+        'insufficient_samples': insufficient_samples,
+        'expert_batch_size': expert_batch_size}
     context_manager_func = gptq_mode
     if max_accumulator_bit_width is not None:
         if functional_state is not None:
             raise RuntimeError('AXE GPxQ modes do not support functional targets.')
         context_manager_func = a2gptq_mode
+        context_manager_kwargs.pop('expert_batch_size')
         context_manager_kwargs.update(
             max_accumulator_bit_width=max_accumulator_bit_width,
             max_accumulator_tile_size=max_accumulator_tile_size)

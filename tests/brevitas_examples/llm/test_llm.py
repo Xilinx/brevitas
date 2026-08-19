@@ -162,6 +162,14 @@ def test_functional_weight_mode_does_not_require_input_quantization():
     validate(args)
 
 
+def test_gptq_expert_batch_size_validation():
+    args = get_default_args(create_args_parser())
+    assert args.gptq_expert_batch_size == 1
+    args.gptq_expert_batch_size = 0
+    with pytest.raises(AssertionError, match='expert batch size must be positive'):
+        validate(args)
+
+
 @pytest.mark.parametrize('mode', ['input', 'all'])
 def test_functional_input_modes_require_input_quantization(mode):
     """Functional input modes fail clearly when no input quantizer is configured."""

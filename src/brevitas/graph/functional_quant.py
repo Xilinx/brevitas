@@ -326,19 +326,7 @@ class FunctionalLinearTarget:
         """Build a 2-D proxy so GPTQ never requantizes sibling expert matrices."""
         if self.target_quant_proxy is None:
             owner_injector = self.owner.proxy.quant_injector
-            owner_rank = self.owner.original_parameter.dim()
-            dropped_dims = len(self.view_indices)
-            target_di_kwargs = {}
-            for name in ('output_channel_dim', 'group_dim'):
-                axis = getattr(owner_injector, name, None)
-                if axis is None:
-                    continue
-                axis = axis if axis >= 0 else owner_rank + axis
-                if axis < dropped_dims:
-                    raise RuntimeError(
-                        f"Functional target '{self.name}' cannot use owner {name} {axis} after expert indexing."
-                    )
-                target_di_kwargs[name] = axis - dropped_dims
+            target_di_kwargs = self._remap_owner_axes(len(self.view_indices), 0)
             self.target_quant_holder = _WeightQuantHolder(
                 native_weight, target_di_kwargs.get('output_channel_dim', 0))
             target_injector = owner_injector.let(**target_di_kwargs)
@@ -352,8 +340,29 @@ class FunctionalLinearTarget:
             self.target_quant_proxy.to(native_weight.device)
         return self.target_quant_proxy
 
+    def _remap_owner_axes(self, dropped_dims: int, added_dims: int) -> Dict[str, int]:
+        """Map owner quantizer axes after replacing leading owner dimensions."""
+        owner_injector = self.owner.proxy.quant_injector
+        owner_rank = self.owner.original_parameter.dim()
+        target_di_kwargs = {}
+        for name in ('output_channel_dim', 'group_dim'):
+            axis = getattr(owner_injector, name, None)
+            if axis is None:
+                continue
+            axis = axis if axis >= 0 else owner_rank + axis
+            if axis < dropped_dims:
+                raise RuntimeError(
+                    f"Functional target '{self.name}' cannot use owner {name} {axis} after expert indexing."
+                )
+            target_di_kwargs[name] = axis - dropped_dims + added_dims
+        return target_di_kwargs
+
     def quant_weight(self) -> Tensor:
-        native_weight = self._owner_view(self.owner.original_parameter)
+        return self.quantize(self.weight)
+
+    def quantize(self, canonical_weight: Tensor) -> Tensor:
+        """Quantize one canonical target matrix with its independent proxy."""
+        native_weight = canonical_weight.t() if self.transpose_weight else canonical_weight
         weight = self._target_proxy(native_weight)(native_weight)
         value = weight.value if isinstance(weight, QuantTensor) else weight
         return value.t() if self.transpose_weight else value
@@ -374,6 +383,37 @@ class FunctionalLinearTarget:
         native_value = value.t() if self.transpose_weight else value
         with torch.no_grad():
             self.owner.original_parameter[self.view_indices].copy_(native_value)
+
+
+class FunctionalLinearTargetBatch:
+    """Temporary compatible expert batch used by the functional GPTQ update kernel."""
+
+    def __init__(self, targets: List[FunctionalLinearTarget], canonical_weight: Tensor) -> None:
+        if not targets:
+            raise ValueError('A functional target batch cannot be empty.')
+        first = targets[0]
+        if any(target.owner_id != first.owner_id or
+               target.transpose_weight != first.transpose_weight for target in targets):
+            raise ValueError('Functional target batches require one owner and matrix layout.')
+        self.targets = targets
+        flat_weight = canonical_weight.flatten(0, 1)
+        di_kwargs = {'output_channel_dim': 0}
+        if getattr(first.owner.proxy.quant_injector, 'group_dim', None) is not None:
+            di_kwargs['group_dim'] = 1
+        self.holder = _WeightQuantHolder(flat_weight, 0)
+        owner_injector = first.owner.proxy.quant_injector
+        batch_injector = owner_injector.let(**di_kwargs)
+        self.proxy = batch_injector.proxy_class(self.holder, batch_injector).to(flat_weight.device)
+        self.proxy.train(first.owner.proxy.training)
+
+    def quant_weight(self, canonical_weight: Tensor) -> Tensor:
+        flat_weight = canonical_weight.flatten(0, 1)
+        self.holder.weight = flat_weight
+        self.holder.out_channels = flat_weight.shape[0]
+        self.proxy.to(flat_weight.device)
+        quant_weight = self.proxy(flat_weight)
+        value = quant_weight.value if isinstance(quant_weight, QuantTensor) else quant_weight
+        return value.reshape_as(canonical_weight)
 
 
 @dataclass(frozen=True)
