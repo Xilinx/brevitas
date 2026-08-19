@@ -732,10 +732,14 @@ class functional_quantization_mode(_HookedMode):
             runtime_quant, _ = _resolve_spec(runtime_spec, module, name, index)
             if runtime_quant is not None:
                 return False
-            parameter_spec = self._spec_for(func, arg_idx, True)
-            parameter_quant, _ = _resolve_spec(parameter_spec, module, name, index)
-            if parameter_quant is not None:
-                return False
+            base = value
+            while getattr(base, '_base', None) is not None:
+                base = base._base
+            if isinstance(base, nn.Parameter):
+                parameter_spec = self._spec_for(func, arg_idx, True)
+                parameter_quant, _ = _resolve_spec(parameter_spec, module, name, index)
+                if parameter_quant is not None:
+                    return False
         return True
 
     def __torch_function__(
