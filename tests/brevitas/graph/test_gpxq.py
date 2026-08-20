@@ -388,6 +388,39 @@ def test_qronos_partial_exposes_batched_update():
     assert batch_impl is Qronos.batched_layer_update
 
 
+def test_qronos_stability_guard_rejects_explosive_and_nonfinite_weights():
+    reference = torch.ones(3, 2, 2)
+    weight = reference.clone()
+    weight[1].mul_(101.)
+    weight[2, 0, 0] = float('nan')
+    assert Qronos.stable_weight_mask(weight, reference).tolist() == [True, False, False]
+
+
+@torch.no_grad()
+def test_functional_rtn_fallback_warning_is_aggregated():
+
+    class FirstExpertOnly(torch.nn.Module):
+
+        def __init__(self):
+            super().__init__()
+            self.weight = torch.nn.Parameter(torch.randn(4, 3, 4))
+
+        def forward(self, value):
+            return torch.nn.functional.linear(value, self.weight[0])
+
+    model = FirstExpertOnly().eval()
+    x = torch.randn(4, 4)
+    quant_map = {torch.nn.functional.linear: (None, None, _functional_weight_spec(1, 2))}
+    state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+    with pytest.warns(UserWarning,
+                      match='uses RTN fallback for 3 insufficiently calibrated experts'):
+        with functional_quantization_mode(state):
+            with gptq_mode(model, functional_state=state, min_samples=1) as mode:
+                mode.model(x)
+                mode.update()
+    state.cleanup()
+
+
 def test_functional_gptq_expert_batch_size_must_be_positive():
     with pytest.raises(ValueError, match='expert_batch_size must be positive'):
         gptq_mode(nn.Linear(4, 3), expert_batch_size=0)

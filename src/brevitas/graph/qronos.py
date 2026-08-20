@@ -42,6 +42,16 @@ class Qronos(GPFQ):
         self.blocksize = math.ceil(self.columns / num_blocks)
         self.alpha = alpha
 
+    @staticmethod
+    def stable_weight_mask(weight: Tensor, reference: Tensor, max_ratio: float = 100.) -> Tensor:
+        """Reject finite but explosive corrections that destabilize downstream layers."""
+        weight_float = weight.float().flatten(1)
+        reference_float = reference.float().flatten(1)
+        finite = torch.isfinite(weight_float).all(dim=1)
+        weight_max = weight_float.abs().amax(dim=1)
+        reference_max = reference_float.abs().amax(dim=1).clamp_min(1e-12)
+        return finite & (weight_max <= max_ratio * reference_max)
+
     def update_batch(self, module, input, current_layer):
         if self.disable_pre_forward_hook:
             return input
@@ -125,6 +135,7 @@ class Qronos(GPFQ):
         weight = weight.view(self.groups, -1, weight.shape[-1])  # [Groups, OC/Groups, IC]
         weight_orig = weight_orig.view(
             self.groups, -1, weight_orig.shape[-1])  # [Groups, OC/Groups, IC]
+        weight_before = weight.detach().clone()
 
         # Get the diagonals of the covariance matrices here
         permutation_list = []
@@ -271,6 +282,12 @@ class Qronos(GPFQ):
                     error_block[group_index].matmul(self.L[group_index, i1 - 1:i2 - 1,
                                                            i2 - 1:])).to(dtype)
         del self.L  # memory management
+        stable = self.stable_weight_mask(weight, weight_orig)
+        if not stable.all():
+            weight[~stable] = weight_before[~stable]
+            warnings.warn(
+                f'Qronos update for layer {self.name} was numerically unstable; '
+                'restoring its pre-Qronos weights.')
         if hasattr(self.layer, 'offload_params'):
             self.layer.offload_params(self.layer)
 
@@ -405,6 +422,7 @@ class Qronos(GPFQ):
         second_indices = torch.where(second_valid)[0]
         targets = [targets[index] for index in second_indices.tolist()]
         weight = weight.index_select(0, second_indices.to(device))
+        weight_orig = weight_orig.index_select(0, second_indices.to(device))
         permutation_weight = permutation_weight.index_select(0, second_indices.to(device))
         l_factor = upper[second_valid] / math.sqrt(beta)
 
@@ -439,5 +457,11 @@ class Qronos(GPFQ):
                                                              i2 - 1:].to(device)).to(dtype)
                 weight = scatter_columns(weight, tail_indices, tail - correction)
 
-        failed.extend(FunctionalGPxQBatch.writeback(targets, weight))
+        stable = Qronos.stable_weight_mask(weight, weight_orig)
+        failed.extend([targets[index] for index in torch.where(~stable)[0].tolist()])
+        stable_indices = torch.where(stable)[0]
+        if stable_indices.numel():
+            stable_targets = [targets[index] for index in stable_indices.tolist()]
+            stable_weight = weight.index_select(0, stable_indices.to(device))
+            failed.extend(FunctionalGPxQBatch.writeback(stable_targets, stable_weight))
         return failed

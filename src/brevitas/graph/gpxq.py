@@ -355,15 +355,25 @@ class gpxq_mode(quantization_status_manager):
             disable=len(group) < 8)
         update_targets = []
         fallback_count = 0
+        sample_fallback_targets = []
         for target in group:
             if target.name in insufficient_names and self.insufficient_samples != 'gpxq':
                 optimizer = self.gpxq_layers[target.name]
                 self._finish_functional_target(
-                    target, optimizer, 'insufficient calibration samples')
+                    target, optimizer, 'insufficient calibration samples', warn=False)
+                sample_fallback_targets.append(target)
                 fallback_count += 1
                 progress.update()
             else:
                 update_targets.append(target)
+        if sample_fallback_targets:
+            names = ', '.join(target.name for target in sample_fallback_targets[:8])
+            remainder = len(sample_fallback_targets) - 8
+            suffix = f', and {remainder} more' if remainder > 0 else ''
+            warnings.warn(
+                f'Functional GPxQ owner {owner_id} uses RTN fallback for '
+                f'{len(sample_fallback_targets)} insufficiently calibrated experts: {names}{suffix}.',
+                UserWarning)
         fallback_count += self._update_functional_targets(update_targets, progress)
         progress.close()
 
@@ -390,10 +400,15 @@ class gpxq_mode(quantization_status_manager):
         return 0
 
     def _finish_functional_target(
-            self, target: FunctionalLinearTarget, optimizer: 'GPxQ', reason: str) -> None:
+            self,
+            target: FunctionalLinearTarget,
+            optimizer: 'GPxQ',
+            reason: str,
+            warn: bool = True) -> None:
         """Release one target and retain ordinary proxy quantization on fallback."""
-        warnings.warn(
-            f'Functional GPxQ target {target.name} uses RTN fallback: {reason}.', UserWarning)
+        if warn:
+            warnings.warn(
+                f'Functional GPxQ target {target.name} uses RTN fallback: {reason}.', UserWarning)
         optimizer.discard_calibration_buffers()
 
     def _advance_functional_target(self) -> None:
