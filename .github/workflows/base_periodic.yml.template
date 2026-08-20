@@ -3,6 +3,9 @@ name: &{name}
 on:
   schedule:
   - cron: '37 19 * * 5' # 7:37am UTC every Friday
+  pull_request:
+    types:
+      - review_requested
 
 jobs:
   build:
