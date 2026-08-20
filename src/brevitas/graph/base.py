@@ -97,10 +97,7 @@ class GraphTransform(Transform):
             inp = inp[0]
 
         # Prefer batch_dim/batch_first exposed by the module; fall back to named tensors (< 2.13).
-        if hasattr(module, 'batch_dim') or hasattr(module, 'batch_first'):
-            batch_dim = get_batch_dim(module, batch_dim)
-        elif hasattr(inp, 'names') and 'N' in inp.names:
-            batch_dim = inp.names.index('N')
+        batch_dim = get_batch_dim(module, inp, default=batch_dim)
 
         # Drop names so downstream ops unsupported for named tensors (e.g. permute/reshape) work.
         if isinstance(inp, torch.Tensor) and hasattr(inp, 'names') and any(

@@ -262,13 +262,10 @@ class GPxQ(ABC):
 
         # Define batch size before re-organizing the input. Prefer batch_dim/batch_first exposed
         # by the module; fall back to named tensors (PyTorch < 2.13).
-        if hasattr(self.layer, 'batch_dim') or hasattr(self.layer, 'batch_first'):
-            # Strip any legacy dimension names before reshaping (no-op on PyTorch >= 2.13).
-            inp = rename_tensor(inp, None)
-            inp = inp.transpose(0, get_batch_dim(self.layer))
-        elif hasattr(inp, 'names') and 'N' in inp.names:
-            batch_dim = inp.names.index('N')
-            inp.rename_(None)
+        batch_dim = get_batch_dim(self.layer, inp)
+        # Strip any legacy dimension names before reshaping (no-op on PyTorch >= 2.13).
+        inp = rename_tensor(inp, None)
+        if batch_dim:
             inp = inp.transpose(0, batch_dim)
 
         # Preprocess the input to compute the Hessian

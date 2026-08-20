@@ -37,12 +37,15 @@ __all__ = [
     'power_iteration']
 
 
-def get_batch_dim(module, default=0):
+def get_batch_dim(module, inp=None, default=0):
     # QuantMHA internal projections expose an explicit batch_dim; nn modules expose batch_first.
     if hasattr(module, 'batch_dim'):
         return module.batch_dim
     if hasattr(module, 'batch_first'):
         return 0 if module.batch_first else 1
+    # Legacy fallback for named tensors (PyTorch < 2.13).
+    if inp is not None and hasattr(inp, 'names') and 'N' in inp.names:
+        return inp.names.index('N')
     return default
 
 
