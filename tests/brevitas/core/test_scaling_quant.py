@@ -8,17 +8,22 @@ import torch
 
 from brevitas.core.quant.int import RescalingIntQuant
 from brevitas.core.restrict_val import QuantRestrictValue
+from brevitas.core.scaling import ParameterFromStatsFromParameterScaling
 from brevitas.core.stats.stats_wrapper import SCALAR_SHAPE
 from brevitas.core.zero_point import _ScaleShiftQuantZeroPoint
+from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.nn import QuantLinear
 import brevitas.nn as qnn
 from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantProxyFromInjector
 from brevitas.quant.base import ExtendedInjector
 from brevitas.quant.base import FloatRestrictValue
+from brevitas.quant.base import MSEAsymmetricScale
+from brevitas.quant.base import MSEWeightZeroPoint
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
+from tests.marker import jit_disabled_for_local_loss
 
 ZP_BIT_WIDTH = 6
 SCALE_BIT_WIDTH = 6
@@ -78,6 +83,18 @@ class QuantZPInt(Int8WeightPerTensorFloat, ShapeMixin):
         return [torch.empty(upstream_shape)]
 
 
+# This wrapper only tests that dependency injection connects the custom implementation.
+class _ScaleShiftQuantZeroPointWrapper(torch.nn.Module):
+
+    def __init__(self, zp_int_quant, int_quant, zero_point_shape, zero_point_dequantized_shape):
+        super().__init__()
+        self.impl = _ScaleShiftQuantZeroPoint(
+            zp_int_quant, int_quant, zero_point_shape, zero_point_dequantized_shape)
+
+    def forward(self, zero_point, scale, bit_width):
+        return self.impl(zero_point, scale, bit_width)
+
+
 class QuantScaleQuantZPInt8WeightPerTensorFloat(ShiftedUint8WeightPerTensorFloat):
     proxy_class = GroupwiseWeightQuantProxyFromInjector
     scaling_quant = QuantScalingInt
@@ -85,7 +102,7 @@ class QuantScaleQuantZPInt8WeightPerTensorFloat(ShiftedUint8WeightPerTensorFloat
     restrict_scaling_impl = QuantRestrictValue
     scaling_per_output_type = ScalingPerOutputType.GROUP
     restrict_threshold_impl = FloatRestrictValue
-    scale_shift_zero_point_impl = _ScaleShiftQuantZeroPoint
+    scale_shift_zero_point_impl = _ScaleShiftQuantZeroPointWrapper
     group_size = 32
     bit_width = 4
 
@@ -112,6 +129,12 @@ class QuantScaleQuantZPInt8WeightPerTensorFloat(ShiftedUint8WeightPerTensorFloat
             return zero_point_shape
 
 
+class QuantScaleQuantZPParameterFromStats(MSEAsymmetricScale,
+                                          MSEWeightZeroPoint,
+                                          QuantScaleQuantZPInt8WeightPerTensorFloat):
+    pass
+
+
 def test_quant_scale():
 
     def hook_scale(module, inp):
@@ -135,6 +158,23 @@ def test_quant_scale():
             module.register_forward_pre_hook(hook_zp)
 
     linear(torch.randn(1, 512))
+
+
+@jit_disabled_for_local_loss()
+def test_quant_scale_zero_point_parameter_from_stats():
+    linear = qnn.QuantLinear(256, 16, weight_quant=QuantScaleQuantZPParameterFromStats)
+    tensor_quant = linear.weight_quant.tensor_quant
+    scaling_impl = tensor_quant.scaling_impl
+    zero_point_impl = tensor_quant.zero_point_impl
+
+    assert isinstance(scaling_impl, ParameterFromStatsFromParameterScaling)
+    assert isinstance(zero_point_impl, ParameterFromStatsFromParameterZeroPoint)
+    assert isinstance(zero_point_impl.scale_shift_zero_point, _ScaleShiftQuantZeroPointWrapper)
+
+    linear(torch.randn(1, 256))
+
+    assert scaling_impl.init_done
+    assert zero_point_impl.init_done
 
 
 class Uint8ScaledMinMaxPerChannelFloat(ShiftedUint8WeightPerChannelFloat):
