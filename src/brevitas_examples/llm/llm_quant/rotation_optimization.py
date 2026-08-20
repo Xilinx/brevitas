@@ -195,10 +195,6 @@ def apply_fine_tuning(
         for param in model.parameters():
             param.requires_grad = False
 
-    if fsdp_enabled:
-        if not issubclass(trainer_cls, GeneralizedTrainer):
-            raise RuntimeError("FSDP2 fine-tuning requires a GeneralizedTrainer subclass.")
-
     trainer_kwargs: Dict[str, Any] = dict(
         model=model,
 <<<<<<< HEAD
@@ -209,8 +205,7 @@ def apply_fine_tuning(
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=None,
-        data_collator=collate_fn,
-        optimizers=(None, None))
+        data_collator=collate_fn)
 
     # Wire the teacher model whenever the selected trainer is a
     # GeneralizedTrainer subclass and distillation loss is enabled.
@@ -221,15 +216,24 @@ def apply_fine_tuning(
             param.requires_grad = False
         trainer_kwargs["teacher_model"] = teacher_model
 
-    trainer = trainer_cls(**trainer_kwargs)
-    if fsdp_enabled and not trainer.accelerator.is_fsdp2:
-        raise RuntimeError("LLM distributed fine-tuning supports FSDP2 only.")
-    trainer.train()
-    if fsdp_enabled:
-        state_dict = trainer.accelerator.get_state_dict(trainer.model)
-        trainer.accelerator.wait_for_everyone()
-        trainer.accelerator.end_training()
-        return state_dict
-    # After finishing training, set eval mode again
-    model.eval()
-    return None
+    trainer = None
+    try:
+        if fsdp_enabled and not issubclass(trainer_cls, GeneralizedTrainer):
+            raise RuntimeError("FSDP2 fine-tuning requires a GeneralizedTrainer subclass.")
+        trainer = trainer_cls(**trainer_kwargs)
+        if fsdp_enabled and not trainer.accelerator.is_fsdp2:
+            raise RuntimeError("LLM distributed fine-tuning supports FSDP2 only.")
+        trainer.train()
+        if fsdp_enabled:
+            state_dict = trainer.accelerator.get_state_dict(trainer.model)
+            trainer.accelerator.wait_for_everyone()
+            return state_dict
+        # After finishing training, set eval mode again
+        model.eval()
+        return None
+    finally:
+        if fsdp_enabled:
+            if trainer is not None:
+                trainer.accelerator.end_training()
+            else:
+                training_args.distributed_state.destroy_process_group()
