@@ -34,6 +34,7 @@ __all__ = [
     'get_output_channels',
     'get_output_channel_dim',
     'get_batch_dim',
+    'resolve_region_batch_dim',
     'power_iteration']
 
 
@@ -47,6 +48,19 @@ def get_batch_dim(module, inp=None, default=0):
     if inp is not None and hasattr(inp, 'names') and 'N' in inp.names:
         return inp.names.index('N')
     return default
+
+
+def resolve_region_batch_dim(modules, default=0):
+    # An equalization/permutation region is assumed to share a single batch dimension. Passing
+    # default=None makes get_batch_dim return None for modules that don't declare a layout, so we
+    # can distinguish "unspecified" from an explicit dim 0 (e.g. batch_first=True). Genuinely
+    # conflicting declared dimensions are an error rather than something to silently reconcile.
+    declared = {get_batch_dim(module, default=None) for module in modules}
+    declared.discard(None)
+    if len(declared) > 1:
+        raise RuntimeError(
+            f"Region spans modules with conflicting batch dimensions: {sorted(declared)}")
+    return declared.pop() if declared else default
 
 
 CONV_TRANSPOSED = (

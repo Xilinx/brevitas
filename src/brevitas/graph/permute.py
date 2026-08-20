@@ -24,7 +24,7 @@ from brevitas.graph.equalize import Region
 from brevitas.graph.equalize import RegionWalkMixin
 from brevitas.graph.equalize import WalkRegionState
 from brevitas.graph.utils import find_node_for_module
-from brevitas.graph.utils import get_batch_dim
+from brevitas.graph.utils import resolve_region_batch_dim
 from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.utils.logging import setup_logger
 
@@ -206,10 +206,9 @@ class GraphPermutationEqualization(GraphTransform, RegionWalkMixin):
 
     def _setup_hooks(self):
         for region in self.regions:
-            # We assume that the entire region has a unique batch_dim
-            batch_dim = 0
-            for name in list(region.srcs) + list(region.sinks):
-                batch_dim = max(batch_dim, get_batch_dim(region.get_module_from_name(name)))
+            batch_dim = resolve_region_batch_dim(
+                region.get_module_from_name(name)
+                for name in list(region.srcs) + list(region.sinks))
 
             for name in region.sinks_names:
                 module = region.get_module_from_name(name)

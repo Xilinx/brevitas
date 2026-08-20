@@ -45,6 +45,7 @@ from brevitas.graph.hadamard import random_hadamard_matrix
 from brevitas.graph.utils import get_batch_dim
 from brevitas.graph.utils import get_module
 from brevitas.graph.utils import get_node
+from brevitas.graph.utils import resolve_region_batch_dim
 from brevitas.nn import ScaledDotProductAttention
 from brevitas.nn.equalized_layer import EqualizedModule
 from brevitas.nn.equalized_layer import functional_rotate_input
@@ -1455,10 +1456,9 @@ class GraphActivationEqualization(ActivationEqualization):
                 regions_to_drop.append(region)
                 continue
 
-            # We assume that the entire region has a unique batch_dim
-            batch_dim = 0
-            for name in list(region.srcs) + list(region.sinks):
-                batch_dim = max(batch_dim, get_batch_dim(region.get_module_from_name(name)))
+            batch_dim = resolve_region_batch_dim(
+                region.get_module_from_name(name)
+                for name in list(region.srcs) + list(region.sinks))
 
             region_to_search = region.sinks_names if len(region.acts) == 0 else region.acts
             for name in region_to_search:
