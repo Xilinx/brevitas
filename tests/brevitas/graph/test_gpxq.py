@@ -63,6 +63,47 @@ class _FunctionalGroupedExperts(torch.nn.Module):
         return torch._grouped_mm(x, self.weight.transpose(-2, -1), offs=offsets)
 
 
+class _TwoStageFunctionalGroupedExperts(torch.nn.Module):
+
+    def __init__(self):
+        super().__init__()
+        self.gate_up_weight = torch.nn.Parameter(torch.randn(2, 128, 256, dtype=torch.bfloat16))
+        self.down_weight = torch.nn.Parameter(torch.randn(2, 32, 64, dtype=torch.bfloat16))
+
+    def forward(self, x, offsets):
+        gate_up = torch._grouped_mm(x, self.gate_up_weight.transpose(-2, -1), offs=offsets)
+        gate, up = gate_up.chunk(2, dim=-1)
+        return torch._grouped_mm(
+            torch.nn.functional.silu(gate) * up, self.down_weight.transpose(-2, -1), offs=offsets)
+
+
+class _ChangingRouteGroupedExperts(_TwoStageFunctionalGroupedExperts):
+
+    def forward(self, x, selected_experts, routing_weights):
+        del routing_weights
+        selected_experts = selected_experts.flatten()
+        order = torch.argsort(selected_experts)
+        counts = torch.bincount(selected_experts, minlength=2)
+        offsets = counts.cumsum(0).to(torch.int32)
+        return super().forward(x[order], offsets)
+
+
+class _ChangingRouteGroupedModel(torch.nn.Module):
+
+    def __init__(self):
+        super().__init__()
+        self.experts = _ChangingRouteGroupedExperts()
+        self.forward_count = 0
+
+    def forward(self, x):
+        self.forward_count += 1
+        if self.forward_count % 2:
+            selected = torch.tensor([0, 0, 0, 1, 1, 1, 1, 1], device=x.device)
+        else:
+            selected = torch.tensor([0, 0, 0, 0, 1, 1, 1, 1], device=x.device)
+        return self.experts(x, selected[:, None], torch.ones(8, 1, device=x.device))
+
+
 class _FunctionalRoutedExperts(torch.nn.Module):
     """Functional experts with deterministic routed slices for batching parity tests."""
 
@@ -297,6 +338,48 @@ def test_functional_qronos_expert_batch_matches_scalar(act_order):
         results.append(model.parametrizations.weight.original.detach().clone())
         state.cleanup()
     torch.testing.assert_close(results[0], results[1], atol=1e-4, rtol=1e-4)
+
+
+@torch.no_grad()
+@pytest.mark.skipif(not hasattr(torch, '_grouped_mm'), reason='Torch grouped_mm is unavailable')
+def test_functional_qronos_two_stage_grouped_reference_pass():
+    model = _TwoStageFunctionalGroupedExperts().eval()
+    x = torch.randn(4, 256, dtype=torch.bfloat16)
+    offsets = torch.tensor([2, 4], dtype=torch.int32)
+    weight_spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 1, 'group_dim': 2})
+    state = prepare_functional_quantization(
+        model, {torch._grouped_mm: (None, None, weight_spec)}, example_inputs=(x, offsets))
+    with functional_quantization_mode(state):
+        with gpfq_mode(model,
+                       functional_state=state,
+                       min_samples=1,
+                       algorithm_impl=Qronos,
+                       expert_batch_size=2) as mode:
+            assert mode.num_layers == 2
+            for _ in range(mode.num_layers):
+                mode.model(x, offsets)
+                mode.update()
+    state.cleanup()
+
+
+@torch.no_grad()
+@pytest.mark.skipif(not hasattr(torch, '_grouped_mm'), reason='Torch grouped_mm is unavailable')
+def test_functional_qronos_replays_quantized_expert_routes():
+    model = _ChangingRouteGroupedModel().eval()
+    x = torch.randn(8, 256, dtype=torch.bfloat16)
+    weight_spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 1, 'group_dim': 2})
+    state = prepare_functional_quantization(
+        model, {torch._grouped_mm: (None, None, weight_spec)}, example_inputs=(x,))
+    with functional_quantization_mode(state):
+        with gpfq_mode(model,
+                       functional_state=state,
+                       min_samples=1,
+                       algorithm_impl=Qronos,
+                       expert_batch_size=2) as mode:
+            for _ in range(mode.num_layers):
+                mode.model(x)
+                mode.update()
+    state.cleanup()
 
 
 def test_qronos_partial_exposes_batched_update():

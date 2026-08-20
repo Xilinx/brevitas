@@ -367,6 +367,64 @@ class gpfq_mode(gpxq_mode):
             expert_batch_size)
 
         self.algorithm_impl = algorithm_impl
+        self._routing_phase = None
+        self._routing_cache = {}
+        self._routing_replay_index = {}
+        self._routing_hook_handles = []
+
+    def __enter__(self):
+        mode = super().__enter__()
+        if self.functional_state is not None:
+            owner_modules = {target.owner.owner for target in self.functional_targets}
+            for module in owner_modules:
+                self._routing_hook_handles.append(
+                    module.register_forward_pre_hook(self._routing_hook, with_kwargs=True))
+        return mode
+
+    def __exit__(self, type, value, traceback):
+        for handle in self._routing_hook_handles:
+            handle.remove()
+        self._routing_hook_handles.clear()
+        return super().__exit__(type, value, traceback)
+
+    def _routing_hook(self, module, args, kwargs):
+        """Replay quantized-pass expert assignments during the paired reference pass."""
+        route_location = None
+        route = None
+        for name in ('selected_experts', 'top_k_index', 'expert_index'):
+            candidate = kwargs.get(name)
+            if isinstance(candidate, Tensor):
+                route_location = name
+                route = candidate
+                break
+        if route is None and len(args) > 1 and isinstance(args[1], Tensor):
+            route_location = 1
+            route = args[1]
+        if route is None or route.dim() == 0 or route.dtype not in (
+                torch.int8, torch.int16, torch.int32, torch.int64, torch.uint8):
+            return args, kwargs
+
+        key = id(module)
+        if self._routing_phase == 'capture':
+            self._routing_cache.setdefault(key, []).append(route.detach().clone())
+        elif self._routing_phase == 'replay':
+            index = self._routing_replay_index.get(key, 0)
+            cached_routes = self._routing_cache.get(key, ())
+            if index >= len(cached_routes):
+                raise RuntimeError('Functional GPxQ reference pass has no matching expert route.')
+            replay_route = cached_routes[index].to(route.device)
+            if replay_route.shape != route.shape:
+                raise RuntimeError(
+                    'Functional GPxQ expert routing shape changed between paired passes.')
+            self._routing_replay_index[key] = index + 1
+            if isinstance(route_location, str):
+                kwargs = dict(kwargs)
+                kwargs[route_location] = replay_route
+            else:
+                args = list(args)
+                args[route_location] = replay_route
+                args = tuple(args)
+        return args, kwargs
 
     def _update_functional_targets(self, targets, progress) -> int:
         batch_impl = getattr(self.algorithm_impl, 'batched_layer_update', None)
@@ -385,6 +443,9 @@ class gpfq_mode(gpxq_mode):
 
     def catch_stopfwd(self, *args, **kwargs):
         # Collect quant input
+        self._routing_cache.clear()
+        self._routing_replay_index.clear()
+        self._routing_phase = 'capture'
         try:
             self.orig_forward(*args, **kwargs)
         except StopFwdException:
@@ -398,6 +459,7 @@ class gpfq_mode(gpxq_mode):
             self.functional_state.reset_active_counters()
         for target in targets:
             target.reference_pass = True
+        self._routing_phase = 'replay'
         try:
             with quantization_status_manager(
                     self.model,
@@ -411,6 +473,7 @@ class gpfq_mode(gpxq_mode):
                 except StopFwdException:
                     pass
         finally:
+            self._routing_phase = None
             for target in targets:
                 target.reference_pass = False
 

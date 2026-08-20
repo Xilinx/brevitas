@@ -10,6 +10,8 @@ from torch.nn.utils.parametrize import is_parametrized
 from torch.nn.utils.parametrize import register_parametrization
 from torch.utils.checkpoint import checkpoint
 
+from brevitas.graph.calibrate import quantization_status_manager
+from brevitas.graph.functional_quant import _FunctionalReferenceTensor
 from brevitas.graph.functional_quant import grouped_mm_functions
 from brevitas.graph.quantize import _QuantParametrization
 from brevitas.graph.quantize import functional_quantization_mode
@@ -173,6 +175,21 @@ class GroupedFunctionalWeightModel(nn.Module):
         return self.grouped_mm(x, self.weight.transpose(-2, -1), offs=offsets)
 
 
+class TwoStageGroupedFunctionalWeightModel(nn.Module):
+    """Two grouped expert projections separated by activation arithmetic."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.gate_up_weight = nn.Parameter(torch.randn(2, 128, 256, dtype=torch.bfloat16))
+        self.down_weight = nn.Parameter(torch.randn(2, 32, 64, dtype=torch.bfloat16))
+
+    def forward(self, x: Tensor, offsets: Tensor) -> Tensor:
+        gate_up = torch._grouped_mm(x, self.gate_up_weight.transpose(-2, -1), offs=offsets)
+        gate, up = gate_up.chunk(2, dim=-1)
+        intermediate = F.silu(gate) * up
+        return torch._grouped_mm(intermediate, self.down_weight.transpose(-2, -1), offs=offsets)
+
+
 class UnsupportedFunctionalWeightViewModel(nn.Module):
     """Functional linear model using a non-leading-index parameter view."""
 
@@ -283,6 +300,23 @@ class CheckpointedTwoLinearModel(nn.Module):
 @requires_pt_ge('1.12')
 class TestFunctionalQuantizationMode:
 
+    def test_reference_tensor_preserves_structural_weight_views_only(self):
+        reference = _FunctionalReferenceTensor(torch.randn(2, 2, 3, 4), 'weight')
+
+        negative = reference[-1]
+        assert negative._functional_view_indices == (1,)
+        tuple_index = reference[1, 0]
+        assert tuple_index._functional_view_indices == (1, 0)
+        selected = torch.select(reference, dim=0, index=1)
+        assert selected._functional_view_indices == (1,)
+        unbound = torch.unbind(reference, dim=0)
+        assert [item._functional_view_indices for item in unbound] == [(0,), (1,)]
+        transposed = torch.transpose(input=tuple_index, dim0=-2, dim1=-1)
+        assert transposed._functional_view_indices == (1, 0)
+
+        output = torch.matmul(torch.randn(5, 4), transposed)
+        assert type(output) is Tensor
+
     def test_input_only_skips_parameter_derived_weight_view(self):
         """A missing second spec does not quantize a parameter-derived view."""
         model = StackedFunctionalWeightModel()
@@ -345,6 +379,60 @@ class TestFunctionalQuantizationMode:
             output.float().sum().backward()
 
         assert model.parametrizations.weight.original.grad is not None
+        state.cleanup()
+
+    @pytest.mark.skipif(not hasattr(torch, '_grouped_mm'), reason='Torch grouped_mm is unavailable')
+    def test_grouped_mm_exposes_expert_targets_and_observes_offset_slices(self):
+        """Grouped-MM experts use canonical targets and cumulative-offset input slices."""
+        model = GroupedFunctionalWeightModel()
+        weight_spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 1, 'group_dim': 2})
+        grouped_mm = next(func for func in grouped_mm_functions() if func is torch._grouped_mm)
+        state = prepare_functional_quantization(
+            model, {grouped_mm: (None, None, weight_spec)},
+            example_inputs=(
+                torch.randn(4, 256, dtype=torch.bfloat16), torch.tensor([2, 4], dtype=torch.int32)))
+
+        targets = state.iter_linear_targets()
+        assert [target.name for target in targets] == ['weight[0]', 'weight[1]']
+        assert [target.weight.shape for target in targets] == [(64, 256), (64, 256)]
+
+        observed = []
+        handle = state.register_linear_observer(
+            lambda observation: observed.append((observation.target.name, observation.input)))
+        x = torch.randn(4, 256, dtype=torch.bfloat16)
+        offsets = torch.tensor([1, 4], dtype=torch.int32)
+        with functional_quantization_mode(state):
+            model(x, offsets)
+        handle.remove()
+
+        assert [name for name, _ in observed] == ['weight[0]', 'weight[1]']
+        torch.testing.assert_close(observed[0][1], x[:1])
+        torch.testing.assert_close(observed[1][1], x[1:4])
+        state.cleanup()
+
+    @pytest.mark.skipif(not hasattr(torch, '_grouped_mm'), reason='Torch grouped_mm is unavailable')
+    def test_grouped_mm_reference_weights_do_not_propagate_to_activations(self):
+        """Disabled reference weights retain provenance without contaminating grouped outputs."""
+        model = TwoStageGroupedFunctionalWeightModel().eval()
+        weight_spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 1, 'group_dim': 2})
+        x = torch.randn(4, 256, dtype=torch.bfloat16)
+        offsets = torch.tensor([2, 4], dtype=torch.int32)
+        state = prepare_functional_quantization(
+            model, {torch._grouped_mm: (None, None, weight_spec)}, example_inputs=(x, offsets))
+        observed_inputs = []
+        handle = state.register_linear_observer(
+            lambda observation: observed_inputs.append(observation.input))
+        with functional_quantization_mode(state):
+            with quantization_status_manager(model,
+                                             disable_act_quant=True,
+                                             disable_weight_quant=True,
+                                             disable_bias_quant=True):
+                output = model(x, offsets)
+        handle.remove()
+
+        assert type(output) is Tensor
+        assert len(observed_inputs) == 4
+        assert all(type(inp) is Tensor for inp in observed_inputs)
         state.cleanup()
 
     def test_grouped_mm_transformers_fallback_alias(self):

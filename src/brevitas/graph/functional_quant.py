@@ -245,11 +245,108 @@ class _FunctionalReferenceTensor(Tensor):
         self._functional_view_indices = indices
 
     def __getitem__(self, index):
-        if not isinstance(index, int):
-            raise TypeError('Functional reference parameters require integer indexing.')
+        indices = index if isinstance(index, tuple) else (index,)
+        plain = self.as_subclass(Tensor)
+        normalized = []
+        for axis, item in enumerate(indices):
+            if isinstance(item, Tensor):
+                if item.dim() != 0 or item.dtype not in (
+                        torch.int8, torch.int16, torch.int32, torch.int64, torch.uint8):
+                    raise TypeError('Functional reference parameters require integer indexing.')
+                item = int(item.item())
+            if not isinstance(item, int) or isinstance(item, bool):
+                raise TypeError('Functional reference parameters require integer indexing.')
+            item = item if item >= 0 else plain.shape[axis] + item
+            if not 0 <= item < plain.shape[axis]:
+                raise IndexError('Functional reference parameter index is out of range.')
+            normalized.append(item)
         return _FunctionalReferenceTensor(
-            self.as_subclass(Tensor)[index],
-            self._functional_owner_id, (*self._functional_view_indices, index))
+            plain[index], self._functional_owner_id, (*self._functional_view_indices, *normalized))
+
+    @classmethod
+    def __torch_function__(cls, func, types, args=(), kwargs=None):
+        """Preserve provenance on weight views but never propagate it to activations."""
+        kwargs = {} if kwargs is None else kwargs
+
+        def find_reference(value):
+            if isinstance(value, cls):
+                return value
+            if isinstance(value, (tuple, list)):
+                return next(
+                    (found for item in value if (found := find_reference(item)) is not None), None)
+            if isinstance(value, dict):
+                return next((
+                    found for item in value.values()
+                    if (found := find_reference(item)) is not None),
+                            None)
+            return None
+
+        def unwrap(value):
+            if isinstance(value, cls):
+                return value.as_subclass(Tensor)
+            if isinstance(value, tuple):
+                return tuple(unwrap(item) for item in value)
+            if isinstance(value, list):
+                return [unwrap(item) for item in value]
+            if isinstance(value, dict):
+                return {key: unwrap(item) for key, item in value.items()}
+            return value
+
+        reference = find_reference((args, kwargs))
+        with torch._C.DisableTorchFunctionSubclass():
+            output = func(*unwrap(args), **unwrap(kwargs))
+
+        if reference is None:
+            return output
+        source = reference.as_subclass(Tensor)
+
+        def wrap_supported_view(value):
+            if isinstance(value, tuple):
+                return tuple(wrap_supported_view(item) for item in value)
+            if isinstance(value, list):
+                return [wrap_supported_view(item) for item in value]
+            if not isinstance(value, Tensor):
+                return value
+            try:
+                shares_storage = value.untyped_storage().data_ptr() == source.untyped_storage(
+                ).data_ptr()
+            except RuntimeError:
+                shares_storage = False
+            if not shares_storage:
+                return value
+
+            indices = reference._functional_view_indices
+            rank_delta = source.dim() - value.dim()
+            if rank_delta > 0 and tuple(value.shape) == tuple(source.shape[rank_delta:]) and tuple(
+                    value.stride()) == tuple(source.stride()[rank_delta:]):
+                offset = value.storage_offset() - source.storage_offset()
+                added_indices = []
+                for axis in range(rank_delta):
+                    stride = source.stride()[axis]
+                    if stride == 0 or offset % stride:
+                        return value
+                    index = offset // stride
+                    if not 0 <= index < source.shape[axis]:
+                        return value
+                    added_indices.append(index)
+                    offset -= index * stride
+                if offset:
+                    return value
+                indices = (*indices, *added_indices)
+            elif value.dim() == source.dim():
+                same_layout = tuple(value.shape) == tuple(source.shape) and tuple(
+                    value.stride()) == tuple(source.stride())
+                transposed_layout = source.dim() >= 2 and tuple(value.shape) == (
+                    *source.shape[:-2], source.shape[-1], source.shape[-2]) and tuple(
+                        value.stride()) == (
+                            *source.stride()[:-2], source.stride()[-1], source.stride()[-2])
+                if not same_layout and not transposed_layout:
+                    return value
+            else:
+                return value
+            return cls(value, reference._functional_owner_id, indices)
+
+        return wrap_supported_view(output)
 
 
 @dataclass
