@@ -24,8 +24,6 @@ except:
 
 from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
-# Optimizer/scheduler building and trainer plumbing live in trainer_utils.
-from brevitas_examples.llm.llm_quant.trainer_utils import _build_optimizers_from_configs
 from brevitas_examples.llm.llm_quant.trainer_utils import GeneralizedTrainer
 from brevitas_examples.llm.llm_quant.trainer_utils import TrainingArguments
 
@@ -128,7 +126,8 @@ def apply_fine_tuning(
         train_dataset: Dataset,
         collate_fn: Callable,
         trainer_cls: Optional[Type[Trainer]] = None,
-        extra_args: Optional[List[str]] = None) -> Optional[Dict[str, torch.Tensor]]:
+        extra_args: Optional[List[str]] = None,
+        skip_training: bool = False) -> Optional[Dict[str, torch.Tensor]]:
     """Fine-tune model weights and/or rotation matrices.
 
     The training arguments are parsed from *extra_args* via
@@ -183,55 +182,54 @@ def apply_fine_tuning(
 
     # Prepare model for training
     model = _prepare_model(model)
-    # Enable skipping training
-    if training_args.max_steps <= 0:
+    fsdp_enabled = _is_fsdp_enabled(training_args)
+    if skip_training:
+        if fsdp_enabled:
+            training_args.distributed_state.destroy_process_group()
         return
     # Remove hooks and empty cache before starting training
     remove_hooks(model)
     torch.cuda.empty_cache()
-    # Freeze all model parameters; individual param groups will be
-    # unfrozen by the optimizer-building helpers.
-    for param in model.parameters():
-        param.requires_grad = False
+    if training_args.optimizer_scheduler_args is not None:
+        # Configured parameter selectors re-enable only their assigned groups.
+        for param in model.parameters():
+            param.requires_grad = False
 
-    # Build optimizers after FSDP wraps the model, because wrapping replaces
-    # parameter objects and invalidates eagerly created optimizer references.
-    if training_args.optimizer_scheduler_args is None:
-        raise RuntimeError("TrainingArguments needs to specify optimizer_scheduler_args")
-
-    fsdp_enabled = _is_fsdp_enabled(training_args)
     if fsdp_enabled:
         if not issubclass(trainer_cls, GeneralizedTrainer):
-            raise RuntimeError(
-                "FSDP fine-tuning requires a GeneralizedTrainer subclass so the optimizer can "
-                "be created after model wrapping.")
-        training_args._deferred_optimizer_scheduler_args = training_args.optimizer_scheduler_args
-        optimizers = (None, None)
-    else:
-        # The optimizer-building helpers unfreeze the parameters of each
-        # selected param group.
-        optimizers = _build_optimizers_from_configs(model, training_args)
+            raise RuntimeError("FSDP2 fine-tuning requires a GeneralizedTrainer subclass.")
 
     trainer_kwargs: Dict[str, Any] = dict(
         model=model,
+<<<<<<< HEAD
         # `tokenizer` renamed to `processing_class` in transformers 4.46, removed in 5.x.
+=======
+>>>>>>> update
         processing_class=tokenizer,
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=None,
         data_collator=collate_fn,
-        optimizers=optimizers)
+        optimizers=(None, None))
 
     # Wire the teacher model whenever the selected trainer is a
     # GeneralizedTrainer subclass and distillation loss is enabled.
     if issubclass(trainer_cls, GeneralizedTrainer) and getattr(
             training_args, 'use_distillation_loss', False):
-        trainer_kwargs["teacher_model"] = copy.deepcopy(model.cpu())
+        teacher_model = copy.deepcopy(model.cpu())
+        for param in teacher_model.parameters():
+            param.requires_grad = False
+        trainer_kwargs["teacher_model"] = teacher_model
 
     trainer = trainer_cls(**trainer_kwargs)
+    if fsdp_enabled and not trainer.accelerator.is_fsdp2:
+        raise RuntimeError("LLM distributed fine-tuning supports FSDP2 only.")
     trainer.train()
     if fsdp_enabled:
-        return trainer.accelerator.get_state_dict(trainer.model)
+        state_dict = trainer.accelerator.get_state_dict(trainer.model)
+        trainer.accelerator.wait_for_everyone()
+        trainer.accelerator.end_training()
+        return state_dict
     # After finishing training, set eval mode again
     model.eval()
     return None

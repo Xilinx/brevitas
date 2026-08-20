@@ -4,6 +4,7 @@
 from contextlib import nullcontext
 from copy import deepcopy
 import functools
+import json
 import os
 import pprint
 import sys
@@ -588,6 +589,7 @@ def quantize_llm(args, extra_args=None):
         quantization_cm = nullcontext()
 
     fsdp_enabled = False
+    is_main_process = True
     with quantization_cm:
         # We initialize weights scale factor
         with torch.no_grad():
@@ -615,33 +617,29 @@ def quantize_llm(args, extra_args=None):
                 custom_trainer_cls = TRAINER_REGISTRY.get(custom_trainer_config_name)
 
             fine_tune_extra_args = list(extra_args) if extra_args is not None else []
-            if args.load_checkpoint:
-                # Skip training when loading from a checkpoint by forcing
-                # max_steps to 0 through the training arguments. Appended last so
-                # that it overrides any user-provided --max_steps (the argument
-                # parser keeps the last value for a repeated flag).
-                fine_tune_extra_args += ["--max_steps", "0"]
             training_args = parse_rotation_optimization_args(
-                extra_args=fine_tune_extra_args,
-                trainer_cls=custom_trainer_cls)
+                extra_args=fine_tune_extra_args, trainer_cls=custom_trainer_cls)
             fsdp_enabled = _is_fsdp_enabled(training_args)
-            copied_model = deepcopy(model.cpu()) if fsdp_enabled else None
+            is_main_process = training_args.distributed_state.is_main_process
+            if fsdp_enabled:
+                remove_hooks(model)
+            copied_model = (
+                deepcopy(model.cpu())
+                if fsdp_enabled and is_main_process and not args.load_checkpoint else None)
             fsdp_state_dict = apply_fine_tuning(
                 model=model,
                 tokenizer=tokenizer,
                 train_dataset=finetune_dataset,
                 collate_fn=collate_fn,
                 trainer_cls=custom_trainer_cls,
-                extra_args=fine_tune_extra_args)
+                extra_args=fine_tune_extra_args,
+                skip_training=args.load_checkpoint)
             if fsdp_enabled:
-                rank = dist.get_rank()
-                if rank == 0:
+                if is_main_process and fsdp_state_dict is not None:
                     copied_model.load_state_dict(fsdp_state_dict)
+                    del model
                     model = copied_model
-                del copied_model
-                dist.barrier()
-                dist.destroy_process_group()
-                if rank != 0:
+                if not is_main_process:
                     sys.exit(0)
                 torch.cuda.empty_cache()
             # Remove hooks from training
@@ -786,6 +784,7 @@ def quantize_llm(args, extra_args=None):
                     dtype=args.dtype,
                     batch_size=args.few_shot_override_batch_size,
                     max_samples=args.few_shot_limit,
+                    use_accelerate=not fsdp_enabled,
                 )
             # Print nicely formatted results
             pprint.pprint(few_shot_eval_results)
@@ -801,7 +800,7 @@ def quantize_llm(args, extra_args=None):
             model_export(model, tokenizer, next(iter(calibration_loader)), args, config)
 
     results = {"float_ppl": float_ppl, "quant_ppl": quant_ppl, **few_shot_eval_results}
-    if args.job_folder is not None:
+    if args.job_folder is not None and is_main_process:
         os.makedirs(args.job_folder, exist_ok=True)
         with open(os.path.join(args.job_folder, "results.json"), "w") as results_file:
             json.dump(results, results_file)
