@@ -42,6 +42,7 @@ from brevitas.graph.hadamard import get_hadK
 from brevitas.graph.hadamard import matmul_hadU
 from brevitas.graph.hadamard import matmul_hadU_cuda
 from brevitas.graph.hadamard import random_hadamard_matrix
+from brevitas.graph.utils import get_batch_dim
 from brevitas.graph.utils import get_module
 from brevitas.graph.utils import get_node
 from brevitas.nn import ScaledDotProductAttention
@@ -1367,9 +1368,7 @@ class LayerwiseActivationEqualization(ActivationEqualization):
         for region in self.regions:
             name = list(region.sinks.keys())[0]
             module = region.get_module_from_name(name)
-            batch_dim = 0
-            if hasattr(module, 'batch_first'):
-                batch_dim = 0 if module.batch_first else 1
+            batch_dim = get_batch_dim(module)
 
             hook_fn = partial(
                 self.forward_stats_hook, name=module, batch_dim=batch_dim, use_inp=True)
@@ -1458,14 +1457,8 @@ class GraphActivationEqualization(ActivationEqualization):
 
             # We assume that the entire region has a unique batch_dim
             batch_dim = 0
-            for name in region.srcs:
-                module = region.get_module_from_name(name)
-                if hasattr(module, 'batch_first') and not module.batch_first:
-                    batch_dim = 1
-            for name in region.sinks:
-                module = region.get_module_from_name(name)
-                if hasattr(module, 'batch_first') and not module.batch_first:
-                    batch_dim = 1
+            for name in list(region.srcs) + list(region.sinks):
+                batch_dim = max(batch_dim, get_batch_dim(region.get_module_from_name(name)))
 
             region_to_search = region.sinks_names if len(region.acts) == 0 else region.acts
             for name in region_to_search:

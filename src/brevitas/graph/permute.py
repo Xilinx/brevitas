@@ -24,9 +24,9 @@ from brevitas.graph.equalize import Region
 from brevitas.graph.equalize import RegionWalkMixin
 from brevitas.graph.equalize import WalkRegionState
 from brevitas.graph.utils import find_node_for_module
+from brevitas.graph.utils import get_batch_dim
 from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.utils.logging import setup_logger
-from brevitas.utils.torch_utils import rename_tensor
 
 logging = setup_logger(__name__)
 
@@ -194,15 +194,8 @@ class GraphPermutationEqualization(GraphTransform, RegionWalkMixin):
         if inp is None:
             return
 
-        # Prefer an explicit batch_dim exposed by the module (works on all PyTorch versions),
-        # otherwise fall back to named tensors (PyTorch < 2.13). batch_dim has already been
-        # resolved by _process_input; here we only need to reorganize the input accordingly.
-        if hasattr(module, 'batch_dim'):
-            # Strip any legacy dimension names before reshaping (no-op on PyTorch >= 2.13).
-            inp = rename_tensor(inp, None)
-            inp = inp.transpose(0, batch_dim)
-        elif hasattr(inp, 'names') and 'N' in inp.names:
-            inp.rename_(None)
+        # _process_input has already resolved batch_dim and stripped any dimension names.
+        if batch_dim:
             inp = inp.transpose(0, batch_dim)
 
         inp = inp.reshape(-1, inp.shape[-1])  # [batch_size * seq_len, dim]
@@ -215,14 +208,8 @@ class GraphPermutationEqualization(GraphTransform, RegionWalkMixin):
         for region in self.regions:
             # We assume that the entire region has a unique batch_dim
             batch_dim = 0
-            for name in region.srcs:
-                module = region.get_module_from_name(name)
-                if hasattr(module, 'batch_first') and not module.batch_first:
-                    batch_dim = 1
-            for name in region.sinks:
-                module = region.get_module_from_name(name)
-                if hasattr(module, 'batch_first') and not module.batch_first:
-                    batch_dim = 1
+            for name in list(region.srcs) + list(region.sinks):
+                batch_dim = max(batch_dim, get_batch_dim(region.get_module_from_name(name)))
 
             for name in region.sinks_names:
                 module = region.get_module_from_name(name)

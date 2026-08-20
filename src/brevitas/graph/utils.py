@@ -33,7 +33,18 @@ __all__ = [
     'matches_module_pattern',
     'get_output_channels',
     'get_output_channel_dim',
+    'get_batch_dim',
     'power_iteration']
+
+
+def get_batch_dim(module, default=0):
+    # QuantMHA internal projections expose an explicit batch_dim; nn modules expose batch_first.
+    if hasattr(module, 'batch_dim'):
+        return module.batch_dim
+    if hasattr(module, 'batch_first'):
+        return 0 if module.batch_first else 1
+    return default
+
 
 CONV_TRANSPOSED = (
     nn.ConvTranspose1d,

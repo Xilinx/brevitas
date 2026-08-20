@@ -96,15 +96,13 @@ class GraphTransform(Transform):
             assert len(inp) == 1, "Expected single element tuple"
             inp = inp[0]
 
-        # Refine batch_dim: prefer an explicit batch_dim exposed by the module (works on all
-        # PyTorch versions), otherwise fall back to named tensors (PyTorch < 2.13).
-        if hasattr(module, 'batch_dim'):
-            batch_dim = module.batch_dim
+        # Prefer batch_dim/batch_first exposed by the module; fall back to named tensors (< 2.13).
+        if hasattr(module, 'batch_dim') or hasattr(module, 'batch_first'):
+            batch_dim = get_batch_dim(module, batch_dim)
         elif hasattr(inp, 'names') and 'N' in inp.names:
             batch_dim = inp.names.index('N')
 
-        # Drop any dimension names before returning so that downstream ops that do not support
-        # named tensors (e.g. permute/reshape on PyTorch < 2.13) keep working.
+        # Drop names so downstream ops unsupported for named tensors (e.g. permute/reshape) work.
         if isinstance(inp, torch.Tensor) and hasattr(inp, 'names') and any(
                 name is not None for name in inp.names):
             inp = rename_tensor(inp, None)
