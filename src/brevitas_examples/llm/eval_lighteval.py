@@ -201,7 +201,8 @@ def filter_results(results, tasks):
 # than loading pre-computed results
 class BrevitasPipeline(Pipeline):
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args, use_accelerate=True, **kwargs) -> None:
+        self._use_accelerate = use_accelerate
         super().__init__(*args, **kwargs)
         self.model._cache = None
 
@@ -220,7 +221,7 @@ class BrevitasPipeline(Pipeline):
         wrapped_model = TransformersModel.from_model(
             model=model,
             config=model_config,
-            accelerator=self.accelerator,
+            accelerator=self.accelerator if self._use_accelerate else None,
         )
 
         # Restore the original pad_token if the model explicitly defined one
@@ -250,6 +251,7 @@ def run_lighteval(
     dtype: str | None = None,
     batch_size: int | None = None,
     max_samples: int | None = None,
+    use_accelerate: bool = True,
     **model_config_kwargs,
 ):
     """Evaluate model using HuggingFace Lighteval with accelerate as backend.
@@ -263,7 +265,7 @@ def run_lighteval(
     full_path = os.path.join(parent_folder, 'eval_lighteval.py')
 
     pipeline_params = PipelineParameters(
-        launcher_type=ParallelismManager.ACCELERATE,
+        launcher_type=ParallelismManager.ACCELERATE if use_accelerate else None,
         max_samples=max_samples,
         custom_tasks_directory=full_path)
 
@@ -284,6 +286,7 @@ def run_lighteval(
         evaluation_tracker=evaluation_tracker,
         model=model,
         model_config=model_config,
+        use_accelerate=use_accelerate,
     )
 
     pipeline.evaluate()

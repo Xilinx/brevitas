@@ -3,16 +3,13 @@
 
 """FSDP-aware benchmark entrypoint for LLM quantization with fine-tuning.
 
-Unlike :class:`LLMBenchmarkUtils` (which calls ``quantize_llm`` directly
+Unlike :class:`LLMEntryPointUtils` (which calls ``quantize_llm`` directly
 in-process), this entrypoint launches ``main.py`` under ``accelerate launch``
 so that ``torch.distributed`` is properly initialized and FSDP can shard
 the model across all available GPUs.
 
-``accelerate launch`` reads its configuration (FSDP sharding strategy,
-transformer layer class to wrap, mixed precision, etc.) from the accelerate
-config file.  By default it looks at
-``~/.cache/huggingface/accelerate/default_config.yaml``; an explicit path
-can be provided with ``--accelerate-config``.
+``accelerate launch`` reads its FSDP2 sharding, wrapping, and mixed-precision
+settings from the config file provided with ``--accelerate-config``.
 
 The number of processes is derived from ``CUDA_VISIBLE_DEVICES`` (already set
 by the benchmark framework for each worker).  Rank 0 writes results to
@@ -30,8 +27,6 @@ Usage::
         --quiet                                              # optional
 """
 
-from argparse import _StoreAction
-from argparse import _StoreTrueAction
 from argparse import ArgumentParser
 from argparse import Namespace
 import json
@@ -45,12 +40,15 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 
+import yaml
+
 from brevitas_examples.common.benchmark.utils import BenchmarkUtils
 from brevitas_examples.common.benchmark.utils import EntryPointUtils
 from brevitas_examples.common.benchmark.utils import GridSearchUtils
 from brevitas_examples.llm.benchmark.llm_benchmark import LLMEntryPointUtils
 from brevitas_examples.llm.llm_args import create_args_parser as create_llm_args_parser
 from brevitas_examples.llm.llm_args import validate as validate_llm_args
+
 
 def _find_free_port() -> int:
     """Return a free TCP port on localhost."""
@@ -59,54 +57,33 @@ def _find_free_port() -> int:
         return s.getsockname()[1]
 
 
-def _namespace_to_argv(args: Namespace,
-                       parser: ArgumentParser,
-                       skip_keys: Optional[set] = None) -> List[str]:
-    """Convert a :class:`~argparse.Namespace` back to a CLI token list.
+def _resolve_llm_config(args: Namespace) -> Dict[str, Any]:
+    config = {}
+    if args.config is not None:
+        with open(args.config) as config_file:
+            config = yaml.safe_load(config_file) or {}
 
-    Walks the parser actions to determine how each attribute should be
-    serialized (``--flag`` for store-true, ``--key value`` for store,
-    ``--key v1 v2 ...`` for nargs='*').
-
-    Parameters
-    ----------
-    args : Namespace
-        The parsed arguments.
-    parser : ArgumentParser
-        The parser that produced *args* (used to introspect action types
-        and defaults).
-    skip_keys : set, optional
-        Attribute names to skip (e.g. ``{'job_folder'}``).
-    """
-    if skip_keys is None:
-        skip_keys = set()
-    actions = {action.dest: action for action in parser._actions}
-    argv: List[str] = []
+    defaults = {
+        action.dest: action.default for action in LLMFSDPEntryPointUtils.argument_parser._actions}
+    explicit_keys = getattr(args, "_benchmark_explicit_keys", set())
     for key, value in vars(args).items():
-        if key in skip_keys or value is None:
+        if key in {"config", "job_folder", "_benchmark_explicit_keys"}:
             continue
-        action = actions.get(key)
-        if action is None:
-            # Unknown key — emit as --key value
-            argv += [f"--{key.replace('_', '-')}", str(value)]
-            continue
-        # Derive the CLI flag name from the action's option_strings
-        flag = action.option_strings[0] if action.option_strings else f"--{key.replace('_', '-')}"
-        if isinstance(action, _StoreTrueAction):
-            if value:
-                argv.append(flag)
-        elif isinstance(action, _StoreAction):
-            if isinstance(value, list):
-                if len(value) > 0:
-                    argv.append(flag)
-                    argv += [str(v) for v in value]
-            elif value != action.default:
-                argv += [flag, str(value)]
-        else:
-            # Fallback for other action types
-            if value != action.default:
-                argv += [flag, str(value)]
-    return argv
+        if key in explicit_keys or key not in config or value != defaults.get(key):
+            config[key] = value
+    return config
+
+
+def _validate_accelerate_config(config_path: str) -> None:
+    if not os.path.isfile(config_path):
+        raise FileNotFoundError(f"Accelerate config not found: {config_path}")
+    with open(config_path) as config_file:
+        accelerate_config = yaml.safe_load(config_file) or {}
+    if str(accelerate_config.get("distributed_type", "")).upper() != "FSDP":
+        raise ValueError("The Accelerate config must set distributed_type to FSDP.")
+    fsdp_config = accelerate_config.get("fsdp_config", {})
+    if int(fsdp_config.get("fsdp_version", 1)) != 2:
+        raise ValueError("The Accelerate config must set fsdp_config.fsdp_version to 2.")
 
 
 class LLMFSDPEntryPointUtils(EntryPointUtils):
@@ -114,7 +91,7 @@ class LLMFSDPEntryPointUtils(EntryPointUtils):
 
     This is intended for FSDP fine-tuning jobs where
     ``torch.distributed`` must be initialized before ``quantize_llm``
-    runs.  Non-FSDP jobs should use :class:`LLMBenchmarkUtils` instead.
+    runs. Non-FSDP jobs should use :class:`LLMEntryPointUtils` instead.
     """
 
     argument_parser: ArgumentParser = create_llm_args_parser()
@@ -126,7 +103,12 @@ class LLMFSDPEntryPointUtils(EntryPointUtils):
 
     @staticmethod
     def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
-        validate_llm_args(args=args, extra_args=extra_args)
+        effective_args = Namespace(**vars(args))
+        for key, value in _resolve_llm_config(args).items():
+            if hasattr(effective_args, key):
+                setattr(effective_args, key, value)
+        validate_llm_args(args=effective_args, extra_args=extra_args)
+        assert effective_args.fine_tune, "The FSDP2 benchmark requires --fine-tune."
 
     @staticmethod
     def entrypoint_main(
@@ -166,9 +148,15 @@ class LLMFSDPEntryPointUtils(EntryPointUtils):
         main_py = os.path.join(os.path.dirname(__file__), os.pardir, "main.py")
         main_py = os.path.abspath(main_py)
 
-        # Reconstruct CLI argv from the Namespace
-        argv = _namespace_to_argv(
-            args, LLMFSDPEntryPointUtils.argument_parser, skip_keys={"job_folder", "config"})
+        accelerate_config = os.environ.get("BREVITAS_ACCELERATE_CONFIG")
+        if accelerate_config is None:
+            raise RuntimeError("BREVITAS_ACCELERATE_CONFIG is not set.")
+        _validate_accelerate_config(accelerate_config)
+
+        resolved_config_path = os.path.join(job_folder, "entrypoint_config.yaml")
+        with open(resolved_config_path, "w") as config_file:
+            yaml.safe_dump(_resolve_llm_config(args), config_file)
+        argv = ["--config", resolved_config_path]
         if extra_args:
             argv += list(extra_args)
         # Forward job_folder so rank 0 writes results.json
@@ -178,10 +166,8 @@ class LLMFSDPEntryPointUtils(EntryPointUtils):
         # benchmark workers run concurrently on the same node.
         master_port = str(_find_free_port())
 
-        accelerate_config = os.environ.get("BREVITAS_ACCELERATE_CONFIG")
         cmd = [sys.executable, "-m", "accelerate.commands.launch"]
-        if accelerate_config is not None:
-            cmd += ["--config_file", accelerate_config]
+        cmd += ["--config_file", accelerate_config]
         if os.environ.get("BREVITAS_ACCELERATE_QUIET") == "1":
             cmd.append("--quiet")
         cmd += [
@@ -226,10 +212,9 @@ if __name__ == "__main__":
     _pre_parser.add_argument(
         "--accelerate-config",
         type=str,
-        default=None,
+        required=True,
         dest="accelerate_config",
-        help="Path to accelerate config YAML.  If omitted, accelerate "
-        "uses its default path (~/.cache/huggingface/accelerate/default_config.yaml).")
+        help="Path to an Accelerate FSDP2 config YAML.")
     _pre_parser.add_argument(
         "--quiet",
         action="store_true",
@@ -237,12 +222,9 @@ if __name__ == "__main__":
         help="Pass --quiet to accelerate launch to suppress its startup banner.")
     _pre_args, _remaining = _pre_parser.parse_known_args(sys.argv[1:])
 
-    if _pre_args.accelerate_config is not None:
-        if not os.path.isfile(_pre_args.accelerate_config):
-            raise FileNotFoundError(f"Accelerate config not found: {_pre_args.accelerate_config}")
+    _validate_accelerate_config(_pre_args.accelerate_config)
 
-    if _pre_args.accelerate_config is not None:
-        os.environ["BREVITAS_ACCELERATE_CONFIG"] = _pre_args.accelerate_config
+    os.environ["BREVITAS_ACCELERATE_CONFIG"] = _pre_args.accelerate_config
     if _pre_args.quiet:
         os.environ["BREVITAS_ACCELERATE_QUIET"] = "1"
 
