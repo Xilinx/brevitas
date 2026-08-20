@@ -312,6 +312,10 @@ def create_args_parser() -> ArgumentParser:
         action='store_true',
         help='Use quantized activations in GPxQ.')
     parser.add_argument(
+        '--gpxq-monitor-routing',
+        action='store_true',
+        help='Report quantized-versus-float MoE expert assignment metrics for GPFQ/Qronos.')
+    parser.add_argument(
         '--disable-create-weight-orig',
         action='store_true',
         help='Disable maintaining original weights for non-quant forward pass. Default: false')

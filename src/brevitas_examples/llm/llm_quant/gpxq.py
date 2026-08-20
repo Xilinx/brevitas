@@ -181,7 +181,8 @@ def _dual_optimization_callback(
         functional_state=None,
         min_samples=0,
         insufficient_samples='rtn',
-        expert_batch_size=1):
+        expert_batch_size=1,
+        monitor_routing=False):
     """
     This wraps gpfq_mode, which can be used for any layerwise PTQ algorithm that
     optimizes the mismatched objective function || XW - \tilde{X}Q ||, where
@@ -200,7 +201,10 @@ def _dual_optimization_callback(
         'functional_state': functional_state,
         'min_samples': min_samples,
         'insufficient_samples': insufficient_samples,
-        'expert_batch_size': expert_batch_size}
+        'expert_batch_size': expert_batch_size,
+        'monitor_routing': monitor_routing}
+    if monitor_routing and functional_state is not None:
+        print('Functional GPxQ routing monitor enabled.')
     context_manager_func = gpfq_mode
     if max_accumulator_bit_width is not None:
         if functional_state is not None:
@@ -209,7 +213,11 @@ def _dual_optimization_callback(
         context_manager_kwargs = {
             key: value for key,
             value in context_manager_kwargs.items() if key not in (
-                'functional_state', 'min_samples', 'insufficient_samples', 'expert_batch_size')}
+                'functional_state',
+                'min_samples',
+                'insufficient_samples',
+                'expert_batch_size',
+                'monitor_routing')}
         context_manager_kwargs.update(
             max_accumulator_bit_width=max_accumulator_bit_width,
             max_accumulator_tile_size=max_accumulator_tile_size)
@@ -239,7 +247,8 @@ def apply_gpfq(
         functional_state=None,
         min_samples=0,
         insufficient_samples='rtn',
-        expert_batch_size=1):
+        expert_batch_size=1,
+        monitor_routing=False):
     # We use the dual optimization callback, which uses two forward passes to correct
     # quantization error in both the weights and activations from previous layers
     _dual_optimization_callback(
@@ -256,7 +265,8 @@ def apply_gpfq(
         functional_state=functional_state,
         min_samples=min_samples,
         insufficient_samples=insufficient_samples,
-        expert_batch_size=expert_batch_size)
+        expert_batch_size=expert_batch_size,
+        monitor_routing=monitor_routing)
 
 
 @torch.no_grad()
@@ -272,7 +282,8 @@ def apply_qronos(
         functional_state=None,
         min_samples=0,
         insufficient_samples='rtn',
-        expert_batch_size=1):
+        expert_batch_size=1,
+        monitor_routing=False):
     assert alpha > 0, "Error: alpha needs to be strictly positive"
     # We use the dual optimization callback, which uses two forward passes to correct
     # quantization error in both the weights and activations from previous layers
@@ -288,7 +299,8 @@ def apply_qronos(
         functional_state=functional_state,
         min_samples=min_samples,
         insufficient_samples=insufficient_samples,
-        expert_batch_size=expert_batch_size)
+        expert_batch_size=expert_batch_size,
+        monitor_routing=monitor_routing)
 
 
 @torch.no_grad()

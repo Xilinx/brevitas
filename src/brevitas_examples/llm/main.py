@@ -739,7 +739,8 @@ def quantize_llm(args, extra_args=None):
                 functional_state=fq_state,
                 min_samples=args.gpxq_min_samples,
                 insufficient_samples=args.gpxq_insufficient_samples,
-                expert_batch_size=args.gpxq_expert_batch_size)
+                expert_batch_size=args.gpxq_expert_batch_size,
+                monitor_routing=args.gpxq_monitor_routing)
             print("GPFQ applied.")
 
         if args.qronos and not args.load_checkpoint:
@@ -754,7 +755,8 @@ def quantize_llm(args, extra_args=None):
                 functional_state=fq_state,
                 min_samples=args.gpxq_min_samples,
                 insufficient_samples=args.gpxq_insufficient_samples,
-                expert_batch_size=args.gpxq_expert_batch_size)
+                expert_batch_size=args.gpxq_expert_batch_size,
+                monitor_routing=args.gpxq_monitor_routing)
             print("Qronos applied.")
 
         if args.magr and args.functional_quantization is not None and not args.load_checkpoint:

@@ -10,6 +10,7 @@ import warnings
 import torch
 from torch import Tensor
 import torch.nn as nn
+from tqdm import tqdm
 
 from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.gpxq import FunctionalGPxQBatch
@@ -328,7 +329,8 @@ class gpfq_mode(gpxq_mode):
             functional_state=None,
             min_samples: int = 0,
             insufficient_samples: str = 'rtn',
-            expert_batch_size: int = 1) -> None:
+            expert_batch_size: int = 1,
+            monitor_routing: bool = False) -> None:
         super().__init__(
             model,
             group_of_parallel_layers,
@@ -349,6 +351,9 @@ class gpfq_mode(gpxq_mode):
         self._routing_cache = {}
         self._routing_replay_index = {}
         self._routing_hook_handles = []
+        self.monitor_routing = monitor_routing
+        self.routing_metrics = {}
+        self._routing_stats = {}
 
     def __enter__(self):
         mode = super().__enter__()
@@ -366,7 +371,79 @@ class gpfq_mode(gpxq_mode):
         self._routing_phase = None
         self._routing_cache.clear()
         self._routing_replay_index.clear()
+        self._routing_stats.clear()
         return super().__exit__(type, value, traceback)
+
+    def update(self):
+        owner_id = self.active_functional_target.owner_id if self.active_functional_target is not None else None
+        super().update()
+        if self.monitor_routing and owner_id is not None:
+            self._report_routing_metrics(owner_id)
+
+    def _accumulate_routing_metrics(self, quant_route: Tensor, float_route: Tensor) -> None:
+        if self.active_functional_group is None:
+            return
+        owner_id = self.active_functional_group[0].owner_id
+        num_experts = len(self.active_functional_group)
+        quant_route = quant_route.reshape(quant_route.shape[0], -1).to(torch.long)
+        float_route = float_route.reshape(float_route.shape[0], -1).to(torch.long)
+        membership = (float_route.unsqueeze(2) == quant_route.unsqueeze(1)).any(dim=2)
+        token_matches = membership.all(dim=1)
+        quant_hist = torch.bincount(quant_route.flatten(), minlength=num_experts).cpu()
+        float_hist = torch.bincount(float_route.flatten(), minlength=num_experts).cpu()
+        stats = self._routing_stats.setdefault(
+            owner_id,
+            {
+                'slots': 0,
+                'exact_slots': 0,
+                'membership_matches': 0,
+                'tokens': 0,
+                'changed_tokens': 0,
+                'quant_hist': torch.zeros(num_experts, dtype=torch.long),
+                'float_hist': torch.zeros(num_experts, dtype=torch.long)})
+        stats['slots'] += quant_route.numel()
+        stats['exact_slots'] += (quant_route == float_route).sum().item()
+        stats['membership_matches'] += membership.sum().item()
+        stats['tokens'] += quant_route.shape[0]
+        stats['changed_tokens'] += (~token_matches).sum().item()
+        stats['quant_hist'] += quant_hist[:num_experts]
+        stats['float_hist'] += float_hist[:num_experts]
+
+    def _report_routing_metrics(self, owner_id: str) -> None:
+        stats = self._routing_stats.pop(owner_id, None)
+        if stats is None or stats['slots'] == 0:
+            return
+        quant_hist = stats['quant_hist']
+        float_hist = stats['float_hist']
+        quant_distribution = quant_hist.float() / quant_hist.sum().clamp_min(1)
+        float_distribution = float_hist.float() / float_hist.sum().clamp_min(1)
+        metrics = {
+            'membership_disagreement': 1. - stats['membership_matches'] / stats['slots'],
+            'slot_disagreement': 1. - stats['exact_slots'] / stats['slots'],
+            'changed_token_fraction': stats['changed_tokens'] / max(1, stats['tokens']),
+            'load_tvd': .5 * torch.abs(quant_distribution - float_distribution).sum().item(),
+            'quant_zero_experts': int((quant_hist == 0).sum().item()),
+            'float_zero_experts': int((float_hist == 0).sum().item()),
+            'quant_only_experts': int(((quant_hist > 0) & (float_hist == 0)).sum().item()),
+            'float_only_experts': int(((float_hist > 0) & (quant_hist == 0)).sum().item()),
+            'quant_load_min': int(quant_hist.min().item()),
+            'quant_load_median': int(quant_hist.median().item()),
+            'quant_load_max': int(quant_hist.max().item()),
+            'float_load_min': int(float_hist.min().item()),
+            'float_load_median': int(float_hist.median().item()),
+            'float_load_max': int(float_hist.max().item())}
+        self.routing_metrics[owner_id] = metrics
+        tqdm.write(
+            f'Functional GPxQ routing {owner_id}: '
+            f"membership disagreement {metrics['membership_disagreement']:.1%}, "
+            f"changed tokens {metrics['changed_token_fraction']:.1%}, "
+            f"slot disagreement {metrics['slot_disagreement']:.1%}, "
+            f"load TVD {metrics['load_tvd']:.1%}, "
+            f"quant/float zero experts {metrics['quant_zero_experts']}/{metrics['float_zero_experts']}, "
+            f"quant-only/float-only experts {metrics['quant_only_experts']}/{metrics['float_only_experts']}, "
+            f"quant load min/median/max {metrics['quant_load_min']}/{metrics['quant_load_median']}/{metrics['quant_load_max']}, "
+            f"float load min/median/max {metrics['float_load_min']}/{metrics['float_load_median']}/{metrics['float_load_max']}."
+        )
 
     def _routing_hook(self, module, args, kwargs):
         """Replay quantized-pass expert assignments during the paired reference pass."""
@@ -384,6 +461,9 @@ class gpfq_mode(gpxq_mode):
         if route is None or route.dim() == 0 or route.dtype not in (
                 torch.int8, torch.int16, torch.int32, torch.int64, torch.uint8):
             return args, kwargs
+        token_input = args[0] if args and isinstance(args[0], Tensor) else None
+        if token_input is None or route.shape[0] != token_input.shape[0]:
+            return args, kwargs
 
         key = id(module)
         if self._routing_phase == 'capture':
@@ -397,6 +477,8 @@ class gpfq_mode(gpxq_mode):
             if replay_route.shape != route.shape:
                 raise RuntimeError(
                     'Functional GPxQ expert routing shape changed between paired passes.')
+            if self.monitor_routing:
+                self._accumulate_routing_metrics(replay_route, route)
             self._routing_replay_index[key] = index + 1
             if isinstance(route_location, str):
                 kwargs = dict(kwargs)
