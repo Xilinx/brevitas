@@ -38,7 +38,10 @@ __all__ = [
     'power_iteration']
 
 
-def get_batch_dim(module, inp=None, default=0):
+def get_batch_dim(
+        module: nn.Module,
+        inp: Optional[torch.Tensor] = None,
+        default: Optional[int] = 0) -> Optional[int]:
     # QuantMHA internal projections expose an explicit batch_dim; nn modules expose batch_first.
     if hasattr(module, 'batch_dim'):
         return module.batch_dim
@@ -50,7 +53,7 @@ def get_batch_dim(module, inp=None, default=0):
     return default
 
 
-def resolve_region_batch_dim(modules, default=0):
+def resolve_region_batch_dim(modules: Iterable[nn.Module], default: int = 0) -> int:
     # An equalization/permutation region is assumed to share a single batch dimension. Passing
     # default=None makes get_batch_dim return None for modules that don't declare a layout, so we
     # can distinguish "unspecified" from an explicit dim 0 (e.g. batch_first=True). Genuinely

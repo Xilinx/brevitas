@@ -66,7 +66,7 @@ from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.torch_utils import rename_tensor_
 
 
-def _rename_(t, *names):
+def _rename_(t: Union[Tensor, QuantTensor], *names: Optional[str]) -> None:
     # In-place rename that also handles QuantTensor by renaming its underlying value.
     rename_tensor_(t.value if isinstance(t, QuantTensor) else t, *names)
 

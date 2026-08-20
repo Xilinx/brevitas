@@ -20,14 +20,14 @@ from brevitas.function.ops_ste import floor_ste
 NAMED_TENSORS_SUPPORTED = hasattr(torch.Tensor, 'rename')
 
 
-def rename_tensor(tensor, *names):
+def rename_tensor(tensor: torch.Tensor, *names: Optional[str]) -> torch.Tensor:
     # Out-of-place rename, no-op when named tensors are unsupported (PyTorch >= 2.13)
     if NAMED_TENSORS_SUPPORTED:
         return tensor.rename(*names)
     return tensor
 
 
-def rename_tensor_(tensor, *names):
+def rename_tensor_(tensor: torch.Tensor, *names: Optional[str]) -> torch.Tensor:
     # In-place rename, no-op when named tensors are unsupported (PyTorch >= 2.13)
     if NAMED_TENSORS_SUPPORTED:
         tensor.rename_(*names)
