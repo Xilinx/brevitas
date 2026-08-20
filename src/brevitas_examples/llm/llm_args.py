@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from argparse import ArgumentParser
+from argparse import ArgumentTypeError
 from argparse import Namespace
 from typing import List
 from typing import Optional
@@ -10,6 +11,13 @@ from warnings import warn
 
 from brevitas_examples.common.parse_utils import create_entrypoint_args_parser
 from brevitas_examples.common.parse_utils import quant_format_validator
+
+
+def positive_int(value: str) -> int:
+    value = int(value)
+    if value < 1:
+        raise ArgumentTypeError('expected a positive integer')
+    return value
 
 
 def create_args_parser() -> ArgumentParser:
@@ -283,7 +291,7 @@ def create_args_parser() -> ArgumentParser:
         '--gpxq-expert-batch-size',
         '--gptq-expert-batch-size',
         dest='gpxq_expert_batch_size',
-        type=int,
+        type=positive_int,
         default=1,
         help='Maximum number of compatible functional experts updated in one GPxQ tensor batch.')
     parser.add_argument('--gpfq', action='store_true', help='Apply GPFQ.')
@@ -594,7 +602,8 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
         assert not args.convert_layernorm_to_rmsnorm, 'LayerNorm is automatically replaced with RMSNorm when running with --rotation=fused_no_fx. Remove the flag --convert-layernorm-to-rmsnorm'
         assert args.replace_rmsnorm, 'Graph rotation requires to replace HF RMSNorm with PyTorch ones (torch 2.4+ require)'
     if not args.no_quantize:
-        assert args.gpxq_expert_batch_size > 0, 'GPxQ expert batch size must be positive.'
+        if args.gpxq_expert_batch_size < 1:
+            raise ValueError('GPxQ expert batch size must be positive.')
         if args.weight_quant_rescaling_init is not None:
             assert args.weight_quant_rescaling_init > 0, \
                 'Error: weight_quant_rescaling_init must be positive.'

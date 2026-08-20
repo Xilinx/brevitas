@@ -317,6 +317,28 @@ class TestFunctionalQuantizationMode:
         output = torch.matmul(torch.randn(5, 4), transposed)
         assert type(output) is Tensor
 
+    def test_reference_tensor_preserves_other_subclass_dispatch(self):
+
+        class OtherTensor(Tensor):
+            calls = 0
+
+            @staticmethod
+            def __new__(cls, value):
+                return value.as_subclass(cls)
+
+            @classmethod
+            def __torch_function__(cls, func, types, args=(), kwargs=None):
+                cls.calls += 1
+                plain_args = tuple(
+                    item.as_subclass(Tensor) if isinstance(item, cls) else item for item in args)
+                return func(*plain_args, **(kwargs or {}))
+
+        reference = _FunctionalReferenceTensor(torch.randn(2, 3), 'weight')
+        other = OtherTensor(torch.randn(2, 3))
+        output = torch.add(reference, other)
+        assert OtherTensor.calls == 1
+        assert type(output) is Tensor
+
     def test_input_only_skips_parameter_derived_weight_view(self):
         """A missing second spec does not quantize a parameter-derived view."""
         model = StackedFunctionalWeightModel()

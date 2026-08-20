@@ -148,7 +148,10 @@ def apply_gptq(
         if functional_state is not None:
             raise RuntimeError('AXE GPxQ modes do not support functional targets.')
         context_manager_func = a2gptq_mode
-        context_manager_kwargs.pop('expert_batch_size')
+        context_manager_kwargs = {
+            key: value for key,
+            value in context_manager_kwargs.items() if key not in (
+                'functional_state', 'min_samples', 'insufficient_samples', 'expert_batch_size')}
         context_manager_kwargs.update(
             max_accumulator_bit_width=max_accumulator_bit_width,
             max_accumulator_tile_size=max_accumulator_tile_size)
@@ -203,7 +206,10 @@ def _dual_optimization_callback(
         if functional_state is not None:
             raise RuntimeError('AXE GPxQ modes do not support functional targets.')
         context_manager_func = a2gpfq_mode
-        context_manager_kwargs.pop('expert_batch_size')
+        context_manager_kwargs = {
+            key: value for key,
+            value in context_manager_kwargs.items() if key not in (
+                'functional_state', 'min_samples', 'insufficient_samples', 'expert_batch_size')}
         context_manager_kwargs.update(
             max_accumulator_bit_width=max_accumulator_bit_width,
             max_accumulator_tile_size=max_accumulator_tile_size)

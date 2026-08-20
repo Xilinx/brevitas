@@ -1,7 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from copy import deepcopy
+from functools import partial
 import math
 from typing import List
 from typing import Optional
@@ -12,7 +12,7 @@ from torch import Tensor
 import torch.nn as nn
 
 from brevitas.graph.calibrate import quantization_status_manager
-from brevitas.graph.functional_quant import FunctionalLinearTargetBatch
+from brevitas.graph.gpxq import FunctionalGPxQBatch
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
@@ -204,30 +204,28 @@ class GPFQ(GPxQ):
     @staticmethod
     def batched_layer_update(optimizers):
         """Apply GPFQ to a compatible batch of functional expert matrices."""
-        if not optimizers:
-            return []
+        batch = FunctionalGPxQBatch(optimizers)
         first = optimizers[0]
         columns = first.columns
-        if any(optimizer.groups != 1 or optimizer.columns != columns or optimizer.act_order !=
-               first.act_order or optimizer.layer.weight.shape != first.layer.weight.shape
+        if any(optimizer.columns != columns or optimizer.act_order != first.act_order
                for optimizer in optimizers):
             raise ValueError('Batched functional GPFQ requires compatible expert optimizers.')
         for optimizer in optimizers:
-            assert not optimizer.layer.weight_quant.requires_quant_input, \
-                'Error: GPFQ does not support weight quantizers that require metadata from input quantizers.'
-            assert optimizer.quant_input is None, 'GPFQ quantized and reference inputs are unbalanced.'
-            if optimizer.use_intermediate_buffer and hasattr(optimizer, 'B'):
+            if optimizer.layer.weight_quant.requires_quant_input:
+                raise RuntimeError(
+                    'GPFQ does not support weight quantizers that require input metadata.')
+            if optimizer.quant_input is not None:
+                raise RuntimeError('GPFQ quantized and reference inputs are unbalanced.')
+            if optimizer.use_intermediate_buffer:
                 del optimizer.B
 
-        targets = [optimizer.layer for optimizer in optimizers]
-        weight = torch.stack([target.weight.detach() for target in targets])
+        targets = batch.targets
+        weight = batch.weight
         weight_orig = torch.stack([target.weight_orig.to(weight.device) for target in targets])
         device = weight.device
         dtype = weight.dtype
-        hessian = torch.cat([optimizer.H for optimizer in optimizers], dim=0)
-        cross_covariance = torch.cat([optimizer.G for optimizer in optimizers], dim=0)
-        for optimizer in optimizers:
-            del optimizer.H, optimizer.G
+        hessian = batch.pop_buffer('H')
+        cross_covariance = batch.pop_buffer('G')
 
         diagonal_h = hessian.diagonal(dim1=-2, dim2=-1)
         dead = diagonal_h == 0
@@ -253,23 +251,9 @@ class GPFQ(GPxQ):
         del hessian, cross_covariance
 
         permutation_weight = permutation.to(device)
-        batch_quant = None
-        use_batch_quant = False
-        if all(getattr(target.owner.proxy, 'is_groupwise', False) for target in targets):
-            try:
-                batch_quant = FunctionalLinearTargetBatch(targets, weight)
-                use_batch_quant = torch.equal(
-                    batch_quant.quant_weight(weight),
-                    torch.stack([
-                        target.quantize(weight[index]) for index, target in enumerate(targets)]))
-            except (AttributeError, RuntimeError, TypeError, ValueError):
-                batch_quant = None
 
         def quantize(value):
-            if use_batch_quant:
-                return batch_quant.quant_weight(value)
-            return torch.stack([
-                target.quantize(value[index]) for index, target in enumerate(targets)])
+            return batch.quantize(targets, value)
 
         def gather_columns(value, indices):
             return torch.gather(value, 2, indices.unsqueeze(1).expand(-1, value.shape[1], -1))
@@ -289,13 +273,9 @@ class GPFQ(GPxQ):
             current_weight = gather_columns(weight,
                                             current_indices[:, None]).squeeze(2).to(first.dtype)
             q_arg = ds[:, step].to(device).unsqueeze(1) * current_weight + lw - lq
-            if not torch.isfinite(q_arg).all():
-                raise RuntimeError('Batched functional GPFQ produced non-finite weights.')
             weight = scatter_column(weight, current_indices, q_arg.to(dtype))
 
-        for index, target in enumerate(targets):
-            target.writeback(weight[index])
-        return []
+        return FunctionalGPxQBatch.writeback(targets, weight)
 
 
 class gpfq_mode(gpxq_mode):
@@ -349,8 +329,6 @@ class gpfq_mode(gpxq_mode):
             min_samples: int = 0,
             insufficient_samples: str = 'rtn',
             expert_batch_size: int = 1) -> None:
-        if not inplace:
-            model = deepcopy(model)
         super().__init__(
             model,
             group_of_parallel_layers,
@@ -385,6 +363,9 @@ class gpfq_mode(gpxq_mode):
         for handle in self._routing_hook_handles:
             handle.remove()
         self._routing_hook_handles.clear()
+        self._routing_phase = None
+        self._routing_cache.clear()
+        self._routing_replay_index.clear()
         return super().__exit__(type, value, traceback)
 
     def _routing_hook(self, module, args, kwargs):
@@ -427,9 +408,9 @@ class gpfq_mode(gpxq_mode):
         return args, kwargs
 
     def _update_functional_targets(self, targets, progress) -> int:
-        batch_impl = getattr(self.algorithm_impl, 'batched_layer_update', None)
-        if batch_impl is None and hasattr(self.algorithm_impl, 'func'):
-            batch_impl = getattr(self.algorithm_impl.func, 'batched_layer_update', None)
+        algorithm_class = self.algorithm_impl.func if isinstance(
+            self.algorithm_impl, partial) else self.algorithm_impl
+        batch_impl = getattr(algorithm_class, 'batched_layer_update', None)
         if self.expert_batch_size == 1 or batch_impl is None:
             return super()._update_functional_targets(targets, progress)
         failed = []

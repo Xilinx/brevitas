@@ -268,18 +268,14 @@ class _FunctionalReferenceTensor(Tensor):
         """Preserve provenance on weight views but never propagate it to activations."""
         kwargs = {} if kwargs is None else kwargs
 
-        def find_reference(value):
+        def find_references(value):
             if isinstance(value, cls):
-                return value
+                return [value]
             if isinstance(value, (tuple, list)):
-                return next(
-                    (found for item in value if (found := find_reference(item)) is not None), None)
+                return [reference for item in value for reference in find_references(item)]
             if isinstance(value, dict):
-                return next((
-                    found for item in value.values()
-                    if (found := find_reference(item)) is not None),
-                            None)
-            return None
+                return [reference for item in value.values() for reference in find_references(item)]
+            return []
 
         def unwrap(value):
             if isinstance(value, cls):
@@ -292,11 +288,15 @@ class _FunctionalReferenceTensor(Tensor):
                 return {key: unwrap(item) for key, item in value.items()}
             return value
 
-        reference = find_reference((args, kwargs))
-        with torch._C.DisableTorchFunctionSubclass():
-            output = func(*unwrap(args), **unwrap(kwargs))
+        references = find_references((args, kwargs))
+        output = func(*unwrap(args), **unwrap(kwargs))
 
-        if reference is None:
+        if not references:
+            return output
+        reference = references[0]
+        if any(item._functional_owner_id != reference._functional_owner_id or
+               item._functional_view_indices != reference._functional_view_indices
+               for item in references[1:]):
             return output
         source = reference.as_subclass(Tensor)
 
@@ -308,8 +308,8 @@ class _FunctionalReferenceTensor(Tensor):
             if not isinstance(value, Tensor):
                 return value
             try:
-                shares_storage = value.untyped_storage().data_ptr() == source.untyped_storage(
-                ).data_ptr()
+                shares_storage = value.device == source.device and value.untyped_storage().data_ptr(
+                ) == source.untyped_storage().data_ptr()
             except RuntimeError:
                 shares_storage = False
             if not shares_storage:
@@ -334,12 +334,14 @@ class _FunctionalReferenceTensor(Tensor):
                     return value
                 indices = (*indices, *added_indices)
             elif value.dim() == source.dim():
-                same_layout = tuple(value.shape) == tuple(source.shape) and tuple(
-                    value.stride()) == tuple(source.stride())
+                same_layout = tuple(
+                    value.shape) == tuple(source.shape) and tuple(value.stride()) == tuple(
+                        source.stride()) and value.storage_offset() == source.storage_offset()
                 transposed_layout = source.dim() >= 2 and tuple(value.shape) == (
-                    *source.shape[:-2], source.shape[-1], source.shape[-2]) and tuple(
-                        value.stride()) == (
-                            *source.stride()[:-2], source.stride()[-1], source.stride()[-2])
+                    *source.shape[:-2], source.shape[-1],
+                    source.shape[-2]) and tuple(value.stride()) == (
+                        *source.stride()[:-2], source.stride()[-1],
+                        source.stride()[-2]) and value.storage_offset() == source.storage_offset()
                 if not same_layout and not transposed_layout:
                     return value
             else:
@@ -408,6 +410,7 @@ class FunctionalLinearTarget:
     reference_pass: bool = False
     target_quant_holder: Optional[_WeightQuantHolder] = None
     target_quant_proxy: Optional[nn.Module] = None
+    target_quant_device: Optional[torch.device] = None
 
     @property
     def name(self) -> str:
@@ -430,11 +433,14 @@ class FunctionalLinearTarget:
             self.target_quant_proxy = target_injector.proxy_class(
                 self.target_quant_holder, target_injector).to(native_weight.device)
             self.target_quant_proxy.train(self.owner.proxy.training)
+            self.target_quant_device = native_weight.device
         else:
             self.target_quant_holder.weight = native_weight
             self.target_quant_holder.out_channels = native_weight.shape[
                 self.target_quant_holder.output_channel_dim]
-            self.target_quant_proxy.to(native_weight.device)
+            if self.target_quant_device != native_weight.device:
+                self.target_quant_proxy.to(native_weight.device)
+                self.target_quant_device = native_weight.device
         return self.target_quant_proxy
 
     def _remap_owner_axes(self, dropped_dims: int, added_dims: int) -> Dict[str, int]:
@@ -507,7 +513,6 @@ class FunctionalLinearTargetBatch:
         flat_weight = canonical_weight.flatten(0, 1)
         self.holder.weight = flat_weight
         self.holder.out_channels = flat_weight.shape[0]
-        self.proxy.to(flat_weight.device)
         quant_weight = self.proxy(flat_weight)
         value = quant_weight.value if isinstance(quant_weight, QuantTensor) else quant_weight
         return value.reshape_as(canonical_weight)

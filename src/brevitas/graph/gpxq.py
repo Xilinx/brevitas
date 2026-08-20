@@ -24,6 +24,7 @@ from brevitas.fx import GraphModule
 from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.functional_quant import FunctionalLinearObservation
 from brevitas.graph.functional_quant import FunctionalLinearTarget
+from brevitas.graph.functional_quant import FunctionalLinearTargetBatch
 from brevitas.graph.functional_quant import FunctionalQuantState
 from brevitas.graph.utils import get_batch_dim
 from brevitas.graph.utils import is_conv_transposed
@@ -42,6 +43,66 @@ class LayerHandler:
     layer_names: Set = field(default_factory=set)
     forward_count: int = 0
     stop_forward: bool = True
+
+
+class FunctionalGPxQBatch:
+    """Shared invariants and quantization for one compatible functional expert batch."""
+
+    def __init__(self, optimizers) -> None:
+        if not optimizers:
+            raise ValueError('A functional GPxQ batch cannot be empty.')
+        first = optimizers[0]
+        first_target = first.layer
+        if not isinstance(first_target, FunctionalLinearTarget):
+            raise TypeError('Functional GPxQ batching requires functional linear targets.')
+        for optimizer in optimizers:
+            target = optimizer.layer
+            if optimizer.groups != 1:
+                raise ValueError('Functional GPxQ expert targets must have one matrix group.')
+            if not isinstance(target, FunctionalLinearTarget) or target.owner_id != first_target.owner_id or \
+                    target.transpose_weight != first_target.transpose_weight:
+                raise ValueError('Functional GPxQ batches require one owner and matrix layout.')
+            if target.weight.shape != first_target.weight.shape or target.weight.dtype != first_target.weight.dtype or \
+                    target.weight.device != first_target.weight.device:
+                raise ValueError(
+                    'Functional GPxQ batches require matching shape, dtype, and device.')
+        self.optimizers = list(optimizers)
+        self.targets = [optimizer.layer for optimizer in optimizers]
+        self.weight = torch.stack([target.weight.detach() for target in self.targets])
+        self._quantizers = {}
+
+    def quantize(self, targets, weight):
+        """Use proven row-separable groupwise batching, otherwise quantize targets locally."""
+        if all(getattr(target.owner.proxy, 'is_groupwise', False) for target in targets):
+            key = tuple(target.name for target in targets)
+            if key not in self._quantizers:
+                self._quantizers[key] = FunctionalLinearTargetBatch(targets, weight)
+            return self._quantizers[key].quant_weight(weight)
+        return torch.stack([target.quantize(weight[index]) for index, target in enumerate(targets)])
+
+    def pop_buffer(self, name: str, device=None):
+        """Stack and release one per-expert calibration buffer."""
+        first_buffer = getattr(self.optimizers[0], name)
+        output_device = first_buffer.device if device is None else device
+        result = torch.empty((len(self.optimizers), *first_buffer.shape[1:]),
+                             dtype=first_buffer.dtype,
+                             device=output_device)
+        for index, optimizer in enumerate(self.optimizers):
+            result[index].copy_(getattr(optimizer, name)[0].to(output_device))
+            delattr(optimizer, name)
+        return result
+
+    @staticmethod
+    def writeback(targets, weight):
+        """Write finite destination-dtype values and return targets that require fallback."""
+        failed = []
+        for index, target in enumerate(targets):
+            value = weight[index].to(target.weight.dtype)
+            if torch.isfinite(value).all():
+                target.writeback(value)
+            else:
+                failed.append(target)
+        return failed
 
 
 class gpxq_mode(quantization_status_manager):
@@ -272,10 +333,10 @@ class gpxq_mode(quantization_status_manager):
     def _update_functional_group(self, group) -> None:
         """Update all expert matrices of one owner after a shared calibration sweep."""
         owner_id = group[0].owner_id
+        required_samples = max(1, self.min_samples)
         insufficient = [(target, self.gpxq_layers[target.name])
                         for target in group
-                        if self.gpxq_layers[target.name].nsamples == 0 or
-                        self.gpxq_layers[target.name].nsamples < self.min_samples]
+                        if self.gpxq_layers[target.name].nsamples < required_samples]
         if insufficient and self.insufficient_samples == 'error':
             details = ', '.join(
                 f'{target.name} ({optimizer.nsamples} samples)' for target,
@@ -329,21 +390,11 @@ class gpxq_mode(quantization_status_manager):
         return 0
 
     def _finish_functional_target(
-            self, target: FunctionalLinearTarget, optimizer: 'GPxQ', reason: Optional[str]) -> None:
+            self, target: FunctionalLinearTarget, optimizer: 'GPxQ', reason: str) -> None:
         """Release one target and retain ordinary proxy quantization on fallback."""
-        if reason is not None:
-            if self.insufficient_samples == 'error':
-                raise RuntimeError(
-                    f'Functional GPxQ target {target.name} has {optimizer.nsamples} samples.')
-            if self.insufficient_samples == 'gpxq':
-                optimizer.single_layer_update()
-            else:
-                warnings.warn(
-                    f'Functional GPxQ target {target.name} uses RTN fallback: {reason}.',
-                    UserWarning)
-                for buffer in ('H', 'G', 'B'):
-                    if hasattr(optimizer, buffer):
-                        delattr(optimizer, buffer)
+        warnings.warn(
+            f'Functional GPxQ target {target.name} uses RTN fallback: {reason}.', UserWarning)
+        optimizer.discard_calibration_buffers()
 
     def _advance_functional_target(self) -> None:
         """Move the observer to the next functional owner after each update cycle."""
@@ -400,6 +451,14 @@ class GPxQ(ABC):
         self.disable_pre_forward_hook = False
         # Some layers require knowledge from quant inputs to compute quant weights
         self.quant_metadata = None
+
+    def discard_calibration_buffers(self) -> None:
+        """Release algorithm calibration state when a functional target falls back."""
+        for name in ('H', 'G', 'B'):
+            if hasattr(self, name):
+                delattr(self, name)
+        if hasattr(self, 'quant_input'):
+            self.quant_input = None
 
     @property
     def use_intermediate_buffer(self):

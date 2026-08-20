@@ -13,8 +13,8 @@ except:
 
 import warnings
 
-from brevitas.graph.functional_quant import FunctionalLinearTargetBatch
 from brevitas.graph.gpfq import GPFQ
+from brevitas.graph.gpxq import FunctionalGPxQBatch
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.utils import is_conv_transposed
 from brevitas.graph.utils import power_iteration
@@ -179,6 +179,8 @@ class Qronos(GPFQ):
                 f'Forward error correction will be a null operation. '
                 f'Increasing the number of samples might fix this issue.')
             del self.iH, self.G, self.H
+            if hasattr(self.layer, 'offload_params'):
+                self.layer.offload_params(self.layer)
             return
 
         self.iH = self.iH.to(dev)
@@ -234,6 +236,8 @@ class Qronos(GPFQ):
                 f'Forward error correction will be a null operation. '
                 f'Increasing the number of samples might fix this issue.')
             del self.L, self.iH
+            if hasattr(self.layer, 'offload_params'):
+                self.layer.offload_params(self.layer)
             return
         del self.iH  # memory management
 
@@ -267,37 +271,36 @@ class Qronos(GPFQ):
                     error_block[group_index].matmul(self.L[group_index, i1 - 1:i2 - 1,
                                                            i2 - 1:])).to(dtype)
         del self.L  # memory management
+        if hasattr(self.layer, 'offload_params'):
+            self.layer.offload_params(self.layer)
 
     @staticmethod
     def batched_layer_update(optimizers, beta: int = 1e4):
         """Apply Qronos to a compatible batch of functional expert matrices."""
-        if not optimizers:
-            return []
+        batch = FunctionalGPxQBatch(optimizers)
         first = optimizers[0]
         columns = first.columns
         blocksize = first.blocksize
-        if any(optimizer.groups != 1 or optimizer.columns != columns or
-               optimizer.blocksize != blocksize or optimizer.act_order != first.act_order or
-               optimizer.alpha != first.alpha or
-               optimizer.layer.weight.shape != first.layer.weight.shape
+        if any(optimizer.columns != columns or optimizer.blocksize != blocksize or
+               optimizer.act_order != first.act_order or optimizer.alpha != first.alpha
                for optimizer in optimizers):
             raise ValueError('Batched functional Qronos requires compatible expert optimizers.')
         for optimizer in optimizers:
-            assert not optimizer.layer.weight_quant.requires_quant_input, \
-                'Error: Qronos does not support weight quantizers that require metadata from input quantizers.'
-            assert optimizer.quant_input is None, 'Qronos quantized and reference inputs are unbalanced.'
-            if optimizer.use_intermediate_buffer and hasattr(optimizer, 'B'):
+            if optimizer.layer.weight_quant.requires_quant_input:
+                raise RuntimeError(
+                    'Qronos does not support weight quantizers that require input metadata.')
+            if optimizer.quant_input is not None:
+                raise RuntimeError('Qronos quantized and reference inputs are unbalanced.')
+            if optimizer.use_intermediate_buffer:
                 del optimizer.B
 
-        targets = [optimizer.layer for optimizer in optimizers]
-        weight = torch.stack([target.weight.detach() for target in targets])
+        targets = batch.targets
+        weight = batch.weight
         weight_orig = torch.stack([target.weight_orig.to(weight.device) for target in targets])
         device = weight.device
         dtype = weight.dtype
-        hessian = torch.cat([optimizer.H for optimizer in optimizers], dim=0)
-        cross_covariance = torch.cat([optimizer.G for optimizer in optimizers], dim=0)
-        for optimizer in optimizers:
-            del optimizer.H, optimizer.G
+        hessian = batch.pop_buffer('H')
+        cross_covariance = batch.pop_buffer('G')
 
         diagonal_h = hessian.diagonal(dim1=-2, dim2=-1)
         dead = diagonal_h == 0
@@ -312,8 +315,8 @@ class Qronos(GPFQ):
                 cross_covariance, 2, permutation.unsqueeze(1).expand(-1, columns, -1))
         else:
             permutation = torch.arange(columns, device=hessian.device).expand(len(optimizers), -1)
-        if not torch.isfinite(hessian).all() or not torch.isfinite(cross_covariance).all():
-            raise RuntimeError('Batched functional Qronos received non-finite covariance matrices.')
+        covariance_finite = torch.isfinite(hessian).all(
+            dim=(-2, -1)) & torch.isfinite(cross_covariance).all(dim=(-2, -1))
 
         diagonal_h = hessian.diagonal(dim1=-2, dim2=-1)
         reciprocal_h = torch.where(diagonal_h != 0, 1. / diagonal_h, torch.zeros_like(diagonal_h))
@@ -327,10 +330,11 @@ class Qronos(GPFQ):
         vector = torch.rand(
             columns, device=hessian.device, dtype=first.dtype,
             generator=generator).expand(len(optimizers), -1).clone()
+        eps = torch.finfo(first.dtype).eps
         for _ in range(30):
             next_vector = torch.bmm(normalized, vector.unsqueeze(2)).squeeze(2)
             vector = next_vector / (
-                torch.linalg.vector_norm(next_vector, dim=1, keepdim=True) + 1e-12)
+                torch.linalg.vector_norm(next_vector, dim=1, keepdim=True).clamp_min(eps))
         singular_value = torch.bmm(vector.unsqueeze(1), torch.bmm(
             normalized, vector.unsqueeze(2))).flatten() * scale
         damp = first.alpha * singular_value
@@ -338,7 +342,7 @@ class Qronos(GPFQ):
         diag_index = torch.arange(columns, device=hessian.device)
         inverse_input[:, diag_index, diag_index] += damp.unsqueeze(1)
         chol, info = torch.linalg.cholesky_ex(inverse_input, check_errors=False)
-        valid = (info == 0) & valid_scale & torch.isfinite(damp)
+        valid = (info == 0) & valid_scale & torch.isfinite(damp) & covariance_finite
         failed = [targets[index] for index in torch.where(~valid)[0].tolist()]
         if not valid.any():
             return failed
@@ -353,10 +357,7 @@ class Qronos(GPFQ):
         upper_h = upper_h[valid]
         permutation = permutation[valid]
         damp = damp[valid]
-        try:
-            inverse_h = torch.cholesky_inverse(chol[valid])
-        except RuntimeError:
-            return failed + targets
+        inverse_h = torch.cholesky_inverse(chol[valid])
 
         permutation_weight = permutation.to(device)
 
@@ -384,16 +385,7 @@ class Qronos(GPFQ):
         inverse_h = a_matrix
 
         weight = scatter_columns(weight, permutation_weight, ordered_weight.to(dtype))
-        quant_weight = torch.stack([
-            target.quantize(weight[index]) for index, target in enumerate(targets)])
-        if all(getattr(target.owner.proxy, 'is_groupwise', False) for target in targets):
-            try:
-                batch_quant = FunctionalLinearTargetBatch(targets, weight)
-                candidate = batch_quant.quant_weight(weight)
-                if torch.equal(candidate, quant_weight):
-                    quant_weight = candidate
-            except (AttributeError, RuntimeError, TypeError, ValueError):
-                pass
+        quant_weight = batch.quantize(targets, weight)
         quant_history = gather_columns(quant_weight, permutation_weight[:, :1]).to(first.dtype)
         identity = torch.diag_embed(damp[:, None].expand(-1, columns)).to(device)
         gh = cross_covariance.to(device) + identity
@@ -416,23 +408,8 @@ class Qronos(GPFQ):
         permutation_weight = permutation_weight.index_select(0, second_indices.to(device))
         l_factor = upper[second_valid] / math.sqrt(beta)
 
-        batch_quant = None
-        use_batch_quant = False
-        if all(getattr(target.owner.proxy, 'is_groupwise', False) for target in targets):
-            try:
-                batch_quant = FunctionalLinearTargetBatch(targets, weight)
-                use_batch_quant = torch.equal(
-                    batch_quant.quant_weight(weight),
-                    torch.stack([
-                        target.quantize(weight[index]) for index, target in enumerate(targets)]))
-            except (AttributeError, RuntimeError, TypeError, ValueError):
-                batch_quant = None
-
         def quantize(value):
-            if use_batch_quant:
-                return batch_quant.quant_weight(value)
-            return torch.stack([
-                target.quantize(value[index]) for index, target in enumerate(targets)])
+            return batch.quantize(targets, value)
 
         for i1 in range(1, columns, blocksize):
             i2 = min(i1 + blocksize, columns)
@@ -462,9 +439,5 @@ class Qronos(GPFQ):
                                                              i2 - 1:].to(device)).to(dtype)
                 weight = scatter_columns(weight, tail_indices, tail - correction)
 
-        for index, target in enumerate(targets):
-            target.writeback(weight[index])
+        failed.extend(FunctionalGPxQBatch.writeback(targets, weight))
         return failed
-
-        if hasattr(self.layer, 'offload_params'):
-            self.layer.offload_params(self.layer)

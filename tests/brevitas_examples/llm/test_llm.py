@@ -31,6 +31,7 @@ from brevitas_examples.common.generative.quantizers import BaseQuantizer
 from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
 from brevitas_examples.llm.llm_args import create_args_parser
 from brevitas_examples.llm.llm_args import validate
+from brevitas_examples.llm.llm_quant import gpxq as gpxq_utils
 from brevitas_examples.llm.llm_quant.ln_affine_merge import rmsnorm_patch
 from brevitas_examples.llm.llm_quant.parse_utils import parse_custom_trainer
 from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
@@ -166,8 +167,35 @@ def test_gpxq_expert_batch_size_validation():
     args = get_default_args(create_args_parser())
     assert args.gpxq_expert_batch_size == 1
     args.gpxq_expert_batch_size = 0
-    with pytest.raises(AssertionError, match='GPxQ expert batch size must be positive'):
+    with pytest.raises(ValueError, match='GPxQ expert batch size must be positive'):
         validate(args)
+
+
+def test_axe_context_receives_only_supported_gpxq_kwargs(monkeypatch):
+    captured = []
+
+    class FakeMode:
+
+        def __init__(self, model, **kwargs):
+            self.model = model
+            self.num_layers = 0
+            captured.append(kwargs)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    monkeypatch.setattr(gpxq_utils, 'a2gptq_mode', FakeMode)
+    monkeypatch.setattr(gpxq_utils, 'a2gpfq_mode', FakeMode)
+    model = nn.Linear(4, 3)
+    gpxq_utils.apply_gptq(model, [], max_accumulator_bit_width=16)
+    gpxq_utils.apply_gpfq(model, [], act_order=False, max_accumulator_bit_width=16)
+
+    unsupported = {'functional_state', 'min_samples', 'insufficient_samples', 'expert_batch_size'}
+    assert len(captured) == 2
+    assert all(not unsupported.intersection(kwargs) for kwargs in captured)
 
 
 @pytest.mark.parametrize('mode', ['input', 'all'])

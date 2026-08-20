@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from copy import deepcopy
 import math
 from typing import List
 from typing import Optional
@@ -15,7 +14,7 @@ try:
 except:
     LinAlgError = RuntimeError
 
-from brevitas.graph.functional_quant import FunctionalLinearTargetBatch
+from brevitas.graph.gpxq import FunctionalGPxQBatch
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
@@ -200,33 +199,26 @@ class GPTQ(GPxQ):
     @staticmethod
     def batched_layer_update(optimizers: Sequence['GPTQ'], percdamp=.01, c=1e4):
         """Update compatible functional expert matrices with batched tensor operations."""
-        if not optimizers:
-            return []
+        batch = FunctionalGPxQBatch(optimizers)
         first = optimizers[0]
         columns = first.columns
         blocksize = first.blocksize
         act_order = first.act_order
-        if any(optimizer.groups != 1 or optimizer.columns != columns or
-               optimizer.blocksize != blocksize or optimizer.act_order != act_order or
-               optimizer.layer.weight.shape != first.layer.weight.shape
-               for optimizer in optimizers):
+        if any(optimizer.columns != columns or optimizer.blocksize != blocksize or
+               optimizer.act_order != act_order for optimizer in optimizers):
             raise ValueError('Batched functional GPTQ requires compatible expert optimizers.')
         for optimizer in optimizers:
-            assert not optimizer.layer.weight_quant.requires_quant_input, \
-                'Error: GPTQ does not support weight quantizers that require quantized inputs.'
-            if optimizer.use_intermediate_buffer and hasattr(optimizer, 'B'):
+            if optimizer.layer.weight_quant.requires_quant_input:
+                raise RuntimeError(
+                    'GPTQ does not support weight quantizers that require quantized inputs.')
+            if optimizer.use_intermediate_buffer:
                 del optimizer.B
 
-        targets = [optimizer.layer for optimizer in optimizers]
-        weight = torch.stack([target.weight.detach() for target in targets])
+        targets = batch.targets
+        weight = batch.weight
         weight_device = weight.device
         weight_dtype = weight.dtype
-        hessian = torch.empty((len(optimizers), columns, columns),
-                              dtype=first.dtype,
-                              device=first.device)
-        for index, optimizer in enumerate(optimizers):
-            hessian[index].copy_(optimizer.H[0])
-            del optimizer.H
+        hessian = batch.pop_buffer('H', first.device)
 
         diagonal = hessian.diagonal(dim1=-2, dim2=-1)
         dead = diagonal == 0
@@ -257,16 +249,7 @@ class GPTQ(GPxQ):
         targets = [targets[index] for index in valid_indices.tolist()]
         weight = weight.index_select(0, valid_indices.to(weight_device))
         permutation = permutation[valid]
-        try:
-            h_inv = torch.cholesky_inverse(chol[valid])
-        except RuntimeError:
-            del chol
-            failed.extend(targets)
-            for target in failed:
-                warnings.warn(
-                    f'Failed to compute the inverse Hessian for layer {target.name}; GPTQ will not be applied.'
-                )
-            return failed
+        h_inv = torch.cholesky_inverse(chol[valid])
         del chol
         inverse_finite = torch.isfinite(h_inv).all(dim=-1).all(dim=-1)
         if not inverse_finite.all():
@@ -303,24 +286,9 @@ class GPTQ(GPxQ):
         h_inv = upper[second_valid] / math.sqrt(c)
         del upper
         permutation_weight = permutation.to(weight_device)
-        batch_quant = None
-        use_batch_quant = False
-        if all(getattr(target.owner.proxy, 'is_groupwise', False) for target in targets):
-            try:
-                batch_quant = FunctionalLinearTargetBatch(targets, weight)
-                batch_quant_weight = batch_quant.quant_weight(weight)
-                local_quant_weight = torch.stack([
-                    target.quantize(weight[index]) for index, target in enumerate(targets)])
-                use_batch_quant = torch.equal(batch_quant_weight, local_quant_weight)
-                del batch_quant_weight, local_quant_weight
-            except (AttributeError, RuntimeError, TypeError, ValueError):
-                batch_quant = None
 
         def quantize_weight(value):
-            if use_batch_quant:
-                return batch_quant.quant_weight(value)
-            return torch.stack([
-                target.quantize(value[index]) for index, target in enumerate(targets)])
+            return batch.quantize(targets, value)
 
         def gather_columns(value, indices):
             return torch.gather(value, 2, indices.unsqueeze(1).expand(-1, value.shape[1], -1))
@@ -357,8 +325,7 @@ class GPTQ(GPxQ):
                                                           i2:].to(weight_device)).to(weight_dtype)
                 weight = scatter_columns(weight, tail_indices, tail - correction)
 
-        for index, target in enumerate(targets):
-            target.writeback(weight[index])
+        failed.extend(FunctionalGPxQBatch.writeback(targets, weight))
         return failed
 
 
@@ -411,8 +378,6 @@ class gptq_mode(gpxq_mode):
             min_samples: int = 0,
             insufficient_samples: str = 'rtn',
             expert_batch_size: int = 1) -> None:
-        if not inplace:
-            model = deepcopy(model)
         super().__init__(
             model,
             group_of_parallel_layers,

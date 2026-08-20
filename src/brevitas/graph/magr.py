@@ -1,7 +1,6 @@
 # Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from copy import deepcopy
 from typing import List
 from typing import Optional
 import warnings
@@ -11,6 +10,7 @@ import torch.nn as nn
 from tqdm import tqdm
 
 from brevitas.graph.gptq import GPTQ
+from brevitas.graph.gpxq import FunctionalGPxQBatch
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
@@ -151,31 +151,24 @@ class MagR(GPTQ):
     @staticmethod
     def batched_layer_update(optimizers):
         """Apply MagR to a compatible batch of functional expert matrices."""
-        if not optimizers:
-            return []
+        batch = FunctionalGPxQBatch(optimizers)
         first = optimizers[0]
-        if any(optimizer.groups != 1 or optimizer.columns != first.columns or
-               optimizer.layer.weight.shape != first.layer.weight.shape or
+        if any(optimizer.columns != first.columns or
                optimizer.gradient_steps != first.gradient_steps or
                optimizer.power_steps != first.power_steps or optimizer.alpha != first.alpha
                for optimizer in optimizers):
             raise ValueError('Batched functional MagR requires compatible expert optimizers.')
         for optimizer in optimizers:
-            if optimizer.use_intermediate_buffer and hasattr(optimizer, 'B'):
+            if optimizer.use_intermediate_buffer:
                 del optimizer.B
 
-        targets = [optimizer.layer for optimizer in optimizers]
-        weight = torch.stack([target.weight.detach() for target in targets])
+        targets = batch.targets
+        weight = batch.weight
         weight_orig = torch.stack([
             target.weight_orig.to(weight.device)
             if optimizer.create_weight_orig else target.weight.detach().clone() for target,
             optimizer in zip(targets, optimizers)])
-        hessian = torch.empty((len(optimizers), first.columns, first.columns),
-                              dtype=first.dtype,
-                              device=weight.device)
-        for index, optimizer in enumerate(optimizers):
-            hessian[index].copy_(optimizer.H[0].to(weight.device))
-            del optimizer.H
+        hessian = batch.pop_buffer('H', weight.device)
 
         scale = hessian.amax(dim=(-2, -1)).abs()
         valid = scale > 0
@@ -184,10 +177,11 @@ class MagR(GPTQ):
         vector = torch.rand(
             first.columns, device=weight.device, dtype=first.dtype,
             generator=generator).expand(len(optimizers), -1).clone()
+        eps = torch.finfo(first.dtype).eps
         for _ in range(first.power_steps):
             next_vector = torch.bmm(normalized, vector.unsqueeze(2)).squeeze(2)
             vector = next_vector / (
-                torch.linalg.vector_norm(next_vector, dim=1, keepdim=True) + 1e-12)
+                torch.linalg.vector_norm(next_vector, dim=1, keepdim=True).clamp_min(eps))
         singular_value = torch.bmm(vector.unsqueeze(1), torch.bmm(
             normalized, vector.unsqueeze(2))).flatten() * scale
         matrix_norm = torch.linalg.matrix_norm(hessian, ord=1)
@@ -212,10 +206,7 @@ class MagR(GPTQ):
             projected = _project_onto_l1_ball((vk / alpha[:, None, None]).reshape(
                 -1, first.columns)).reshape(len(targets), rows, first.columns)
             wk = vk - alpha[:, None, None] * projected
-        if not torch.isfinite(wk).all():
-            raise RuntimeError('Batched functional MagR produced non-finite weights.')
-        for index, target in enumerate(targets):
-            target.writeback(wk[index].to(weight.dtype))
+        failed.extend(FunctionalGPxQBatch.writeback(targets, wk.to(weight.dtype)))
         return failed
 
 
@@ -263,8 +254,6 @@ class magr_mode(gpxq_mode):
             min_samples: int = 0,
             insufficient_samples: str = 'rtn',
             expert_batch_size: int = 1) -> None:
-        if not inplace:
-            model = deepcopy(model)
         super().__init__(
             model=model,
             group_of_parallel_layers=group_of_parallel_layers,
