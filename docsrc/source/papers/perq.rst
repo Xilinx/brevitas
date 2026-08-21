@@ -14,7 +14,7 @@ See the paper, either on `arXiv <https://arxiv.org/pdf/2601.22347>`_ or `OpenRev
     <div align="center">
         <a href="https://openreview.net/pdf?id=nvehxSdMqg">📄 Paper</a>&nbsp
         <a href="https://github.com/Xilinx/brevitas/blob/master/src/brevitas/graph/permute.py">💻 Code</a>&nbsp
-        <a href="https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/perq">🧪 Examples</a>
+        <a href="https://github.com/Xilinx/brevitas/tree/master/src/brevitas_examples/papers/perq">🧪 Examples</a>
     </div>
 
 
