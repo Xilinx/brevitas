@@ -527,6 +527,11 @@ def create_args_parser() -> ArgumentParser:
         action="store_true",
         help='Compile for PTQ algorithms. Default %(default)s)')
     parser.add_argument(
+        '--quant-linear-checkpointing',
+        default=False,
+        action='store_true',
+        help='Checkpoint QuantLinear operations during training. Default: %(default)s')
+    parser.add_argument(
         '--compile-eval',
         default=False,
         action="store_true",
