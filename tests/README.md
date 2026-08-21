@@ -33,6 +33,6 @@ The first type relies heavily on Hypothesis to stress-test desired numerical pro
 The second group is more focused on other properties of modules and functions. For example, testing that the same quantized module can be in brevitas and in onnxruntime with similar outputs, or veryfing that the export flows work as intended.
 
 #### Numerical-based tests (i.e., Hypothesis-based tests)
-We define a set of pre-configured hypothesis-based strategies that can be used for tests, that can be found in [hyp_helper.py](https://github.com/Xilinx/brevitas/blob/dev/tests/brevitas/hyp_helper.py).
+We define a set of pre-configured hypothesis-based strategies that can be used for tests, that can be found in [hyp_helper.py](https://github.com/Xilinx/brevitas/blob/master/tests/brevitas/hyp_helper.py).
 
 To be completed.

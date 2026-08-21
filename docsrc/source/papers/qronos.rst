@@ -116,10 +116,10 @@ How to Use: Few-Bit LLM Quantization
 --------------------------------------
 
 With Brevitas, you can apply the Qronos algorithm to quantize HuggingFace models via
-`our LLM entry point <https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/llm>`_!
+`our LLM entry point <https://github.com/Xilinx/brevitas/tree/master/src/brevitas_examples/llm>`_!
 
 We provide packaged config files in `brevitas_examples/papers/qronos 
-<https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/qronos>`_ to enable 
+<https://github.com/Xilinx/brevitas/tree/master/src/brevitas_examples/papers/qronos>`_ to enable 
 similar experiments described in the paper. The provided configurations specify Llama-3.2-1B, 
 but you can specify different Huggingface models in the CLI args. For example:
 

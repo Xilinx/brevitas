@@ -14,7 +14,7 @@ relative to BF16.
 
     <div align="center">
 	   <a href="https://arxiv.org/abs/2503.17513">📄 Paper</a>&nbsp
-		<a href="https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/expansion">💻 Examples</a>
+		<a href="https://github.com/Xilinx/brevitas/tree/master/src/brevitas_examples/papers/expansion">💻 Examples</a>
     </div>
 
 
@@ -90,7 +90,7 @@ How to Use: Expanding Models Post-Training
 --------------------------------------------
 
 With Brevitas, you can apply post-training model expansion to quantize HuggingFace models 
-via `our LLM entry point <https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/llm>`_!
+via `our LLM entry point <https://github.com/Xilinx/brevitas/tree/master/src/brevitas_examples/llm>`_!
 
 The technique works by expanding specific Hadamard rotation matrices in the compute graph. 
 Two main expansion strategies are available:

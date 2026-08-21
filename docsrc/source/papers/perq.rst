@@ -163,7 +163,7 @@ A minimal example:
        --permute-fn massdiff \
        --disable-block-rotation-for-fused
 
-See the `README <https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/perq>`_
+See the `README <https://github.com/Xilinx/brevitas/tree/master/src/brevitas_examples/papers/perq>`_
 for full configuration details and benchmarking instructions.
 
 Permutation strategies
@@ -208,7 +208,7 @@ Results
 -------
 
 The results below use Llama-3.2 Instruct models with INT4 weight-activation quantization.
-See the `README <https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/perq>`_
+See the `README <https://github.com/Xilinx/brevitas/tree/master/src/brevitas_examples/papers/perq>`_
 for instructions on how to reproduce. Below are the versions used; different versions 
 may yield different results.
 
