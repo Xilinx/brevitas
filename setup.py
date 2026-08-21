@@ -18,9 +18,18 @@ def read_requirements(filename):
     return read(REQUIREMENTS_DIR, filename).splitlines()
 
 
+# fallback_version is used when there is no SCM data (e.g. a zip download without
+# .git). The '+unknown' local segment makes PyPI reject it; CI rejects it on master.
+# tag.prefix restricts version tags to the vX.Y.Z releases, so tags such as
+# bnn_pynq-r2 are ignored instead of breaking the build. Only release tags may start
+# with 'v', and what follows must be PEP 440 ('v1.2.3', 'v1.2.3rc1'): a tag such as
+# 'v0.4.0-pretrained-test' breaks installs for every commit after it. Text after a
+# '+' is unconstrained ('v1.2.3+note'), since that is a PEP 440 local segment.
+SCM_VERSION = {"fallback_version": "0.0.0+unknown", "tag": {"prefix": "v"}}
+
 setup(
     name="brevitas",
-    use_scm_version=True,
+    use_scm_version=SCM_VERSION,
     setup_requires=read_requirements('requirements-setup.txt'),
     description="Quantization-aware training in PyTorch",
     long_description=read(PROJECT_ROOT, 'README.md'),
