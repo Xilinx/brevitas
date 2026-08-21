@@ -65,12 +65,12 @@ local_branch = get_current_branch_name()
 
 # It is possible to invoke the documentation command by specifing:
 # - A specific version to build
-# - 'local', which will build the current branch as if it were the dev branch
-# - Nothing, which will build all documentations for a bunch of different versions specified below and the actual dev branch
+# - 'local', which will build the current branch as if it were the master branch
+# - Nothing, which will build all documentations for a bunch of different versions specified below and the actual master branch
 version_to_build = os.environ.get('VERSION', '')
 if version_to_build == 'local':
-    current_version = 'dev'
-    smv_outputdir_format = 'dev'
+    current_version = 'master'
+    smv_outputdir_format = 'master'
     branch_to_build = local_branch
 elif version_to_build == '':
     # This select all versions above v0.9
@@ -82,9 +82,9 @@ elif version_to_build == '':
     # 0\.9\.(?!0+$)\d+: Matches v0.9.1, v0.9.2, ..., but not v0.9.0
     # $: End of string
     version_to_build = r'^v([1-9][0-9]*\.\d+\.\d+|0\.(1[0-9]|\d{2,})\.\d+|0\.9\.(?!0+$)\d+)$'
-    branch_to_build = 'dev'
+    branch_to_build = 'master'
 else:
-    branch_to_build = 'dev'
+    branch_to_build = 'master'
 
 # -- General configuration ---------------------------------------------------
 
@@ -136,7 +136,7 @@ html_theme_options = {
       "image_dark": "brevitas_logo_white.svg",
    },
     "switcher": {
-        "json_url": "https://xilinx.github.io/brevitas/dev/_static/versions.json",
+        "json_url": "https://xilinx.github.io/brevitas/master/_static/versions.json",
         "version_match": current_version,
     },
     "footer_end": ["version-switcher"]

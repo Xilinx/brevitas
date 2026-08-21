@@ -1,8 +1,8 @@
 # Pushing the Limits of Block Rotations in Post-Training Quantization [ICML 2026]
 
 📄 [Paper](https://openreview.net/pdf?id=nvehxSdMqg)
-💻 [Code](https://github.com/Xilinx/brevitas/blob/dev/src/brevitas/graph/permute.py)
-💡 [Docs](https://xilinx.github.io/brevitas/dev/papers/perq.html)
+💻 [Code](https://github.com/Xilinx/brevitas/blob/master/src/brevitas/graph/permute.py)
+💡 [Docs](https://xilinx.github.io/brevitas/master/papers/perq.html)
 
 ```bibtex
 @inproceedings{sanjeet2026perq,

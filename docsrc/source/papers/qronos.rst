@@ -13,7 +13,7 @@ into the Qronos algorithm and how to use it with Brevitas!
 
     <div align="center">
 	   <a href="https://openreview.net/pdf?id=7axclBCYul">📄 Paper</a>&nbsp
-		<a href="https://github.com/Xilinx/brevitas/blob/dev/src/brevitas/graph/qronos.py">💻 Code</a>
+		<a href="https://github.com/Xilinx/brevitas/blob/master/src/brevitas/graph/qronos.py">💻 Code</a>
     </div>
 
 
@@ -314,7 +314,7 @@ GGUF:Q4_0 model export for llama.cpp
 
 You can also export the quantized model to several GGUF formats for use with llama.cpp as 
 described in our `GGUF export documentation 
-<https://xilinx.github.io/brevitas/dev/user_guide/export_gguf.html>`_.
+<https://xilinx.github.io/brevitas/master/user_guide/export_gguf.html>`_.
 
 In this example, we export the quantized models to the GGUF:Q4_0 format
 
@@ -369,4 +369,3 @@ References
 [4] Zhang, Aozhong, et al. "MagR: Weight magnitude reduction for enhancing post-training quantization." Advances in neural information processing systems 37 (2024): 85109-85130.
 
 [5] Liu, Zechun, et al. "SpinQuant: LLM quantization with learned rotations." 13th International Conference on Learning Representations. 2025.
-

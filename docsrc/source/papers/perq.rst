@@ -13,7 +13,7 @@ See the paper, either on `arXiv <https://arxiv.org/pdf/2601.22347>`_ or `OpenRev
 
     <div align="center">
         <a href="https://openreview.net/pdf?id=nvehxSdMqg">📄 Paper</a>&nbsp
-        <a href="https://github.com/Xilinx/brevitas/blob/dev/src/brevitas/graph/permute.py">💻 Code</a>&nbsp
+        <a href="https://github.com/Xilinx/brevitas/blob/master/src/brevitas/graph/permute.py">💻 Code</a>&nbsp
         <a href="https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/perq">🧪 Examples</a>
     </div>
 
@@ -99,7 +99,7 @@ Implementation Overview
 -----------------------
 
 The ``rotate_permute_mode`` context manager in
-`brevitas.graph.permute <https://github.com/Xilinx/brevitas/blob/dev/src/brevitas/graph/permute.py>`_
+`brevitas.graph.permute <https://github.com/Xilinx/brevitas/blob/master/src/brevitas/graph/permute.py>`_
 encapsulates the full PeRQ workflow:
 
 .. code:: python
@@ -221,7 +221,7 @@ PeRQ\* (block rotations + MassDiff + Qronos)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Full-vector Hadamard rotations where mergeable (R1, R2), online block Hadamard rotations with
-block size 32 (R3), MassDiff permutations (P3), and `Qronos <https://xilinx.github.io/brevitas/dev/papers/qronos.html>`_ rounding [3].
+block size 32 (R3), MassDiff permutations (P3), and `Qronos <https://xilinx.github.io/brevitas/master/papers/qronos.html>`_ rounding [3].
 
 +-------+-----------+-----------+-------+-------+--------+-------+-------+
 | Model | float_ppl | quant_ppl | ARC-C | ARC-E | HellaS | PIQA  | WinoG |
