@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import logging
+import os
 from typing import Dict
 from typing import Mapping
 from typing import Optional
@@ -373,9 +374,11 @@ def find_all_devices(data):
 def calc_gpu_device_map(absolute_mem_margin: float = 2.0 * 1e9,
                         relative_mem_margin: float = 0.3) -> Dict[int, float]:
     torch.cuda.empty_cache()
+    device_ids = [int(os.environ["LOCAL_RANK"])] if "LOCAL_RANK" in os.environ else range(
+        torch.cuda.device_count())
     gpu_device_map = {
         i: (torch.cuda.mem_get_info(i)[0] - absolute_mem_margin) * (1.0 - relative_mem_margin)
-        for i in range(torch.cuda.device_count())}
+        for i in device_ids}
     return gpu_device_map
 
 
