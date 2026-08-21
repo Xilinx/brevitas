@@ -1,8 +1,8 @@
 # Few-Bit LLM Quantization with Qronos [ICLR 2026]
 
 📄 [Paper](https://openreview.net/pdf?id=7axclBCYul)
-💻 [Code](https://github.com/Xilinx/brevitas/blob/dev/src/brevitas/graph/qronos.py)
-💡 [Blog](https://xilinx.github.io/brevitas/dev/papers/qronos.html)
+💻 [Code](https://github.com/Xilinx/brevitas/blob/master/src/brevitas/graph/qronos.py)
+💡 [Blog](https://xilinx.github.io/brevitas/master/papers/qronos.html)
 
 ```bibtex
 @inproceedings{zhang2026qronos,

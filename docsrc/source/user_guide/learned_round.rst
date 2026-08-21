@@ -9,7 +9,7 @@ rounding decisions**, instead of relying on fixed round-to-nearest (RTN). It uni
 .. raw:: html
 
     <div align="center">
-		<a href="https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/learned_round">💻 Examples</a>
+		<a href="https://github.com/Xilinx/brevitas/tree/master/src/brevitas_examples/papers/learned_round">💻 Examples</a>
     </div>
 
 .. contents:: Table of Contents
@@ -196,7 +196,7 @@ When using ``regularised_mse``, the loss combines MSE with AdaRound's [1]_ round
 (defaults: weight ``0.01``, temperature annealing from ``20`` to ``2``, ``20%`` warmup).
 
 More examples on how to use learned round through the LLM entrypoint are provided in
-`LLM Learned Round Examples <https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/learned_round>`_.
+`LLM Learned Round Examples <https://github.com/Xilinx/brevitas/tree/master/src/brevitas_examples/papers/learned_round>`_.
 
 
 Extending Learned Round

@@ -47,7 +47,7 @@ Furthermore, Brevitas additional PTQ techniques can be enabled:
 
 Internally, when defining a quantized model programmatically, Brevitas leverages `torch.fx` and its `symbolic_trace` functionality, meaning that an input model is required to pass symbolic tracing for it to work.
 
-For more information about what are the currently supported quantized layers in Brevitas, check the [following file](https://github.com/Xilinx/brevitas/blob/dev/src/brevitas/graph/quantize.py),
+For more information about what are the currently supported quantized layers in Brevitas, check the [following file](https://github.com/Xilinx/brevitas/blob/master/src/brevitas/graph/quantize.py),
 where we map the torch compute layers and activations with their corresponding quantized version.
 
 Pre-computed accuracy results for torchvision can be found under `RESULTS_TORCHVISION.csv` with several quantization combinations evaluated on three different torchvision models (ResNet18, MobileNet V2, ViT B32), while results on the hand defined quantized MobileNet V1 can be found under `RESULTS_IMGCLSMOB.csv`.

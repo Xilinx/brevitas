@@ -13,8 +13,8 @@ See the paper, either on `arXiv <https://arxiv.org/pdf/2601.22347>`_ or `OpenRev
 
     <div align="center">
         <a href="https://openreview.net/pdf?id=nvehxSdMqg">📄 Paper</a>&nbsp
-        <a href="https://github.com/Xilinx/brevitas/blob/dev/src/brevitas/graph/permute.py">💻 Code</a>&nbsp
-        <a href="https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/perq">🧪 Examples</a>
+        <a href="https://github.com/Xilinx/brevitas/blob/master/src/brevitas/graph/permute.py">💻 Code</a>&nbsp
+        <a href="https://github.com/Xilinx/brevitas/tree/master/src/brevitas_examples/papers/perq">🧪 Examples</a>
     </div>
 
 
@@ -99,7 +99,7 @@ Implementation Overview
 -----------------------
 
 The ``rotate_permute_mode`` context manager in
-`brevitas.graph.permute <https://github.com/Xilinx/brevitas/blob/dev/src/brevitas/graph/permute.py>`_
+`brevitas.graph.permute <https://github.com/Xilinx/brevitas/blob/master/src/brevitas/graph/permute.py>`_
 encapsulates the full PeRQ workflow:
 
 .. code:: python
@@ -163,7 +163,7 @@ A minimal example:
        --permute-fn massdiff \
        --disable-block-rotation-for-fused
 
-See the `README <https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/perq>`_
+See the `README <https://github.com/Xilinx/brevitas/tree/master/src/brevitas_examples/papers/perq>`_
 for full configuration details and benchmarking instructions.
 
 Permutation strategies
@@ -208,7 +208,7 @@ Results
 -------
 
 The results below use Llama-3.2 Instruct models with INT4 weight-activation quantization.
-See the `README <https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/perq>`_
+See the `README <https://github.com/Xilinx/brevitas/tree/master/src/brevitas_examples/papers/perq>`_
 for instructions on how to reproduce. Below are the versions used; different versions 
 may yield different results.
 
@@ -221,7 +221,7 @@ PeRQ\* (block rotations + MassDiff + Qronos)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Full-vector Hadamard rotations where mergeable (R1, R2), online block Hadamard rotations with
-block size 32 (R3), MassDiff permutations (P3), and `Qronos <https://xilinx.github.io/brevitas/dev/papers/qronos.html>`_ rounding [3].
+block size 32 (R3), MassDiff permutations (P3), and `Qronos <https://xilinx.github.io/brevitas/master/papers/qronos.html>`_ rounding [3].
 
 +-------+-----------+-----------+-------+-------+--------+-------+-------+
 | Model | float_ppl | quant_ppl | ARC-C | ARC-E | HellaS | PIQA  | WinoG |

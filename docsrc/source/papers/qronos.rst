@@ -13,7 +13,7 @@ into the Qronos algorithm and how to use it with Brevitas!
 
     <div align="center">
 	   <a href="https://openreview.net/pdf?id=7axclBCYul">📄 Paper</a>&nbsp
-		<a href="https://github.com/Xilinx/brevitas/blob/dev/src/brevitas/graph/qronos.py">💻 Code</a>
+		<a href="https://github.com/Xilinx/brevitas/blob/master/src/brevitas/graph/qronos.py">💻 Code</a>
     </div>
 
 
@@ -116,10 +116,10 @@ How to Use: Few-Bit LLM Quantization
 --------------------------------------
 
 With Brevitas, you can apply the Qronos algorithm to quantize HuggingFace models via
-`our LLM entry point <https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/llm>`_!
+`our LLM entry point <https://github.com/Xilinx/brevitas/tree/master/src/brevitas_examples/llm>`_!
 
 We provide packaged config files in `brevitas_examples/papers/qronos 
-<https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/qronos>`_ to enable 
+<https://github.com/Xilinx/brevitas/tree/master/src/brevitas_examples/papers/qronos>`_ to enable 
 similar experiments described in the paper. The provided configurations specify Llama-3.2-1B, 
 but you can specify different Huggingface models in the CLI args. For example:
 
@@ -314,7 +314,7 @@ GGUF:Q4_0 model export for llama.cpp
 
 You can also export the quantized model to several GGUF formats for use with llama.cpp as 
 described in our `GGUF export documentation 
-<https://xilinx.github.io/brevitas/dev/user_guide/export_gguf.html>`_.
+<https://xilinx.github.io/brevitas/master/user_guide/export_gguf.html>`_.
 
 In this example, we export the quantized models to the GGUF:Q4_0 format
 
@@ -369,4 +369,3 @@ References
 [4] Zhang, Aozhong, et al. "MagR: Weight magnitude reduction for enhancing post-training quantization." Advances in neural information processing systems 37 (2024): 85109-85130.
 
 [5] Liu, Zechun, et al. "SpinQuant: LLM quantization with learned rotations." 13th International Conference on Learning Representations. 2025.
-
