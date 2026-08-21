@@ -15,9 +15,22 @@
 # sys.path.insert(0, os.path.abspath('.'))
 
 import os
+from pathlib import Path
+import subprocess
 import sys
 
-import subprocess
+
+# Resolve sources from the revision copied by sphinx-multiversion. Otherwise autodoc imports the
+# installed development package for every historical tag.
+multiversion_source = os.environ.get('SPHINX_MULTIVERSION_SOURCEDIR')
+if multiversion_source:
+    docs_source_dir = Path(multiversion_source).resolve()
+else:
+    docs_source_dir = Path(__file__).resolve().parent
+repository_root = docs_source_dir.parents[1]
+version_src_dir = repository_root / 'src'
+sys.path.insert(0, str(version_src_dir))
+
 
 def get_current_branch_name():
     try:
@@ -49,19 +62,36 @@ def get_current_branch_name():
 
 import brevitas
 
-sys.path.insert(0, os.path.abspath(brevitas.__file__))
+brevitas_path = Path(brevitas.__file__).resolve()
+if not brevitas_path.is_relative_to(version_src_dir):
+    raise RuntimeError(
+        f"Expected to import brevitas from {version_src_dir}, imported {brevitas_path} instead")
 # -- Project information -----------------------------------------------------
 
 project = 'Brevitas'
 copyright = '2025 - Advanced Micro Devices, Inc.'
 author = 'AMD Research and Advanced Development'
 
-# The full version, including alpha/beta/rc tags
-release = brevitas.__version__
-
-
 current_version = os.environ.get('SPHINX_MULTIVERSION_NAME')
+# importlib.metadata reports the installed package version, so use the tag name for releases.
+if current_version and current_version.startswith('v'):
+    release = current_version.removeprefix('v')
+else:
+    release = brevitas.__version__
 local_branch = get_current_branch_name()
+
+
+def set_version_from_multiversion_name(app, config):
+    current_version = os.environ.get('SPHINX_MULTIVERSION_NAME')
+    if current_version and current_version.startswith('v'):
+        tag_version = current_version.removeprefix('v')
+        config.version = tag_version
+        config.release = tag_version
+
+
+def setup(app):
+    # sphinx-multiversion restores metadata read from the tag's conf.py during config-inited.
+    app.connect('config-inited', set_version_from_multiversion_name, priority=1000)
 
 # It is possible to invoke the documentation command by specifing:
 # - A specific version to build
@@ -149,7 +179,7 @@ html_static_path = ["_static"]
 
 # Ensure env.metadata[env.docname]['nbsphinx-link-target']
 # points relative to repo root:
-nbsphinx_link_target_root =  os.path.join(os.path.dirname(__file__), '..', '..')
+nbsphinx_link_target_root = str(repository_root)
 
 
 intersphinx_mapping = {
