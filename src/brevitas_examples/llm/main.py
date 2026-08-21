@@ -72,6 +72,8 @@ from brevitas_examples.llm.llm_quant.learned_round_utils import apply_learned_ro
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affine_merge
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_to_rmsnorm
 from brevitas_examples.llm.llm_quant.ln_affine_merge import rmsnorm_patch
+from brevitas_examples.llm.llm_quant.memory_debug import log_memory
+from brevitas_examples.llm.llm_quant.memory_debug import log_quantization_configuration
 from brevitas_examples.llm.llm_quant.parse_utils import parse_custom_quantizer
 from brevitas_examples.llm.llm_quant.parse_utils import parse_custom_trainer
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_to_linear
@@ -306,6 +308,8 @@ def quantize_llm(args, extra_args=None):
     dtype = next(model.parameters()).dtype
     config = model.config
     print("Model loaded.")
+    if args.memory_debug:
+        log_memory('model_loaded', model)
     model.eval()
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     float_ppl = None
@@ -565,6 +569,8 @@ def quantize_llm(args, extra_args=None):
 
         # Tie back first/last layer weights in case they got untied
         print("Model quantization applied.")
+        if args.memory_debug:
+            log_memory('model_quantized', model)
 
     if args.awq_scale or args.awq_clip:
         apply_awq(
@@ -637,6 +643,10 @@ def quantize_llm(args, extra_args=None):
                                 isinstance(quant_module.tensor_clamp_impl, TensorClamp)):
                             quant_module.memory_efficient = True
 
+        if args.memory_debug:
+            log_quantization_configuration(model)
+            log_memory('quantizer_initialized', model)
+
         if args.compile_ptq:
             for m in model.modules():
                 if hasattr(m, 'compile_quant'):
@@ -668,6 +678,8 @@ def quantize_llm(args, extra_args=None):
             copied_model = (
                 deepcopy(model.cpu()) if fsdp_enabled and is_main_process and
                 use_post_training_model and not args.load_checkpoint else None)
+            if args.memory_debug:
+                log_memory('pre_trainer', model, reset_peak=True)
             fsdp_state_dict = apply_fine_tuning(
                 model=model,
                 tokenizer=tokenizer,
@@ -676,7 +688,10 @@ def quantize_llm(args, extra_args=None):
                 trainer_cls=custom_trainer_cls,
                 extra_args=fine_tune_extra_args,
                 skip_training=args.load_checkpoint,
-                return_state_dict=use_post_training_model)
+                return_state_dict=use_post_training_model,
+                memory_debug=args.memory_debug,
+                memory_debug_steps=args.memory_debug_steps,
+                memory_debug_snapshot=args.memory_debug_snapshot)
             if fsdp_enabled:
                 if not use_post_training_model:
                     results = {"float_ppl": float_ppl, "quant_ppl": None}

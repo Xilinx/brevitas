@@ -128,7 +128,10 @@ def apply_fine_tuning(
         trainer_cls: Optional[Type[Trainer]] = None,
         extra_args: Optional[List[str]] = None,
         skip_training: bool = False,
-        return_state_dict: bool = True) -> Optional[Dict[str, torch.Tensor]]:
+        return_state_dict: bool = True,
+        memory_debug: bool = False,
+        memory_debug_steps: int = 1,
+        memory_debug_snapshot: Optional[str] = None) -> Optional[Dict[str, torch.Tensor]]:
     """Fine-tune model weights and/or rotation matrices.
 
     The training arguments are parsed from *extra_args* via
@@ -166,6 +169,8 @@ def apply_fine_tuning(
     return_state_dict : bool
         Collect and return a full CPU state dictionary after FSDP training. Non-FSDP training
         updates the supplied model in place and always returns ``None``.
+    memory_debug : bool
+        Report phase-local GPU memory usage during training.
     """
 
     # Resolve the trainer class up front so that its ``training_args_cls`` (which
@@ -209,6 +214,12 @@ def apply_fine_tuning(
         train_dataset=train_dataset,
         eval_dataset=None,
         data_collator=collate_fn)
+
+    if issubclass(trainer_cls, GeneralizedTrainer):
+        trainer_kwargs.update(
+            memory_debug=memory_debug,
+            memory_debug_steps=memory_debug_steps,
+            memory_debug_snapshot=memory_debug_snapshot)
 
     # Wire the teacher model whenever the selected trainer is a
     # GeneralizedTrainer subclass and distillation loss is enabled.

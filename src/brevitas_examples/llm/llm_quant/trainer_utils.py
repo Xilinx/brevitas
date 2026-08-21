@@ -29,6 +29,10 @@ from brevitas.utils.python_utils import Registry
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.trainer_utils import parse_lr_scheduler_class
 from brevitas_examples.common.trainer_utils import parse_optimizer_class
+from brevitas_examples.llm.llm_quant.memory_debug import dump_memory_snapshot
+from brevitas_examples.llm.llm_quant.memory_debug import log_memory
+from brevitas_examples.llm.llm_quant.memory_debug import register_first_quant_linear_memory_hooks
+from brevitas_examples.llm.llm_quant.memory_debug import start_memory_history
 
 # A parameter-selection callable for a single parameter group:
 # ``(model, training_args) -> List[Parameter]``. Each ``optimizer_scheduler_args``
@@ -325,7 +329,16 @@ class GeneralizedTrainer(Trainer):
             self,
             args: Optional[TrainingArguments] = None,
             teacher_model: Optional[torch.nn.Module] = None,
+            memory_debug: bool = False,
+            memory_debug_steps: int = 1,
+            memory_debug_snapshot: Optional[str] = None,
             **kwargs: Any) -> None:
+        self.memory_debug = memory_debug
+        self.memory_debug_steps = memory_debug_steps
+        self.memory_debug_snapshot = memory_debug_snapshot
+        self._memory_debug_microstep = 0
+        self._memory_debug_optimizer_hooks = False
+        self._memory_debug_snapshot_dumped = False
         super().__init__(args=args, **kwargs)
         self.use_distillation_loss = args.use_distillation_loss
         self.gamma = args.gamma
@@ -334,6 +347,45 @@ class GeneralizedTrainer(Trainer):
         self.teacher_model = (
             None if teacher_model is None else
             teacher_model if self.is_fsdp_enabled else offload_model(teacher_model))
+        if self.memory_debug:
+            register_first_quant_linear_memory_hooks(self.model)
+        if self.memory_debug and self.memory_debug_snapshot is not None:
+            start_memory_history()
+
+    def _register_memory_debug_optimizer_hooks(self):
+        if not self.memory_debug or self._memory_debug_optimizer_hooks:
+            return
+
+        def pre_step(optimizer, args, kwargs):
+            if self.state.global_step < self.memory_debug_steps:
+                log_memory('pre_optimizer_step', self.model, optimizer)
+
+        def post_step(optimizer, args, kwargs):
+            if self.state.global_step < self.memory_debug_steps:
+                log_memory('post_optimizer_step', self.model, optimizer)
+                if (self.memory_debug_snapshot is not None and
+                        not self._memory_debug_snapshot_dumped):
+                    dump_memory_snapshot(self.memory_debug_snapshot)
+                    self._memory_debug_snapshot_dumped = True
+
+        self.optimizer.register_step_pre_hook(pre_step)
+        self.optimizer.register_step_post_hook(post_step)
+        self._memory_debug_optimizer_hooks = True
+
+    def training_step(self, model, inputs, num_items_in_batch=None):
+        debug_step = self.memory_debug and self._memory_debug_microstep < self.memory_debug_steps
+        if debug_step:
+            log_memory(
+                f'pre_forward_backward_microstep_{self._memory_debug_microstep}',
+                model,
+                self.optimizer,
+                reset_peak=self._memory_debug_microstep == 0)
+        loss = super().training_step(model, inputs, num_items_in_batch)
+        if debug_step:
+            log_memory(
+                f'post_backward_microstep_{self._memory_debug_microstep}', model, self.optimizer)
+        self._memory_debug_microstep += 1
+        return loss
 
     def _default_scheduler(self, optimizer, num_training_steps):
         """Build the HuggingFace default LR scheduler for a single optimizer.
@@ -383,12 +435,15 @@ class GeneralizedTrainer(Trainer):
 
     def create_optimizer(self, model=None) -> torch.optim.Optimizer:
         if self.optimizer is not None:
+            self._register_memory_debug_optimizer_hooks()
             return self.optimizer
         if self.args.optimizer_scheduler_args is None:
-            return super().create_optimizer(model=model)
-        optimizer_model = self.model if model is None else model
-        self.optimizer, self.lr_scheduler = _build_optimizers_from_configs(
-            optimizer_model, self.args)
+            self.optimizer = super().create_optimizer(model=model)
+        else:
+            optimizer_model = self.model if model is None else model
+            self.optimizer, self.lr_scheduler = _build_optimizers_from_configs(
+                optimizer_model, self.args)
+        self._register_memory_debug_optimizer_hooks()
         return self.optimizer
 
     def _wrap_model(self, model, training=True, dataloader=None):
