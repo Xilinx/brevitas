@@ -21,6 +21,7 @@ from brevitas.utils.quant_utils import _CachedIO
 from brevitas.utils.quant_utils import _CachedIOFloat
 from brevitas.utils.quant_utils import _CachedIOGroupwiseFloat
 from brevitas.utils.quant_utils import groupwise_dequant_expand
+from brevitas.utils.quant_utils import groupwise_dequant_expand_value
 
 
 class Operator(Enum):
@@ -89,6 +90,35 @@ def test_quant_tensor_init():
     quant_tensor = to_quant_tensor(x)
     normal_tensor = torch.Tensor(x)
     assert torch.allclose(qdq(normal_tensor, quant_tensor), quant_tensor, rtol=0.01)
+
+
+@pytest.mark.parametrize(
+    'value,dequant_shape,group_dim', [(torch.randn(2, 3, 4), (2, 12), 1),
+                                      (torch.randn(2, 4, 4), (2, 13), -1)])
+def test_groupwise_value_expansion_matches_full_expansion(value, dequant_shape, group_dim):
+    scale = torch.randn(*value.shape[:-1], 1)
+    zero_point = torch.tensor(0.)
+
+    expected, _, _ = groupwise_dequant_expand(
+        value, scale, zero_point, group_dim=group_dim, dequant_shape=dequant_shape)
+    actual = groupwise_dequant_expand_value(value, group_dim=group_dim, dequant_shape=dequant_shape)
+
+    torch.testing.assert_close(actual, expected)
+
+
+def test_groupwise_int_quant_tensor_device_uses_raw_metadata():
+    quant_tensor = GroupwiseIntQuantTensor(
+        value=torch.randn(2, 3, 4),
+        scale=torch.randn(2, 3, 1),
+        zero_point=torch.tensor(0.),
+        group_size=4,
+        group_dim=1,
+        bit_width=torch.tensor(8.),
+        signed=True,
+        training=True,
+        dequant_shape=(2, 12))
+
+    assert quant_tensor.device == torch.device('cpu')
 
 
 @pytest.mark.parametrize(

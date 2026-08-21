@@ -127,7 +127,8 @@ def apply_fine_tuning(
         collate_fn: Callable,
         trainer_cls: Optional[Type[Trainer]] = None,
         extra_args: Optional[List[str]] = None,
-        skip_training: bool = False) -> Optional[Dict[str, torch.Tensor]]:
+        skip_training: bool = False,
+        return_state_dict: bool = True) -> Optional[Dict[str, torch.Tensor]]:
     """Fine-tune model weights and/or rotation matrices.
 
     The training arguments are parsed from *extra_args* via
@@ -160,6 +161,11 @@ def apply_fine_tuning(
     extra_args : list of str, optional
         Raw CLI-style extra arguments parsed into the training-arguments
         dataclass (see :func:`parse_rotation_optimization_args`).
+    skip_training : bool
+        Skip Trainer execution, used when loading an existing quantized checkpoint.
+    return_state_dict : bool
+        Collect and return a full CPU state dictionary after FSDP training. Non-FSDP training
+        updates the supplied model in place and always returns ``None``.
     """
 
     # Resolve the trainer class up front so that its ``training_args_cls`` (which
@@ -197,10 +203,7 @@ def apply_fine_tuning(
 
     trainer_kwargs: Dict[str, Any] = dict(
         model=model,
-<<<<<<< HEAD
         # `tokenizer` renamed to `processing_class` in transformers 4.46, removed in 5.x.
-=======
->>>>>>> update
         processing_class=tokenizer,
         args=training_args,
         train_dataset=train_dataset,
@@ -225,7 +228,8 @@ def apply_fine_tuning(
             raise RuntimeError("LLM distributed fine-tuning supports FSDP2 only.")
         trainer.train()
         if fsdp_enabled:
-            state_dict = trainer.accelerator.get_state_dict(trainer.model)
+            state_dict = (
+                trainer.accelerator.get_state_dict(trainer.model) if return_state_dict else None)
             trainer.accelerator.wait_for_everyone()
             return state_dict
         # After finishing training, set eval mode again

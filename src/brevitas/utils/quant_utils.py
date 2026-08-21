@@ -220,6 +220,18 @@ def float_to_int_impl_to_enum(module):
 
 
 @brevitas_compiler.disable
+def groupwise_dequant_expand_value(value_, group_dim, dequant_shape):
+    start_dim = group_dim if group_dim >= 0 else group_dim - 1
+    new_value = value_.flatten(start_dim, start_dim + 1)
+    unpadding_shape = dequant_shape[group_dim]
+    residual = new_value.shape[group_dim] - unpadding_shape
+    if residual > 0:
+        new_value = torch.stack(
+            torch.unbind(new_value, dim=group_dim)[:unpadding_shape], dim=group_dim)
+    return new_value
+
+
+@brevitas_compiler.disable
 def groupwise_dequant_expand(
         value_, scale_, zero_point_, group_dim, dequant_shape, expand_metadata=True):
     curr_shape = value_.shape

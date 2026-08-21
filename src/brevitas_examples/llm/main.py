@@ -31,6 +31,7 @@ from brevitas.graph.quantize import functional_quantization_mode
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.utils import get_module
 from brevitas.graph.utils import remove_weight_orig
+from brevitas.nn import QuantLinear
 from brevitas.nn.quant_sdpa import ScaledDotProductAttention
 from brevitas.utils.logging import setup_logger
 from brevitas.utils.python_utils import hooked_on_a_function
@@ -264,8 +265,26 @@ def find_equalized_layer(layer):
     return layer
 
 
+def requires_post_training_model(args):
+    return any((
+        args.eval,
+        args.few_shot_eval is not None,
+        args.checkpoint_name is not None,
+        args.export_target is not None,
+        args.svd_quant,
+        args.learned_round,
+        args.load_checkpoint,
+        args.gptq,
+        args.gpfq,
+        args.qronos,
+        args.bias_corr,
+    ))
+
+
 def quantize_llm(args, extra_args=None):
     validate(args, extra_args)
+    if "LOCAL_RANK" in os.environ:
+        torch.cuda.set_device(int(os.environ["LOCAL_RANK"]))
     set_seed(args.seed)
     if args.export_prefix is None:
         args.export_prefix = f"{args.model.replace('/', '--')}"
@@ -590,10 +609,16 @@ def quantize_llm(args, extra_args=None):
 
     fsdp_enabled = False
     is_main_process = True
+    use_post_training_model = requires_post_training_model(args)
     with quantization_cm:
         # We initialize weights scale factor
         with torch.no_grad():
             model(**next(iter(calibration_loader)))
+
+        if args.quant_linear_checkpointing:
+            for module in model.modules():
+                if isinstance(module, QuantLinear):
+                    module.quant_checkpointing = True
 
         if args.compile_ptq:
             for m in model.modules():
@@ -624,8 +649,8 @@ def quantize_llm(args, extra_args=None):
             if fsdp_enabled:
                 remove_hooks(model)
             copied_model = (
-                deepcopy(model.cpu())
-                if fsdp_enabled and is_main_process and not args.load_checkpoint else None)
+                deepcopy(model.cpu()) if fsdp_enabled and is_main_process and
+                use_post_training_model and not args.load_checkpoint else None)
             fsdp_state_dict = apply_fine_tuning(
                 model=model,
                 tokenizer=tokenizer,
@@ -633,8 +658,17 @@ def quantize_llm(args, extra_args=None):
                 collate_fn=collate_fn,
                 trainer_cls=custom_trainer_cls,
                 extra_args=fine_tune_extra_args,
-                skip_training=args.load_checkpoint)
+                skip_training=args.load_checkpoint,
+                return_state_dict=use_post_training_model)
             if fsdp_enabled:
+                if not use_post_training_model:
+                    results = {"float_ppl": float_ppl, "quant_ppl": None}
+                    if args.job_folder is not None and is_main_process:
+                        os.makedirs(args.job_folder, exist_ok=True)
+                        with open(os.path.join(args.job_folder, "results.json"),
+                                  "w") as results_file:
+                            json.dump(results, results_file)
+                    return results, None
                 if is_main_process and fsdp_state_dict is not None:
                     copied_model.load_state_dict(fsdp_state_dict)
                     del model

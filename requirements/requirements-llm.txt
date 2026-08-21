@@ -9,8 +9,4 @@ pandas
 pydantic
 torch>=2.6
 tqdm
-<<<<<<< HEAD
-transformers[sentencepiece]>=4.52
-=======
 transformers[sentencepiece]>=5.15.1,<6
->>>>>>> update

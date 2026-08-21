@@ -9,6 +9,7 @@ import torch
 from torch import Tensor
 from torch.nn import Linear
 from torch.nn.functional import linear
+from torch.utils.checkpoint import checkpoint
 
 from brevitas.function.ops import max_int
 from brevitas.function.ops_ste import ceil_ste
@@ -35,6 +36,7 @@ class QuantLinear(QuantWBIOL, Linear):
             input_quant: Optional[ActQuantType] = None,
             output_quant: Optional[ActQuantType] = None,
             return_quant_tensor: bool = False,
+            quant_checkpointing: bool = False,
             device: Optional[torch.device] = None,
             dtype: Optional[torch.dtype] = None,
             **kwargs) -> None:
@@ -47,6 +49,7 @@ class QuantLinear(QuantWBIOL, Linear):
             output_quant=output_quant,
             return_quant_tensor=return_quant_tensor,
             **kwargs)
+        self.quant_checkpointing = quant_checkpointing
 
     @property
     def per_elem_ops(self):
@@ -65,6 +68,10 @@ class QuantLinear(QuantWBIOL, Linear):
         return False
 
     def forward(self, input: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
+        if (self.quant_checkpointing and self.training and torch.is_grad_enabled() and
+                not self.export_mode and not torch.jit.is_scripting() and
+                not torch.jit.is_tracing()):
+            return checkpoint(self.forward_impl, input, use_reentrant=False)
         return self.forward_impl(input)
 
     def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
