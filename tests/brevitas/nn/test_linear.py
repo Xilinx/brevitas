@@ -109,6 +109,22 @@ class TestQuantLinearCheckpointing:
         return reference, candidate
 
     @staticmethod
+    def recompute_pair():
+        reference = QuantLinear(
+            out_features=OUTPUT_FEATURES,
+            in_features=INPUT_FEATURES,
+            bias=True,
+            weight_quant=Int8WeightPerChannelFloat,
+            weight_scaling_impl_type='parameter_from_stats')
+        reference.eval()
+        reference(torch.randn(3, INPUT_FEATURES))
+        candidate = deepcopy(reference)
+        candidate.quant_recompute = True
+        reference.train()
+        candidate.train()
+        return reference, candidate
+
+    @staticmethod
     def forward_backward(module, inp, grad, outer_checkpoint=False):
         inp = inp.detach().clone().requires_grad_(True)
         if outer_checkpoint:
@@ -207,6 +223,57 @@ class TestQuantLinearCheckpointing:
 
     def test_checkpointed_memory_efficient_quant_gradient_parity(self):
         reference, candidate = self.memory_efficient_pair()
+        candidate.quant_checkpointing = True
+        inp = torch.randn(3, INPUT_FEATURES)
+        grad = torch.randn(3, OUTPUT_FEATURES)
+
+        reference_output, reference_input_grad, reference_grads = self.forward_backward(
+            reference, inp, grad, outer_checkpoint=True)
+        candidate_output, candidate_input_grad, candidate_grads = self.forward_backward(
+            candidate, inp, grad, outer_checkpoint=True)
+
+        torch.testing.assert_close(candidate_output, reference_output)
+        torch.testing.assert_close(candidate_input_grad, reference_input_grad)
+        assert candidate_grads.keys() == reference_grads.keys()
+        for name in reference_grads:
+            torch.testing.assert_close(candidate_grads[name], reference_grads[name])
+
+    def test_recompute_gradient_parity(self):
+        reference, candidate = self.recompute_pair()
+        inp = torch.randn(3, INPUT_FEATURES)
+        grad = torch.randn(3, OUTPUT_FEATURES)
+
+        reference_output, reference_input_grad, reference_grads = self.forward_backward(
+            reference, inp, grad)
+        candidate_output, candidate_input_grad, candidate_grads = self.forward_backward(
+            candidate, inp, grad)
+
+        torch.testing.assert_close(candidate_output, reference_output)
+        torch.testing.assert_close(candidate_input_grad, reference_input_grad)
+        assert candidate_grads.keys() == reference_grads.keys()
+        for name in reference_grads:
+            torch.testing.assert_close(candidate_grads[name], reference_grads[name])
+
+    def test_recompute_reduces_saved_tensor_bytes(self):
+        reference, candidate = self.recompute_pair()
+        inp = torch.randn(32, INPUT_FEATURES, requires_grad=True)
+
+        def saved_bytes(module):
+            total = 0
+
+            def pack(tensor):
+                nonlocal total
+                total += tensor.numel() * tensor.element_size()
+                return tensor
+
+            with torch.autograd.graph.saved_tensors_hooks(pack, lambda tensor: tensor):
+                module(inp)
+            return total
+
+        assert saved_bytes(candidate) < saved_bytes(reference)
+
+    def test_checkpointed_recompute_gradient_parity(self):
+        reference, candidate = self.recompute_pair()
         candidate.quant_checkpointing = True
         inp = torch.randn(3, INPUT_FEATURES)
         grad = torch.randn(3, OUTPUT_FEATURES)

@@ -497,6 +497,11 @@ def create_args_parser() -> ArgumentParser:
         action='store_true',
         help='Use memory-efficient integer weight fake quantization. Default: %(default)s')
     parser.add_argument(
+        '--quant-linear-recompute',
+        default=False,
+        action='store_true',
+        help='Recompute fake-quantized linear weights during backward. Default: %(default)s')
+    parser.add_argument(
         '--compile-eval',
         default=False,
         action="store_true",

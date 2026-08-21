@@ -623,6 +623,11 @@ def quantize_llm(args, extra_args=None):
                 if isinstance(module, QuantLinear):
                     module.quant_checkpointing = True
 
+        if args.quant_linear_recompute:
+            for module in model.modules():
+                if isinstance(module, QuantLinear):
+                    module.quant_recompute = True
+
         if args.memory_efficient_weight_quant:
             for module in model.modules():
                 if isinstance(module, QuantLinear):
