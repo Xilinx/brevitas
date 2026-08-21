@@ -492,6 +492,11 @@ def create_args_parser() -> ArgumentParser:
         action='store_true',
         help='Checkpoint QuantLinear operations during training. Default: %(default)s')
     parser.add_argument(
+        '--memory-efficient-weight-quant',
+        default=False,
+        action='store_true',
+        help='Use memory-efficient integer weight fake quantization. Default: %(default)s')
+    parser.add_argument(
         '--compile-eval',
         default=False,
         action="store_true",

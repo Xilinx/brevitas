@@ -19,6 +19,9 @@ from transformers import __version__ as transformers_version
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
 
+from brevitas.core.function_wrapper import RoundSte
+from brevitas.core.function_wrapper import TensorClamp
+from brevitas.core.quant import IntQuant
 from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.graph import load_quant_model_mode
@@ -619,6 +622,15 @@ def quantize_llm(args, extra_args=None):
             for module in model.modules():
                 if isinstance(module, QuantLinear):
                     module.quant_checkpointing = True
+
+        if args.memory_efficient_weight_quant:
+            for module in model.modules():
+                if isinstance(module, QuantLinear):
+                    for quant_module in module.weight_quant.modules():
+                        if (isinstance(quant_module, IntQuant) and
+                                isinstance(quant_module.float_to_int_impl, RoundSte) and
+                                isinstance(quant_module.tensor_clamp_impl, TensorClamp)):
+                            quant_module.memory_efficient = True
 
         if args.compile_ptq:
             for m in model.modules():
