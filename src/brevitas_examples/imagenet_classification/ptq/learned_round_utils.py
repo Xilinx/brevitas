@@ -41,6 +41,7 @@ from torch.utils.data.dataloader import DataLoader
 from brevitas import config
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.quant_tensor import QuantTensor
+from brevitas.utils.torch_utils import rename_tensor_
 from brevitas_examples.common.learned_round.learned_round_args import HandlerSpec
 from brevitas_examples.common.learned_round.learned_round_args import LossArgs
 from brevitas_examples.common.learned_round.learned_round_args import LRSchedulerArgs
@@ -77,15 +78,14 @@ class CacheVision(Cache[torch.Tensor, torch.Tensor]):
 
         if hasattr(input_batch, 'names') and 'N' in input_batch.names:
             self.batch_dim = input_batch.names.index('N')
-            input_batch.rename_(None)
+            input_batch = rename_tensor_(input_batch, None)
             input_batch = input_batch.transpose(0, self.batch_dim)
 
         self.inputs.extend(torch.split(input_batch, 1, self.batch_dim))
 
     def store_output(self, output) -> None:
-        if self.batch_dim is not None:
-            output.rename_(None)
-            output = output.transpose(0, self.batch_dim)
+        output = rename_tensor_(output, None)
+        output = output.transpose(0, self.batch_dim)
 
         self.outputs.extend(torch.split(output, 1, 0))
 

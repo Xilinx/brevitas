@@ -335,3 +335,22 @@ class TestLearnedRound:
          ("CosineAnnealingLR", torch.optim.lr_scheduler.CosineAnnealingLR)])
     def test_parse_lr_scheduler_class(self, lr_scheduler_str, lr_scheduler):
         assert lr_scheduler == parse_lr_scheduler_class(lr_scheduler_str)
+
+
+def test_cache_vision_store_plain_tensors():
+    # CacheVision.store_inputs/store_output must not rely on named tensors, which were removed in
+    # PyTorch 2.13. store_output previously called Tensor.rename_ unconditionally, raising
+    # AttributeError on PyTorch >= 2.13. This checks the migrated code handles plain (unnamed)
+    # tensors on all versions.
+    from brevitas_examples.imagenet_classification.ptq.learned_round_utils import CacheVision
+
+    cache = CacheVision()
+    inp = torch.randn(4, 3, 8)
+    out = torch.randn(4, 3, 8)
+    cache.store_inputs((inp,), {})
+    cache.store_output(out)
+
+    assert len(cache) == 4
+    cached_inp, cached_out = cache[0]
+    assert cached_inp.shape == (1, 3, 8)
+    assert cached_out.shape == (1, 3, 8)

@@ -20,11 +20,13 @@ import unfoldNd
 
 from brevitas.fx import GraphModule
 from brevitas.graph.calibrate import quantization_status_manager
+from brevitas.graph.utils import get_batch_dim
 from brevitas.graph.utils import is_conv_transposed
 from brevitas.graph.utils import is_quant_module
 import brevitas.nn as qnn
 from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
+from brevitas.utils.torch_utils import rename_tensor
 
 SUPPORTED_CONV_OP = (
     nn.Conv1d, nn.Conv2d, nn.Conv3d, nn.ConvTranspose1d, nn.ConvTranspose2d, nn.ConvTranspose3d)
@@ -258,10 +260,12 @@ class GPxQ(ABC):
             warnings.warn("Found unbatched input, adding batch dimension equal to 1")
             inp = inp.unsqueeze(0)
 
-        # Define batch size before re-organizing the input
-        if hasattr(inp, 'names') and 'N' in inp.names:
-            batch_dim = inp.names.index('N')
-            inp.rename_(None)
+        # Define batch size before re-organizing the input. Prefer batch_dim/batch_first exposed
+        # by the module; fall back to named tensors (PyTorch < 2.13).
+        batch_dim = get_batch_dim(self.layer, inp)
+        # Strip any legacy dimension names before reshaping (no-op on PyTorch >= 2.13).
+        inp = rename_tensor(inp, None)
+        if batch_dim:
             inp = inp.transpose(0, batch_dim)
 
         # Preprocess the input to compute the Hessian

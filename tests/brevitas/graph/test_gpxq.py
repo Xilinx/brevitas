@@ -417,6 +417,37 @@ def test_magr(toy_model, request):
     apply_magr(model, dataloader)
 
 
+@pytest_cases.parametrize("gpxq_key", ["gptq", "gpfq"])
+def test_gpxq_quant_mha(quant_mha_gpxq_model, gpxq_key):
+    # GPxQ descends into QuantMultiheadAttention and optimizes its internal projection
+    # QuantLinear layers, whose inputs are always in (L, N, E) layout. GPxQ preprocessing
+    # (transpose + reshape to [tokens, features]) is permutation-invariant w.r.t. the batch
+    # dimension, so this is coverage that GPxQ runs correctly on QuantMHA across PyTorch
+    # versions (with and without named-tensor support).
+    torch.manual_seed(SEED)
+
+    model_class = quant_mha_gpxq_model
+    model = model_class()
+    model.eval()
+
+    # DataLoader batches along dim 0; a per-sample tensor of (seq_len, embed_dim) yields
+    # batches that both batch_first settings can consume.
+    n_samples = 32
+    inp = torch.randn(n_samples, MHA_SEQ_LEN, MHA_EMBED_DIM)
+    with torch.no_grad():
+        model(inp[:MHA_BATCH_SIZE])  # forward pass to collect scaling factors
+
+    dataset = TensorDataset(inp, inp)
+    dataloader = DataLoader(dataset, batch_size=16, num_workers=0, pin_memory=True, shuffle=False)
+
+    apply_gpxq = apply_gpxq_func_map[gpxq_key]
+    apply_gpxq(calib_loader=dataloader, model=model, act_order=False, use_quant_activations=False)
+
+    with torch.no_grad():
+        out = model(inp[:MHA_BATCH_SIZE])
+    assert torch.isfinite(out).all()
+
+
 class _MockAXEMixin(AXEMixin):
     # Minimal AXEMixin host that exposes get_thresholds without a real layer or context manager.
     # We bypass AXEMixin.__init__ (which needs a layer) and set only what get_thresholds reads.
