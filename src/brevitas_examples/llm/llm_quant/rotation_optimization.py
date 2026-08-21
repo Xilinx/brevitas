@@ -3,6 +3,7 @@
 
 import copy
 from dataclasses import dataclass
+import os
 from typing import Any
 from typing import Callable
 from typing import Dict
@@ -59,7 +60,9 @@ def _select_rotation_params(
 
 
 def _is_fsdp_enabled(training_args: transformers.TrainingArguments) -> bool:
-    return training_args.distributed_state.distributed_type == DistributedType.FSDP
+    return (
+        training_args.distributed_state.distributed_type == DistributedType.FSDP or
+        os.environ.get("ACCELERATE_USE_FSDP", "false").lower() == "true")
 
 
 class RotationTrainer(GeneralizedTrainer):
