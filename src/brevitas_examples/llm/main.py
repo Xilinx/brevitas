@@ -672,7 +672,7 @@ def quantize_llm(args, extra_args=None):
             training_args = parse_rotation_optimization_args(
                 extra_args=fine_tune_extra_args, trainer_cls=custom_trainer_cls)
             fsdp_enabled = _is_fsdp_enabled(training_args)
-            is_main_process = training_args.distributed_state.is_main_process
+            is_main_process = int(os.environ.get("RANK", "0")) == 0
             if fsdp_enabled:
                 remove_hooks(model)
             copied_model = (
