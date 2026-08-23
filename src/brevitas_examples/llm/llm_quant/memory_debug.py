@@ -60,6 +60,22 @@ def optimizer_memory_bytes(optimizer: Optional[torch.optim.Optimizer]) -> int:
     return _nested_tensor_bytes(optimizer.state)
 
 
+def stale_tracked_parameter_bytes(model: Optional[torch.nn.Module]) -> int:
+    if model is None:
+        return 0
+    current_parameters = {id(parameter) for parameter in model.parameters()}
+    stale_parameters = {}
+    for module in model.modules():
+        for proxy_name in ('weight_quant', 'bias_quant'):
+            proxy = getattr(module, proxy_name, None)
+            injector = getattr(proxy, 'quant_injector', None)
+            tracked_parameters = getattr(injector, 'tracked_parameter_list', ())
+            for parameter in tracked_parameters:
+                if id(parameter) not in current_parameters:
+                    stale_parameters[id(parameter)] = parameter
+    return sum(_tensor_bytes(parameter) for parameter in stale_parameters.values())
+
+
 def log_memory(
         label: str,
         model: Optional[torch.nn.Module] = None,
@@ -80,6 +96,7 @@ def log_memory(
     external = max(device_used - reserved, 0)
     parameter_bytes, gradient_bytes, quantizer_bytes = model_memory_bytes(model)
     optimizer_bytes = optimizer_memory_bytes(optimizer)
+    stale_parameter_bytes = stale_tracked_parameter_bytes(model)
     rank = int(os.environ.get('RANK', '0'))
     device = torch.cuda.current_device()
 
@@ -94,7 +111,8 @@ def log_memory(
         f"parameters={parameter_bytes / _GIB:.2f}GiB "
         f"gradients={gradient_bytes / _GIB:.2f}GiB "
         f"optimizer={optimizer_bytes / _GIB:.2f}GiB "
-        f"quantizer_parameters={quantizer_bytes / _GIB:.2f}GiB",
+        f"quantizer_parameters={quantizer_bytes / _GIB:.2f}GiB "
+        f"stale_tracked_parameters={stale_parameter_bytes / _GIB:.2f}GiB",
         flush=True)
 
 
