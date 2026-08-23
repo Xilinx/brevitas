@@ -47,7 +47,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'api_reference/brevitas.core.stats';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.15.3';
-        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://xilinx.github.io/brevitas/dev/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://xilinx.github.io/brevitas/master/_static/versions.json';
         DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'v0.10.0';
         DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
         </script>
@@ -190,20 +190,28 @@
   </a>
 </li>
 
-
-<li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../faq.html">
+            <li class="nav-item dropdown pst-header-nav-item">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../faq.html">
     FAQ
   </a>
 </li>
 
 
-<li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../about.html">
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../about.html">
     About
   </a>
 </li>
 
+                </ul>
+            </li>
+            
   </ul>
 </nav></div>
       
@@ -573,66 +581,6 @@ registered hooks while the latter silently ignores them.</p>
 </dd></dl>
 
 <dl class="py class">
-<dt class="sig sig-object py" id="brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.stats.stats_op.</span></span><span class="sig-name descname"><span class="pre">HalfQuadraticOptimizerScale</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">proxy_module</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hqo_init_op_scale</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keepdim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inner_stats_input_view_shape_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_min_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stats_reduce_dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">int_scaling_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit_width_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hqo_beta_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hqo_kappa_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hqo_lp_norm_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.7</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hqo_iters_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#HalfQuadraticOptimizerScale"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/2.7/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
-<dl class="py method">
-<dt class="sig sig-object py" id="brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale.forward">
-<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#HalfQuadraticOptimizerScale.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Define the computation performed at every call.</p>
-<p>Should be overridden by all subclasses.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Although the recipe for forward pass needs to be defined within
-this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
-instead of this since the former takes care of running the
-registered hooks while the latter silently ignores them.</p>
-</div>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale.optimize">
-<span class="sig-name descname"><span class="pre">optimize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#HalfQuadraticOptimizerScale.optimize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale.optimize" title="Permalink to this definition">#</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale.parameter_search">
-<span class="sig-name descname"><span class="pre">parameter_search</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#HalfQuadraticOptimizerScale.parameter_search"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale.parameter_search" title="Permalink to this definition">#</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.stats.stats_op.</span></span><span class="sig-name descname"><span class="pre">HalfQuadraticOptimizerZeroPoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">proxy_module</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keepdim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hqo_init_op_zp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inner_stats_input_view_shape_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stats_reduce_dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hqo_beta_zp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hqo_kappa_zp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hqo_lp_norm_zp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hqo_iters_zp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#HalfQuadraticOptimizerZeroPoint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/2.7/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
-<dl class="py method">
-<dt class="sig sig-object py" id="brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint.forward">
-<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#HalfQuadraticOptimizerZeroPoint.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Define the computation performed at every call.</p>
-<p>Should be overridden by all subclasses.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Although the recipe for forward pass needs to be defined within
-this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
-instead of this since the former takes care of running the
-registered hooks while the latter silently ignores them.</p>
-</div>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint.optimize">
-<span class="sig-name descname"><span class="pre">optimize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#HalfQuadraticOptimizerZeroPoint.optimize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint.optimize" title="Permalink to this definition">#</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint.parameter_search">
-<span class="sig-name descname"><span class="pre">parameter_search</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#HalfQuadraticOptimizerZeroPoint.parameter_search"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint.parameter_search" title="Permalink to this definition">#</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.KLMinimizerThreshold">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.stats.stats_op.</span></span><span class="sig-name descname"><span class="pre">KLMinimizerThreshold</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">signed</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit_width_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">smoothing_eps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0001</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#KLMinimizerThreshold"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.KLMinimizerThreshold" title="Permalink to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/2.7/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
@@ -851,40 +799,6 @@ registered hooks while the latter silently ignores them.</p>
 
 </dd></dl>
 
-<dl class="py function">
-<dt class="sig sig-object py" id="brevitas.core.stats.stats_op.masked_median">
-<span class="sig-prename descclassname"><span class="pre">brevitas.core.stats.stats_op.</span></span><span class="sig-name descname"><span class="pre">masked_median</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keepdim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#masked_median"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.masked_median" title="Permalink to this definition">#</a></dt>
-<dd><p>Compute the median of tensor x along dim, ignoring values where mask is False.
-x and mask need to be broadcastable.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>x</strong> (<em>Tensor</em>) – Tensor to compute median of.</p></li>
-<li><p><strong>mask</strong> (<em>BoolTensor</em>) – Same shape as x with True where x is valid and False
-where x should be masked. Mask should not be all False in any column of
-dimension dim to avoid NaNs from zero division.</p></li>
-<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3.10/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a><em>, </em><em>optional</em>) – Dimension to take median of. Defaults to 0.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Same shape as x, except dimension dim reduced.</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Tensor</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="brevitas.core.stats.stats_op.shrink_lp_op">
-<span class="sig-prename descclassname"><span class="pre">brevitas.core.stats.stats_op.</span></span><span class="sig-name descname"><span class="pre">shrink_lp_op</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lp_norm</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#shrink_lp_op"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.shrink_lp_op" title="Permalink to this definition">#</a></dt>
-<dd><dl class="field-list simple">
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.7/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
-</dd>
-</dl>
-</dd></dl>
-
 </section>
 <section id="module-brevitas.core.stats.stats_wrapper">
 <span id="brevitas-core-stats-stats-wrapper-module"></span><h2>brevitas.core.stats.stats_wrapper module<a class="headerlink" href="#module-brevitas.core.stats.stats_wrapper" title="Permalink to this heading">#</a></h2>
@@ -969,18 +883,6 @@ dimension dim to avoid NaNs from zero division.</p></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.AbsPercentile.forward"><code class="docutils literal notranslate"><span class="pre">AbsPercentile.forward()</span></code></a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale"><code class="docutils literal notranslate"><span class="pre">HalfQuadraticOptimizerScale</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale.forward"><code class="docutils literal notranslate"><span class="pre">HalfQuadraticOptimizerScale.forward()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale.optimize"><code class="docutils literal notranslate"><span class="pre">HalfQuadraticOptimizerScale.optimize()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale.parameter_search"><code class="docutils literal notranslate"><span class="pre">HalfQuadraticOptimizerScale.parameter_search()</span></code></a></li>
-</ul>
-</li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint"><code class="docutils literal notranslate"><span class="pre">HalfQuadraticOptimizerZeroPoint</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint.forward"><code class="docutils literal notranslate"><span class="pre">HalfQuadraticOptimizerZeroPoint.forward()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint.optimize"><code class="docutils literal notranslate"><span class="pre">HalfQuadraticOptimizerZeroPoint.optimize()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint.parameter_search"><code class="docutils literal notranslate"><span class="pre">HalfQuadraticOptimizerZeroPoint.parameter_search()</span></code></a></li>
-</ul>
-</li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.KLMinimizerThreshold"><code class="docutils literal notranslate"><span class="pre">KLMinimizerThreshold</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.KLMinimizerThreshold.forward"><code class="docutils literal notranslate"><span class="pre">KLMinimizerThreshold.forward()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.KLMinimizerThreshold.smooth_normalize_distribution"><code class="docutils literal notranslate"><span class="pre">KLMinimizerThreshold.smooth_normalize_distribution()</span></code></a></li>
@@ -1023,8 +925,6 @@ dimension dim to avoid NaNs from zero division.</p></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.PercentileInterval.forward"><code class="docutils literal notranslate"><span class="pre">PercentileInterval.forward()</span></code></a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.masked_median"><code class="docutils literal notranslate"><span class="pre">masked_median()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.shrink_lp_op"><code class="docutils literal notranslate"><span class="pre">shrink_lp_op()</span></code></a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-brevitas.core.stats.stats_wrapper">brevitas.core.stats.stats_wrapper module</a></li>
