@@ -1,5 +1,0 @@
-{
-  "path": "../../../notebooks/quantized_recurrent.ipynb",
-  "extra-media": [
-  ]
-}
