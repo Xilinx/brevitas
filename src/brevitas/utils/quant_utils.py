@@ -219,33 +219,12 @@ def float_to_int_impl_to_enum(module):
         return None
 
 
-# For old versions of pytorch (2.3.1), this is needed otherwise compile skips this function
 @brevitas_compiler.disable
-def groupwise_dequant_expand_value(value_, group_dim, dequant_shape):
-    start_dim = group_dim if group_dim >= 0 else group_dim - 1
-    new_value = value_.flatten(start_dim, start_dim + 1)
-
-    unpadding_shape = dequant_shape[group_dim]
-    residual = new_value.shape[group_dim] - unpadding_shape
-    if residual > 0:
-        new_value = torch.stack(
-            torch.unbind(new_value, dim=group_dim)[:unpadding_shape], dim=group_dim)
-    return new_value
-
-
-@brevitas_compiler.disable
-def groupwise_dequant_expand(value_, scale_, zero_point_, group_dim, dequant_shape):
+def groupwise_dequant_expand(
+        value_, scale_, zero_point_, group_dim, dequant_shape, expand_metadata=True):
     curr_shape = value_.shape
     start_dim = group_dim if group_dim >= 0 else group_dim - 1
     new_value = value_.flatten(start_dim, start_dim + 1)
-    if scale_.shape != ():
-        new_scale = scale_.expand(curr_shape).flatten(start_dim, start_dim + 1)
-    else:
-        new_scale = scale_
-    if zero_point_.shape != ():
-        new_zp = zero_point_.expand(curr_shape).flatten(start_dim, start_dim + 1)
-    else:
-        new_zp = zero_point_
 
     # If we padded during quantization, we unpad here:
     # First, we compute how much we padded along the group_dim shape
@@ -257,6 +236,20 @@ def groupwise_dequant_expand(value_, scale_, zero_point_, group_dim, dequant_sha
     if residual > 0:
         new_value = torch.stack(
             torch.unbind(new_value, dim=group_dim)[:unpadding_shape], dim=group_dim)
+
+    if not expand_metadata:
+        return new_value, scale_, zero_point_
+
+    if scale_.shape != ():
+        new_scale = scale_.expand(curr_shape).flatten(start_dim, start_dim + 1)
+    else:
+        new_scale = scale_
+    if zero_point_.shape != ():
+        new_zp = zero_point_.expand(curr_shape).flatten(start_dim, start_dim + 1)
+    else:
+        new_zp = zero_point_
+
+    if residual > 0:
         new_scale = torch.stack(
             torch.unbind(new_scale, dim=group_dim)[:unpadding_shape], dim=group_dim)
         if zero_point_.shape != ():

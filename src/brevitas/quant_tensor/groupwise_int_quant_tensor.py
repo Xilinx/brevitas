@@ -75,10 +75,15 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, IntMixin, QuantTensor)
             kwargs = _unpack_quant_tensor(kwargs)
             return func(*args, **kwargs)
 
-    def expand(self):
+    def expand(self, expand_metadata=True):
         from brevitas.utils.quant_utils import groupwise_dequant_expand
         return groupwise_dequant_expand(
-            self.value_, self.scale_, self.zero_point_, self.group_dim, self.dequant_shape)
+            self.value_,
+            self.scale_,
+            self.zero_point_,
+            self.group_dim,
+            self.dequant_shape,
+            expand_metadata=expand_metadata)
 
     @staticmethod
     def from_expanded(value, group_size, group_dim, compress=False):
@@ -99,8 +104,8 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, IntMixin, QuantTensor)
 
     @property
     def value(self):
-        from brevitas.utils.quant_utils import groupwise_dequant_expand_value
-        return groupwise_dequant_expand_value(self.value_, self.group_dim, self.dequant_shape)
+        new_value, _, _ = self.expand(expand_metadata=False)
+        return new_value
 
     @property
     def scale(self):

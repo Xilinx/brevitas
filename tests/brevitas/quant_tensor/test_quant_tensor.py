@@ -21,7 +21,6 @@ from brevitas.utils.quant_utils import _CachedIO
 from brevitas.utils.quant_utils import _CachedIOFloat
 from brevitas.utils.quant_utils import _CachedIOGroupwiseFloat
 from brevitas.utils.quant_utils import groupwise_dequant_expand
-from brevitas.utils.quant_utils import groupwise_dequant_expand_value
 
 
 class Operator(Enum):
