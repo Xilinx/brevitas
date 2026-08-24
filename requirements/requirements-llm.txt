@@ -1,4 +1,4 @@
-accelerate>=1.14.0,<2
+accelerate
 datasets
 gguf==0.18.0
 numexpr<2.14.0
@@ -7,6 +7,6 @@ onnxruntime
 optimum
 pandas
 pydantic
-torch>=2.6
+torch>=2.4
 tqdm
-transformers[sentencepiece]>=5.15.1,<6
+transformers[sentencepiece]>=4.52
