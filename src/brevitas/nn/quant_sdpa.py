@@ -217,6 +217,12 @@ class QuantScaledDotProductAttention(Module, LayerProtocol, ExportMixin):
                 attn_bias.masked_fill_(attn_mask.logical_not(), float("-inf"))
             else:
                 attn_bias += attn_mask
+        # A query row masked out entirely makes attn_bias all -inf, and softmax turns that
+        # into NaN. F.scaled_dot_product_attention returns 0 for such rows, so neutralise
+        # the bias here and zero the weights after the softmax to match, which keeps both
+        # the output and its gradient finite.
+        fully_masked_row = torch.isneginf(attn_bias).all(dim=-1, keepdim=True)
+        attn_bias = attn_bias.masked_fill(fully_masked_row, 0.0)
         query, key, value = self.pre_process_q(query), self.pre_process_k(key), self.pre_process_v(value)
 
         if enable_gqa:
@@ -229,6 +235,7 @@ class QuantScaledDotProductAttention(Module, LayerProtocol, ExportMixin):
         attn_weight += attn_bias
         attn_weight = self.softmax_input_quant(attn_weight)
         attn_weight = torch.softmax(attn_weight, dim=-1)
+        attn_weight = attn_weight.masked_fill(fully_masked_row, 0.0)
         attn_weight = torch.dropout(attn_weight, dropout_p, train=True)
         attn_weight = self.attn_output_weights_quant(attn_weight)
         attn_output = attn_weight @ self.v_quant(value)

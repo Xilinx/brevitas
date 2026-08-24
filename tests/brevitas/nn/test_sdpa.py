@@ -163,3 +163,29 @@ class TestScaledDotProductAttention:
         out = qm(q, k, v, attn_mask, **extra_kwargs)
         assert torch.isclose(out, ref_out, atol=ATOL).all()
         assert torch.isclose(out, ref_out, atol=ATOL).all()
+
+    @requires_pt_ge('2.0')
+    def test_sdpa_quant_disabled_fully_masked_row(self):
+        kv_length = PAST_SEQUENCE_LENGTH + SEQUENCE_LENGTH
+        m = ScaledDotProductAttention()
+        qm = QuantScaledDotProductAttention(
+            softmax_input_quant=None,
+            attn_output_weights_quant=None,
+            q_scaled_quant=None,
+            k_transposed_quant=None,
+            v_quant=None,
+            sdpa_output_quant=None,
+        )
+        q = torch.randn(BATCH_SIZE, HEAD_DIM, SEQUENCE_LENGTH, EMBED_DIM, requires_grad=True)
+        k = torch.randn(BATCH_SIZE, HEAD_DIM, kv_length, EMBED_DIM, requires_grad=True)
+        v = torch.randn(BATCH_SIZE, HEAD_DIM, kv_length, EMBED_DIM, requires_grad=True)
+        # Deterministically force one fully-masked query row.
+        attn_mask = torch.ones(BATCH_SIZE, 1, SEQUENCE_LENGTH, kv_length, dtype=torch.bool)
+        attn_mask[0, 0, 1, :] = False
+        ref_out = m(q, k, v, attn_mask)
+        out = qm(q, k, v, attn_mask)
+        assert not out.isnan().any()
+        assert torch.isclose(out, ref_out, atol=ATOL).all()
+        # A fully-masked row must not poison gradients either.
+        out.sum().backward()
+        assert q.grad.isfinite().all() and k.grad.isfinite().all() and v.grad.isfinite().all()
