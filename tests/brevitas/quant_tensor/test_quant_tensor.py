@@ -232,3 +232,47 @@ def test_mx_quant_tensor(metadata_only, bit_width=8, exponent_bit_width=4, manti
     assert cache.exponent_bit_width == exponent_bit_width
     assert cache.group_size == 32
     assert cache.group_dim == 1
+
+
+@pytest.mark.parametrize("device", ["cpu", "meta"])
+def test_groupwise_float_quant_tensor_device(device):
+    device = torch.device(device)
+    quant_tensor = GroupwiseFloatQuantTensor(
+        value=torch.empty((1, 1, 2), device=device),
+        scale=torch.tensor(1.0, device=device),
+        zero_point=torch.tensor(0.0, device=device),
+        group_size=2,
+        group_dim=1,
+        exponent_bit_width=torch.tensor(4.0, device=device),
+        mantissa_bit_width=torch.tensor(3.0, device=device),
+        exponent_bias=torch.tensor(7.0, device=device),
+        saturating=torch.tensor(True, device=device),
+        inf_values=[],
+        nan_values=[],
+        signed=torch.tensor(True, device=device),
+        training=torch.tensor(False, device=device),
+        dequant_shape=(1, 2))
+
+    assert quant_tensor.device == device
+
+    other_device = torch.device("meta" if device.type == "cpu" else "cpu")
+    mismatched_quant_tensor = quant_tensor._replace(scale_=torch.tensor(1.0, device=other_device))
+    with pytest.raises(RuntimeError, match="Value and metadata are on different devices"):
+        mismatched_quant_tensor.device
+
+
+@pytest.mark.parametrize("device", ["cpu", "meta"])
+def test_groupwise_int_quant_tensor_device(device):
+    device = torch.device(device)
+    quant_tensor = GroupwiseIntQuantTensor(
+        value=torch.empty((1, 1, 2), device=device),
+        scale=torch.tensor(1.0, device=device),
+        zero_point=torch.tensor(0.0, device=device),
+        group_size=2,
+        group_dim=1,
+        bit_width=torch.tensor(8.0, device=device),
+        signed=torch.tensor(True, device=device),
+        training=torch.tensor(False, device=device),
+        dequant_shape=(1, 2))
+
+    assert quant_tensor.device == device
