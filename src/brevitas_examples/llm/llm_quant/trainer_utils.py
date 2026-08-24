@@ -15,7 +15,6 @@ from typing import Tuple
 from typing import Type
 from typing import Union
 
-from accelerate.utils import fsdp2_prepare_model
 import torch
 import torch.nn.functional as F
 from torch.optim.lr_scheduler import LRScheduler
@@ -385,7 +384,9 @@ class GeneralizedTrainer(Trainer):
         if self.optimizer is not None:
             return self.optimizer
         if self.args.optimizer_scheduler_args is None:
-            self.optimizer = super().create_optimizer(model=model)
+            self.optimizer = (
+                super().create_optimizer() if model is None else super().create_optimizer(
+                    model=model))
         else:
             optimizer_model = self.model if model is None else model
             self.optimizer, self.lr_scheduler = _build_optimizers_from_configs(
@@ -397,6 +398,7 @@ class GeneralizedTrainer(Trainer):
         if self.teacher_model is not None and self.is_fsdp_enabled:
             if not self.accelerator.is_fsdp2:
                 raise RuntimeError("LLM distributed fine-tuning supports FSDP2 only.")
+            from accelerate.utils import fsdp2_prepare_model
             self.teacher_model = fsdp2_prepare_model(self.accelerator, self.teacher_model)
         return wrapped
 

@@ -13,6 +13,7 @@ from typing import Type
 
 from accelerate.utils import DistributedType
 from datasets import Dataset
+from packaging import version
 import torch
 import transformers
 from transformers import Trainer
@@ -63,6 +64,23 @@ def _is_fsdp_enabled(training_args: transformers.TrainingArguments) -> bool:
     return (
         training_args.distributed_state.distributed_type == DistributedType.FSDP or
         os.environ.get("ACCELERATE_USE_FSDP", "false").lower() == "true")
+
+
+def _validate_fsdp_dependencies() -> None:
+    import accelerate
+
+    requirements = {
+        "PyTorch": (torch.__version__, "2.6", None),
+        "Accelerate": (accelerate.__version__, "1.14.0", "2"),
+        "Transformers": (transformers.__version__, "5.15.1", "6"),}
+    unsupported = [
+        f"{name}=={installed} (requires >={minimum}" +
+        (f",<{maximum}" if maximum is not None else "") + ")"
+        for name, (installed, minimum, maximum) in requirements.items()
+        if version.parse(installed) < version.parse(minimum) or
+        (maximum is not None and version.parse(installed) >= version.parse(maximum))]
+    if unsupported:
+        raise RuntimeError("LLM FSDP2 fine-tuning requires " + "; ".join(unsupported) + ".")
 
 
 class RotationTrainer(GeneralizedTrainer):
@@ -192,6 +210,8 @@ def apply_fine_tuning(
     # Prepare model for training
     model = _prepare_model(model)
     fsdp_enabled = _is_fsdp_enabled(training_args)
+    if fsdp_enabled:
+        _validate_fsdp_dependencies()
     if skip_training:
         if fsdp_enabled:
             training_args.distributed_state.destroy_process_group()
@@ -206,12 +226,14 @@ def apply_fine_tuning(
 
     trainer_kwargs: Dict[str, Any] = dict(
         model=model,
-        # `tokenizer` renamed to `processing_class` in transformers 4.46, removed in 5.x.
-        processing_class=tokenizer,
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=None,
         data_collator=collate_fn)
+    if version.parse(transformers.__version__) >= version.parse("5"):
+        trainer_kwargs["processing_class"] = tokenizer
+    else:
+        trainer_kwargs["tokenizer"] = tokenizer
 
     # Wire the teacher model whenever the selected trainer is a
     # GeneralizedTrainer subclass and distillation loss is enabled.
