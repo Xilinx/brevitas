@@ -22,8 +22,9 @@ PAST_SEQUENCE_LENGTH = 5
 DROPOUT_SEED = 42
 FULLY_MASKED_SEED = 0
 # F.scaled_dot_product_attention only started returning 0 rather than NaN for a fully
-# masked attention row in 2.5.0, so it is not a usable reference before that.
-FULLY_MASKED_REF_VERSION = version.parse('2.5.0')
+# masked attention row in 2.5.0. Before that it returns NaN, so it cannot serve as a
+# reference for any test that compares against it.
+FULLY_MASKED_REF_VERSION = '2.5.0'
 
 
 class TestScaledDotProductAttention:
@@ -73,7 +74,10 @@ class TestScaledDotProductAttention:
                 checked = True
             assert checked, f"Unmatched kwarg: {k}"
 
-    @requires_pt_ge('2.0')
+    # A random mask can fully mask out a query row, which `F.scaled_dot_product_attention`
+    # only handles from `FULLY_MASKED_REF_VERSION` onwards, so this comparison is not
+    # meaningful before then.
+    @requires_pt_ge(FULLY_MASKED_REF_VERSION)
     @pytest.mark.parametrize("dropout_p", [0.0, 0.5])
     @pytest.mark.parametrize("is_causal", [True, False])
     @pytest.mark.parametrize("scale", [None, 0.3])
@@ -116,7 +120,10 @@ class TestScaledDotProductAttention:
         assert torch.isclose(out, ref_out, atol=ATOL).all()
         assert torch.isclose(out, ref_out, atol=ATOL).all()
 
-    @requires_pt_ge('2.0')
+    # A random mask can fully mask out a query row, for which Brevitas returns 0 while
+    # `F.scaled_dot_product_attention` returns NaN before `FULLY_MASKED_REF_VERSION`, so
+    # this comparison is not meaningful before then.
+    @requires_pt_ge(FULLY_MASKED_REF_VERSION)
     @pytest.mark.parametrize("dropout_p", [0.0, 0.5])
     @pytest.mark.parametrize("is_causal", [True, False])
     @pytest.mark.parametrize("scale", [None, 0.3])
@@ -197,7 +204,7 @@ class TestScaledDotProductAttention:
         assert not out.isnan().any()
         assert all(g.isfinite().all() for g in grads)
         # Where native SDPA is a usable reference, the values must match it too.
-        if torch_version >= FULLY_MASKED_REF_VERSION:
+        if torch_version >= version.parse(FULLY_MASKED_REF_VERSION):
             ref_out = ScaledDotProductAttention()(q, k, v, attn_mask)
             ref_grads = torch.autograd.grad(ref_out.sum(), (q, k, v))
             assert torch.isclose(out, ref_out, atol=ATOL).all()
