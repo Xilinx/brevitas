@@ -181,36 +181,26 @@ def set_seed(seed):
     torch.random.manual_seed(seed)
 
 
+def align_model_to_cached_act_device(model):
+    # Accelerate may leave parameters on CPU while cached scales remain on the execution device.
+    for module in model.modules():
+        cached_act = getattr(module, '_cached_act', None)
+        if cached_act is not None and getattr(cached_act, 'scale', None) is not None:
+            return model.to(cached_act.scale.device), cached_act.scale.device
+    export_device = next(model.parameters()).device
+    return model.to(export_device), export_device
+
+
 def model_export(model, tokenizer, ref_input, args, config=None):
     if args.export_target == 'onnx_qcdq':
-        # Optional dependency; constrains transformers < 4.58 (see llm_onnx_export extra).
-        try:
-            from optimum.exporters.onnx import onnx_export_from_model
-        except ImportError as e:
-            raise ImportError(
-                "ONNX QCDQ export of LLMs requires `optimum`, which is an optional "
-                "dependency. Install it with `pip install brevitas[llm_onnx_export]` "
-                "(note: this currently constrains `transformers` to < 4.58).") from e
+        model, export_device = align_model_to_cached_act_device(model)
+        from optimum.exporters.onnx import onnx_export_from_model
 
         if args.weight_quant_granularity == 'per_group':
             export_manager = BlockQuantProxyLevelManager
         else:
             export_manager = StdQCDQONNXManager
             export_manager.change_weight_export(export_weight_q_node=True)
-
-        # Align the model to the device of the cached activation scales. When offloaded
-        # with accelerate, parameters may be on CPU but cached scales on the execution
-        # device; .to() does not move non-buffer tensors, so we derive the target device
-        # from the scales rather than model.parameters().
-        export_device = None
-        for m in model.modules():
-            cached_act = getattr(m, "_cached_act", None)
-            if cached_act is not None and getattr(cached_act, "scale", None) is not None:
-                export_device = cached_act.scale.device
-                break
-        if export_device is None:
-            export_device = next(model.parameters()).device
-        model = model.to(export_device)
 
         print(f"Exporting the model in ./{args.export_prefix}")
         with torch.no_grad(), brevitas_proxy_export_mode(model, export_manager=export_manager):
@@ -235,6 +225,10 @@ def model_export(model, tokenizer, ref_input, args, config=None):
     elif args.export_target == 'vllm':
         from brevitas.export.inference.vLLM.manager import vLLMExportManager
 
+        model, export_device = align_model_to_cached_act_device(model)
+        ref_input = {
+            name: value.to(export_device) if isinstance(value, torch.Tensor) else value for name,
+            value in ref_input.items()}
         with quant_inference_mode(model, export_manager=vLLMExportManager) as export_mode:
             model(**ref_input)
             export_mode.export_manager.export(model, tokenizer, args.export_prefix)

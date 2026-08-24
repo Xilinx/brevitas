@@ -545,6 +545,14 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
         args.fine_tune = True
     if not args.fine_tune:
         assert extra_args is None or len(extra_args) == 0, f"The following unknown arguments were passed: {[extra_arg for extra_arg in extra_args if extra_arg.startswith('--')]}"
+    if args.export_target == 'onnx_qcdq':
+        try:
+            from optimum.exporters.onnx import onnx_export_from_model
+        except ImportError as e:
+            raise ImportError(
+                "ONNX QCDQ export of LLMs requires `optimum`, which is an optional "
+                "dependency. Install it with `pip install \"brevitas[llm,export]\"`.") from e
+        del onnx_export_from_model
     if args.rotation == 'fx':
         assert args.ln_affine_merge, 'Graph rotation requires to merge LN/RMS norm affine parameters'
         assert args.replace_rmsnorm, 'Graph rotation requires to replace HF RMSNorm with PyTorch ones (torch 2.4+ require)'
