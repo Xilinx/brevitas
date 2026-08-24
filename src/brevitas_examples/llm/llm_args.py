@@ -487,36 +487,6 @@ def create_args_parser() -> ArgumentParser:
         action="store_true",
         help='Compile for PTQ algorithms. Default %(default)s)')
     parser.add_argument(
-        '--quant-linear-checkpointing',
-        default=False,
-        action='store_true',
-        help='Checkpoint QuantLinear operations during training. Default: %(default)s')
-    parser.add_argument(
-        '--memory-efficient-weight-quant',
-        default=False,
-        action='store_true',
-        help='Use memory-efficient integer weight fake quantization. Default: %(default)s')
-    parser.add_argument(
-        '--quant-linear-recompute',
-        default=False,
-        action='store_true',
-        help='Recompute fake-quantized linear weights during backward. Default: %(default)s')
-    parser.add_argument(
-        '--memory-debug',
-        default=False,
-        action='store_true',
-        help='Report phase-local GPU memory usage. Default: %(default)s')
-    parser.add_argument(
-        '--memory-debug-steps',
-        type=int,
-        default=1,
-        help='Number of training microsteps to report. Default: %(default)s')
-    parser.add_argument(
-        '--memory-debug-snapshot',
-        type=str,
-        default=None,
-        help='Optional path for a PyTorch memory snapshot after the first optimizer step.')
-    parser.add_argument(
         '--compile-eval',
         default=False,
         action="store_true",
