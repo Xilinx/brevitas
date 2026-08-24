@@ -34,6 +34,7 @@ from brevitas.graph.utils import remove_weight_orig
 from brevitas.nn.quant_sdpa import ScaledDotProductAttention
 from brevitas.utils.logging import setup_logger
 from brevitas.utils.python_utils import hooked_on_a_function
+from brevitas_examples.common.accelerate_utils.accelerate import calc_gpu_device_map
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.accelerate_utils.accelerate import update_internal_dict
@@ -672,7 +673,10 @@ def quantize_llm(args, extra_args=None):
                 torch.cuda.empty_cache()
             # Remove hooks from training
             remove_hooks(model)
-            model = offload_model(model)
+            gpu_device_map = (
+                calc_gpu_device_map(
+                    device_ids=range(torch.cuda.device_count())) if fsdp_enabled else None)
+            model = offload_model(model, gpu_device_map=gpu_device_map)
             # Fuse rotation parametrizations with weights when rotations
             # were used (the function is a no-op when there are none).
             if args.rotation is not None:
@@ -800,9 +804,8 @@ def quantize_llm(args, extra_args=None):
 
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
                 model(**next(iter(calibration_loader)))
-                remove_hooks(model)
-                if fsdp_enabled:
-                    model = model.to("cuda:0")
+                if not fsdp_enabled:
+                    remove_hooks(model)
 
                 from brevitas_examples.llm.eval_lighteval import run_lighteval
                 few_shot_eval_results = run_lighteval(
