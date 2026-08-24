@@ -390,6 +390,25 @@ class FloatMixin:
         return value
 
 
+def make_fields_dynamo_traceable(*quant_tensor_classes) -> None:
+    """Replace the NamedTuple field descriptors with index-based properties.
+
+    Every field of a NamedTuple is a `_collections._tuplegetter`.  Dynamo sees a
+    data descriptor and resolves it eagerly against the instance it is tracing,
+    which raises `IndexError: tuple index out of range` and aborts compilation
+    outright - `fullgraph=False` does not downgrade it to a graph break.
+    Indexing the tuple traces fine, so route each field through `self[i]`.
+
+    Behaviour in eager mode is unchanged: the property returns the same object
+    the tuplegetter returned, and the tuple layout, `_replace` and `_make` are
+    untouched.  Only fields listed in `_fields` are replaced, so properties the
+    concrete classes define themselves (`signed`, `training`, ...) survive.
+    """
+    for qt_class in quant_tensor_classes:
+        for index, field in enumerate(qt_class._fields):
+            setattr(qt_class, field, property(lambda self, index=index: self[index]))
+
+
 def _unpack_quant_tensor(input_data):
     if isinstance(input_data, QuantTensor):
         return input_data.value
