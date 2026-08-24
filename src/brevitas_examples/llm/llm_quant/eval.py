@@ -42,13 +42,15 @@ def perplexity_statistic(nlls: np.ndarray) -> float:
     return np.exp(np.mean(nlls)).item()
 
 
-def compute_perplexity_std(nlls: List[torch.Tensor], n_resamples: int = 1000) -> float:
+def compute_perplexity_std(
+        nlls: List[torch.Tensor], n_resamples: int = 1000, seed: int = 0) -> float:
     return bootstrap(
         data=[nlls],
         statistic=perplexity_statistic,
         n_resamples=n_resamples,
         confidence_level=0.95,
         method="BCa",
+        random_state=seed,
     ).standard_error
 
 
@@ -116,6 +118,6 @@ def compute_perplexity(
             nlls.append(loss)
 
     ppl = torch.exp(torch.stack(nlls).mean())
-    ppl_std = compute_perplexity_std(nlls)
+    ppl_std = compute_perplexity_std(nlls, seed=seed)
 
     return ppl.item(), ppl_std
