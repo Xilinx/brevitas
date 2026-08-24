@@ -46,7 +46,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = '_modules/brevitas/core/utils';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.15.3';
-        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://xilinx.github.io/brevitas/dev/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://xilinx.github.io/brevitas/master/_static/versions.json';
         DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'v0.9.1';
         DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
         </script>
@@ -187,19 +187,19 @@
   </a>
 </li>
 
-
-<li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../../../faq.html">
-    FAQ
-  </a>
-</li>
-
             <li class="nav-item dropdown pst-header-nav-item">
                 <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
                     More
                 </button>
                 <ul id="pst-nav-more-links" class="dropdown-menu">
                     
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../faq.html">
+    FAQ
+  </a>
+</li>
+
+
 <li class="nav-item ">
   <a class="nav-link dropdown-item nav-internal" href="../../../about.html">
     About
@@ -428,9 +428,7 @@ document.write(`
 <span></span><span class="c1"># Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.</span>
 <span class="c1"># SPDX-License-Identifier: BSD-3-Clause</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tuple</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
@@ -513,29 +511,6 @@ document.write(`
 <div class="viewcode-block" id="ParameterWrapper.forward"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.utils.ParameterWrapper.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span></div></div>
-
-
-<div class="viewcode-block" id="SliceTensor"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.utils.SliceTensor">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">SliceTensor</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">subtensor_slice_list</span> <span class="o">=</span> <span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">Attribute</span><span class="p">([</span><span class="kc">None</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]])</span>
-
-<div class="viewcode-block" id="SliceTensor.eager_forward"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.utils.SliceTensor.eager_forward">[docs]</a>    <span class="nd">@torch</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ignore</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">eager_forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-        <span class="n">slices</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">slice</span><span class="p">(</span><span class="o">*</span><span class="n">s</span><span class="p">)</span> <span class="k">if</span> <span class="n">s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">slice</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">subtensor_slice_list</span><span class="p">)</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">slices</span><span class="p">]</span>
-        <span class="k">return</span> <span class="n">x</span></div>
-
-<div class="viewcode-block" id="SliceTensor.forward"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.utils.SliceTensor.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">is_scripting</span><span class="p">():</span>
-            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">subtensor_slice_list</span><span class="p">):</span>
-                <span class="k">if</span> <span class="n">s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">slice</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">s</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">s</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eager_forward</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">x</span></div></div>
 </pre></div>
 
                 </article>

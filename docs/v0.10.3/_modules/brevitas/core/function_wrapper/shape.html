@@ -46,7 +46,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = '_modules/brevitas/core/function_wrapper/shape';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.15.3';
-        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://xilinx.github.io/brevitas/dev/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://xilinx.github.io/brevitas/master/_static/versions.json';
         DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'v0.10.3';
         DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
         </script>
@@ -187,19 +187,19 @@
   </a>
 </li>
 
-
-<li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../../../../faq.html">
-    FAQ
-  </a>
-</li>
-
             <li class="nav-item dropdown pst-header-nav-item">
                 <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
                     More
                 </button>
                 <ul id="pst-nav-more-links" class="dropdown-menu">
                     
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../../faq.html">
+    FAQ
+  </a>
+</li>
+
+
 <li class="nav-item ">
   <a class="nav-link dropdown-item nav-internal" href="../../../../about.html">
     About
@@ -432,8 +432,7 @@ document.write(`
 <span class="sd">ScriptModule classes to compute the view of a tensor according to various different criteria.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tuple</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
@@ -444,7 +443,6 @@ document.write(`
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.function.shape</span><span class="w"> </span><span class="kn">import</span> <span class="n">over_output_channels</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.function.shape</span><span class="w"> </span><span class="kn">import</span> <span class="n">over_output_features</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.function.shape</span><span class="w"> </span><span class="kn">import</span> <span class="n">over_tensor</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.utils.torch_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">padding_to_multiple</span>
 
 
 <div class="viewcode-block" id="PermuteDims"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.PermuteDims">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">PermuteDims</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
@@ -480,7 +478,7 @@ document.write(`
 
 <div class="viewcode-block" id="OverOutputChannelView"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.OverOutputChannelView">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">OverOutputChannelView</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    ScriptModule to compute the :func:`~brevitas.function.shape.over_output_channels` view of an</span>
+<span class="sd">    ScriptMoodule to compute the :func:`~brevitas.function.shape.over_output_channels` view of an</span>
 <span class="sd">    input tensor.</span>
 
 <span class="sd">    Examples:</span>
@@ -582,52 +580,6 @@ document.write(`
         <span class="k">return</span> <span class="n">y</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span></div></div>
 
 
-<div class="viewcode-block" id="OverSubChannelBlockView"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.OverSubChannelBlockView">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">OverSubChannelBlockView</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
-    <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;expanded_groupwise_shape&#39;</span><span class="p">,</span> <span class="s1">&#39;group_size&#39;</span><span class="p">,</span> <span class="s1">&#39;group_dim&#39;</span><span class="p">]</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expanded_groupwise_shape</span><span class="p">,</span> <span class="n">group_size</span><span class="p">,</span> <span class="n">group_dim</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">super</span><span class="p">(</span><span class="n">OverSubChannelBlockView</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">expanded_groupwise_shape</span> <span class="o">=</span> <span class="n">expanded_groupwise_shape</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">group_dim</span> <span class="o">=</span> <span class="n">group_dim</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">group_size</span> <span class="o">=</span> <span class="n">group_size</span>
-
-<div class="viewcode-block" id="OverSubChannelBlockView.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.OverSubChannelBlockView.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
-        <span class="c1"># This one is a bit tricky but we could end up here:</span>
-        <span class="c1"># - If we quantize the zero point, which will already have expanded shape matching the scale (although no padding, but we don&#39;t need the padding)</span>
-        <span class="c1"># - Groupwise HQO quantization, where weight will already have been padded and expanded</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">expanded_groupwise_shape</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">x</span>
-        <span class="n">y</span> <span class="o">=</span> <span class="n">padding_to_multiple</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_size</span><span class="p">)</span>
-        <span class="n">y</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">expanded_groupwise_shape</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">y</span></div></div>
-
-
-<div class="viewcode-block" id="DynamicOverSubChannelBlockView"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.DynamicOverSubChannelBlockView">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">DynamicOverSubChannelBlockView</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
-    <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;group_size&#39;</span><span class="p">,</span> <span class="s1">&#39;group_dim&#39;</span><span class="p">]</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group_size</span><span class="p">,</span> <span class="n">group_dim</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">super</span><span class="p">(</span><span class="n">DynamicOverSubChannelBlockView</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">group_size</span> <span class="o">=</span> <span class="n">group_size</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">group_dim</span> <span class="o">=</span> <span class="n">group_dim</span>
-
-<div class="viewcode-block" id="DynamicOverSubChannelBlockView.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.DynamicOverSubChannelBlockView.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
-
-        <span class="n">tensor_shape</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span>
-        <span class="n">tensor_shape_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">tensor_shape</span><span class="p">)</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">padding_to_multiple</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_size</span><span class="p">)</span>
-
-        <span class="n">tensor_shape</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span>
-        <span class="n">tensor_shape_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">tensor_shape</span><span class="p">)</span>
-        <span class="n">tensor_shape_list</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">group_dim</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">tensor_shape_list</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">group_dim</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_size</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_size</span>
-        <span class="n">block_dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_dim</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_dim</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="n">tensor_shape_list</span><span class="p">)</span>
-        <span class="n">tensor_shape_list</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">block_dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_size</span><span class="p">)</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">tensor_shape_list</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">x</span></div></div>
-
-
 <div class="viewcode-block" id="StatsInputViewShapeImpl"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">StatsInputViewShapeImpl</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Enum-like object to collect pointers to variants of ScriptModules that perform a view on a tensor.</span>
@@ -637,9 +589,7 @@ document.write(`
     <span class="n">OVER_OUTPUT_CHANNELS</span> <span class="o">=</span> <span class="n">OverOutputChannelView</span>
     <span class="n">OVER_BATCH_OVER_TENSOR</span> <span class="o">=</span> <span class="n">OverBatchOverTensorView</span>
     <span class="n">OVER_BATCH_OVER_OUTPUT_CHANNELS</span> <span class="o">=</span> <span class="n">OverBatchOverOutputChannelView</span>
-    <span class="n">OVER_OUTPUT_FEATURES</span> <span class="o">=</span> <span class="n">OverOutputFeaturesView</span>
-    <span class="n">OVER_SUBCHANNEL_BLOCK</span> <span class="o">=</span> <span class="n">OverSubChannelBlockView</span>
-    <span class="n">DYNAMIC_OVER_SUBCHANNEL_BLOCK</span> <span class="o">=</span> <span class="n">DynamicOverSubChannelBlockView</span></div>
+    <span class="n">OVER_OUTPUT_FEATURES</span> <span class="o">=</span> <span class="n">OverOutputFeaturesView</span></div>
 </pre></div>
 
                 </article>

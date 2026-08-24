@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>brevitas.core.bit_width.const &#8212; Brevitas 0.12.1.dev10+g56c32c9c.d20250514 documentation</title>
+    <title>brevitas.core.bit_width.const &#8212; Brevitas Documentation - v0.9.1</title>
   
   
   
@@ -46,7 +46,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = '_modules/brevitas/core/bit_width/const';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.15.3';
-        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://giuseppe5.github.io/brevitas/dev/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://xilinx.github.io/brevitas/master/_static/versions.json';
         DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'v0.9.1';
         DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
         </script>
@@ -130,8 +130,8 @@
       
     
     
-    <img src="../../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.12.1.dev10+g56c32c9c.d20250514 documentation - Home"/>
-    <script>document.write(`<img src="../../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.12.1.dev10+g56c32c9c.d20250514 documentation - Home"/>`);</script>
+    <img src="../../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas Documentation - v0.9.1 - Home"/>
+    <script>document.write(`<img src="../../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas Documentation - v0.9.1 - Home"/>`);</script>
   
   
 </a></div>
@@ -187,20 +187,28 @@
   </a>
 </li>
 
-
-<li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../../../../faq.html">
+            <li class="nav-item dropdown pst-header-nav-item">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../../faq.html">
     FAQ
   </a>
 </li>
 
 
-<li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../../../../about.html">
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../../about.html">
     About
   </a>
 </li>
 
+                </ul>
+            </li>
+            
   </ul>
 </nav></div>
       
@@ -420,8 +428,6 @@ document.write(`
 <span></span><span class="c1"># Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.</span>
 <span class="c1"># SPDX-License-Identifier: BSD-3-Clause</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
-
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">Module</span>
@@ -452,14 +458,10 @@ document.write(`
 <span class="sd">        Maps to bit_width_impl_type == BitWidthImplType.CONST == &#39;CONST&#39; == &#39;const&#39; in higher-level APIs.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span>
-            <span class="n">bit_width</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-            <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-            <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">BitWidthConst</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bit_width</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">bit_width</span> <span class="o">=</span> <span class="n">StatelessBuffer</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">bit_width</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bit_width</span> <span class="o">=</span> <span class="n">StatelessBuffer</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">bit_width</span><span class="p">)))</span>
 
 <div class="viewcode-block" id="BitWidthConst.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.bit_width.html#brevitas.core.bit_width.const.BitWidthConst.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
@@ -489,15 +491,10 @@ document.write(`
 <span class="sd">        &#39;stateful_const&#39; in higher-level APIs.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span>
-            <span class="n">bit_width</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-            <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-            <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">BitWidthStatefulConst</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bit_width</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span>
-            <span class="s2">&quot;bit_width&quot;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">bit_width</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;bit_width&quot;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">bit_width</span><span class="p">)))</span>
 
 <div class="viewcode-block" id="BitWidthStatefulConst.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.bit_width.html#brevitas.core.bit_width.const.BitWidthStatefulConst.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>

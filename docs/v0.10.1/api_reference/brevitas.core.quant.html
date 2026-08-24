@@ -47,7 +47,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'api_reference/brevitas.core.quant';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.15.3';
-        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://xilinx.github.io/brevitas/dev/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://xilinx.github.io/brevitas/master/_static/versions.json';
         DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'v0.10.1';
         DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
         </script>
@@ -190,19 +190,19 @@
   </a>
 </li>
 
-
-<li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../faq.html">
-    FAQ
-  </a>
-</li>
-
             <li class="nav-item dropdown pst-header-nav-item">
                 <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
                     More
                 </button>
                 <ul id="pst-nav-more-links" class="dropdown-menu">
                     
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../faq.html">
+    FAQ
+  </a>
+</li>
+
+
 <li class="nav-item ">
   <a class="nav-link dropdown-item nav-internal" href="../about.html">
     About
@@ -462,7 +462,7 @@ document.write(`
 <span id="brevitas-core-quant-binary-module"></span><h2>brevitas.core.quant.binary module<a class="headerlink" href="#module-brevitas.core.quant.binary" title="Permalink to this heading">#</a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.quant.binary.BinaryQuant">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.quant.binary.</span></span><span class="sig-name descname"><span class="pre">BinaryQuant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scaling_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_delay_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/binary.html#BinaryQuant"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.binary.BinaryQuant" title="Permalink to this definition">#</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.quant.binary.</span></span><span class="sig-name descname"><span class="pre">BinaryQuant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scaling_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_delay_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/binary.html#BinaryQuant"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.binary.BinaryQuant" title="Permalink to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/2.7/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
 <p>ScriptModule that implements scaled uniform binary quantization of an input tensor.
 Quantization is performed with <a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.binary_sign_ste" title="brevitas.function.ops_ste.binary_sign_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">binary_sign_ste()</span></code></a>.</p>
@@ -826,64 +826,11 @@ registered hooks while the latter silently ignores them.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.quant.int.TruncIntQuant">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.quant.int.</span></span><span class="sig-name descname"><span class="pre">TruncIntQuant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">float_to_int_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit_width_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">trunc_scaling_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">TruncMsbScaling()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">narrow_range</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tensor_clamp_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">TensorClamp()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_delay_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int.html#TruncIntQuant"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int.TruncIntQuant" title="Permalink to this definition">#</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.quant.int.</span></span><span class="sig-name descname"><span class="pre">TruncIntQuant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">float_to_int_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit_width_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_delay_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int.html#TruncIntQuant"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int.TruncIntQuant" title="Permalink to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/2.7/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
-<p>ScriptModule that requantizes some integer quantization format to another integer quantization
-format. The signed parameter is maintained from the previous format.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>float_to_int_impl</strong> (<em>Module</em>) – Module that performs the conversion from floating point to
-integer representation.</p></li>
-<li><p><strong>bit_width_impl</strong> (<em>Module</em>) – Module that returns a bit-width.</p></li>
-<li><p><strong>trunc_scaling_impl</strong> (<em>Module</em>) – Module that returns the truncation scale, an extra
-multiplicative factor that is applied before the truncation. Default: TruncMsbScaling()</p></li>
-<li><p><strong>narrow_range</strong> (<a class="reference external" href="https://docs.python.org/3.10/library/functions.html#bool" title="(in Python v3.10)"><em>bool</em></a>) – Flag that determines whether restrict quantization to a narrow range
-or not. Default: False</p></li>
-<li><p><strong>tensor_clamp_impl</strong> (<em>Module</em>) – Module that performs clamping. Default: TensorClamp()</p></li>
-<li><p><strong>quant_delay_steps</strong> (<a class="reference external" href="https://docs.python.org/3.10/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a>) – Number of training steps to delay quantization for. Default: 0</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><dl class="simple">
-<dt>Quantized output in de-quantized format, scale,</dt><dd><p>zero-point, bit_width.</p>
-</dd>
-</dl>
-</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Tuple[Tensor, Tensor, Tensor, Tensor]</p>
-</dd>
-</dl>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.quant</span><span class="w"> </span><span class="kn">import</span> <span class="n">TruncIntQuant</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">RoundSte</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.bit_width</span><span class="w"> </span><span class="kn">import</span> <span class="n">BitWidthConst</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">trunc_quant</span> <span class="o">=</span> <span class="n">TruncIntQuant</span><span class="p">(</span><span class="n">RoundSte</span><span class="p">(),</span> <span class="n">BitWidthConst</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">,</span> <span class="n">signed</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.01</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">8.</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">([</span><span class="mf">0.04</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.31</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.44</span><span class="p">])</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">out</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">bit_width</span> <span class="o">=</span> <span class="n">trunc_quant</span><span class="p">(</span><span class="n">inp</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">,</span> <span class="n">signed</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">out</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">tensor</span><span class="p">([</span> <span class="mf">0.0000</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.0000</span><span class="p">,</span>  <span class="mf">0.3200</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.4800</span><span class="p">])</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">scale</span>
-<span class="go">tensor(0.1600)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">zero_point</span>
-<span class="go">tensor(0.)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">bit_width</span>
-<span class="go">tensor(4.)</span>
-</pre></div>
-</div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Maps to quant_type == QuantType.INT == ‘INT’ == ‘int’ in higher-level APIs.</p>
-</div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Set env variable BREVITAS_JIT=1 to enable TorchScript compilation of this module.</p>
-</div>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.quant.int.TruncIntQuant.forward">
-<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_point</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_bit_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signed</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int.html#TruncIntQuant.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int.TruncIntQuant.forward" title="Permalink to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_point</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_bit_width</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int.html#TruncIntQuant.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int.TruncIntQuant.forward" title="Permalink to this definition">#</a></dt>
 <dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
 :rtype: <a class="reference external" href="https://docs.python.org/3.10/library/typing.html#typing.Tuple" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://docs.pytorch.org/docs/2.7/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/2.7/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/2.7/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/2.7/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>]</p>
@@ -896,16 +843,6 @@ registered hooks while the latter silently ignores them.</p>
 </div>
 </dd></dl>
 
-<dl class="py method">
-<dt class="sig sig-object py" id="brevitas.core.quant.int.TruncIntQuant.max_int">
-<span class="sig-name descname"><span class="pre">max_int</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bit_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signed</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int.html#TruncIntQuant.max_int"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int.TruncIntQuant.max_int" title="Permalink to this definition">#</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="brevitas.core.quant.int.TruncIntQuant.min_int">
-<span class="sig-name descname"><span class="pre">min_int</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bit_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signed</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int.html#TruncIntQuant.min_int"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int.TruncIntQuant.min_int" title="Permalink to this definition">#</a></dt>
-<dd></dd></dl>
-
 </dd></dl>
 
 </section>
@@ -913,7 +850,7 @@ registered hooks while the latter silently ignores them.</p>
 <span id="brevitas-core-quant-int-base-module"></span><h2>brevitas.core.quant.int_base module<a class="headerlink" href="#module-brevitas.core.quant.int_base" title="Permalink to this heading">#</a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.quant.int_base.DecoupledIntQuant">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.quant.int_base.</span></span><span class="sig-name descname"><span class="pre">DecoupledIntQuant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">narrow_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signed</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_view_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">float_to_int_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">RoundSte()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tensor_clamp_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">TensorClamp()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_delay_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int_base.html#DecoupledIntQuant"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int_base.DecoupledIntQuant" title="Permalink to this definition">#</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.quant.int_base.</span></span><span class="sig-name descname"><span class="pre">DecoupledIntQuant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">narrow_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signed</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">float_to_int_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">RoundSte()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tensor_clamp_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">TensorClamp()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_delay_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int_base.html#DecoupledIntQuant"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int_base.DecoupledIntQuant" title="Permalink to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/2.7/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
 <p>ScriptModule that implements scale, shifted, uniform integer quantization of an input tensor,
 according to an input pre-scale, scale, pre-zero-point, zero-point and bit-width.</p>
@@ -989,7 +926,7 @@ registered hooks while the latter silently ignores them.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.quant.int_base.IntQuant">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.quant.int_base.</span></span><span class="sig-name descname"><span class="pre">IntQuant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">narrow_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signed</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_view_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">float_to_int_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">RoundSte()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tensor_clamp_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">TensorClamp()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_delay_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int_base.html#IntQuant"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int_base.IntQuant" title="Permalink to this definition">#</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.quant.int_base.</span></span><span class="sig-name descname"><span class="pre">IntQuant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">narrow_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signed</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">float_to_int_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">RoundSte()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tensor_clamp_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">TensorClamp()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_delay_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int_base.html#IntQuant"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int_base.IntQuant" title="Permalink to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/2.7/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
 <p>ScriptModule that implements scale, shifted, uniform integer quantization of an input tensor,
 according to an input scale, zero-point and bit-width.</p>
@@ -1012,7 +949,7 @@ integer representation. Default: RoundSte()</p></li>
 </dd>
 </dl>
 <p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.quant</span><span class="w"> </span><span class="kn">import</span> <span class="n">IntQuant</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.scaling</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConstScaling</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">int_quant</span> <span class="o">=</span> <span class="n">IntQuant</span><span class="p">(</span><span class="n">narrow_range</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">signed</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">bit_width</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.01</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">4.</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">([</span><span class="mf">0.042</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.053</span><span class="p">,</span> <span class="mf">0.31</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.44</span><span class="p">])</span>
@@ -1228,8 +1165,6 @@ registered hooks while the latter silently ignores them.</p>
 </li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.quant.int.TruncIntQuant"><code class="docutils literal notranslate"><span class="pre">TruncIntQuant</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.quant.int.TruncIntQuant.forward"><code class="docutils literal notranslate"><span class="pre">TruncIntQuant.forward()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.quant.int.TruncIntQuant.max_int"><code class="docutils literal notranslate"><span class="pre">TruncIntQuant.max_int()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.quant.int.TruncIntQuant.min_int"><code class="docutils literal notranslate"><span class="pre">TruncIntQuant.min_int()</span></code></a></li>
 </ul>
 </li>
 </ul>

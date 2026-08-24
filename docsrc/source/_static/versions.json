@@ -48,10 +48,5 @@
         "name": "v0.13.0",
         "version": "v0.13.0",
         "url": "https://xilinx.github.io/brevitas/v0.13.0/"
-    },
-    {
-        "name": "v0.13.1 (stable)",
-        "version": "v0.13.1",
-        "url": "https://xilinx.github.io/brevitas/v0.13.1/"
     }
 ]
