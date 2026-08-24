@@ -99,8 +99,8 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, IntMixin, QuantTensor)
 
     @property
     def value(self):
-        new_value, new_scale, new_zp = self.expand()
-        return new_value
+        from brevitas.utils.quant_utils import groupwise_dequant_expand_value
+        return groupwise_dequant_expand_value(self.value_, self.group_dim, self.dequant_shape)
 
     @property
     def scale(self):
@@ -116,11 +116,7 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, IntMixin, QuantTensor)
     def device(self):
         value_device = self.value_.device
         is_same_device = True
-        for t in [self.scale,
-                  self.zero_point,
-                  self.exponent_bit_width,
-                  self.mantissa_bit_width,
-                  self.exponent_bias]:
+        for t in [self.scale_, self.zero_point_, self.bit_width]:
             is_same_device &= value_device == t.device
         if not is_same_device:
             raise RuntimeError("Value and metadata are on different devices")

@@ -14,11 +14,14 @@ from brevitas.quant.float_quant_ocp import Fp8e5m2OCPActPerTensorFloat
 from brevitas.quant.mx_quant_ocp import MXFloat8e4m3Act
 from brevitas.quant_tensor import FloatQuantTensor
 from brevitas.quant_tensor import GroupwiseFloatQuantTensor
+from brevitas.quant_tensor import GroupwiseIntQuantTensor
 from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIO
 from brevitas.utils.quant_utils import _CachedIOFloat
 from brevitas.utils.quant_utils import _CachedIOGroupwiseFloat
+from brevitas.utils.quant_utils import groupwise_dequant_expand
+from brevitas.utils.quant_utils import groupwise_dequant_expand_value
 
 
 class Operator(Enum):
