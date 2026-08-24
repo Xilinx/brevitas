@@ -20,6 +20,10 @@ BATCH_SIZE = 2
 SEQUENCE_LENGTH = 4
 PAST_SEQUENCE_LENGTH = 5
 DROPOUT_SEED = 42
+FULLY_MASKED_SEED = 0
+# F.scaled_dot_product_attention only started returning 0 rather than NaN for a fully
+# masked attention row in 2.5.0, so it is not a usable reference before that.
+FULLY_MASKED_REF_VERSION = version.parse('2.5.0')
 
 
 class TestScaledDotProductAttention:
@@ -167,7 +171,6 @@ class TestScaledDotProductAttention:
     @requires_pt_ge('2.0')
     def test_sdpa_quant_disabled_fully_masked_row(self):
         kv_length = PAST_SEQUENCE_LENGTH + SEQUENCE_LENGTH
-        m = ScaledDotProductAttention()
         qm = QuantScaledDotProductAttention(
             softmax_input_quant=None,
             attn_output_weights_quant=None,
@@ -176,16 +179,27 @@ class TestScaledDotProductAttention:
             v_quant=None,
             sdpa_output_quant=None,
         )
+        # Fixed seed: the gradient comparison below runs close to ATOL, so it must not
+        # depend on ambient RNG state and therefore on test execution order.
+        torch.manual_seed(FULLY_MASKED_SEED)
         q = torch.randn(BATCH_SIZE, HEAD_DIM, SEQUENCE_LENGTH, EMBED_DIM, requires_grad=True)
         k = torch.randn(BATCH_SIZE, HEAD_DIM, kv_length, EMBED_DIM, requires_grad=True)
         v = torch.randn(BATCH_SIZE, HEAD_DIM, kv_length, EMBED_DIM, requires_grad=True)
         # Deterministically force one fully-masked query row.
         attn_mask = torch.ones(BATCH_SIZE, 1, SEQUENCE_LENGTH, kv_length, dtype=torch.bool)
         attn_mask[0, 0, 1, :] = False
-        ref_out = m(q, k, v, attn_mask)
         out = qm(q, k, v, attn_mask)
+        # Use autograd.grad rather than backward() so the reference pass below cannot
+        # accumulate into the same .grad buffers and make the comparison vacuous.
+        grads = torch.autograd.grad(out.sum(), (q, k, v))
+        # A fully-masked row must not produce NaN in either direction. This holds on every
+        # supported PyTorch version, since it only depends on the Brevitas implementation.
         assert not out.isnan().any()
-        assert torch.isclose(out, ref_out, atol=ATOL).all()
-        # A fully-masked row must not poison gradients either.
-        out.sum().backward()
-        assert q.grad.isfinite().all() and k.grad.isfinite().all() and v.grad.isfinite().all()
+        assert all(g.isfinite().all() for g in grads)
+        # Where native SDPA is a usable reference, the values must match it too.
+        if torch_version >= FULLY_MASKED_REF_VERSION:
+            ref_out = ScaledDotProductAttention()(q, k, v, attn_mask)
+            ref_grads = torch.autograd.grad(ref_out.sum(), (q, k, v))
+            assert torch.isclose(out, ref_out, atol=ATOL).all()
+            for g, ref_g in zip(grads, ref_grads):
+                assert torch.isclose(g, ref_g, atol=ATOL).all()
