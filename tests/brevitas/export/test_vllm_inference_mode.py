@@ -91,8 +91,10 @@ def test_vllm_groupwise_act_handler_exports_group_metadata(act_quantizer):
 
     with quant_inference_mode(identity, compile=False, export_manager=vLLMTestManager):
         identity(inp)
-        state_dict = identity.act_quant.export_handler.state_dict()
+        handler = identity.act_quant.export_handler
+        state_dict = handler.state_dict()
 
+    assert {'group_dim_t', 'group_size_t'} <= dict(handler.named_buffers()).keys()
     assert torch.equal(state_dict['group_dim_t'], torch.tensor(1, dtype=torch.int))
     assert torch.equal(state_dict['group_size_t'], torch.tensor(32, dtype=torch.int))
 
@@ -106,8 +108,10 @@ def test_vllm_groupwise_weight_handler_exports_group_metadata(weight_quantizer):
 
     with quant_inference_mode(linear, compile=False, export_manager=vLLMTestManager):
         linear(inp)
-        state_dict = linear.weight_quant.export_handler.state_dict()
+        handler = linear.weight_quant.export_handler
+        state_dict = handler.state_dict()
 
+    assert {'group_dim_t', 'group_size_t'} <= dict(handler.named_buffers()).keys()
     assert torch.equal(state_dict['group_dim_t'], torch.tensor(1, dtype=torch.int))
     assert torch.equal(state_dict['group_size_t'], torch.tensor(32, dtype=torch.int))
 

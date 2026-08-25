@@ -53,12 +53,18 @@ class StandaloneGroupwiseQuantMixin(DynamicScaleZeroPointMixin):
 
 class vLLMGroupwiseMetadataMixin:
 
-    def state_dict(self, destination=None, prefix='', keep_vars=False):
-        output_dict = super().state_dict(
-            destination=destination, prefix=prefix, keep_vars=keep_vars)
-        output_dict[prefix + 'group_dim_t'] = torch.tensor(self.group_dim, dtype=torch.int)
-        output_dict[prefix + 'group_size_t'] = torch.tensor(self.group_size, dtype=torch.int)
-        return output_dict
+    def __init__(self, **kwargs):
+        device = kwargs.get('device')
+        super().__init__(**kwargs)
+        self.register_buffer('group_dim_t', torch.zeros((), dtype=torch.int, device=device))
+        self.register_buffer('group_size_t', torch.ones((), dtype=torch.int, device=device))
+
+    def prepare_for_export(self, module):
+        super().prepare_for_export(module)
+        self.group_dim_t = torch.tensor(
+            self.group_dim, dtype=torch.int, device=self.group_dim_t.device)
+        self.group_size_t = torch.tensor(
+            self.group_size, dtype=torch.int, device=self.group_size_t.device)
 
 
 class vLLMGroupwiseIntInferenceHandler(vLLMGroupwiseMetadataMixin,
