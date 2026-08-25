@@ -8,6 +8,7 @@ from typing import Optional
 
 import numpy as np
 import torch
+import torch.nn.utils.parametrize as parametrize
 from transformers import TrainerCallback
 
 from brevitas.loss.weighted_bit_width import ActivationFloatBitWidthWeightedBySize
@@ -170,6 +171,48 @@ def _unique_bit_width_params(model: torch.nn.Module) -> List[torch.nn.Parameter]
     return params
 
 
+class _CastParameterForForward(torch.nn.Module):
+    """Expose a lower-precision forward view of a higher-precision master."""
+
+    def __init__(self, dtype: torch.dtype) -> None:
+        super().__init__()
+        self.dtype = dtype
+
+    def forward(self, master: torch.Tensor) -> torch.Tensor:
+        return master.to(dtype=self.dtype)
+
+
+def _parametrize_bit_width_params_for_forward(
+        model: torch.nn.Module, master_dtype: torch.dtype) -> None:
+    """Keep learned bit-width masters high precision without widening their forward use."""
+    for module in model.modules():
+        if not hasattr(module, "bit_width_offset"):
+            continue
+        if parametrize.is_parametrized(module, "bit_width_offset"):
+            continue
+        bit_width_offset = module.bit_width_offset
+        if not isinstance(bit_width_offset, torch.nn.Parameter):
+            continue
+        if bit_width_offset.dtype == master_dtype:
+            continue
+        parametrize.register_parametrization(
+            module, "bit_width_offset", _CastParameterForForward(bit_width_offset.dtype))
+
+
+def remove_bit_width_forward_parametrizations_(model: torch.nn.Module) -> None:
+    """Remove forward casts and restore learned bit-width offsets to their original dtype."""
+    for module in model.modules():
+        if not parametrize.is_parametrized(module, "bit_width_offset"):
+            continue
+        parametrizations = module.parametrizations.bit_width_offset
+        if len(parametrizations) != 1 or not isinstance(parametrizations[0],
+                                                        _CastParameterForForward):
+            continue
+        forward_dtype = parametrizations[0].dtype
+        parametrize.remove_parametrizations(module, "bit_width_offset", leave_parametrized=False)
+        cast_parameters_([module.bit_width_offset], forward_dtype)
+
+
 # ---------------------------------------------------------------------------
 # Parameter selectors for optimizer configs
 # ---------------------------------------------------------------------------
@@ -219,7 +262,10 @@ class RotationLearnedBitWidthTrainingArguments(TrainingArguments):
                 "still uses the BF16 model dtype."})
     bit_width_parameter_dtype: Optional[str] = field(
         default=None,
-        metadata={"help": "Storage dtype for learned bit-width offsets and their SGD state."})
+        metadata={
+            "help":
+                "Master storage dtype for learned bit-width offsets and their SGD state. "
+                "Their forward values retain their pre-upcast dtype."})
 
     # Bit-width regularisation
     target_bit_width: float = field(
@@ -312,12 +358,13 @@ class RotationLearnedBitWidthTrainer(GeneralizedTrainer):
                 args.rotation_parameter_dtype,
                 option="rotation_parameter_dtype",
                 require_floating_point=True))
-        cast_parameters_(
-            _unique_bit_width_params(model),
-            resolve_torch_dtype(
-                args.bit_width_parameter_dtype,
-                option="bit_width_parameter_dtype",
-                require_floating_point=True))
+        bit_width_parameter_dtype = resolve_torch_dtype(
+            args.bit_width_parameter_dtype,
+            option="bit_width_parameter_dtype",
+            require_floating_point=True)
+        if bit_width_parameter_dtype is not None:
+            _parametrize_bit_width_params_for_forward(model, bit_width_parameter_dtype)
+            cast_parameters_(_unique_bit_width_params(model), bit_width_parameter_dtype)
 
     def __init__(self, args: RotationLearnedBitWidthTrainingArguments = None, **kwargs) -> None:
         super().__init__(args=args, **kwargs)
@@ -388,7 +435,7 @@ class RotationLearnedBitWidthTrainer(GeneralizedTrainer):
         return (loss, outputs) if return_outputs else loss
 
     def train(self, *args, **kwargs):
-        """Train and clean up bit-width criterion hooks afterwards."""
+        """Train and restore bit-width offsets after optimization."""
         try:
             result = super().train(*args, **kwargs)
 
@@ -412,6 +459,7 @@ class RotationLearnedBitWidthTrainer(GeneralizedTrainer):
         finally:
             self.weight_criterion.remove_hooks()
             self.act_criterion.remove_hooks()
+            remove_bit_width_forward_parametrizations_(self.model)
 
 
 # ---------------------------------------------------------------------------
