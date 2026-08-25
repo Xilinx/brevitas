@@ -20,7 +20,9 @@ from brevitas.utils.quant_utils import groupwise_dequant_expand
 from ..handler import DynamicFloatInferenceHandler
 from ..handler import DynamicScaleZeroPointMixin
 from ..handler import GroupwiseFloatInferenceHandler
+from ..handler import GroupwiseFloatWeightInferenceHandler
 from ..handler import GroupwiseIntInferenceHandler
+from ..handler import GroupwiseIntWeightInferenceHandler
 
 EPS = 1e-16
 
@@ -49,7 +51,19 @@ class StandaloneGroupwiseQuantMixin(DynamicScaleZeroPointMixin):
         return scale
 
 
-class vLLMGroupwiseIntInferenceHandler(GroupwiseIntInferenceHandler, StandaloneGroupwiseQuantMixin):
+class vLLMGroupwiseMetadataMixin:
+
+    def state_dict(self, destination=None, prefix='', keep_vars=False):
+        output_dict = super().state_dict(
+            destination=destination, prefix=prefix, keep_vars=keep_vars)
+        output_dict[prefix + 'group_dim_t'] = torch.tensor(self.group_dim, dtype=torch.int)
+        output_dict[prefix + 'group_size_t'] = torch.tensor(self.group_size, dtype=torch.int)
+        return output_dict
+
+
+class vLLMGroupwiseIntInferenceHandler(vLLMGroupwiseMetadataMixin,
+                                       GroupwiseIntInferenceHandler,
+                                       StandaloneGroupwiseQuantMixin):
 
     def forward(self, x: Tensor) -> Tuple[Tensor, ...]:
         inp_shape = x.shape
@@ -62,7 +76,8 @@ class vLLMGroupwiseIntInferenceHandler(GroupwiseIntInferenceHandler, StandaloneG
         return out, scale, zero_point, self.bit_width
 
 
-class vLLMGroupwiseFloatInferenceHandler(GroupwiseFloatInferenceHandler,
+class vLLMGroupwiseFloatInferenceHandler(vLLMGroupwiseMetadataMixin,
+                                         GroupwiseFloatInferenceHandler,
                                          StandaloneGroupwiseQuantMixin):
 
     def forward(self, x: Tensor) -> Tuple[Tensor, ...]:
@@ -74,6 +89,16 @@ class vLLMGroupwiseFloatInferenceHandler(GroupwiseFloatInferenceHandler,
         out = self.inner_forward(x, scale, zero_point)
         out = groupwise_dequant_expand(out, scale, zero_point, self.group_dim, inp_shape)[0]
         return out, scale, zero_point, self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias, self.saturating, self.inf_values, self.nan_values
+
+
+class vLLMGroupwiseIntWeightInferenceHandler(vLLMGroupwiseMetadataMixin,
+                                             GroupwiseIntWeightInferenceHandler):
+    pass
+
+
+class vLLMGroupwiseFloatWeightInferenceHandler(vLLMGroupwiseMetadataMixin,
+                                               GroupwiseFloatWeightInferenceHandler):
+    pass
 
 
 class vLLMDynamicPerRowFloatInferenceHandler(DynamicFloatInferenceHandler,

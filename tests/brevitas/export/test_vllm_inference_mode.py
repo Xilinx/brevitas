@@ -12,14 +12,14 @@ from brevitas.core.stats import StatsOp
 from brevitas.export.inference import quant_inference_mode
 from brevitas.export.inference.handler import FloatInferencetHandler
 from brevitas.export.inference.handler import FloatWeightInferencetHandler
-from brevitas.export.inference.handler import GroupwiseFloatWeightInferenceHandler
-from brevitas.export.inference.handler import GroupwiseIntWeightInferenceHandler
 from brevitas.export.inference.handler import IntInferenceHandler
 from brevitas.export.inference.handler import IntWeightInferencetHandler
 from brevitas.export.inference.manager import InferenceManager
 from brevitas.export.inference.vLLM.handler import vLLMDynamicPerRowFloatInferenceHandler
 from brevitas.export.inference.vLLM.handler import vLLMGroupwiseFloatInferenceHandler
+from brevitas.export.inference.vLLM.handler import vLLMGroupwiseFloatWeightInferenceHandler
 from brevitas.export.inference.vLLM.handler import vLLMGroupwiseIntInferenceHandler
+from brevitas.export.inference.vLLM.handler import vLLMGroupwiseIntWeightInferenceHandler
 import brevitas.nn as qnn
 from brevitas.proxy.float_runtime_quant import DynamicActFloatQuantProxyFromInjector
 from brevitas.quant import Int8ActPerTensorFloat
@@ -61,9 +61,9 @@ class vLLMTestManager(InferenceManager):
         IntWeightInferencetHandler,
         FloatWeightInferencetHandler,
         vLLMGroupwiseIntInferenceHandler,
-        GroupwiseIntWeightInferenceHandler,
+        vLLMGroupwiseIntWeightInferenceHandler,
         vLLMGroupwiseFloatInferenceHandler,
-        GroupwiseFloatWeightInferenceHandler,]
+        vLLMGroupwiseFloatWeightInferenceHandler,]
 
 
 WEIGHT_QUANTIZERS = {
@@ -80,6 +80,36 @@ ACT_QUANTIZERS = {
     'per_row_dynamic_fp8': FP8e4m3OCPDynamicActPerRowFloat,
     'mxint8': MXInt8Act,
     'mxfloat8': MXFloat8e4m3Act,}
+
+
+@pytest.mark.parametrize('act_quantizer', [MXInt8Act, MXFloat8e4m3Act])
+def test_vllm_groupwise_act_handler_exports_group_metadata(act_quantizer):
+    identity = qnn.QuantIdentity(act_quantizer, group_dim=1)
+    inp = torch.randn(2, 16)
+    identity(inp)
+    identity.eval()
+
+    with quant_inference_mode(identity, compile=False, export_manager=vLLMTestManager):
+        identity(inp)
+        state_dict = identity.act_quant.export_handler.state_dict()
+
+    assert torch.equal(state_dict['group_dim_t'], torch.tensor(1, dtype=torch.int))
+    assert torch.equal(state_dict['group_size_t'], torch.tensor(32, dtype=torch.int))
+
+
+@pytest.mark.parametrize('weight_quantizer', [MXInt8Weight, MXFloat8e4m3Weight])
+def test_vllm_groupwise_weight_handler_exports_group_metadata(weight_quantizer):
+    linear = qnn.QuantLinear(16, 8, weight_quant=weight_quantizer, group_dim=1)
+    inp = torch.randn(2, 16)
+    linear(inp)
+    linear.eval()
+
+    with quant_inference_mode(linear, compile=False, export_manager=vLLMTestManager):
+        linear(inp)
+        state_dict = linear.weight_quant.export_handler.state_dict()
+
+    assert torch.equal(state_dict['group_dim_t'], torch.tensor(1, dtype=torch.int))
+    assert torch.equal(state_dict['group_size_t'], torch.tensor(32, dtype=torch.int))
 
 
 @pytest_cases.parametrize('weight_quantizer', WEIGHT_QUANTIZERS.items())
