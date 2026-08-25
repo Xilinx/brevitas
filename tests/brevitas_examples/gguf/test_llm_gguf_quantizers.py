@@ -23,6 +23,7 @@ import brevitas_examples.llm.gguf_export.custom_quantizers  # noqa: F401
 from brevitas_examples.llm.gguf_export.export import _enable_gguf_export_caching
 from brevitas_examples.llm.gguf_export.export import _restore_gguf_export_caching
 from brevitas_examples.llm.gguf_export.quant import ggml_quant
+from tests.marker import jit_disabled_for_local_loss
 
 from .common import *
 
@@ -124,26 +125,31 @@ class TestQ8_0Custom(_CustomQuantTests):
     qtype = Q8_0
 
 
+@jit_disabled_for_local_loss()
 class TestQ2KCustom(_CustomQuantTests):
     weight_quant = GGUFQ2_KWeightQuant.let(**_weight_quant_kwargs)
     qtype = Q2_K
 
 
+@jit_disabled_for_local_loss()
 class TestQ3KCustom(_CustomQuantTests):
     weight_quant = GGUFQ3_KWeightQuant
     qtype = Q3_K
 
 
+@jit_disabled_for_local_loss()
 class TestQ4KCustom(_CustomQuantTests):
     weight_quant = GGUFQ4_KWeightQuant.let(**_weight_quant_kwargs)
     qtype = Q4_K
 
 
+@jit_disabled_for_local_loss()
 class TestQ5KCustom(_CustomQuantTests):
     weight_quant = GGUFQ5_KWeightQuant.let(**_weight_quant_kwargs)
     qtype = Q5_K
 
 
+@jit_disabled_for_local_loss()
 class TestQ6KCustom(_CustomQuantTests):
     weight_quant = GGUFQ6_KWeightQuant
     qtype = Q6_K
