@@ -60,6 +60,14 @@ from brevitas_examples.common.quantizer_builder.mixins import parse_float_quant_
 from brevitas_examples.common.quantizer_builder.mixins import ZeroPointImplType
 
 
+def _sym_scaling_stats_op(config: QuantizerConfig, default: StatsOp) -> StatsOp:
+    """Symmetric scale-stats op, upgraded to the signed variant for a signed
+    (SIGNED_FP) scale. Signed scales are a symmetric-only concept, so this helper
+    is used exclusively on the symmetric scale paths; asymmetric quantizers keep
+    their MIN_MAX stats op regardless of the restrict-value type."""
+    return StatsOp.SIGNED_MAX if config.is_signed_scale else default
+
+
 class CommonComponent(Component):
     """Kind-agnostic namespace attributes shared by every quantizer.
 
@@ -129,9 +137,9 @@ class ScaleParamMethodComponent(Component):
 
     def build(self, config: QuantizerConfig) -> Contribution:
         if config.scaling_param_method == ParamMethod.MSE:
-            return Contribution(bases=(MSEScaleInjectorMixin,), drop=("scaling_impl_type",))
+            return Contribution(bases=(MSEScaleInjectorMixin,),)
         if config.scaling_param_method == ParamMethod.HQO:
-            return Contribution(bases=(HQOScaleInjectorMixin,), drop=("scaling_impl_type",))
+            return Contribution(bases=(HQOScaleInjectorMixin,),)
         return Contribution()
 
 
@@ -192,7 +200,8 @@ class ZeroPointComponent(Component):
     def build_sym(self, config: QuantizerConfig) -> Contribution:
         return Contribution(
             attrs={
-                "zero_point_impl": ZeroZeroPoint, "scaling_stats_op": StatsOp.MAX})
+                "zero_point_impl": ZeroZeroPoint,
+                "scaling_stats_op": _sym_scaling_stats_op(config, StatsOp.MAX)})
 
     def build_asym(self, config: QuantizerConfig) -> Contribution:
         return Contribution(bases=(AsymmetricZeroPointMixin,))
@@ -285,8 +294,11 @@ class InputScaleComponent(Component):
             "collect_stats_steps": 300,}
         if config.is_sym:
             # Static int activations use a one-sided percentile scale; static float
-            # uses AbsMax (from ScaledFloatActBase).
-            attrs["scaling_stats_op"] = StatsOp.PERCENTILE if config.is_int else StatsOp.MAX
+            # uses AbsMax (from ScaledFloatActBase). A signed scale upgrades either
+            # to SIGNED_MAX (the percentile attrs above are then left unused, as in
+            # the reference signed-scale path).
+            default = StatsOp.PERCENTILE if config.is_int else StatsOp.MAX
+            attrs["scaling_stats_op"] = _sym_scaling_stats_op(config, default)
         return Contribution(attrs=attrs)
 
     def build_dynamic(self, config: QuantizerConfig) -> Contribution:
@@ -303,7 +315,7 @@ class InputScaleComponent(Component):
             else:  # per-row (CHANNEL)
                 attrs["scaling_stats_input_view_shape_impl"] = OverOutputFeaturesView
         if config.is_sym:
-            attrs["scaling_stats_op"] = StatsOp.MAX
+            attrs["scaling_stats_op"] = _sym_scaling_stats_op(config, StatsOp.MAX)
         return Contribution(attrs=attrs)
 
     def build_no_scale(self, config: QuantizerConfig) -> Contribution:
