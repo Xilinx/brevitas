@@ -105,6 +105,13 @@ class QuantizerConfig:
     def is_power_of_two(self) -> bool:
         return RestrictValueType(self.restrict_scaling_type) == RestrictValueType.POWER_OF_TWO
 
+    @property
+    def is_signed_scale(self) -> bool:
+        # A signed scale is expressed through the restrict-value axis (SIGNED_FP).
+        # It is only meaningful for symmetric quantizers; asymmetric quantizers
+        # ignore it (see the symmetric scale-stats-op components).
+        return RestrictValueType(self.restrict_scaling_type) == RestrictValueType.SIGNED_FP
+
     # TODO (pml): Lift these contraints as, at least, a subset of these combinations should
     # be supported in the future (e.g. float + asymmetric quantization)
     def __post_init__(self) -> None:
