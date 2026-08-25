@@ -118,10 +118,10 @@ def test_compile_act(inp, act_quantizer):
 @requires_pt_ge('2.4')
 @jit_disabled_for_compile()
 def test_compile_groupwise_quant_uses_supported_fullgraph(monkeypatch):
-    fullgraph_args = []
+    compile_args = []
 
     def compile(module, **kwargs):
-        fullgraph_args.append(kwargs['fullgraph'])
+        compile_args.append((kwargs['fullgraph'], kwargs['dynamic']))
         return module
 
     monkeypatch.setattr(torch, 'compile', compile)
@@ -131,19 +131,29 @@ def test_compile_groupwise_quant_uses_supported_fullgraph(monkeypatch):
     weight_quant.compile_quant()
     act_quant.compile_quant()
 
-    assert fullgraph_args == [True, False]
+    assert compile_args == [(True, True), (True, False)]
 
 
 @requires_pt_ge('2.4')
 @requires_torch_compile()
 @jit_disabled_for_compile()
 @torch.no_grad()
-def test_compile_mx_weight_non_divisible_group():
-    linear = qnn.QuantLinear(33, 16, weight_quant=MXFloat8e4m3Weight)
+@pytest.mark.parametrize('act_quantizer', [MXInt8Act, MXFloat8e4m3Act])
+def test_compile_mx_quantizers_non_divisible_group(act_quantizer, monkeypatch):
+    torch_compile = torch.compile
+
+    def compile_eager(module, **kwargs):
+        return torch_compile(module, backend='eager', **kwargs)
+
+    monkeypatch.setattr(torch, 'compile', compile_eager)
+    inp = torch.randn(2, 33)
+    linear = qnn.QuantLinear(
+        33, 16, weight_quant=MXFloat8e4m3Weight, input_quant=act_quantizer, group_dim=1)
     linear.eval()
 
-    expected = linear.quant_weight().value
-    linear.weight_quant.compile_quant()
-    actual = linear.quant_weight().value
+    expected = linear(inp)
+    with quant_inference_mode(linear, compile=True):
+        linear(inp)
+        actual = linear(inp)
 
     assert torch.allclose(expected, actual)
