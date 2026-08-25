@@ -340,6 +340,30 @@ def test_weight_quantizer_parity(combo):
             "(SignedAbsMax) from the signed scaling_stats_op, while the reference "
             "hardcodes AbsMax (intentional divergence; may be revisited).")
 
+    # Per-group asymmetric int MSE: the reference quantizer is inconsistent.
+    #
+    # WEIGHT_QUANT_MAP['int']['float_scale']['mse']['per_group']['asym'] maps to
+    # ShiftedUint8WeightGroupQuantFloatMSE, which is defined as
+    # ``class ShiftedUint8WeightGroupQuantFloatMSE(MSESymmetricScale, ...)`` -- i.e.
+    # an *asymmetric* quantizer that inherits the *symmetric* MSE scale mixin
+    # (mse_init_op=AbsMax) and omits MSEWeightZeroPoint. Every other asymmetric MSE
+    # weight quantizer uses (MSEAsymmetricScale, MSEWeightZeroPoint) -> AbsMinMax
+    # init + MSE-learned zero-point. The builder produces that consistent asym-MSE
+    # wiring, so it diverges from this reference (first on mse_init_op: AbsMax vs
+    # AbsMinMax). The builder is arguably the more correct of the two; the reference
+    # inconsistency should be addressed upstream. See test_quantizer_builder.py,
+    # which pins ShiftedUint8WeightGroupQuantFloatMSE's actual (symmetric) behaviour.
+    if (combo["weight_quant_format"] == "int" and
+            combo["weight_scale_precision"] == "float_scale" and
+            combo["weight_param_method"] == "mse" and
+            combo["weight_quant_granularity"] == "per_group" and
+            combo["weight_quant_type"] == "asym"):
+        pytest.xfail(
+            "Reference ShiftedUint8WeightGroupQuantFloatMSE is an asymmetric "
+            "quantizer built on the symmetric MSE scale (AbsMax init, no MSE "
+            "zero-point), inconsistent with the rest of the asym-MSE family; the "
+            "builder produces the consistent asym-MSE wiring (intentional divergence).")
+
     ref_quant = _old_weight_quant(combo)
     new_quant = _new_weight_quant(combo)
 
