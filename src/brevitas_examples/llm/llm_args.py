@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from argparse import ArgumentParser
+from argparse import ArgumentTypeError
 from argparse import Namespace
 from typing import List
 from typing import Optional
@@ -9,6 +10,30 @@ from warnings import warn
 
 from brevitas_examples.common.parse_utils import create_entrypoint_args_parser
 from brevitas_examples.common.parse_utils import quant_format_validator
+
+# Export targets that do not require the (optional) `gguf` dependency
+BASE_EXPORT_TARGETS = [
+    None,
+    'vllm',
+    'shark',
+    'onnx_qcdq',
+    'sharded_torchmlir_group_weight',
+    'sharded_packed_torchmlir_group_weight']
+
+
+def lazy_validate_export_target(value: str):
+    """Validate --export-target; lazily importing GGUF export targets"""
+    if value in BASE_EXPORT_TARGETS:
+        return value
+    if value.startswith('gguf:'):
+        from brevitas_examples.llm.gguf_export.targets import GGUF_EXPORT_TARGETS
+        if value in GGUF_EXPORT_TARGETS:
+            return value
+        raise ArgumentTypeError(
+            f"invalid --export-target {value!r}; expected one of {GGUF_EXPORT_TARGETS}")
+    raise ArgumentTypeError(
+        f"invalid --export-target {value!r}; expected one of "
+        f"{sorted(t for t in BASE_EXPORT_TARGETS if t is not None)} or 'gguf:<ftype>'")
 
 
 def create_args_parser() -> ArgumentParser:
@@ -270,7 +295,12 @@ def create_args_parser() -> ArgumentParser:
     parser.add_argument(
         '--quantize-input-zero-point', action='store_true', help='Quantize input zero-point.')
     parser.add_argument(
-        '--quantize-last-layer', action='store_true', help='Quantize last nn.Linear layer.')
+        '--quantize-first-last-layer',
+        action='store_true',
+        help=
+        'Quantize the first (embedding) and last nn.Linear layer. When not set, the embedding is '
+        'left unquantized and the last layer weight quantizer is forced to None, overriding any '
+        'definition from a custom quantizer.')
     parser.add_argument('--magr', action='store_true', help='Apply MagR.')
     parser.add_argument(
         '--magr-alpha', type=float, default=0.01, help='Alpha for MagR. Default: 0.01.')
@@ -436,17 +466,11 @@ def create_args_parser() -> ArgumentParser:
     parser.add_argument(
         '--export-target',
         default=None,
-        choices=[
-            None,
-            'vllm',
-            'shark',
-            'onnx_qcdq',
-            'gguf:q8_0',
-            'gguf:q4_0',
-            'gguf:q4_1',
-            'sharded_torchmlir_group_weight',
-            'sharded_packed_torchmlir_group_weight'],
-        help='Model export.')
+        type=lazy_validate_export_target,
+        help="Model export. One of 'vllm', 'shark', 'onnx_qcdq', 'sharded_torchmlir_group_weight', "
+        "'sharded_packed_torchmlir_group_weight', or 'gguf:<ftype>' (e.g. 'gguf:q4_k_s'; see "
+        "brevitas_examples.llm.gguf_export.targets.GGUF_EXPORT_TARGETS for the full list of "
+        "supported ftypes). Default: %(default)s")
     parser.add_argument(
         '--export-prefix',
         type=str,
@@ -454,6 +478,14 @@ def create_args_parser() -> ArgumentParser:
         help=
         "Path prefix to use for the various export flows. If None, a path will be derived from the model name (default: %(default)s)"
     )
+    parser.add_argument(
+        '--export-path',
+        type=str,
+        default=None,
+        help="Output path for GGUF export. If it ends in '.gguf', treated as the exact file to write "
+        "(parent directories created as needed); otherwise treated as a directory to write into "
+        "using gguf-py's auto-derived filename. If None, writes to the current working directory. "
+        "Default: %(default)s")
     parser.add_argument(
         '--checkpoint-name',
         type=str,
@@ -558,6 +590,9 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
     elif args.rotation == 'fused_no_fx':
         assert not args.convert_layernorm_to_rmsnorm, 'LayerNorm is automatically replaced with RMSNorm when running with --rotation=fused_no_fx. Remove the flag --convert-layernorm-to-rmsnorm'
         assert args.replace_rmsnorm, 'Graph rotation requires to replace HF RMSNorm with PyTorch ones (torch 2.4+ require)'
+    # Re-validate for callers that build `args` directly without going through argparse (e.g. benchmark sweeps).
+    if args.export_target is not None:
+        lazy_validate_export_target(args.export_target)
     if not args.no_quantize:
         if args.weight_quant_rescaling_init is not None:
             assert args.weight_quant_rescaling_init > 0, \

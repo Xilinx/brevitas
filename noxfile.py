@@ -154,8 +154,7 @@ def tests_brevitas_examples_llm(session, pytorch, jit_status):
     session.run('pytest', '-n', 'logical', 'tests/brevitas_examples/test_llm_data.py')
     session.run(
         'pytest', '-n', 'logical', '-m', 'llm', 'tests/brevitas_examples/test_llm_benchmark.py')
-    session.run(
-        'pytest', '-n', 'logical', '-m', 'llm', 'tests/brevitas_examples/test_llm_gguf_quants.py')
+    session.run('pytest', '-n', 'logical', '-m', 'llm', 'tests/brevitas_examples/gguf')
 
 
 @nox.session(python=PYTHON_VERSIONS)

@@ -198,16 +198,7 @@ def model_export(model, tokenizer, ref_input, args, config=None):
                 task="text-generation-with-past",
                 do_validation=False)
     elif 'gguf' in args.export_target:
-        import gguf
-
-        # High-impact tensors (token_embd/output) are quantized
-        # to either Q8_0 or Q6_K, based on the GGUF format.
-        if args.export_target.split(":")[-1].lower() in ('q4_0', 'q4_1'):
-            override_qtype = gguf.GGMLQuantizationType.Q6_K
-        else:
-            override_qtype = gguf.GGMLQuantizationType.Q8_0
-        save_quantized_as_gguf(
-            '.', model, tokenizer, args.export_target, override_qtype=override_qtype)
+        save_quantized_as_gguf(model, tokenizer, args.export_target, export_path=args.export_path)
     elif args.export_target == 'vllm':
         from brevitas.export.inference.vLLM.manager import vLLMExportManager
 
@@ -492,9 +483,15 @@ def quantize_llm(args, extra_args=None):
             quantizer_name = parse_custom_quantizer(args.custom_quantizer)
             custom_quantizer = QUANTIZERS_REGISTRY.get(quantizer_name)
             quantizers_dict = custom_quantizer.override_quantizers_dict(quantizers_dict)
+        # Quantize the embedding only when first/last-layer quantization is requested.
+        # The embedding uses the same weight quantizer as the linear layers.
+        # A custom quantizer that branches on module name or type still applies.
         layer_map = generate_quant_maps(
-            **quantizers_dict, dtype=dtype, device=device, quantize_embedding=False)
-        if not args.quantize_last_layer:
+            **quantizers_dict,
+            dtype=dtype,
+            device=device,
+            quantize_embedding=args.quantize_first_last_layer)
+        if not args.quantize_first_last_layer:
             # Dynamo tracing changes the name of the modules, thus we need this workaround to pick
             # up the last module.
             if require_fx:
@@ -505,6 +502,8 @@ def quantize_llm(args, extra_args=None):
                 last_layer_kwargs = layer_map[type(last_module)][1]
                 prev_weight_quant = deepcopy(last_layer_kwargs['weight_quant'])
                 prev_input_quant = deepcopy(last_layer_kwargs['input_quant'])
+                # Force the last layer to be unquantized, overriding any custom
+                # quantizer definition for it.
                 weight_quant = lambda module: prev_weight_quant if id(module) != id(
                     last_module) else None
                 input_quant = lambda module: prev_input_quant if id(module) != id(
