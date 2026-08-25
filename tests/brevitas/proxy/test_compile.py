@@ -117,7 +117,7 @@ def test_compile_act(inp, act_quantizer):
 
 @requires_pt_ge('2.4')
 @jit_disabled_for_compile()
-def test_compile_groupwise_quant_uses_fullgraph(monkeypatch):
+def test_compile_groupwise_quant_uses_supported_fullgraph(monkeypatch):
     fullgraph_args = []
 
     def compile(module, **kwargs):
@@ -131,7 +131,7 @@ def test_compile_groupwise_quant_uses_fullgraph(monkeypatch):
     weight_quant.compile_quant()
     act_quant.compile_quant()
 
-    assert fullgraph_args == [True, True]
+    assert fullgraph_args == [True, False]
 
 
 @requires_pt_ge('2.4')
