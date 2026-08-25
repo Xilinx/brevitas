@@ -1,12 +1,10 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from packaging import version
 import pytest
 import torch
 import torch.nn.functional as F
 
-from brevitas import torch_version
 from brevitas.nn import QuantScaledDotProductAttention
 from brevitas.nn import ScaledDotProductAttention
 from brevitas.quant import Int8ActPerTensorFloat
@@ -20,6 +18,9 @@ BATCH_SIZE = 2
 SEQUENCE_LENGTH = 4
 PAST_SEQUENCE_LENGTH = 5
 DROPOUT_SEED = 42
+# F.scaled_dot_product_attention returns NaN rather than 0 for a fully masked attention
+# row before 2.5.0, so it cannot serve as a reference for tests that compare against it.
+FULLY_MASKED_REF_VERSION = '2.5.0'
 
 
 class TestScaledDotProductAttention:
@@ -69,7 +70,7 @@ class TestScaledDotProductAttention:
                 checked = True
             assert checked, f"Unmatched kwarg: {k}"
 
-    @requires_pt_ge('2.0')
+    @requires_pt_ge(FULLY_MASKED_REF_VERSION)
     @pytest.mark.parametrize("dropout_p", [0.0, 0.5])
     @pytest.mark.parametrize("is_causal", [True, False])
     @pytest.mark.parametrize("scale", [None, 0.3])
@@ -82,10 +83,6 @@ class TestScaledDotProductAttention:
             "is_causal": is_causal,
             "scale": scale,
             "enable_gqa": enable_gqa,}
-        if torch_version < version.parse('2.5.0'):
-            del extra_kwargs["enable_gqa"]
-        if torch_version < version.parse('2.1.0'):
-            del extra_kwargs["scale"]
 
         # GQA means that there is a ration between KV head_dim and Q head_dim, in this case 2:1
         if extra_kwargs.get("enable_gqa", False):
@@ -112,7 +109,7 @@ class TestScaledDotProductAttention:
         assert torch.isclose(out, ref_out, atol=ATOL).all()
         assert torch.isclose(out, ref_out, atol=ATOL).all()
 
-    @requires_pt_ge('2.0')
+    @requires_pt_ge(FULLY_MASKED_REF_VERSION)
     @pytest.mark.parametrize("dropout_p", [0.0, 0.5])
     @pytest.mark.parametrize("is_causal", [True, False])
     @pytest.mark.parametrize("scale", [None, 0.3])
@@ -124,12 +121,6 @@ class TestScaledDotProductAttention:
             "is_causal": is_causal,
             "scale": scale,
             "enable_gqa": enable_gqa,}
-
-        if torch_version < version.parse('2.5.0'):
-            del extra_kwargs["enable_gqa"]
-
-        if torch_version < version.parse('2.1.0'):
-            del extra_kwargs["scale"]
 
         # GQA means that there is a ration between KV head_dim and Q head_dim, in this case 2:1
         if extra_kwargs.get("enable_gqa", False):
@@ -163,3 +154,35 @@ class TestScaledDotProductAttention:
         out = qm(q, k, v, attn_mask, **extra_kwargs)
         assert torch.isclose(out, ref_out, atol=ATOL).all()
         assert torch.isclose(out, ref_out, atol=ATOL).all()
+
+    @requires_pt_ge(FULLY_MASKED_REF_VERSION)
+    def test_sdpa_quant_disabled_fully_masked_row(self):
+        kv_length = PAST_SEQUENCE_LENGTH + SEQUENCE_LENGTH
+        m = ScaledDotProductAttention()
+        qm = QuantScaledDotProductAttention(
+            softmax_input_quant=None,
+            attn_output_weights_quant=None,
+            q_scaled_quant=None,
+            k_transposed_quant=None,
+            v_quant=None,
+            sdpa_output_quant=None,
+        )
+        # Fixed seed: the gradient comparison runs close to ATOL, so keep it independent of
+        # ambient RNG state and therefore of test execution order.
+        torch.manual_seed(0)
+        q = torch.randn(BATCH_SIZE, HEAD_DIM, SEQUENCE_LENGTH, EMBED_DIM, requires_grad=True)
+        k = torch.randn(BATCH_SIZE, HEAD_DIM, kv_length, EMBED_DIM, requires_grad=True)
+        v = torch.randn(BATCH_SIZE, HEAD_DIM, kv_length, EMBED_DIM, requires_grad=True)
+        # Deterministically force one fully-masked query row.
+        attn_mask = torch.ones(BATCH_SIZE, 1, SEQUENCE_LENGTH, kv_length, dtype=torch.bool)
+        attn_mask[0, 0, 1, :] = False
+        ref_out = m(q, k, v, attn_mask)
+        out = qm(q, k, v, attn_mask)
+        assert not out.isnan().any()
+        assert torch.isclose(out, ref_out, atol=ATOL).all()
+        # A fully-masked row must not poison gradients either. Use autograd.grad rather than
+        # backward() so the two passes cannot accumulate into the same .grad buffers.
+        ref_grads = torch.autograd.grad(ref_out.sum(), (q, k, v))
+        grads = torch.autograd.grad(out.sum(), (q, k, v))
+        for g, ref_g in zip(grads, ref_grads):
+            assert torch.isclose(g, ref_g, atol=ATOL).all()
