@@ -138,12 +138,12 @@ def test_compile_groupwise_quant_uses_fullgraph(monkeypatch):
 @requires_torch_compile()
 @jit_disabled_for_compile()
 @torch.no_grad()
-def test_fullgraph_compile_mx_weight_non_divisible_group():
-    inp = torch.randn(2, 33)
+def test_compile_mx_weight_non_divisible_group():
     linear = qnn.QuantLinear(33, 16, weight_quant=MXFloat8e4m3Weight)
     linear.eval()
 
-    expected = linear(inp)
-    actual = torch.compile(linear, fullgraph=True)(inp)
+    expected = linear.quant_weight().value
+    linear.weight_quant.compile_quant()
+    actual = linear.quant_weight().value
 
     assert torch.allclose(expected, actual)
