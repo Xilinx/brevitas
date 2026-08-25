@@ -26,7 +26,6 @@ except:
 
 from brevitas.utils.parametrization_utils import cast_parameters_
 from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
-from brevitas.utils.torch_utils import resolve_torch_dtype
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 # Optimizer/scheduler building and trainer plumbing live in trainer_utils.
 from brevitas_examples.llm.llm_quant.trainer_utils import _build_optimizers_from_configs
@@ -92,12 +91,10 @@ class RotationTrainer(GeneralizedTrainer):
         before compilation captures it. Idempotent: re-running with the same
         ``args`` is a no-op once the dtype already matches.
         """
-        cast_parameters_(
-            extract_trainable_rotation_matrices(model),
-            resolve_torch_dtype(
-                args.rotation_parameter_dtype,
-                option="rotation_parameter_dtype",
-                require_floating_point=True))
+        dtype = (
+            getattr(torch, args.rotation_parameter_dtype)
+            if args.rotation_parameter_dtype is not None else None)
+        cast_parameters_(extract_trainable_rotation_matrices(model), dtype)
 
 
 def parse_rotation_optimization_args(
