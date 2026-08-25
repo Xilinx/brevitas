@@ -116,6 +116,25 @@ def test_compile_act(inp, act_quantizer):
 
 
 @requires_pt_ge('2.4')
+@jit_disabled_for_compile()
+def test_compile_groupwise_quant_uses_fullgraph(monkeypatch):
+    fullgraph_args = []
+
+    def compile(module, **kwargs):
+        fullgraph_args.append(kwargs['fullgraph'])
+        return module
+
+    monkeypatch.setattr(torch, 'compile', compile)
+    weight_quant = qnn.QuantLinear(32, 16, weight_quant=MXFloat8e4m3Weight).weight_quant
+    act_quant = qnn.QuantIdentity(MXFloat8e4m3Act, group_dim=1).act_quant
+
+    weight_quant.compile_quant()
+    act_quant.compile_quant()
+
+    assert fullgraph_args == [True, True]
+
+
+@requires_pt_ge('2.4')
 @requires_torch_compile()
 @jit_disabled_for_compile()
 @torch.no_grad()
