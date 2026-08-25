@@ -31,6 +31,7 @@ from brevitas.core.restrict_val import PowerOfTwoRestrictValue
 from brevitas.core.stats import MSE
 from brevitas.core.stats.stats_op import HalfQuadraticOptimizerScale
 from brevitas.core.stats.stats_op import HalfQuadraticOptimizerZeroPoint
+from brevitas.core.stats.stats_op import MSEUniformStepBase
 from brevitas.core.zero_point import ParameterFromRuntimeZeroPoint
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.core.zero_point import ParameterZeroPoint
@@ -72,6 +73,8 @@ class MSESubInjectorMixin(ExtendedInjector):
     scaling_per_output = (this << 1).scaling_per_output
     proxy_module = (this << 1).proxy_module
     stats_impl = MSE
+    mse_iters = 20
+    mse_base_op = MSEUniformStepBase
     stats_reduce_dim = (this << 1).stats_reduce_dim
     device = (this << 1).device
     dtype = (this << 1).dtype
