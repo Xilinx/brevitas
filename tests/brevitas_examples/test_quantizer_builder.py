@@ -9,6 +9,7 @@ from brevitas.inject.enum import QuantType
 from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
+from brevitas.inject.enum import StatsOp
 from brevitas.nn import QuantLinear
 from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPointMSE
@@ -46,6 +47,7 @@ from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPWeightPerCh
 from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPWeightSymmetricGroupQuant
 from brevitas_examples.common.generative.quantizers import Fp8e4m3WeightSymmetricGroupQuant
 from brevitas_examples.common.generative.quantizers import IntWeightSymmetricGroupQuant
+from brevitas_examples.common.generative.quantizers import ShiftedUint8WeightGroupQuantFloatMSE
 from brevitas_examples.common.quantizer_builder import build_weight_quantizer
 from brevitas_examples.common.quantizer_builder import FloatFormat
 from brevitas_examples.common.quantizer_builder import ParamMethod
@@ -219,6 +221,41 @@ BUILDER_SPECS = {
             "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},
         "layer_kwargs": {},},
+    # Per-group asymmetric int MSE. NOTE: the reference
+    # ShiftedUint8WeightGroupQuantFloatMSE is defined as
+    # ``(MSESymmetricScale, ShiftedUint8WeightGroupQuantFloat)`` -- an *asymmetric*
+    # quantizer built on the *symmetric* MSE scale mixin. Unlike the other asym-MSE
+    # references it therefore (a) uses the symmetric MSE scale init op (AbsMax, not
+    # the asym AbsMinMax) and (b) omits MSEWeightZeroPoint, so its zero-point is the
+    # plain asym stats zero-point (not MSE-learned). We reproduce that exact
+    # (inconsistent) behaviour by leaving zero_point_param_method unset and forcing
+    # the symmetric scale-stats op via kwargs so the MSE init op resolves to AbsMax.
+    "int_per_group_asym_mse": {
+        "ref": ShiftedUint8WeightGroupQuantFloatMSE,
+        "builder_args": {
+            "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.ASYM,
+            "bit_width": BIT_WIDTH,
+            "scaling_param_method": ParamMethod.MSE,
+            "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
+            "scaling_per_output_type": ScalingPerOutputType.GROUP,
+            "restrict_scaling_type": RestrictValueType.FP,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {
+                "group_size": GROUP_SIZE,
+                # Symmetric MSE scale init (AbsMax) on an asymmetric quantizer.
+                "scaling_stats_op": StatsOp.MAX,},},
+        "layer_kwargs": {
+            "weight_group_size": GROUP_SIZE},
+        # Like ShiftedMXUInt8WeightMSE, the reference is itself broken for
+        # groupwise: its asymmetric zero-point stats (NegativeMinOrZero) reduce over
+        # the group dim (stats_reduce_dim=2) while the zero-point stats view is
+        # Identity (inherited via ShiftedMinUintQuant), so the *reference* forward
+        # raises "IndexError: Dimension out of range ... got 2" during the MSE
+        # scale search. There is nothing for the builder to match against.
+        "xfail":
+            "Reference ShiftedUint8WeightGroupQuantFloatMSE crashes for groupwise "
+            "(asym zero-point stats reduce over the group dim with an Identity view).",},
     # ----------------------------------------------------------------------
     # HQO param method: WEIGHT_QUANT_MAP['int']['float_scale']['hqo'].
     #
