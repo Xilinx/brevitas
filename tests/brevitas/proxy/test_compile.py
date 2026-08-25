@@ -113,3 +113,18 @@ def test_compile_act(inp, act_quantizer):
         inference_out = identity(inp)
     assert torch.allclose(out, quant_out)
     assert torch.allclose(out, inference_out)
+
+
+@requires_pt_ge('2.4')
+@requires_torch_compile()
+@jit_disabled_for_compile()
+@torch.no_grad()
+def test_fullgraph_compile_mx_weight_non_divisible_group():
+    inp = torch.randn(2, 33)
+    linear = qnn.QuantLinear(33, 16, weight_quant=MXFloat8e4m3Weight)
+    linear.eval()
+
+    expected = linear(inp)
+    actual = torch.compile(linear, fullgraph=True)(inp)
+
+    assert torch.allclose(expected, actual)

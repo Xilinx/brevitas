@@ -219,23 +219,16 @@ def float_to_int_impl_to_enum(module):
         return None
 
 
-@brevitas_compiler.disable
+# For old versions of pytorch (2.3.1), this is needed otherwise compile skips this function
+@brevitas_compiler.disable_on_old_torch
 def groupwise_dequant_expand(
         value_, scale_, zero_point_, group_dim, dequant_shape, expand_metadata=True):
     curr_shape = value_.shape
     start_dim = group_dim if group_dim >= 0 else group_dim - 1
     new_value = value_.flatten(start_dim, start_dim + 1)
 
-    # If we padded during quantization, we unpad here:
-    # First, we compute how much we padded along the group_dim shape
-    # Then, we unbind the tensor along the group_dim shape, and drop the padded columns
-    # Finally, we stack the remaining tensors
     unpadding_shape = dequant_shape[group_dim]
-    residual = new_value.shape[group_dim] - unpadding_shape
-
-    if residual > 0:
-        new_value = torch.stack(
-            torch.unbind(new_value, dim=group_dim)[:unpadding_shape], dim=group_dim)
+    new_value = torch.narrow(new_value, group_dim, 0, unpadding_shape)
 
     if not expand_metadata:
         return new_value, scale_, zero_point_
@@ -249,11 +242,9 @@ def groupwise_dequant_expand(
     else:
         new_zp = zero_point_
 
-    if residual > 0:
-        new_scale = torch.stack(
-            torch.unbind(new_scale, dim=group_dim)[:unpadding_shape], dim=group_dim)
-        if zero_point_.shape != ():
-            new_zp = torch.stack(
-                torch.unbind(new_zp, dim=group_dim)[:unpadding_shape], dim=group_dim)
+    if scale_.shape != ():
+        new_scale = torch.narrow(new_scale, group_dim, 0, unpadding_shape)
+    if zero_point_.shape != ():
+        new_zp = torch.narrow(new_zp, group_dim, 0, unpadding_shape)
 
     return new_value, new_scale, new_zp
