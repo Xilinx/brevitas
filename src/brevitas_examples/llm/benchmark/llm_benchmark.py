@@ -21,16 +21,27 @@ from brevitas_examples.llm.llm_args import validate as validate_llm_args
 class LLMEntryPointUtils(EntryPointUtils):
 
     argument_parser: ArgumentParser = create_llm_args_parser()
-    eval_metrics: List[str] = ["float_ppl", "quant_ppl"]
+    eval_metrics: List[str] = ["float_ppl", "float_ppl_std", "quant_ppl", "quant_ppl_std"]
 
     @staticmethod
     def parse_log(job_log: str) -> Dict[str, Any]:
-        # Find the line containing Float PPL number
-        float_ppl_line = re.search(r"Float perplexity \((.*?)\): (\d+\.\d+)", job_log)
+        # Perplexity lines now include a bootstrap standard deviation in the
+        # form: "<Float|Quantized> perplexity (<dataset>): <ppl> ± <std>".
+        # The "± <std>" group is optional to remain backward-compatible with
+        # logs produced before the stderr was added.
+        ppl_pattern = r"{kind} perplexity \((.*?)\): (\d+\.\d+)(?:\s*±\s*(\d+\.\d+))?"
+        # Find the line containing Float PPL number (and optional stddev)
+        float_ppl_line = re.search(ppl_pattern.format(kind="Float"), job_log)
         float_ppl = float(float_ppl_line.group(2)) if float_ppl_line is not None else None
-        # Find the line containing Quant PPL number
-        quant_ppl_line = re.search(r"Quantized perplexity \((.*?)\): (\d+\.\d+)", job_log)
+        float_ppl_std = (
+            float(float_ppl_line.group(3))
+            if float_ppl_line is not None and float_ppl_line.group(3) is not None else None)
+        # Find the line containing Quant PPL number (and optional stddev)
+        quant_ppl_line = re.search(ppl_pattern.format(kind="Quantized"), job_log)
         quant_ppl = float(quant_ppl_line.group(2)) if quant_ppl_line is not None else None
+        quant_ppl_std = (
+            float(quant_ppl_line.group(3))
+            if quant_ppl_line is not None and quant_ppl_line.group(3) is not None else None)
         # Search for dictionary in log
         few_shot_eval_line = re.findall(r"({.*?})", job_log)
         # Retrieve last dictionary, in case other dictionaries were printed to the log
@@ -38,7 +49,9 @@ class LLMEntryPointUtils(EntryPointUtils):
         # Return the results from the log as a dictionary
         job_log_results = {
             "float_ppl": float_ppl,
+            "float_ppl_std": float_ppl_std,
             "quant_ppl": quant_ppl,
+            "quant_ppl_std": quant_ppl_std,
             **few_shot_eval,}
         return job_log_results
 

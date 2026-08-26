@@ -25,16 +25,33 @@ SOFTWARE.
 """
 
 import random
-from typing import Any
 from typing import Dict
 from typing import List
+from typing import Tuple
 
 import numpy as np
+from scipy.stats import bootstrap
 import torch
 from torch import nn
 from tqdm import tqdm
 
 from brevitas_examples.llm.llm_quant.data_utils import recursive_to_device
+
+
+def perplexity_statistic(nlls: np.ndarray) -> float:
+    return np.exp(np.mean(nlls)).item()
+
+
+def compute_perplexity_std(
+        nlls: List[torch.Tensor], n_resamples: int = 1000, seed: int = 0) -> float:
+    return bootstrap(
+        data=[nlls],
+        statistic=perplexity_statistic,
+        n_resamples=n_resamples,
+        confidence_level=0.95,
+        method="BCa",
+        random_state=seed,
+    ).standard_error
 
 
 def create_validation_dataloader(data, seqlen, device):
@@ -52,9 +69,8 @@ def compute_perplexity(
         model: torch.nn.Module,
         data: List[Dict],
         context_length: int,
-        tokenizer: Any,
         seed: int = 0,
-        dtype: torch.dtype = torch.float32):
+        dtype: torch.dtype = torch.float32) -> Tuple[float, float]:
     random.seed(seed)
     np.random.seed(seed)
     torch.random.manual_seed(seed)
@@ -102,5 +118,6 @@ def compute_perplexity(
             nlls.append(loss)
 
     ppl = torch.exp(torch.stack(nlls).mean())
+    ppl_std = compute_perplexity_std(nlls, seed=seed)
 
-    return ppl.item()
+    return ppl.item(), ppl_std
