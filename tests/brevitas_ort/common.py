@@ -34,6 +34,7 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 from brevitas.quant_tensor import QuantTensor
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
 
+
 class AllZeroOutput(Exception):
     """Raised when both Brevitas and ORT produce all-zero outputs (nothing to compare)."""
 

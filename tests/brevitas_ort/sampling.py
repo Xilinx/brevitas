@@ -1,5 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
+
 """Hypothesis strategies for the ORT integration test configuration space.
 
 Historically the ORT integration tests enumerated the full cross-product of every
@@ -25,7 +26,8 @@ partitions the space into disjoint slices, guaranteeing every shard value is exe
 """
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List
+from typing import Optional
 
 from hypothesis import strategies as st
 from packaging.version import parse
@@ -186,10 +188,8 @@ def _avgpool_export_types() -> List[str]:
 def enumerate_avgpool() -> List[AvgPoolConfig]:
     # Only 28 valid configs; enumerated exhaustively rather than sampled.
     return [
-        AvgPoolConfig(input_signed=s, output_bit_width=b, export_type=e)
-        for s in (True, False)
-        for b in BIT_WIDTHS
-        for e in _avgpool_export_types()]
+        AvgPoolConfig(input_signed=s, output_bit_width=b, export_type=e) for s in (True, False)
+        for b in BIT_WIDTHS for e in _avgpool_export_types()]
 
 
 AVGPOOL_CONFIGS = enumerate_avgpool()

@@ -1,5 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
+
 """Model builders for the ORT integration tests.
 
 These functions construct the ``nn.Module`` under test from a sampled configuration

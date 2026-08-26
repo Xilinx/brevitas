@@ -4,9 +4,9 @@
 from functools import reduce
 from operator import mul
 
-from hypothesis import Phase
 from hypothesis import assume
 from hypothesis import given
+from hypothesis import Phase
 from hypothesis import settings
 from hypothesis import strategies as st
 import pytest
@@ -18,13 +18,13 @@ from .quant_module_cases import build_avgpool_model
 from .quant_module_cases import build_lstm_model
 from .quant_module_cases import build_wbiol_model
 from .sampling import AVGPOOL_CONFIGS
+from .sampling import lstm_config_st
 from .sampling import LSTM_MAX_EXAMPLES
 from .sampling import LSTM_SHARDS
-from .sampling import WBIOL_MAX_EXAMPLES
-from .sampling import WBIOL_SHARDS
-from .sampling import WBIOL_SHARD_IDS
-from .sampling import lstm_config_st
 from .sampling import wbiol_config_st
+from .sampling import WBIOL_MAX_EXAMPLES
+from .sampling import WBIOL_SHARD_IDS
+from .sampling import WBIOL_SHARDS
 
 # Skip Hypothesis' shrinking phase: each example is a full ONNX export + ORT inference
 # (~seconds), so shrinking a failure could take many minutes. The failing example is still

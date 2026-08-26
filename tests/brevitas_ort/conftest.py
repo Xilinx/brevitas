@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from brevitas import torch_version
-
 from tests.conftest import get_hypothesis_seed
 
 from .sampling import LSTM_MAX_EXAMPLES

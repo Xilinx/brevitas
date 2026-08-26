@@ -54,8 +54,8 @@ def pytest_configure(config):
     health checks. It is loaded here - not in a strategy helper module - so it applies
     to test directories (e.g. tests/brevitas_ort) that don't import those helpers.
     """
-    from hypothesis import HealthCheck
     from hypothesis import core
+    from hypothesis import HealthCheck
     from hypothesis import settings
 
     suppress = [HealthCheck.function_scoped_fixture, HealthCheck.too_slow]
