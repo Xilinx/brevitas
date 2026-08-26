@@ -237,15 +237,6 @@ PYXIR_INTEGRATION_STEP_LIST = [
         )])]
 
 ORT_INTEGRATION_STEP_LIST = [
-    # The ORT tests run a seeded random subset of the (very large) configuration space.
-    # Derive a per-job seed from the matrix so different (python, pytorch, platform) jobs
-    # test different subsets, accumulating combinatorial coverage over time. The value is
-    # written to $GITHUB_ENV and inherited by nox -> pytest via os.environ.
-    od([('name', 'Compute ORT sample seed'), ('shell', 'bash'),
-        (
-            'run',
-            r"echo BREVITAS_ORT_SAMPLE_SEED=$(echo -n '${{ matrix.python_version }}-${{ matrix.pytorch_version }}-${{ matrix.platform }}' | cksum | cut -d' ' -f1) >> $GITHUB_ENV"
-        )]),
     od([('name', 'Run Nox session for Brevitas-ORT integration'), ('shell', 'bash'),
         (
             'run',

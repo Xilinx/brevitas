@@ -5,9 +5,6 @@ from functools import partial
 from functools import reduce
 from operator import mul
 
-from hypothesis import HealthCheck
-from hypothesis import seed as set_seed
-from hypothesis import settings
 from hypothesis.strategies import SearchStrategy
 import hypothesis.strategies as st
 import torch
@@ -15,15 +12,10 @@ import torch
 from tests.brevitas.common import FP32_BIT_WIDTH
 from tests.brevitas.common import MAX_INT_BIT_WIDTH
 from tests.brevitas.common import MIN_INT_BIT_WIDTH
-from tests.conftest import SEED
 
-# Remove Hypothesis check for slow tests and function scoped fixtures.
-# Some tests requires particular input conditions, and it may take a while to generate them.
-# Issues with function scoped fixtures are handled manually on a case-by-case basis.
-supress_health_checks = [HealthCheck.function_scoped_fixture, HealthCheck.too_slow]
-settings.register_profile("standard", deadline=None, suppress_health_check=supress_health_checks)
-settings.load_profile("standard")
-set_seed(SEED)
+# The repo-wide Hypothesis profile (deadline disabled, slow/function-scoped-fixture health
+# checks suppressed) and the global seed are configured centrally in tests/conftest.py so
+# that they apply to every test directory, including those that don't import this module.
 
 
 def float_st(min_val=None, max_val=None, width=FP32_BIT_WIDTH) -> SearchStrategy:
