@@ -33,6 +33,7 @@ from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.utils.parametrization_utils import RotationWeightParametrization
 from brevitas.utils.python_utils import recurse_getattr
 from tests.marker import requires_pt_ge
+from tests.marker import requires_torch_compile
 
 from .equalization_fixtures import ATOL
 from .equalization_fixtures import SEED
@@ -371,6 +372,7 @@ def test_fuse_parametrized_modules(kwargs):
 
 
 @requires_pt_ge('2.3.1')
+@requires_torch_compile()
 @pytest_cases.parametrize('device', ['cpu', 'cuda'] if torch.cuda.is_available() else ['cpu'])
 def test_fuse_parametrized_modules_after_compile_and_train(device):
     """Test that fuse_parametrizations works correctly after compile_quant + a training step.

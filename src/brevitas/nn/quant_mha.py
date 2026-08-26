@@ -63,6 +63,12 @@ from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.scaled_int import Int32Bias
 from brevitas.quant.scaled_int import Uint8ActPerTensorFloat
 from brevitas.quant_tensor import QuantTensor
+from brevitas.utils.torch_utils import rename_tensor_
+
+
+def _rename_(t: Union[Tensor, QuantTensor], *names: Optional[str]) -> None:
+    # In-place rename that also handles QuantTensor by renaming its underlying value.
+    rename_tensor_(t.value if isinstance(t, QuantTensor) else t, *names)
 
 
 class QuantMultiheadAttention(Module):
@@ -184,6 +190,15 @@ class QuantMultiheadAttention(Module):
             device=device,
             dtype=dtype,
             **filter_kwargs('out_proj_'))
+
+        # The internal projection layers always operate on tensors in (L, N, E) layout, i.e.
+        # with the batch dimension at index 1, regardless of batch_first. Expose this constant
+        # so that PTQ algorithms (e.g. activation equalization, GPxQ) that hook these layers can
+        # detect the batch dimension without relying on named tensors, which were removed in
+        # PyTorch 2.13.
+        for proj in (self.in_proj, self.q_proj, self.k_proj, self.v_proj, self.out_proj):
+            if proj is not None:
+                proj.batch_dim = 1
 
         if add_bias_kv:
             self.bias_k = Parameter(torch.empty((1, 1, embed_dim), device=device, dtype=dtype))
@@ -406,10 +421,7 @@ class QuantMultiheadAttention(Module):
             if check_tensors_same_ptr([key, query, value]):
                 # Mark dimensions through named tensors.
                 if not torch._C._get_tracing_state():
-                    if isinstance(query, QuantTensor):
-                        query.value.rename_('L', 'N', 'E')
-                    else:
-                        query.rename_('L', 'N', 'E')
+                    _rename_(query, 'L', 'N', 'E')
                 # self-attention
                 q, k, v = self.in_proj(query).chunk(3, dim=-1)
             else:
@@ -423,15 +435,12 @@ class QuantMultiheadAttention(Module):
             # Mark dimensions through named tensors.
             if not torch._C._get_tracing_state():
                 for t in [query, key, value]:
-                    if isinstance(t, QuantTensor):
-                        t.value.rename_('L', 'N', 'E')
-                    else:
-                        t.rename_('L', 'N', 'E')
+                    _rename_(t, 'L', 'N', 'E')
             q, k, v = self.q_proj(query), self.k_proj(key), self.v_proj(value)
         # Remove names to avoid errors downstream
         if not torch._C._get_tracing_state():
             for t in [q, k, v]:
-                t.rename_(None)
+                _rename_(t, None)
 
         # prep attention mask
         if attn_mask is not None:
@@ -566,14 +575,11 @@ class QuantMultiheadAttention(Module):
         attn_output = attn_output.transpose(0, 1).contiguous().view(tgt_len, bsz, embed_dim)
         # Set dim names for PTQ algorithms that requires it
         if not torch._C._get_tracing_state():
-            attn_output.rename_('L', 'N', 'E')
+            _rename_(attn_output, 'L', 'N', 'E')
         attn_output = self.out_proj(attn_output)
         # Remove names to avoid errors un unsupported downstream ops
         if not torch._C._get_tracing_state():
-            if isinstance(attn_output, QuantTensor):
-                attn_output.value.rename_(None)
-            else:
-                attn_output.rename_(None)
+            _rename_(attn_output, None)
 
         if need_weights:
             # optionally average attention weights over heads

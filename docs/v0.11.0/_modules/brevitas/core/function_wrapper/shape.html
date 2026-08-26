@@ -46,7 +46,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = '_modules/brevitas/core/function_wrapper/shape';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.15.3';
-        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://xilinx.github.io/brevitas/dev/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://xilinx.github.io/brevitas/master/_static/versions.json';
         DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'v0.11.0';
         DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
         </script>
@@ -187,19 +187,19 @@
   </a>
 </li>
 
-
-<li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../../../../faq.html">
-    FAQ
-  </a>
-</li>
-
             <li class="nav-item dropdown pst-header-nav-item">
                 <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
                     More
                 </button>
                 <ul id="pst-nav-more-links" class="dropdown-menu">
                     
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../../faq.html">
+    FAQ
+  </a>
+</li>
+
+
 <li class="nav-item ">
   <a class="nav-link dropdown-item nav-internal" href="../../../../about.html">
     About
@@ -432,8 +432,7 @@ document.write(`
 <span class="sd">ScriptModule classes to compute the view of a tensor according to various different criteria.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tuple</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
@@ -444,7 +443,7 @@ document.write(`
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.function.shape</span><span class="w"> </span><span class="kn">import</span> <span class="n">over_output_channels</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.function.shape</span><span class="w"> </span><span class="kn">import</span> <span class="n">over_output_features</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.function.shape</span><span class="w"> </span><span class="kn">import</span> <span class="n">over_tensor</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.utils.torch_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">padding_to_multiple</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.utils.torch_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">padding</span>
 
 
 <div class="viewcode-block" id="PermuteDims"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.PermuteDims">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">PermuteDims</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
@@ -480,7 +479,7 @@ document.write(`
 
 <div class="viewcode-block" id="OverOutputChannelView"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.OverOutputChannelView">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">OverOutputChannelView</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    ScriptModule to compute the :func:`~brevitas.function.shape.over_output_channels` view of an</span>
+<span class="sd">    ScriptMoodule to compute the :func:`~brevitas.function.shape.over_output_channels` view of an</span>
 <span class="sd">    input tensor.</span>
 
 <span class="sd">    Examples:</span>
@@ -598,7 +597,8 @@ document.write(`
         <span class="c1"># - Groupwise HQO quantization, where weight will already have been padded and expanded</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">expanded_groupwise_shape</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">x</span>
-        <span class="n">y</span> <span class="o">=</span> <span class="n">padding_to_multiple</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_size</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span>
+            <span class="n">x</span><span class="p">,</span> <span class="n">padding</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_size</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_dim</span><span class="p">),</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;constant&#39;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mf">0.</span><span class="p">)</span>
         <span class="n">y</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">expanded_groupwise_shape</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">y</span></div></div>
 
@@ -616,13 +616,14 @@ document.write(`
 
         <span class="n">tensor_shape</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span>
         <span class="n">tensor_shape_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">tensor_shape</span><span class="p">)</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">padding_to_multiple</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_size</span><span class="p">)</span>
+        <span class="n">pad</span> <span class="o">=</span> <span class="n">padding</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_size</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_dim</span><span class="p">)</span>
+
+        <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">pad</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;constant&#39;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mf">0.</span><span class="p">)</span>
 
         <span class="n">tensor_shape</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span>
         <span class="n">tensor_shape_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">tensor_shape</span><span class="p">)</span>
-        <span class="n">tensor_shape_list</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">group_dim</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">tensor_shape_list</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">group_dim</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_size</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_size</span>
-        <span class="n">block_dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_dim</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_dim</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="n">tensor_shape_list</span><span class="p">)</span>
+        <span class="n">tensor_shape_list</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">group_dim</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">tensor_shape_list</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">group_dim</span><span class="p">]</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_size</span><span class="p">)</span>
+        <span class="n">block_dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_dim</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_dim</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span> <span class="k">else</span> <span class="o">-</span><span class="mi">1</span>
         <span class="n">tensor_shape_list</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">block_dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_size</span><span class="p">)</span>
         <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">tensor_shape_list</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">x</span></div></div>

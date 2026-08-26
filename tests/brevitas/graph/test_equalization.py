@@ -2,10 +2,13 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import copy
+import platform
 
 from packaging.version import parse
 import pytest
+import pytest_cases
 import torch
+from torch import nn
 from torchvision import models
 
 from brevitas import torch_version
@@ -15,6 +18,8 @@ from brevitas.graph.equalize import _extract_regions
 from brevitas.graph.equalize import _is_supported_module
 from brevitas.graph.equalize import _supported_layers
 from brevitas.graph.equalize import activation_equalization_mode
+from brevitas.graph.equalize import GraphActivationEqualization
+from brevitas.graph.equalize import LayerwiseActivationEqualization
 from brevitas.graph.standardize import DuplicateSharedStatelessModule
 from brevitas.graph.standardize import TorchFunctionalToModule
 from brevitas.graph.utils import get_module
@@ -168,6 +173,9 @@ def test_act_equalization_models(toy_model, layerwise, fuse_scaling, dtype, devi
         pytest.skip(
             "Some operations are not implemented for float16/bfloat16 in PyTorch versions below 2.3.0"
         )
+    if dtype in [torch.float16, torch.bfloat16
+                ] and device == 'cpu' and platform.system() == 'Windows':
+        pytest.skip("Windows CPU oneDNN backend cannot build bf16/fp16 matmul primitives")
     test_id = request.node.callspec.id
 
     if 'mha' in test_id:
@@ -243,3 +251,132 @@ def test_act_equalization_torchvision_models(model_dict: dict, layerwise: bool, 
     # Check that at least one region performs "true" equalization
     # If all shapes are scalar, no equalization has been performed
     assert any([shape != () for shape in shape_scale_regions])
+
+
+def test_act_equalization_mha_layerwise(mha_model):
+    # In layerwise mode the whole MHA module is hooked (nothing internal such as out_proj), and
+    # batch_first only permutes the module's I/O. The batch dimension is therefore 0 when
+    # batch_first=True (N, L, E) and 1 when batch_first=False (L, N, E).
+    model_class = mha_model
+    batch_first = model_class.batch_first
+
+    torch.manual_seed(SEED)
+    inp = mha_input(batch_first)
+
+    model = model_class()
+    model.eval()
+    with torch.no_grad():
+        expected_out = model(inp)
+        with activation_equalization_mode(model, 0.5, True, layerwise=True) as aem:
+            model(inp)
+        out = model(inp)
+
+    batch_dim_map = aem.graph_act_eq.batch_dim_act_map
+    # Exactly one module is hooked and it is the MHA itself (its internals are not hooked).
+    assert len(batch_dim_map) == 1
+    (hooked_module, batch_dim), = batch_dim_map.items()
+    assert isinstance(hooked_module, torch.nn.MultiheadAttention)
+    expected_batch_dim = 0 if batch_first else 1
+    assert batch_dim == expected_batch_dim, \
+        f"Expected batch_dim == {expected_batch_dim} for batch_first={batch_first}, got {batch_dim}"
+
+    # Correctness: activation equalization must preserve the output.
+    assert torch.allclose(expected_out, out, atol=ATOL)
+
+
+def test_act_equalization_mha_graph(mha_with_source_model):
+    # Graph-mode counterpart of the layerwise test. A source (the Linear) is required so that a
+    # region forms around the MHA sink. Graph mode already derives batch_dim from
+    # module.batch_first, so this acts as a control that stays green.
+    model_class = mha_with_source_model
+    batch_first = model_class.batch_first
+
+    torch.manual_seed(SEED)
+    inp = mha_input(batch_first)
+
+    model = model_class()
+    model.eval()
+    with torch.no_grad():
+        expected_out = model(inp)
+
+    model = symbolic_trace(model)
+    with torch.no_grad():
+        with activation_equalization_mode(model, 0.5, True, layerwise=False) as aem:
+            model(inp)
+        out = model(inp)
+
+    batch_dims = list(aem.graph_act_eq.batch_dim_act_map.values())
+    expected_batch_dim = 0 if batch_first else 1
+    assert len(batch_dims) > 0
+    assert all(batch_dim == expected_batch_dim for batch_dim in batch_dims), \
+        f"Expected batch_dim == {expected_batch_dim} for batch_first={batch_first}, got {batch_dims}"
+
+    assert torch.allclose(expected_out, out, atol=ATOL)
+
+
+@pytest_cases.parametrize('layerwise', [True, False])
+def test_act_equalization_mha_layout_equivalence(layerwise):
+    # With the correct batch dimension, activation equalization must compute identical scaling
+    # factors regardless of whether the same data is presented as (N, L, E) (batch_first=True) or
+    # (L, N, E) (batch_first=False). We use scale_computation_type='range' which, unlike the
+    # default 'maxabs', is sensitive to reducing over the wrong dimension.
+    torch.manual_seed(SEED)
+    x_nle = torch.randn(MHA_BATCH_SIZE, MHA_SEQ_LEN, MHA_EMBED_DIM)
+    x_lne = x_nle.transpose(0, 1).contiguous()
+
+    def make_model(batch_first):
+
+        class Model(nn.Module):
+
+            def __init__(self):
+                super().__init__()
+                # Graph mode needs a source feeding the MHA sink. Layerwise mode hooks each layer
+                # independently, so a lone MHA suffices; a standalone Linear's batch dimension
+                # cannot be inferred from batch_first, so we omit it in layerwise mode.
+                self.linear = None if layerwise else nn.Linear(MHA_EMBED_DIM, MHA_EMBED_DIM)
+                self.relu = nn.ReLU()
+                self.mha = nn.MultiheadAttention(
+                    MHA_EMBED_DIM, MHA_NUM_HEADS, batch_first=batch_first)
+
+            def forward(self, x):
+                if self.linear is not None:
+                    x = self.relu(self.linear(x))
+                out, _ = self.mha(x, x, x)
+                return out
+
+        return Model()
+
+    model_bf = make_model(batch_first=True)
+    model_sf = make_model(batch_first=False)
+    # Identical weights so any difference in scaling factors comes from the layout handling.
+    model_sf.load_state_dict(model_bf.state_dict())
+
+    def run(model, x):
+        model.eval()
+        if layerwise:
+            eq = LayerwiseActivationEqualization(model, scale_computation_type='range')
+        else:
+            model = symbolic_trace(model)
+            eq = GraphActivationEqualization(
+                model, add_mul_node=True, scale_computation_type='range')
+        eq.setup()
+        with torch.no_grad():
+            model(x)
+        scale_factors, _ = eq.apply(0.5)
+        return scale_factors
+
+    scales_bf = run(model_bf, x_nle)
+    scales_sf = run(model_sf, x_lne)
+
+    assert len(scales_bf) == len(scales_sf) and len(scales_bf) > 0
+    saw_non_scalar = False
+    for scale_bf, scale_sf in zip(scales_bf, scales_sf):
+        scale_bf = torch.as_tensor(scale_bf).float()
+        scale_sf = torch.as_tensor(scale_sf).float()
+        assert scale_bf.shape == scale_sf.shape
+        assert torch.allclose(scale_bf, scale_sf, atol=ATOL), \
+            f"Scaling factors differ between layouts: {scale_bf} vs {scale_sf}"
+        if scale_bf.numel() > 1:
+            saw_non_scalar = True
+    # Ensure the test actually exercised non-trivial equalization.
+    assert saw_non_scalar

@@ -1,1 +1,4 @@
 lighteval[math]==0.13
+# xxhash is a lighteval dependency
+# its latest version is not compatible with lighteval==0.13
+xxhash<4

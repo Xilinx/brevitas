@@ -75,10 +75,15 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, IntMixin, QuantTensor)
             kwargs = _unpack_quant_tensor(kwargs)
             return func(*args, **kwargs)
 
-    def expand(self):
+    def expand(self, expand_metadata=True):
         from brevitas.utils.quant_utils import groupwise_dequant_expand
         return groupwise_dequant_expand(
-            self.value_, self.scale_, self.zero_point_, self.group_dim, self.dequant_shape)
+            self.value_,
+            self.scale_,
+            self.zero_point_,
+            self.group_dim,
+            self.dequant_shape,
+            expand_metadata=expand_metadata)
 
     @staticmethod
     def from_expanded(value, group_size, group_dim, compress=False):
@@ -99,7 +104,7 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, IntMixin, QuantTensor)
 
     @property
     def value(self):
-        new_value, new_scale, new_zp = self.expand()
+        new_value, _, _ = self.expand(expand_metadata=False)
         return new_value
 
     @property
@@ -116,11 +121,7 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, IntMixin, QuantTensor)
     def device(self):
         value_device = self.value_.device
         is_same_device = True
-        for t in [self.scale,
-                  self.zero_point,
-                  self.exponent_bit_width,
-                  self.mantissa_bit_width,
-                  self.exponent_bias]:
+        for t in [self.scale_, self.zero_point_, self.bit_width]:
             is_same_device &= value_device == t.device
         if not is_same_device:
             raise RuntimeError("Value and metadata are on different devices")

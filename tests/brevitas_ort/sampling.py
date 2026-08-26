@@ -35,6 +35,7 @@ from packaging.version import parse
 from brevitas import torch_version
 
 from .common import BIT_WIDTHS
+from .common import DEFAULT_ONNX_OPSET
 from .common import Fp8e4m3OCPWeightPerTensorFloat
 from .common import LSTM_QUANTIZERS
 from .common import QUANT_WBIOL_IMPL
@@ -81,7 +82,7 @@ class WBIOLConfig:
 
     @property
     def onnx_opset(self) -> int:
-        return 19 if self.is_fp8 else 18
+        return 19 if self.is_fp8 else DEFAULT_ONNX_OPSET
 
     @property
     def export_q_weight(self) -> bool:

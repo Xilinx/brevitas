@@ -28,6 +28,7 @@ from brevitas_examples.common.generative.quantizers import FP8e4m3OCPDynamicActP
 from tests.brevitas.hyp_helper import float_tensor_st
 from tests.marker import jit_disabled_for_compile
 from tests.marker import requires_pt_ge
+from tests.marker import requires_torch_compile
 
 
 class Fp8PerRow(FP8e4m3OCPDynamicActPerRowFloat):
@@ -56,9 +57,12 @@ ACT_QUANTIZERS = {
 @pytest_cases.parametrize('weight_quantizer', WEIGHT_QUANTIZERS.items())
 @given(weight=float_tensor_st(shape=(8, 16), max_val=1e10, min_val=-1e10))
 @requires_pt_ge('2.3.1')
+@requires_torch_compile()
 @jit_disabled_for_compile()
 def test_compile_weight(weight, weight_quantizer):
     name, quant = weight_quantizer
+    if version.parse('2.8') <= torch_version < version.parse('2.9'):
+        pytest.skip('Skipping due to random failures on torch 2.8.x')
     if name == 'mxfloat8' and torch_version == version.parse('2.3.1'):
         pytest.skip("Skip test for unknown failure. It works with more recent version of torch.")
     if platform.system() == "Windows":
@@ -83,9 +87,12 @@ def test_compile_weight(weight, weight_quantizer):
 @pytest_cases.parametrize('act_quantizer', ACT_QUANTIZERS.items())
 @given(inp=float_tensor_st(shape=(8, 16), max_val=1e10, min_val=-1e10))
 @requires_pt_ge('2.3.1')
+@requires_torch_compile()
 @jit_disabled_for_compile()
 def test_compile_act(inp, act_quantizer):
     name, quant = act_quantizer
+    if version.parse('2.8') <= torch_version < version.parse('2.9'):
+        pytest.skip('Skipping due to random failures on torch 2.8.x')
     if platform.system() == "Windows":
         pytest.skip("Skip compile + windows because of unknown failure")
     if torch_version >= version.parse('2.5.0') and torch_version < version.parse('2.8.0'):

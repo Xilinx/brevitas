@@ -1,15 +1,16 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _dist_version
 import glob
 import os
+import sys
 from typing import List
 from typing import Optional
 import warnings
 
 from packaging import version
-from pkg_resources import DistributionNotFound
-from pkg_resources import get_distribution
 import torch
 from torch import Tensor
 from torch.utils import cpp_extension
@@ -24,6 +25,9 @@ if torch.__version__.endswith('+cpu'):
 else:
     torch_version = version.parse(torch.__version__)
 
+python_version = version.parse(
+    f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")
+
 try:
     # Attempt _dynamo import
     is_dynamo_compiling = torch._dynamo.is_compiling
@@ -31,8 +35,8 @@ except:
     is_dynamo_compiling = lambda: False
 
 try:
-    __version__ = get_distribution(__name__).version
-except DistributionNotFound:
+    __version__ = _dist_version(__name__)
+except PackageNotFoundError:
     # package is not installed
     pass
 

@@ -1,6 +1,6 @@
 # Few-Bit LLM Quantization with Learned Round
 
-💡 [User Guide](https://xilinx.github.io/brevitas/dev/user_guide/learned_round.html)
+💡 [User Guide](https://xilinx.github.io/brevitas/master/user_guide/learned_round.html)
 
 > [!IMPORTANT]
 > These yaml files work with brevitas==0.12.1, transformers==4.47.1, and lighteval==0.9.2

@@ -15,9 +15,24 @@
 # sys.path.insert(0, os.path.abspath('.'))
 
 import os
+from pathlib import Path
+import subprocess
 import sys
 
-import subprocess
+
+# sphinx-multiversion copies each selected ref to this source directory. Put that ref's `src/`
+# first so autodoc documents the tag being built, not the installed development package.
+multiversion_source = os.environ.get('SPHINX_MULTIVERSION_SOURCEDIR')
+if multiversion_source:
+    docs_source_dir = Path(multiversion_source).resolve()
+else:
+    # Regular Sphinx builds do not set the multiversion environment variables.
+    docs_source_dir = Path(__file__).resolve().parent
+# `docsrc/source` is two levels below the checkout root, where `src/` and notebooks live.
+repository_root = docs_source_dir.parents[1]
+version_src_dir = repository_root / 'src'
+sys.path.insert(0, str(version_src_dir))
+
 
 def get_current_branch_name():
     try:
@@ -49,28 +64,45 @@ def get_current_branch_name():
 
 import brevitas
 
-sys.path.insert(0, os.path.abspath(brevitas.__file__))
+brevitas_path = Path(brevitas.__file__).resolve()
+if not brevitas_path.is_relative_to(version_src_dir):
+    # Fail rather than silently generating a tag's API pages from another checkout.
+    raise RuntimeError(
+        f"Expected to import brevitas from {version_src_dir}, imported {brevitas_path} instead")
 # -- Project information -----------------------------------------------------
 
 project = 'Brevitas'
 copyright = '2025 - Advanced Micro Devices, Inc.'
 author = 'AMD Research and Advanced Development'
 
-# The full version, including alpha/beta/rc tags
-release = brevitas.__version__
-
-
 current_version = os.environ.get('SPHINX_MULTIVERSION_NAME')
+# importlib.metadata reports the installed package version, which may be newer than a tag.
+# Tags are the canonical release identifier; master retains its development package version.
+if current_version and current_version.startswith('v'):
+    release = current_version.removeprefix('v')
+else:
+    release = brevitas.__version__
 local_branch = get_current_branch_name()
 
-# It is possible to invoke the documentation command by specifing:
-# - A specific version to build
-# - 'local', which will build the current branch as if it were the dev branch
-# - Nothing, which will build all documentations for a bunch of different versions specified below and the actual dev branch
+
+def set_version_from_multiversion_name(app, config):
+    current_version = os.environ.get('SPHINX_MULTIVERSION_NAME')
+    if current_version and current_version.startswith('v'):
+        tag_version = current_version.removeprefix('v')
+        config.version = tag_version
+        config.release = tag_version
+
+
+def setup(app):
+    # Old tags derive version metadata from the installed package; restore the selected tag name.
+    app.connect('config-inited', set_version_from_multiversion_name, priority=1000)
+
+# `VERSION=local` builds the checked-out branch as `master`; an empty value rebuilds every tag
+# matched below plus master; an explicit tag builds that tag plus master for staging comparison.
 version_to_build = os.environ.get('VERSION', '')
 if version_to_build == 'local':
-    current_version = 'dev'
-    smv_outputdir_format = 'dev'
+    current_version = 'master'
+    smv_outputdir_format = 'master'
     branch_to_build = local_branch
 elif version_to_build == '':
     # This select all versions above v0.9
@@ -82,9 +114,11 @@ elif version_to_build == '':
     # 0\.9\.(?!0+$)\d+: Matches v0.9.1, v0.9.2, ..., but not v0.9.0
     # $: End of string
     version_to_build = r'^v([1-9][0-9]*\.\d+\.\d+|0\.(1[0-9]|\d{2,})\.\d+|0\.9\.(?!0+$)\d+)$'
-    branch_to_build = 'dev'
+    # Keep the staging documentation available alongside all release tags.
+    branch_to_build = 'master'
 else:
-    branch_to_build = 'dev'
+    # Release preparation intentionally produces the selected tag and current staging docs.
+    branch_to_build = 'master'
 
 # -- General configuration ---------------------------------------------------
 
@@ -136,7 +170,8 @@ html_theme_options = {
       "image_dark": "brevitas_logo_white.svg",
    },
     "switcher": {
-        "json_url": "https://xilinx.github.io/brevitas/dev/_static/versions.json",
+        # All versions use this shared manifest so the switcher always targets current staging docs.
+        "json_url": "https://xilinx.github.io/brevitas/master/_static/versions.json",
         "version_match": current_version,
     },
     "footer_end": ["version-switcher"]
@@ -147,9 +182,8 @@ html_theme_options = {
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
 
-# Ensure env.metadata[env.docname]['nbsphinx-link-target']
-# points relative to repo root:
-nbsphinx_link_target_root =  os.path.join(os.path.dirname(__file__), '..', '..')
+# Resolve linked notebooks from the selected revision, not from the invoking checkout.
+nbsphinx_link_target_root = str(repository_root)
 
 
 intersphinx_mapping = {

@@ -31,7 +31,7 @@ Please follow the steps below and be sure that your contribution complies with o
 
 	7. Submit a pull request by clicking the *pull request* button on your GitHub repo:
 		* The <a href="https://github.com/Xilinx/brevitas" target="_blank">main branch</a> should always be treated as stable and clean. Only hot fixes are allowed to be pull-requested. The hot fix is supposed to be very important such that without this fix, a lot of things will break.
-		*  For new features, bug fixes, doc updates, users should pull request against the <a href="https://github.com/Xilinx/brevitas/tree/dev" target="_blank">development branch</a>.
+		*  For new features, bug fixes, doc updates, users should pull request against the <a href="https://github.com/Xilinx/brevitas/tree/master" target="_blank">development branch</a>.
 
 3. Sign Your Work
 

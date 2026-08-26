@@ -40,7 +40,7 @@ def install_pytorch_cmd(pytorch):
             cmd = [f'torch=={pytorch}+cpu', '-f', PYTORCH_STABLE_WHEEL_SRC_LEGACY]
         else:
             cmd = [
-                f'torch=={pytorch}',
+                f'torch=={pytorch}+cpu',
                 '--index-url',
                 PYTORCH_STABLE_WHEEL_SRC,
                 '--extra-index-url',
@@ -58,7 +58,7 @@ def install_torchvision_cmd(pytorch):
             cmd = [f'torchvision=={torchvision}+cpu', '-f', PYTORCH_STABLE_WHEEL_SRC_LEGACY]
         else:
             cmd = [
-                f'torchvision=={torchvision}',
+                f'torchvision=={torchvision}+cpu',
                 '--index-url',
                 PYTORCH_STABLE_WHEEL_SRC,
                 '--extra-index-url',

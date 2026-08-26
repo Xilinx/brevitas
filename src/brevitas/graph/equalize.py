@@ -42,8 +42,10 @@ from brevitas.graph.hadamard import get_hadK
 from brevitas.graph.hadamard import matmul_hadU
 from brevitas.graph.hadamard import matmul_hadU_cuda
 from brevitas.graph.hadamard import random_hadamard_matrix
+from brevitas.graph.utils import get_batch_dim
 from brevitas.graph.utils import get_module
 from brevitas.graph.utils import get_node
+from brevitas.graph.utils import resolve_region_batch_dim
 from brevitas.nn import ScaledDotProductAttention
 from brevitas.nn.equalized_layer import EqualizedModule
 from brevitas.nn.equalized_layer import functional_rotate_input
@@ -1367,9 +1369,7 @@ class LayerwiseActivationEqualization(ActivationEqualization):
         for region in self.regions:
             name = list(region.sinks.keys())[0]
             module = region.get_module_from_name(name)
-            batch_dim = 0
-            if hasattr(region, 'batch_first'):
-                batch_dim = 0 if region.batch_first else 1
+            batch_dim = get_batch_dim(module)
 
             hook_fn = partial(
                 self.forward_stats_hook, name=module, batch_dim=batch_dim, use_inp=True)
@@ -1456,16 +1456,9 @@ class GraphActivationEqualization(ActivationEqualization):
                 regions_to_drop.append(region)
                 continue
 
-            # We assume that the entire region has a unique batch_dim
-            batch_dim = 0
-            for name in region.srcs:
-                module = region.get_module_from_name(name)
-                if hasattr(module, 'batch_first') and not module.batch_first:
-                    batch_dim = 1
-            for name in region.sinks:
-                module = region.get_module_from_name(name)
-                if hasattr(module, 'batch_first') and not module.batch_first:
-                    batch_dim = 1
+            batch_dim = resolve_region_batch_dim(
+                region.get_module_from_name(name)
+                for name in list(region.srcs) + list(region.sinks))
 
             region_to_search = region.sinks_names if len(region.acts) == 0 else region.acts
             for name in region_to_search:

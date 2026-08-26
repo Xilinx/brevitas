@@ -1,7 +1,7 @@
 # Accumulator-Aware Post-Training Quantization for Large Language Models [TMLR 2025]
 
 📄 [Paper](https://openreview.net/pdf?id=p6l0579yj7)
-💻 [Code](https://xilinx.github.io/brevitas/dev/papers/axe.html)
+💻 [Code](https://xilinx.github.io/brevitas/master/papers/axe.html)
 
 ```bibtex
 @article{colbert2025accumulatoraware,

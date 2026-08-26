@@ -47,7 +47,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'api_reference/brevitas.function';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.15.3';
-        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://xilinx.github.io/brevitas/dev/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://xilinx.github.io/brevitas/master/_static/versions.json';
         DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'v0.11.0';
         DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
         </script>
@@ -190,19 +190,19 @@
   </a>
 </li>
 
-
-<li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../faq.html">
-    FAQ
-  </a>
-</li>
-
             <li class="nav-item dropdown pst-header-nav-item">
                 <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
                     More
                 </button>
                 <ul id="pst-nav-more-links" class="dropdown-menu">
                     
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../faq.html">
+    FAQ
+  </a>
+</li>
+
+
 <li class="nav-item ">
   <a class="nav-link dropdown-item nav-internal" href="../about.html">
     About
@@ -482,11 +482,6 @@ The implemented functions adheres to the restriction imposed by Pytorch 1.1.0’
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="brevitas.function.ops.compute_max_mantissa">
-<span class="sig-prename descclassname"><span class="pre">brevitas.function.ops.</span></span><span class="sig-name descname"><span class="pre">compute_max_mantissa</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mantissa_bit_width</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops.html#compute_max_mantissa"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops.compute_max_mantissa" title="Permalink to this definition">#</a></dt>
-<dd></dd></dl>
-
-<dl class="py function">
 <dt class="sig sig-object py" id="brevitas.function.ops.dpu_round">
 <span class="sig-prename descclassname"><span class="pre">brevitas.function.ops.</span></span><span class="sig-name descname"><span class="pre">dpu_round</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops.html#dpu_round"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops.dpu_round" title="Permalink to this definition">#</a></dt>
 <dd><p>Compute DPU rounding.</p>
@@ -546,7 +541,7 @@ A.Pappalardo, and J.Petri-Koenig. Note that this assumes integer quantization.</
 
 <dl class="py function">
 <dt class="sig sig-object py" id="brevitas.function.ops.max_float">
-<span class="sig-prename descclassname"><span class="pre">brevitas.function.ops.</span></span><span class="sig-name descname"><span class="pre">max_float</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">exponent_bit_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_mantissa</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exponent_bias</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops.html#max_float"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops.max_float" title="Permalink to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">brevitas.function.ops.</span></span><span class="sig-name descname"><span class="pre">max_float</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">exponent_bit_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mantissa_bit_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exponent_bias</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops.html#max_float"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops.max_float" title="Permalink to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py function">
@@ -556,8 +551,8 @@ A.Pappalardo, and J.Petri-Koenig. Note that this assumes integer quantization.</
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>signed</strong> (<em>Union</em><em>[</em><a class="reference external" href="https://docs.python.org/3.10/library/functions.html#bool" title="(in Python v3.10)"><em>bool</em></a><em>, </em><em>Tensor</em><em>]</em>) – Indicates whether the represented integer is signed or not.</p></li>
-<li><p><strong>narrow_range</strong> (<em>Union</em><em>[</em><a class="reference external" href="https://docs.python.org/3.10/library/functions.html#bool" title="(in Python v3.10)"><em>bool</em></a><em>, </em><em>Tensor</em><em>]</em>) – Indicates whether to narrow the maximum unsigned value represented by 1.</p></li>
+<li><p><strong>signed</strong> (<a class="reference external" href="https://docs.python.org/3.10/library/functions.html#bool" title="(in Python v3.10)"><em>bool</em></a>) – Indicates whether the represented integer is signed or not.</p></li>
+<li><p><strong>narrow_range</strong> (<a class="reference external" href="https://docs.python.org/3.10/library/functions.html#bool" title="(in Python v3.10)"><em>bool</em></a>) – Indicates whether to narrow the maximum unsigned value represented by 1.</p></li>
 <li><p><strong>bit_width</strong> (<em>Tensor</em>) – Number of bits available for the representation.</p></li>
 </ul>
 </dd>
@@ -588,8 +583,8 @@ A.Pappalardo, and J.Petri-Koenig. Note that this assumes integer quantization.</
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>signed</strong> (<em>Union</em><em>[</em><a class="reference external" href="https://docs.python.org/3.10/library/functions.html#bool" title="(in Python v3.10)"><em>bool</em></a><em>, </em><em>Tensor</em><em>]</em>) – Indicates whether the represented integer is signed or not.</p></li>
-<li><p><strong>narrow_range</strong> (<em>Union</em><em>[</em><a class="reference external" href="https://docs.python.org/3.10/library/functions.html#bool" title="(in Python v3.10)"><em>bool</em></a><em>, </em><em>Tensor</em><em>]</em>) – Indicates whether to narrow the minimum value represented by 1.</p></li>
+<li><p><strong>signed</strong> (<a class="reference external" href="https://docs.python.org/3.10/library/functions.html#bool" title="(in Python v3.10)"><em>bool</em></a>) – Indicates whether the represented integer is signed or not.</p></li>
+<li><p><strong>narrow_range</strong> (<a class="reference external" href="https://docs.python.org/3.10/library/functions.html#bool" title="(in Python v3.10)"><em>bool</em></a>) – Indicates whether to narrow the minimum value represented by 1.</p></li>
 <li><p><strong>bit_width</strong> (<em>Tensor</em>) – Number of bits available for the representation.</p></li>
 </ul>
 </dd>
@@ -1193,7 +1188,6 @@ one at dimension 0.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#submodules">Submodules</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-brevitas.function.ops">brevitas.function.ops module</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops.binary_sign"><code class="docutils literal notranslate"><span class="pre">binary_sign()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops.compute_max_mantissa"><code class="docutils literal notranslate"><span class="pre">compute_max_mantissa()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops.dpu_round"><code class="docutils literal notranslate"><span class="pre">dpu_round()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops.get_upper_bound_on_l1_norm"><code class="docutils literal notranslate"><span class="pre">get_upper_bound_on_l1_norm()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops.identity"><code class="docutils literal notranslate"><span class="pre">identity()</span></code></a></li>

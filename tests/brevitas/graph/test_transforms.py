@@ -17,6 +17,7 @@ from brevitas.graph import FnToModule
 from brevitas.graph import MeanMethodToAdaptiveAvgPool2d
 from brevitas.graph import MergeBatchNorm
 from brevitas.graph import MethodToModule
+from brevitas.graph.base import GraphTransform
 from brevitas.graph.base import ModuleInstanceRegisterParametrization
 from brevitas.graph.base import ModuleInstanceTransformTensor
 from brevitas.graph.base import ModuleInstanceWrapModule
@@ -366,3 +367,34 @@ def test_fuse_rotation_weights(axis):
         "weight",
         RotationWeightParametrization(rot_mat, rot_func, axis, None)).apply(model_unfused)
     assert torch.all(model_fused.linear.weight == model_unfused.linear.weight)
+
+
+class _DummyGraphTransform(GraphTransform):
+
+    def apply(self, graph_model):
+        return graph_model
+
+
+@pytest.mark.parametrize("module_batch_dim", [0, 1, 2])
+def test_process_input_reads_module_batch_dim(module_batch_dim):
+    # _process_input must derive batch_dim from a module.batch_dim attribute when present,
+    # independently of named tensors (which are unavailable on PyTorch >= 2.13).
+    module = nn.Linear(4, 4)
+    module.batch_dim = module_batch_dim
+    inp = torch.randn(3, 5, 4)  # plain tensor, no dimension names
+    transform = _DummyGraphTransform()
+    out_inp, batch_dim = transform._process_input(
+        module, args=(inp,), kwargs={'input': inp}, batch_dim=0, use_inp=True)
+    assert out_inp is inp
+    assert batch_dim == module_batch_dim
+
+
+def test_process_input_defaults_without_batch_dim():
+    # Without a module.batch_dim attribute and without named tensors, the provided default is kept.
+    module = nn.Linear(4, 4)
+    assert not hasattr(module, 'batch_dim')
+    inp = torch.randn(3, 5, 4)
+    transform = _DummyGraphTransform()
+    _, batch_dim = transform._process_input(
+        module, args=(inp,), kwargs={'input': inp}, batch_dim=0, use_inp=True)
+    assert batch_dim == 0
