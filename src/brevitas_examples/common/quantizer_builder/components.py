@@ -22,7 +22,6 @@ from brevitas.core.zero_point import ZeroZeroPoint
 from brevitas.inject.enum import BitWidthImplType
 from brevitas.inject.enum import FloatToIntImplType
 from brevitas.inject.enum import QuantType
-from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.inject.enum import StatsOp
 from brevitas.proxy.float_parameter_quant import WeightFloatQuantProxyFromInjector
@@ -116,11 +115,10 @@ class FormatComponent(Component):
 
 # TODO (pml): Refactor to avoid duplication with ScaleParamMethodComponent
 class ScaleComponent(Component):
-    """Generic scale wiring (counterpart of :class:`ZeroPointComponent`), used by
-    the weight builder. Sets the scale implementation type (default STATS from the
-    config); MSE/HQO drop it. Input builders do not use this component: they
-    substitute :class:`InputScaleComponent`, which handles the static / dynamic /
-    no_scale paths."""
+    """Generic scale wiring (counterpart of :class:`ZeroPointComponent`): sets the
+    scale implementation type from the config (the act / weight solver resolves it
+    to a concrete scaling impl). :class:`InputScaleComponent` subclasses this to add
+    the activation-only static / dynamic / no_scale overrides."""
 
     def build(self, config: QuantizerConfig) -> Contribution:
         return Contribution(attrs={"scaling_impl_type": config.scaling_impl_type})
@@ -267,33 +265,37 @@ class InputIntQuantComponent(IntQuantComponent):
     sym_narrow_range = False
 
 
-class InputScaleComponent(Component):
-    """Activation scale wiring (replaces :class:`ScaleComponent` for inputs).
+class InputScaleComponent(ScaleComponent):
+    """Activation scale wiring. Reuses :class:`ScaleComponent`'s base (the
+    ``scaling_impl_type`` carried by the config, resolved by the act solver) and
+    layers the activation-only overrides each mode needs:
 
-    ``STATIC`` learns a runtime-percentile scale stored as a parameter;
-    ``DYNAMIC`` wires a per-forward runtime scaling impl; ``NO_SCALE`` has no
-    scale at all (float-only, :class:`FloatActBase`). This component also owns the
-    *symmetric* scale-stats op (int static uses a one-sided percentile, everything
-    else uses max); the asymmetric scale-stats op is owned by
-    :class:`InputZeroPointComponent` / the asymmetric mixin.
+      * static  (``PARAMETER_FROM_STATS``): runtime-percentile stats attrs;
+      * dynamic (``DYNAMIC``): the per-forward stats view / broadcast reshape;
+      * no_scale (``None``): drop the (now-unused) scale attributes (float-only,
+        :class:`FloatActBase`).
+
+    Any other solver-supported ``scaling_impl_type`` is passed through unchanged
+    (base only); for a *symmetric* such input the caller must supply
+    ``scaling_stats_op`` via ``kwargs``. This component owns the *symmetric*
+    scale-stats op for the static / dynamic modes (int static uses a one-sided
+    percentile, everything else uses max); the asymmetric scale-stats op is owned
+    by :class:`InputZeroPointComponent` / the asymmetric mixin.
     """
 
     def build(self, config: QuantizerConfig) -> Contribution:
-        # The activation scale mode is encoded in scaling_impl_type:
-        # PARAMETER_FROM_STATS -> static, DYNAMIC -> dynamic, None -> no_scale.
+        # Base: scaling_impl_type = config.scaling_impl_type (act solver resolves it).
+        contribution = super().build(config)
         if config.is_static:
-            return self.build_static(config)
-        if config.is_dynamic:
-            return self.build_dynamic(config)
-        if config.is_no_scale:
-            return self.build_no_scale(config)
-        raise ValueError(
-            f"Unsupported input scaling_impl_type {config.scaling_impl_type!r}; expected "
-            "PARAMETER_FROM_STATS (static), DYNAMIC (dynamic) or None (no_scale).")
+            contribution += self._static_overrides(config)
+        elif config.is_dynamic:
+            contribution += self._dynamic_overrides(config)
+        elif config.is_no_scale:
+            contribution += self._no_scale_overrides(config)
+        return contribution
 
-    def build_static(self, config: QuantizerConfig) -> Contribution:
+    def _static_overrides(self, config: QuantizerConfig) -> Contribution:
         attrs: Dict[str, Any] = {
-            "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "high_percentile_q": 99.999,
             "collect_stats_steps": 300,}
         if config.is_sym:
@@ -305,9 +307,13 @@ class InputScaleComponent(Component):
             attrs["scaling_stats_op"] = _sym_scaling_stats_op(config, default)
         return Contribution(attrs=attrs)
 
-    def build_dynamic(self, config: QuantizerConfig) -> Contribution:
-        attrs: Dict[str, Any] = {
-            "scaling_impl_type": ScalingImplType.DYNAMIC,}
+    def _dynamic_overrides(self, config: QuantizerConfig) -> Contribution:
+        # scaling_impl_type=DYNAMIC (from the base) is resolved by the act solver to
+        # RuntimeDynamicGroupStatsScaling (per-group) or RuntimeDynamicStatsScaling
+        # (per-tensor / per-row). Per-group reads group_size/group_dim/input_view
+        # from the groupwise act solver; per-tensor / per-row supply the stats view
+        # and (for per-tensor) the broadcastable reshape below.
+        attrs: Dict[str, Any] = {}
         if not config.is_groupwise:
             if config.scaling_granularity == ScalingPerOutputType.TENSOR:
                 attrs["scaling_stats_input_view_shape_impl"] = OverTensorView
@@ -318,11 +324,11 @@ class InputScaleComponent(Component):
             attrs["scaling_stats_op"] = _sym_scaling_stats_op(config, StatsOp.MAX)
         return Contribution(attrs=attrs)
 
-    def build_no_scale(self, config: QuantizerConfig) -> Contribution:
-        # FloatActBase has no scale; drop the scale-related attribute carried by
-        # CommonComponent (mirrors brevitas Fp8e4m3Act). scaling_impl_type is never
-        # set on this path, so only restrict_scaling_type needs dropping.
-        return Contribution(drop=("restrict_scaling_type",))
+    def _no_scale_overrides(self, config: QuantizerConfig) -> Contribution:
+        # FloatActBase has no scale; drop the scale-related attributes carried by the
+        # base (scaling_impl_type=None) and CommonComponent (restrict_scaling_type),
+        # mirroring brevitas Fp8e4m3Act.
+        return Contribution(drop=("scaling_impl_type", "restrict_scaling_type"))
 
 
 class InputZeroPointComponent(ZeroPointComponent):

@@ -112,14 +112,23 @@ class AsymmetricZeroPointMixin(ExtendedInjector):
         return solve_stats_impl(zero_point_stats_op)
 
     # The zero-point implementation is driven by the *zero-point* param method
-    # (zero_point_impl_type), independent of the scale's scaling_impl_type. When
-    # no dedicated zero-point param method is selected (zero_point_impl_type is
-    # None), the default asymmetric zero-point is a plain stats-from-parameter
-    # zero-point, regardless of whether the scale is STATS/MSE/HQO.
+    # (zero_point_impl_type) when one is selected (MSE / HQO). Otherwise
+    # (zero_point_impl_type is None) the default asymmetric zero-point mirrors the
+    # *scale* storage strategy (scaling_impl_type), so e.g. a parameter-from-stats
+    # scale folds the zero-point into a standalone parameter as well.
     @value
     def zero_point_impl(
-            zero_point_impl_type: EnumType[ZeroPointImplType] = None) -> Optional[Type[nn.Module]]:
-        if zero_point_impl_type is None or zero_point_impl_type == ZeroPointImplType.STATS:
+            zero_point_impl_type: EnumType[ZeroPointImplType] = None,
+            scaling_impl_type: EnumType[ScalingImplType] = None) -> Optional[Type[nn.Module]]:
+        if zero_point_impl_type is None:
+            if scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS:
+                zero_point_impl_type = ZeroPointImplType.PARAMETER_FROM_STATS
+            elif scaling_impl_type == ScalingImplType.PARAMETER:
+                zero_point_impl_type = ZeroPointImplType.PARAMETER
+            else:
+                # STATS / AFFINE_STATS / DYNAMIC / ... -> plain stats-from-parameter zp.
+                zero_point_impl_type = ZeroPointImplType.STATS
+        if zero_point_impl_type == ZeroPointImplType.STATS:
             return StatsFromParameterZeroPoint
         elif zero_point_impl_type == ZeroPointImplType.PARAMETER:
             return ParameterZeroPoint

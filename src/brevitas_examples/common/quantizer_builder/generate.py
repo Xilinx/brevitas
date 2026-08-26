@@ -23,7 +23,6 @@ from typing import List
 from typing import Optional
 from typing import Type
 
-from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.inject.enum import QuantType
 from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingImplType
@@ -91,10 +90,8 @@ def generate_weight_quantizer(
     if granularity == ScalingPerOutputType.GROUP and group_size is not None:
         kwargs['group_size'] = group_size
     # Asymmetric parameter-from-stats weights fold the zero-point into a standalone
-    # parameter (per_group quantizers already do this by default).
-    if (quant_param_type == QuantParamType.ASYM and
-            scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS):
-        kwargs['zero_point_impl'] = ParameterFromStatsFromParameterZeroPoint
+    # parameter; this is now derived from scaling_impl_type by the builder's
+    # AsymmetricZeroPointMixin, so no explicit zero_point_impl override is needed.
     if extra_kwargs:
         kwargs.update(extra_kwargs)
 
