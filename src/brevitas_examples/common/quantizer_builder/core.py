@@ -30,7 +30,6 @@ from brevitas.inject.enum import ScalingPerOutputType
 from brevitas_examples.common.quantizer_builder.mixins import FloatFormat
 from brevitas_examples.common.quantizer_builder.mixins import ParamMethod
 from brevitas_examples.common.quantizer_builder.mixins import QuantParamType
-from brevitas_examples.common.quantizer_builder.mixins import ScaleType
 
 
 @dataclass(frozen=True)
@@ -51,9 +50,8 @@ FormatConfig = Union[IntFormatConfig, FloatFormatConfig]
 
 @dataclass(frozen=True)
 class QuantizerConfig:
-    """Immutable description of a quantizer along its orthogonal axes.
-
-    ``scale_type`` is input/activation-only; weight builders ignore it.
+    """
+    Immutable description of a quantizer along its orthogonal axes.
     """
     # AutoName enums are unhashable, so enum defaults use default_factory (a plain
     # default is rejected by dataclass as "mutable").
@@ -61,12 +59,14 @@ class QuantizerConfig:
     quant_param_type: QuantParamType = field(default_factory=lambda: QuantParamType.SYM)
     scaling_granularity: ScalingPerOutputType = field(
         default_factory=lambda: ScalingPerOutputType.TENSOR)
-    scaling_impl_type: ScalingImplType = field(default_factory=lambda: ScalingImplType.STATS)
+    # TODO (pml): Consider adding a check for `scaling_impl_type=None`
+    # Optional: None encodes the activation no-scale (float-only) mode.
+    scaling_impl_type: Optional[ScalingImplType] = field(
+        default_factory=lambda: ScalingImplType.STATS)
     restrict_scaling_type: RestrictValueType = field(default_factory=lambda: RestrictValueType.FP)
     scaling_min_val: Optional[float] = None
     scaling_param_method: ParamMethod = field(default_factory=lambda: ParamMethod.STATS)
     zero_point_param_method: Optional[ParamMethod] = None
-    scale_type: ScaleType = field(default_factory=lambda: ScaleType.STATIC)
     extra: Dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -91,15 +91,15 @@ class QuantizerConfig:
 
     @property
     def is_static(self) -> bool:
-        return ScaleType(self.scale_type) == ScaleType.STATIC
+        return self.scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS
 
     @property
     def is_dynamic(self) -> bool:
-        return ScaleType(self.scale_type) == ScaleType.DYNAMIC
+        return self.scaling_impl_type == ScalingImplType.DYNAMIC
 
     @property
     def is_no_scale(self) -> bool:
-        return ScaleType(self.scale_type) == ScaleType.NO_SCALE
+        return self.scaling_impl_type is None
 
     @property
     def is_power_of_two(self) -> bool:
@@ -179,21 +179,21 @@ def config_from_flat_args(
         *,
         quant_param_type: QuantParamType = QuantParamType.SYM,
         bit_width: int = 8,
-        scaling_impl_type: ScalingImplType = ScalingImplType.STATS,
+        scaling_impl_type: Optional[ScalingImplType] = ScalingImplType.STATS,
         scaling_per_output_type: ScalingPerOutputType = ScalingPerOutputType.TENSOR,
         restrict_scaling_type: RestrictValueType = RestrictValueType.FP,
         scaling_min_val: Optional[float] = None,
         scaling_param_method: ParamMethod = ParamMethod.STATS,
         zero_point_param_method: Optional[ParamMethod] = None,
-        scale_type: ScaleType = ScaleType.STATIC,
         float_format: Optional[FloatFormat] = None,
         float_quant_format: Optional[str] = None,
         kwargs: Optional[Dict[str, Any]] = None) -> QuantizerConfig:
     """Assemble a :class:`QuantizerConfig` from the legacy flat quantizer arguments.
 
-    Shared by the weight / input factory shims, which differ only in whether they
-    expose ``scale_type`` (activation-only). The ``format`` axis is discriminated
-    on ``quant_type`` into an :class:`IntFormatConfig` or :class:`FloatFormatConfig`.
+    Shared by the weight / input factory shims. For inputs the activation scale
+    mode is carried by ``scaling_impl_type`` (PARAMETER_FROM_STATS=static,
+    DYNAMIC=dynamic, None=no_scale). The ``format`` axis is discriminated on
+    ``quant_type`` into an :class:`IntFormatConfig` or :class:`FloatFormatConfig`.
     """
     if QuantType(quant_type) == QuantType.INT:
         fmt: FormatConfig = IntFormatConfig(bit_width=bit_width)
@@ -210,5 +210,4 @@ def config_from_flat_args(
         scaling_min_val=scaling_min_val,
         scaling_param_method=scaling_param_method,
         zero_point_param_method=zero_point_param_method,
-        scale_type=scale_type,
         extra=kwargs or {})

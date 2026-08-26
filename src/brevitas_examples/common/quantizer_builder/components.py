@@ -16,7 +16,6 @@ from typing import Type
 
 from brevitas.core.function_wrapper.shape import OverOutputFeaturesView
 from brevitas.core.function_wrapper.shape import OverTensorView
-from brevitas.core.scaling.runtime import RuntimeDynamicGroupStatsScaling
 from brevitas.core.stats.stats_wrapper import SCALAR_SHAPE
 from brevitas.core.zero_point import RuntimeDynamicGroupZeroPoint
 from brevitas.core.zero_point import ZeroZeroPoint
@@ -43,7 +42,6 @@ from brevitas.quant.float_base import ScaledFloatWeightBase
 from brevitas.quant.solver.act import ActQuantSolver
 from brevitas.quant.solver.common import solve_float_to_int_impl_from_enum
 from brevitas.quant.solver.weight import WeightQuantSolver
-from brevitas_examples.common.generative.quant_blocks import RuntimeDynamicStatsScaling
 from brevitas_examples.common.generative.quant_blocks import RuntimeDynamicStatsZeroPoint
 from brevitas_examples.common.quantizer_builder.core import Component
 from brevitas_examples.common.quantizer_builder.core import Contribution
@@ -281,11 +279,17 @@ class InputScaleComponent(Component):
     """
 
     def build(self, config: QuantizerConfig) -> Contribution:
+        # The activation scale mode is encoded in scaling_impl_type:
+        # PARAMETER_FROM_STATS -> static, DYNAMIC -> dynamic, None -> no_scale.
         if config.is_static:
             return self.build_static(config)
         if config.is_dynamic:
             return self.build_dynamic(config)
-        return self.build_no_scale(config)
+        if config.is_no_scale:
+            return self.build_no_scale(config)
+        raise ValueError(
+            f"Unsupported input scaling_impl_type {config.scaling_impl_type!r}; expected "
+            "PARAMETER_FROM_STATS (static), DYNAMIC (dynamic) or None (no_scale).")
 
     def build_static(self, config: QuantizerConfig) -> Contribution:
         attrs: Dict[str, Any] = {
@@ -302,13 +306,9 @@ class InputScaleComponent(Component):
         return Contribution(attrs=attrs)
 
     def build_dynamic(self, config: QuantizerConfig) -> Contribution:
-        attrs: Dict[str, Any]
-        if config.is_groupwise:
-            # Per-group: RuntimeDynamicGroupStatsScaling reads group_size/group_dim
-            # and input_view_impl from the (groupwise) act solver.
-            attrs = {"scaling_impl": RuntimeDynamicGroupStatsScaling}
-        else:
-            attrs = {"scaling_impl": RuntimeDynamicStatsScaling}
+        attrs: Dict[str, Any] = {
+            "scaling_impl_type": ScalingImplType.DYNAMIC,}
+        if not config.is_groupwise:
             if config.scaling_granularity == ScalingPerOutputType.TENSOR:
                 attrs["scaling_stats_input_view_shape_impl"] = OverTensorView
                 attrs["dynamic_scaling_broadcastable_fn"] = lambda x, shape: x.view(SCALAR_SHAPE)
@@ -391,9 +391,7 @@ class InputSolverComponent(Component):
         if config.is_dynamic:
             if config.is_groupwise:
                 return GroupwiseActFloatQuantProxyFromInjector
-            if config.scaling_granularity == ScalingPerOutputType.CHANNEL:  # per-row
-                return DynamicActFloatQuantProxyFromInjector
-            # Per-tensor dynamic float reuses the plain float act proxy.
-            return ActFloatQuantProxyFromInjector
+            # Per-tensor / per-row dynamic float use the dynamic float act proxy.
+            return DynamicActFloatQuantProxyFromInjector
         # Static / no_scale float use the plain float act proxy.
         return ActFloatQuantProxyFromInjector

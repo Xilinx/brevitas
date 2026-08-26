@@ -180,13 +180,6 @@ class QuantParamType(AutoName):
     ASYM = auto()
 
 
-class ScaleType(AutoName):
-    # Input/activation-only axis (maps to INPUT_QUANT_MAP keys).
-    STATIC = auto()  # scale computed from runtime stats, stored as a parameter
-    DYNAMIC = auto()  # scale recomputed per-forward
-    NO_SCALE = auto()  # no scale (float only, e.g. Fp8e4m3Act)
-
-
 class FloatFormat(AutoName):
     # Maps to WEIGHT_QUANT_MAP keys 'float' / 'float_ocp' / 'float_fnuz'.
     FLOAT = auto()  # plain FP (brevitas ScaledFloatWeightBase)

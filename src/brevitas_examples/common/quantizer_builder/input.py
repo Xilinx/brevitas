@@ -30,7 +30,6 @@ from brevitas_examples.common.quantizer_builder.core import config_from_flat_arg
 from brevitas_examples.common.quantizer_builder.mixins import FloatFormat
 from brevitas_examples.common.quantizer_builder.mixins import ParamMethod
 from brevitas_examples.common.quantizer_builder.mixins import QuantParamType
-from brevitas_examples.common.quantizer_builder.mixins import ScaleType
 
 
 class InputQuantizerBuilder(QuantizerBuilder):
@@ -61,9 +60,8 @@ def build_input_quantizer(
         quant_type: Union[str, QuantType],
         *,
         quant_param_type: QuantParamType = QuantParamType.SYM,
-        scale_type: ScaleType = ScaleType.STATIC,
         bit_width: int = 8,
-        scaling_impl_type: ScalingImplType = ScalingImplType.STATS,
+        scaling_impl_type: Optional[ScalingImplType] = ScalingImplType.PARAMETER_FROM_STATS,
         scaling_per_output_type: ScalingPerOutputType = ScalingPerOutputType.TENSOR,
         restrict_scaling_type: RestrictValueType = RestrictValueType.FP,
         scaling_min_val: Optional[float] = None,
@@ -86,7 +84,6 @@ def build_input_quantizer(
         scaling_min_val=scaling_min_val,
         scaling_param_method=scaling_param_method,
         zero_point_param_method=zero_point_param_method,
-        scale_type=scale_type,
         float_format=float_format,
         float_quant_format=float_quant_format,
         kwargs=kwargs)
