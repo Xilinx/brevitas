@@ -3,7 +3,6 @@
 
 import torch
 
-import brevitas.compiler as brevitas_compiler
 from brevitas.core.bit_width import BitWidthParameter
 from brevitas.core.function_wrapper import *
 from brevitas.core.quant import RescalingIntQuant
@@ -219,8 +218,6 @@ def float_to_int_impl_to_enum(module):
         return None
 
 
-# For old versions of pytorch (2.3.1), this is needed otherwise compile skips this function
-@brevitas_compiler.disable_on_old_torch
 def groupwise_dequant_expand(
         value_, scale_, zero_point_, group_dim, dequant_shape, expand_metadata=True):
     curr_shape = value_.shape

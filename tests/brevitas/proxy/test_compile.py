@@ -115,7 +115,6 @@ def test_compile_act(inp, act_quantizer):
     assert torch.allclose(out, inference_out)
 
 
-@requires_pt_ge('2.4')
 @requires_torch_compile()
 @jit_disabled_for_compile()
 @torch.no_grad()
@@ -133,7 +132,6 @@ def test_compile_mx_weight_non_divisible_group(weight_quantizer):
     assert torch.allclose(expected, actual)
 
 
-@requires_pt_ge('2.4')
 @requires_torch_compile()
 @jit_disabled_for_compile()
 @torch.no_grad()

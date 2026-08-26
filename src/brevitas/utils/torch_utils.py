@@ -13,7 +13,6 @@ from torch.nn import Sequential
 
 import brevitas
 from brevitas import torch_version
-import brevitas.compiler as brevitas_compiler
 from brevitas.function.ops_ste import floor_ste
 
 # Named tensors (Tensor.rename/rename_/names) were removed in PyTorch 2.13
@@ -148,7 +147,6 @@ def float_internal_scale(
 
 
 @brevitas.jit.ignore
-@brevitas_compiler.disable_on_old_torch
 def padding_to_multiple(x: torch.Tensor, dim_to_expand: int, dim_multiple: int) -> torch.Tensor:
     # Given a tensor X, compute the padding along dim_multiple so that new dimension is a multiple of dim_multiple
     padding = [0, 0] * len(x.shape)
