@@ -264,6 +264,8 @@ def test_groupwise_quant_tensor_device(device, quant_tensor_class):
     assert quant_tensor.device == device
 
     other_device = torch.device("meta" if device.type == "cpu" else "cpu")
-    mismatched_quant_tensor = quant_tensor.set(scale_=torch.tensor(1.0, device=other_device))
+    mismatched_kwargs = dict(kwargs)
+    mismatched_kwargs['scale'] = torch.tensor(1.0, device=other_device)
+    mismatched_quant_tensor = quant_tensor_class(**mismatched_kwargs)
     with pytest.raises(RuntimeError, match="Value and metadata are on different devices"):
         mismatched_quant_tensor.device
