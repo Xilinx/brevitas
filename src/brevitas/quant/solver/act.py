@@ -15,6 +15,8 @@ from brevitas.core.quant import TernaryQuant
 from brevitas.core.scaling import ConstScaling
 from brevitas.core.scaling import ParameterFromRuntimeStatsScaling
 from brevitas.core.scaling import ParameterScaling
+from brevitas.core.scaling import RuntimeDynamicGroupStatsScaling
+from brevitas.core.scaling import RuntimeDynamicStatsScaling
 from brevitas.core.scaling import RuntimeStatsScaling
 from brevitas.core.scaling import SCALAR_SHAPE
 from brevitas.inject import ExtendedInjector
@@ -41,7 +43,7 @@ class MinMaxScalingInit:
 class SolveActScalingImplFromEnum(SolveAffineRescalingFromEnum):
 
     @value
-    def scaling_impl(scaling_impl_type=None):
+    def scaling_impl(scaling_impl_type=None, scaling_per_output_type=None):
         # Needed for no-scale minifloat quantization
         if scaling_impl_type is None:
             return None
@@ -56,6 +58,11 @@ class SolveActScalingImplFromEnum(SolveAffineRescalingFromEnum):
             return RuntimeStatsScaling
         elif scaling_impl_type == ScalingImplType.AFFINE_STATS:
             return RuntimeStatsScaling
+        elif scaling_impl_type == ScalingImplType.DYNAMIC:
+            # Runtime scale recomputed per-forward
+            if scaling_per_output_type == ScalingPerOutputType.GROUP:
+                return RuntimeDynamicGroupStatsScaling
+            return RuntimeDynamicStatsScaling
         elif scaling_impl_type == ScalingImplType.HE:
             raise RuntimeError(f"{scaling_impl_type} not supported.")
         else:

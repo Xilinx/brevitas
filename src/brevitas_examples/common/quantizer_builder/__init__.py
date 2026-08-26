@@ -26,7 +26,6 @@ from brevitas_examples.common.quantizer_builder.input import InputQuantizerBuild
 from brevitas_examples.common.quantizer_builder.mixins import FloatFormat
 from brevitas_examples.common.quantizer_builder.mixins import ParamMethod
 from brevitas_examples.common.quantizer_builder.mixins import QuantParamType
-from brevitas_examples.common.quantizer_builder.mixins import ScaleType
 from brevitas_examples.common.quantizer_builder.mixins import ZeroPointImplType
 from brevitas_examples.common.quantizer_builder.weight import build_weight_quantizer
 from brevitas_examples.common.quantizer_builder.weight import WeightQuantizerBuilder
@@ -47,5 +46,4 @@ __all__ = [
     "FloatFormat",
     "ParamMethod",
     "QuantParamType",
-    "ScaleType",
     "ZeroPointImplType",]
