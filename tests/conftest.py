@@ -20,8 +20,8 @@ def get_hypothesis_seed():
     jobs still explore different examples. ``zlib.crc32`` (not builtin ``hash()``, which is
     per-process randomised) keeps xdist workers in agreement.
     """
-    fingerprint = '|'.join(
-        [platform.python_version(), torch.__version__, platform.system(), platform.machine()])
+    fingerprint = '|'.join([
+        platform.python_version(), torch.__version__, platform.system(), platform.machine()])
     return zlib.crc32(fingerprint.encode('utf-8'))
 
 
@@ -29,5 +29,6 @@ def pytest_configure(config):
     # Apply the global Hypothesis seed unless the user passed --hypothesis-seed. This is the
     # same mechanism the Hypothesis pytest plugin uses for that flag.
     from hypothesis import core
-    if config.getoption('--hypothesis-seed', default=None) is None and core.global_force_seed is None:
+    if config.getoption('--hypothesis-seed',
+                        default=None) is None and core.global_force_seed is None:
         core.global_force_seed = get_hypothesis_seed()

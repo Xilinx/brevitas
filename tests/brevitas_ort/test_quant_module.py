@@ -22,8 +22,8 @@ from .common import *
 from .quant_module_cases import build_wbiol_model
 from .quant_module_cases import QuantAvgPoolCases
 from .quant_module_cases import QuantRecurrentCases
-from .quant_module_cases import WBIOL_MAX_EXAMPLES
 from .quant_module_cases import wbiol_config_st
+from .quant_module_cases import WBIOL_MAX_EXAMPLES
 
 # Skip Hypothesis' shrinking phase: each example is a full ONNX export + ORT inference, so
 # shrinking a failure could take many minutes. The failing example is still reported and is
