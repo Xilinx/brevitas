@@ -215,7 +215,7 @@ class GroupwiseFloatQuantTensor(FloatMixin, QuantTensor):
 
     @property
     def device(self):
-        value_device = self.value_.device
+        value_device = self._value_.device
         is_same_device = True
         for t in [self.scale_,
                   self.zero_point_,
