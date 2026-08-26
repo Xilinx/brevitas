@@ -268,9 +268,6 @@ def tests_brevitas_ort_integration(session, pytorch):
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)
     session.install('-e', '.[test, ort_integration, numpy]', *cmd)
-    # These tests draw a random subset of the (very large) configuration space via
-    # Hypothesis. The global seed is derived per-environment in tests/conftest.py
-    # (get_hypothesis_seed); override with pytest's --hypothesis-seed if needed.
     session.run('pytest', '-n', 'logical', '-v', 'tests/brevitas_ort')
 
 

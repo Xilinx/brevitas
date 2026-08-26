@@ -6,6 +6,7 @@ import re
 import numpy as np
 import onnxruntime as ort
 from packaging.version import parse
+import pytest
 from qonnx.core.modelwrapper import ModelWrapper
 import qonnx.core.onnx_exec as oxe
 from qonnx.transformation.infer_shapes import InferShapes
@@ -35,10 +36,6 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 from brevitas.quant_tensor import QuantTensor
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
-
-class AllZeroOutput(Exception):
-    """Raised when both Brevitas and ORT produce all-zero outputs (nothing to compare)."""
-
 
 DEFAULT_ONNX_OPSET = 18 if torch_version >= parse('2.0') else 17
 
@@ -205,12 +202,9 @@ def is_brevitas_ort_close(
             ort_output = ort_output[0]
         if isinstance(computed_out, tuple):
             computed_out = computed_out[0]
-        # make sure we are not comparing 0s (a trivially-passing, uninformative case)
+        # make sure we are not comparing 0s
         if (ort_output == 0).all() and (computed_out == 0).all():
-            # Raise a sentinel instead of pytest.skip: under a Hypothesis @given test a
-            # skip would abort the whole node (all remaining examples), so callers translate
-            # this into hypothesis.assume(False); non-Hypothesis callers translate it to a skip.
-            raise AllZeroOutput("Brevitas and ORT outputs are both all-zero.")
+            pytest.skip("Skip testing against all 0s.")
 
     return recursive_allclose(ort_output, computed_out, tolerance)
 

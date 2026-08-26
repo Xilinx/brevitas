@@ -1,14 +1,11 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Model builders for the ORT integration tests.
+from dataclasses import dataclass
 
-These functions construct the ``nn.Module`` under test from a sampled configuration
-object (see :mod:`tests.brevitas_ort.sampling`). They used to be ``pytest_cases`` case
-classes producing the full parameter cross-product; that enumeration has been replaced
-by seeded random sampling, so all that remains here is the model-construction logic.
-"""
-
+from hypothesis import strategies as st
+from pytest_cases import parametrize
+from pytest_cases import set_case_id
 from torch import nn
 
 from brevitas.nn.quant_activation import QuantIdentity
@@ -17,28 +14,95 @@ from brevitas.nn.quant_rnn import QuantLSTM
 from brevitas.quant.scaled_int import Int32Bias
 
 from .common import *
-from .sampling import AvgPoolConfig
-from .sampling import LSTMConfig
-from .sampling import WBIOLConfig
+
+# Number of Hypothesis examples drawn for the (very large) WBIOL configuration space. Drawing
+# per-axis keeps rare quantizers/export types well represented without any explicit handling.
+WBIOL_MAX_EXAMPLES = 252
 
 
-def build_wbiol_model(cfg: WBIOLConfig) -> nn.Module:
-    # FP8 export and FLOOR rounding need non-deterministic algorithms; everything else
-    # runs deterministically. Validity of the bit-widths is enforced during sampling.
-    if cfg.is_fp8 or cfg.rounding_type == 'floor':
+@dataclass(frozen=True)
+class WBIOLConfig:
+    quantizer_name: str
+    weight_quant: type
+    io_quant: type
+    output_bit_width: int
+    weight_bit_width: int
+    input_bit_width: int
+    impl: type
+    rounding_type: str
+    export_type: str
+
+    @property
+    def id(self):
+        return (
+            f'wbiol-{self.quantizer_name}-o{self.output_bit_width}-w{self.weight_bit_width}'
+            f'-i{self.input_bit_width}-{self.impl.__name__}-rtype_{self.rounding_type}'
+            f'-{self.export_type}')
+
+
+@st.composite
+def wbiol_config_st(draw):
+    """Draw a valid WBIOL configuration (valid-by-construction: no assume/skip needed)."""
+    names = list(WBIOL_QUANTIZERS)
+    if torch_version < parse('2.1'):
+        names = [n for n in names if 'fp8' not in n]  # fp8 requires PyTorch >= 2.1
+    quantizer_name = draw(st.sampled_from(names))
+    weight_quant, io_quant = WBIOL_QUANTIZERS[quantizer_name]
+    is_fp8 = weight_quant == Fp8e4m3OCPWeightPerTensorFloat
+    is_dynamic = io_quant == ShiftedUint8DynamicActPerTensorFloat
+
+    impls = QUANT_WBIOL_IMPL
+    if 'asymmetric' in quantizer_name:
+        # QuantLinear + asymmetric fails unreliably in ORT execution.
+        impls = [i for i in impls if i is not QuantLinear]
+    impl = draw(st.sampled_from(impls))
+
+    rounding_type = draw(st.sampled_from(['round', 'floor']))
+
+    # fp8 export and floor rounding require all-8 bit-widths; dynamic act quant requires 8-bit i/o.
+    if is_fp8 or rounding_type == 'floor':
+        o = w = i = 8
+    elif is_dynamic:
+        o, i = 8, 8
+        w = draw(st.sampled_from(list(BIT_WIDTHS)))
+    else:
+        o = draw(st.sampled_from(list(BIT_WIDTHS)))
+        w = draw(st.sampled_from(list(BIT_WIDTHS)))
+        i = draw(st.sampled_from(list(BIT_WIDTHS)))
+
+    exports = ['qcdq', 'qonnx']
+    if torch_version >= parse('2.8'):
+        exports.append('qonnx_dynamo')
+        # Dynamo QCDQ exports weights as a round-only Q-node and cannot export quantized bias,
+        # so it is limited to round + fp8/dynamic quantizers (which don't quantize bias).
+        if rounding_type == 'round' and (is_fp8 or is_dynamic):
+            exports.append('qcdq_dynamo')
+    if is_dynamic:  # dynamic act quant is only supported on the QCDQ export paths
+        exports = [e for e in exports if e in ('qcdq', 'qcdq_dynamo')]
+    export_type = draw(st.sampled_from(exports))
+
+    return WBIOLConfig(
+        quantizer_name, weight_quant, io_quant, o, w, i, impl, rounding_type, export_type)
+
+
+def build_wbiol_model(config):
+    weight_quant, io_quant = config.weight_quant, config.io_quant
+    is_fp8 = weight_quant == Fp8e4m3OCPWeightPerTensorFloat
+    is_dynamic = io_quant == ShiftedUint8DynamicActPerTensorFloat
+    if is_fp8 or config.rounding_type == 'floor':
         torch.use_deterministic_algorithms(False)
     else:
         torch.use_deterministic_algorithms(True)
 
-    impl = cfg.impl
+    impl = config.impl
     if impl is QuantLinear:
         layer_kwargs = {'in_features': IN_CH, 'out_features': OUT_CH}
     else:
         layer_kwargs = {'in_channels': IN_CH, 'out_channels': OUT_CH, 'kernel_size': KERNEL_SIZE}
 
-    bias_quantizer = None if (cfg.is_fp8 or cfg.is_dynamic) else Int32Bias
-    # Required because of numpy error with FP8 data type. Export itself works fine.
-    return_quant_tensor = False if cfg.is_fp8 else True
+    bias_quantizer = None if (is_fp8 or is_dynamic) else Int32Bias
+    # Required because of numpy error with FP8 data type. Export iself works fine.
+    return_quant_tensor = False if is_fp8 else True
 
     class Model(nn.Module):
 
@@ -47,14 +111,14 @@ def build_wbiol_model(cfg: WBIOLConfig) -> nn.Module:
             self.conv = impl(
                 **layer_kwargs,
                 bias=True,
-                weight_quant=cfg.weight_quant,
-                input_quant=cfg.io_quant,
-                output_quant=cfg.io_quant,
-                weight_bit_width=cfg.weight_bit_width,
-                input_bit_width=cfg.input_bit_width,
-                output_bit_width=cfg.output_bit_width,
+                weight_quant=weight_quant,
+                input_quant=io_quant,
+                output_quant=io_quant,
+                weight_bit_width=config.weight_bit_width,
+                input_bit_width=config.input_bit_width,
+                output_bit_width=config.output_bit_width,
                 bias_quant=bias_quantizer,
-                weight_float_to_int_impl_type=cfg.rounding_type,
+                weight_float_to_int_impl_type=config.rounding_type,
                 return_quant_tensor=return_quant_tensor)
             self.conv.weight.data.uniform_(-0.01, 0.01)
 
@@ -62,66 +126,120 @@ def build_wbiol_model(cfg: WBIOLConfig) -> nn.Module:
             return self.conv(x)
 
     torch.random.manual_seed(SEED)
-    return Model()
+    module = Model()
+    return module
 
 
-def build_avgpool_model(cfg: AvgPoolConfig) -> nn.Module:
+class QuantAvgPoolCases:
 
-    class Model(nn.Module):
+    @parametrize('output_bit_width', BIT_WIDTHS, ids=[f'o{b}' for b in BIT_WIDTHS])
+    @parametrize('input_signed', [True, False])
+    def case_quant_avgpool(self, input_signed, output_bit_width):
 
-        def __init__(self):
-            super().__init__()
-            self.in_quant = QuantIdentity(signed=cfg.input_signed, return_quant_tensor=True)
-            self.quant_avg_pool = TruncAvgPool2d(
-                kernel_size=3,
-                stride=2,
-                bit_width=cfg.output_bit_width,
-                float_to_int_impl_type='round')
+        class Model(nn.Module):
 
-        def forward(self, x):
-            return self.quant_avg_pool(self.in_quant(x))
+            def __init__(self):
+                super().__init__()
+                self.in_quant = QuantIdentity(signed=input_signed, return_quant_tensor=True)
+                self.quant_avg_pool = TruncAvgPool2d(
+                    kernel_size=3,
+                    stride=2,
+                    bit_width=output_bit_width,
+                    float_to_int_impl_type='round')
 
-    torch.random.manual_seed(SEED)
-    return Model()
+            def forward(self, x):
+                return self.quant_avg_pool(self.in_quant(x))
+
+        torch.random.manual_seed(SEED)
+        module = Model()
+        return module
 
 
-def build_lstm_model(cfg: LSTMConfig) -> nn.Module:
-    if cfg.bidirectional == 'shared_input_hidden':
-        bidirectional = True
-        shared_input_hidden = True
-    else:
-        bidirectional = cfg.bidirectional
-        shared_input_hidden = False
+class QuantRecurrentCases:
 
-    quant_kwargs = {}
-    if cfg.is_quant:
-        quant_kwargs['weight_quant'] = cfg.weight_quant
-        quant_kwargs['weight_bit_width'] = cfg.weight_bit_width
-    else:
-        quant_kwargs['weight_quant'] = None
+    @parametrize('bidirectional', [True, False, 'shared_input_hidden'])
+    @parametrize('cifg', [True, False])
+    @parametrize('num_layers', [1, 2])
+    def case_float_lstm(self, bidirectional, cifg, num_layers, request):
 
-    class Model(nn.Module):
+        # Change the case_id based on current value of Parameters
+        set_case_id(request.node.callspec.id, QuantRecurrentCases.case_float_lstm)
 
-        def __init__(self):
-            super().__init__()
-            self.lstm = QuantLSTM(
-                input_size=IN_CH,
-                hidden_size=OUT_CH,
-                **quant_kwargs,
-                bias_quant=None,
-                io_quant=None,
-                gate_acc_quant=None,
-                sigmoid_quant=None,
-                tanh_quant=None,
-                cell_state_quant=None,
-                batch_first=False,  # ort doesn't support batch_first=True (layout = 1)
-                num_layers=cfg.num_layers,
-                bidirectional=bidirectional,
-                shared_input_hidden_weights=shared_input_hidden,
-                coupled_input_forget_gates=cfg.cifg)
+        if bidirectional == 'shared_input_hidden':
+            bidirectional = True
+            shared_input_hidden = True
+        else:
+            shared_input_hidden = False
 
-        def forward(self, x):
-            return self.lstm(x)
+        class Model(nn.Module):
 
-    torch.random.manual_seed(SEED)
-    return Model()
+            def __init__(self):
+                super().__init__()
+                self.lstm = QuantLSTM(
+                    input_size=IN_CH,
+                    hidden_size=OUT_CH,
+                    weight_quant=None,
+                    bias_quant=None,
+                    io_quant=None,
+                    gate_acc_quant=None,
+                    sigmoid_quant=None,
+                    tanh_quant=None,
+                    cell_state_quant=None,
+                    batch_first=False,  # ort doesn't support batch_first=True (layout = 1)
+                    num_layers=num_layers,
+                    bidirectional=bidirectional,
+                    shared_input_hidden_weights=shared_input_hidden,
+                    coupled_input_forget_gates=cifg)
+
+            def forward(self, x):
+                return self.lstm(x)
+
+        torch.random.manual_seed(SEED)
+        module = Model()
+        return module
+
+    @parametrize('bidirectional', [True, False, 'shared_input_hidden'])
+    @parametrize('cifg', [True, False])
+    @parametrize('num_layers', [1, 2])
+    @parametrize('weight_bit_width', BIT_WIDTHS, ids=[f'w{b}' for b in BIT_WIDTHS])
+    @parametrize('quantizers', LSTM_QUANTIZERS.values(), ids=list(LSTM_QUANTIZERS.keys()))
+    def case_quant_lstm(
+            self, bidirectional, cifg, num_layers, weight_bit_width, quantizers, request):
+
+        # Change the case_id based on current value of Parameters
+        set_case_id(request.node.callspec.id, QuantRecurrentCases.case_quant_lstm)
+
+        weight_quant, _ = quantizers
+        if bidirectional == 'shared_input_hidden':
+            bidirectional = True
+            shared_input_hidden = True
+        else:
+            shared_input_hidden = False
+
+        class Model(nn.Module):
+
+            def __init__(self):
+                super().__init__()
+                self.lstm = QuantLSTM(
+                    input_size=IN_CH,
+                    hidden_size=OUT_CH,
+                    weight_quant=weight_quant,
+                    weight_bit_width=weight_bit_width,
+                    bias_quant=None,
+                    io_quant=None,
+                    gate_acc_quant=None,
+                    sigmoid_quant=None,
+                    tanh_quant=None,
+                    cell_state_quant=None,
+                    batch_first=False,  # ort doesn't support batch_first=True (layout = 1)
+                    num_layers=num_layers,
+                    bidirectional=bidirectional,
+                    shared_input_hidden_weights=shared_input_hidden,
+                    coupled_input_forget_gates=cifg)
+
+            def forward(self, x):
+                return self.lstm(x)
+
+        torch.random.manual_seed(SEED)
+        module = Model()
+        return module
