@@ -19,7 +19,6 @@ from brevitas_examples.common.quantizer_builder.input import build_input_quantiz
 from brevitas_examples.common.quantizer_builder.mixins import FloatFormat
 from brevitas_examples.common.quantizer_builder.mixins import ParamMethod
 from brevitas_examples.common.quantizer_builder.mixins import QuantParamType
-from brevitas_examples.common.quantizer_builder.mixins import ScaleType
 from brevitas_examples.common.quantizer_builder.weight import build_weight_quantizer
 
 BIT_WIDTH = 8
@@ -71,7 +70,7 @@ INPUT_SPECS = {
     "int_static_per_tensor_sym": {
         "quant_type": QuantType.INT,
         "quant_param_type": QuantParamType.SYM,
-        "scale_type": ScaleType.STATIC,
+        "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
         "bit_width": BIT_WIDTH,
         "scaling_per_output_type": ScalingPerOutputType.TENSOR,
         "restrict_scaling_type": RestrictValueType.FP,
@@ -80,7 +79,7 @@ INPUT_SPECS = {
     "int_static_per_tensor_sym_mse": {
         "quant_type": QuantType.INT,
         "quant_param_type": QuantParamType.SYM,
-        "scale_type": ScaleType.STATIC,
+        "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
         "bit_width": BIT_WIDTH,
         "scaling_param_method": ParamMethod.MSE,
         "scaling_per_output_type": ScalingPerOutputType.TENSOR,

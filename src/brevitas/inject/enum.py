@@ -67,6 +67,8 @@ class ScalingImplType(AutoName):
     AFFINE_STATS = auto()
     PARAMETER = auto()
     PARAMETER_FROM_STATS = auto()
+    # Activation-only: a runtime scale recomputed per-forward
+    DYNAMIC = auto()
 
 
 class ScalingPerOutputType(AutoName):

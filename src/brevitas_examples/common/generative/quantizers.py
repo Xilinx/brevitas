@@ -223,7 +223,6 @@ class Fp8e4m3DynamicActPerGroupFloat(Fp8e4m3ActPerTensorFloat):
     scaling_impl = RuntimeDynamicGroupStatsScaling
     scaling_per_output_type = ScalingPerOutputType.GROUP
     scaling_stats_op = StatsOp.MAX
-    proxy_class = DynamicActFloatQuantProxyFromInjector
 
 
 class FP8e4m3OCPDynamicActPerRowFixedPoint(Fp8e4m3OCPActPerTensorFloat):
@@ -255,7 +254,6 @@ class Fp8e4m3OCPDynamicActPerGroupFloat(Fp8e4m3OCPActPerTensorFloat):
     scaling_impl = RuntimeDynamicGroupStatsScaling
     scaling_per_output_type = ScalingPerOutputType.GROUP
     scaling_stats_op = StatsOp.MAX
-    proxy_class = DynamicActFloatQuantProxyFromInjector
 
 
 class Fp8e4m3OCPWeightSymmetricGroupQuant(Fp8e4m3OCPWeightPerChannelFloat):

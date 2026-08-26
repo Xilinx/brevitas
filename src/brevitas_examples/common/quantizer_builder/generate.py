@@ -34,7 +34,6 @@ from brevitas_examples.common.quantizer_builder import Component
 from brevitas_examples.common.quantizer_builder import FloatFormat
 from brevitas_examples.common.quantizer_builder import ParamMethod
 from brevitas_examples.common.quantizer_builder import QuantParamType
-from brevitas_examples.common.quantizer_builder import ScaleType
 
 # Runtime, layer-supplied per-row overrides for an input/activation quantizer
 # hosted by a linear/conv layer (the layer supplies the reduce/broadcast dims).
@@ -133,7 +132,7 @@ def generate_weight_quantizer(
 def _build_input_quant(
         quant_type: QuantType,
         quant_param_type: QuantParamType,
-        scale_type: ScaleType,
+        scaling_impl_type: Optional[ScalingImplType],
         granularity: ScalingPerOutputType,
         scale_precision: RestrictValueType,
         param_method: ParamMethod,
@@ -152,7 +151,7 @@ def _build_input_quant(
     return build_input_quantizer(
         quant_type,
         quant_param_type=quant_param_type,
-        scale_type=scale_type,
+        scaling_impl_type=scaling_impl_type,
         bit_width=bit_width,
         scaling_per_output_type=granularity,
         restrict_scaling_type=scale_precision,
@@ -166,7 +165,9 @@ def _build_input_quant(
 def generate_input_quantizers(
         quant_type: QuantType,
         *,
-        scale_type: ScaleType = ScaleType.STATIC,
+        # Activation scale mode: PARAMETER_FROM_STATS=static, DYNAMIC=per-forward
+        # dynamic, None=no scale (float-only).
+        scaling_impl_type: Optional[ScalingImplType] = ScalingImplType.PARAMETER_FROM_STATS,
         quant_param_type: QuantParamType = QuantParamType.SYM,
         param_method: ParamMethod = ParamMethod.STATS,
         granularity: ScalingPerOutputType = ScalingPerOutputType.TENSOR,
@@ -183,7 +184,7 @@ def generate_input_quantizers(
         attn_quant_config: str = "qkvs",  # choices: "kv", "qkvs", "qkv"
         quant_attn_mode: str = 'mha',  # choices: "mha", "sdpa"
         attn_quant_type: Optional[QuantType] = None,
-        attn_scale_type: Optional[ScaleType] = None,
+        attn_scaling_impl_type: Optional[ScalingImplType] = None,
         attn_quant_param_type: Optional[QuantParamType] = None,
         attn_param_method: Optional[ParamMethod] = None,
         attn_granularity: Optional[ScalingPerOutputType] = None,
@@ -200,11 +201,11 @@ def generate_input_quantizers(
     ``v_quant``, ``attn_output_weights_quant``).
     """
     # no_scale is float-only and has no scale-precision / param-method axis.
-    if scale_type == ScaleType.NO_SCALE:
+    if scaling_impl_type is None:
         no_scale_quant = _build_input_quant(
             quant_type=quant_type,
             quant_param_type=quant_param_type,
-            scale_type=scale_type,
+            scaling_impl_type=scaling_impl_type,
             granularity=granularity,
             scale_precision=scale_precision,
             param_method=param_method,
@@ -228,7 +229,7 @@ def generate_input_quantizers(
     input_build_args = dict(
         quant_type=quant_type,
         quant_param_type=quant_param_type,
-        scale_type=scale_type,
+        scaling_impl_type=scaling_impl_type,
         granularity=granularity,
         scale_precision=scale_precision,
         param_method=param_method,
@@ -249,7 +250,8 @@ def generate_input_quantizers(
         attn_quant_config=attn_quant_config,
         quant_attn_mode=quant_attn_mode,
         quant_type=attn_quant_type if attn_quant_type is not None else quant_type,
-        scale_type=attn_scale_type if attn_scale_type is not None else scale_type,
+        scaling_impl_type=(
+            attn_scaling_impl_type if attn_scaling_impl_type is not None else scaling_impl_type),
         quant_param_type=(
             attn_quant_param_type if attn_quant_param_type is not None else quant_param_type),
         param_method=attn_param_method if attn_param_method is not None else param_method,
@@ -277,7 +279,7 @@ def _generate_attention_quantizers(
         attn_quant_config: str,
         quant_attn_mode: str,
         quant_type: QuantType,
-        scale_type: ScaleType,
+        scaling_impl_type: Optional[ScalingImplType],
         quant_param_type: QuantParamType,
         param_method: ParamMethod,
         granularity: ScalingPerOutputType,
@@ -295,7 +297,7 @@ def _generate_attention_quantizers(
     k_transposed_quant = _build_input_quant(
         quant_type=quant_type,
         quant_param_type=quant_param_type,
-        scale_type=scale_type,
+        scaling_impl_type=scaling_impl_type,
         granularity=granularity,
         scale_precision=scale_precision,
         param_method=param_method,

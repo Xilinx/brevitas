@@ -19,6 +19,7 @@ from brevitas.core.stats.stats_op import AbsMinMax
 from brevitas.core.stats.stats_op import NegativeMinOrZero
 from brevitas.inject.enum import QuantType
 from brevitas.inject.enum import RestrictValueType
+from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.nn import QuantIdentity
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
@@ -50,7 +51,6 @@ from brevitas_examples.common.quantizer_builder import build_input_quantizer
 from brevitas_examples.common.quantizer_builder import FloatFormat
 from brevitas_examples.common.quantizer_builder import ParamMethod
 from brevitas_examples.common.quantizer_builder import QuantParamType
-from brevitas_examples.common.quantizer_builder import ScaleType
 
 torch.manual_seed(0)
 
@@ -69,7 +69,7 @@ BUILDER_SPECS = {
         "builder_args": {
             "quant_type": QuantType.INT,
             "quant_param_type": QuantParamType.SYM,
-            "scale_type": ScaleType.STATIC,
+            "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
@@ -80,7 +80,7 @@ BUILDER_SPECS = {
         "builder_args": {
             "quant_type": QuantType.INT,
             "quant_param_type": QuantParamType.ASYM,
-            "scale_type": ScaleType.STATIC,
+            "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
@@ -91,7 +91,7 @@ BUILDER_SPECS = {
         "builder_args": {
             "quant_type": QuantType.INT,
             "quant_param_type": QuantParamType.SYM,
-            "scale_type": ScaleType.STATIC,
+            "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "bit_width": BIT_WIDTH,
             "scaling_param_method": ParamMethod.MSE,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
@@ -117,7 +117,7 @@ BUILDER_SPECS = {
         "builder_args": {
             "quant_type": QuantType.INT,
             "quant_param_type": QuantParamType.ASYM,
-            "scale_type": ScaleType.STATIC,
+            "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "bit_width": BIT_WIDTH,
             "scaling_param_method": ParamMethod.MSE,
             "zero_point_param_method": ParamMethod.MSE,
@@ -138,7 +138,7 @@ BUILDER_SPECS = {
         "builder_args": {
             "quant_type": QuantType.INT,
             "quant_param_type": QuantParamType.SYM,
-            "scale_type": ScaleType.STATIC,
+            "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
@@ -149,7 +149,7 @@ BUILDER_SPECS = {
         "builder_args": {
             "quant_type": QuantType.INT,
             "quant_param_type": QuantParamType.SYM,
-            "scale_type": ScaleType.STATIC,
+            "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "bit_width": BIT_WIDTH,
             "scaling_param_method": ParamMethod.MSE,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
@@ -168,7 +168,7 @@ BUILDER_SPECS = {
         "builder_args": {
             "quant_type": QuantType.FP,
             "quant_param_type": QuantParamType.SYM,
-            "scale_type": ScaleType.STATIC,
+            "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "float_format": FloatFormat.FLOAT,
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
@@ -180,7 +180,7 @@ BUILDER_SPECS = {
         "builder_args": {
             "quant_type": QuantType.FP,
             "quant_param_type": QuantParamType.SYM,
-            "scale_type": ScaleType.STATIC,
+            "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "float_format": FloatFormat.OCP,
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
@@ -192,7 +192,7 @@ BUILDER_SPECS = {
         "builder_args": {
             "quant_type": QuantType.FP,
             "quant_param_type": QuantParamType.SYM,
-            "scale_type": ScaleType.STATIC,
+            "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "float_format": FloatFormat.FNUZ,
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
@@ -210,7 +210,7 @@ BUILDER_SPECS = {
         "builder_args": {
             "quant_type": QuantType.INT,
             "quant_param_type": QuantParamType.SYM,
-            "scale_type": ScaleType.DYNAMIC,
+            "scaling_impl_type": ScalingImplType.DYNAMIC,
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
@@ -221,7 +221,7 @@ BUILDER_SPECS = {
         "builder_args": {
             "quant_type": QuantType.INT,
             "quant_param_type": QuantParamType.ASYM,
-            "scale_type": ScaleType.DYNAMIC,
+            "scaling_impl_type": ScalingImplType.DYNAMIC,
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
@@ -232,7 +232,7 @@ BUILDER_SPECS = {
         "builder_args": {
             "quant_type": QuantType.FP,
             "quant_param_type": QuantParamType.SYM,
-            "scale_type": ScaleType.DYNAMIC,
+            "scaling_impl_type": ScalingImplType.DYNAMIC,
             "float_format": FloatFormat.FNUZ,
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
@@ -253,7 +253,7 @@ BUILDER_SPECS = {
         "builder_args": {
             "quant_type": QuantType.INT,
             "quant_param_type": QuantParamType.SYM,
-            "scale_type": ScaleType.DYNAMIC,
+            "scaling_impl_type": ScalingImplType.DYNAMIC,
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
@@ -265,7 +265,7 @@ BUILDER_SPECS = {
         "builder_args": {
             "quant_type": QuantType.INT,
             "quant_param_type": QuantParamType.ASYM,
-            "scale_type": ScaleType.DYNAMIC,
+            "scaling_impl_type": ScalingImplType.DYNAMIC,
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
@@ -279,7 +279,7 @@ BUILDER_SPECS = {
         "builder_args": {
             "quant_type": QuantType.INT,
             "quant_param_type": QuantParamType.SYM,
-            "scale_type": ScaleType.DYNAMIC,
+            "scaling_impl_type": ScalingImplType.DYNAMIC,
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
@@ -291,7 +291,7 @@ BUILDER_SPECS = {
         "builder_args": {
             "quant_type": QuantType.FP,
             "quant_param_type": QuantParamType.SYM,
-            "scale_type": ScaleType.DYNAMIC,
+            "scaling_impl_type": ScalingImplType.DYNAMIC,
             "float_format": FloatFormat.OCP,
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
@@ -304,7 +304,7 @@ BUILDER_SPECS = {
         "builder_args": {
             "quant_type": QuantType.FP,
             "quant_param_type": QuantParamType.SYM,
-            "scale_type": ScaleType.DYNAMIC,
+            "scaling_impl_type": ScalingImplType.DYNAMIC,
             "float_format": FloatFormat.OCP,
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
@@ -317,7 +317,7 @@ BUILDER_SPECS = {
         "builder_args": {
             "quant_type": QuantType.FP,
             "quant_param_type": QuantParamType.SYM,
-            "scale_type": ScaleType.DYNAMIC,
+            "scaling_impl_type": ScalingImplType.DYNAMIC,
             "float_format": FloatFormat.FNUZ,
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
@@ -330,7 +330,7 @@ BUILDER_SPECS = {
         "builder_args": {
             "quant_type": QuantType.INT,
             "quant_param_type": QuantParamType.SYM,
-            "scale_type": ScaleType.DYNAMIC,
+            "scaling_impl_type": ScalingImplType.DYNAMIC,
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.FP,
@@ -342,7 +342,7 @@ BUILDER_SPECS = {
         "builder_args": {
             "quant_type": QuantType.INT,
             "quant_param_type": QuantParamType.ASYM,
-            "scale_type": ScaleType.DYNAMIC,
+            "scaling_impl_type": ScalingImplType.DYNAMIC,
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.FP,
@@ -362,7 +362,7 @@ BUILDER_SPECS = {
         "builder_args": {
             "quant_type": QuantType.FP,
             "quant_param_type": QuantParamType.SYM,
-            "scale_type": ScaleType.DYNAMIC,
+            "scaling_impl_type": ScalingImplType.DYNAMIC,
             "float_format": FloatFormat.FLOAT,
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
@@ -375,7 +375,7 @@ BUILDER_SPECS = {
         "builder_args": {
             "quant_type": QuantType.FP,
             "quant_param_type": QuantParamType.SYM,
-            "scale_type": ScaleType.DYNAMIC,
+            "scaling_impl_type": ScalingImplType.DYNAMIC,
             "float_format": FloatFormat.OCP,
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
@@ -392,7 +392,7 @@ BUILDER_SPECS = {
         "builder_args": {
             "quant_type": QuantType.FP,
             "quant_param_type": QuantParamType.SYM,
-            "scale_type": ScaleType.NO_SCALE,
+            "scaling_impl_type": None,
             "float_format": FloatFormat.FLOAT,
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
@@ -410,7 +410,7 @@ BUILDER_SPECS = {
         "builder_args": {
             "quant_type": QuantType.INT,
             "quant_param_type": QuantParamType.SYM,
-            "scale_type": ScaleType.DYNAMIC,
+            "scaling_impl_type": ScalingImplType.DYNAMIC,
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
@@ -422,7 +422,7 @@ BUILDER_SPECS = {
         "builder_args": {
             "quant_type": QuantType.FP,
             "quant_param_type": QuantParamType.SYM,
-            "scale_type": ScaleType.DYNAMIC,
+            "scaling_impl_type": ScalingImplType.DYNAMIC,
             "float_format": FloatFormat.OCP,
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.GROUP,

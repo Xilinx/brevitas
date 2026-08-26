@@ -1,6 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from typing import Callable
 from typing import List
 from typing import Optional
 from typing import Tuple
@@ -264,3 +265,42 @@ class RuntimeDynamicGroupStatsScaling(brevitas.jit.ScriptModule):
         out = self.restrict_clamp_scaling(out) / threshold
         out = self.restrict_clamp_scale_threshold(out)
         return out
+
+
+# TODO: restore JIT compatibility (the broadcastable fn is a plain Callable).
+class RuntimeDynamicStatsScaling(Module):
+    """
+    Per-forward runtime scale (per-tensor / per-row) with no stored parameter.
+    """
+
+    def __init__(
+            self,
+            scaling_stats_impl: Module,
+            dynamic_scaling_broadcastable_fn: Callable,
+            scaling_stats_input_view_shape_impl: Module,
+            restrict_scaling_impl: Module,
+            restrict_threshold_impl: Optional[Module] = None,
+            scaling_min_val: Optional[float] = None) -> None:
+        super(RuntimeDynamicStatsScaling, self).__init__()
+        # Ensure retro-compatibility with shared threshold/scaling restrict
+        if restrict_threshold_impl is None:
+            restrict_threshold_impl = restrict_scaling_impl
+        self.scaling_stats_input_view_shape_impl = scaling_stats_input_view_shape_impl
+        self.stats_impl = scaling_stats_impl
+        self.dynamic_scaling_broadcastable_fn = dynamic_scaling_broadcastable_fn
+        self.restrict_scaling_pre = restrict_scaling_impl.restrict_init_module()
+        self.restrict_clamp_scaling = _RestrictClampValue(
+            min_val=scaling_min_val, restrict_value_impl=restrict_scaling_impl)
+        self.restrict_threshold_pre = restrict_threshold_impl.restrict_init_module()
+        self.restrict_clamp_threshold = _RestrictClampValue(
+            restrict_value_impl=restrict_threshold_impl)
+
+    def forward(self, x: torch.Tensor, threshold: torch.Tensor) -> torch.Tensor:
+        shape = x.shape
+        threshold = self.restrict_clamp_threshold(self.restrict_threshold_pre(threshold))
+        x = self.scaling_stats_input_view_shape_impl(x)
+        x = self.stats_impl(x)
+        x = self.restrict_clamp_scaling(self.restrict_scaling_pre(x))
+        x = x / threshold
+        x = self.dynamic_scaling_broadcastable_fn(x, shape)
+        return x
