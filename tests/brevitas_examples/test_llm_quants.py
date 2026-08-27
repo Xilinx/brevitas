@@ -9,7 +9,8 @@ we quantize a tiny LLaMA using the *same flow as the LLM entrypoint*:
 
     generate_quantizers(...) -> generate_quant_maps(...) -> layerwise_quantize(...)
 
-and then run a forward pass.
+and then run a forward pass. Each combination is exercised with both weight scaling
+impl types used by the entrypoint: 'parameter_from_stats' and 'stats'.
 
 The map keys map onto ``generate_quantizers`` arguments as follows:
 
@@ -124,6 +125,10 @@ def _input_combinations():
 WEIGHT_COMBINATIONS = _weight_combinations()
 INPUT_COMBINATIONS = _input_combinations()
 
+# Weight scaling impl types used by the LLM entrypoint (see brevitas_examples/llm/main.py).
+# Exercise both for the weight quantizer.
+WEIGHT_SCALING_IMPL_TYPES = ['parameter_from_stats', 'stats']
+
 
 def _is_dynamic(input_kwargs):
     return input_kwargs is not None and input_kwargs.get("input_scale_type") == "dynamic"
@@ -147,7 +152,8 @@ def tiny_llama():
     return model, input_ids
 
 
-def _generate_quantizers_kwargs(weight_kwargs, input_kwargs):
+def _generate_quantizers_kwargs(
+        weight_kwargs, input_kwargs, weight_scaling_impl_type='parameter_from_stats'):
     """Assemble the generate_quantizers kwargs, mirroring the LLM entrypoint.
 
     We start from the entrypoint's default args (so every input_* knob is a valid
@@ -164,7 +170,7 @@ def _generate_quantizers_kwargs(weight_kwargs, input_kwargs):
         weight_quant_granularity=args.weight_quant_granularity,
         weight_group_size=GROUP_SIZE,
         weight_group_dim=args.weight_group_dim,
-        weight_scaling_impl_type='parameter_from_stats',
+        weight_scaling_impl_type=weight_scaling_impl_type,
         quantize_weight_zero_point=args.quantize_weight_zero_point,
         weight_quant_format=args.weight_quant_format,
         input_bit_width=None,
@@ -187,7 +193,8 @@ def _generate_quantizers_kwargs(weight_kwargs, input_kwargs):
     return kwargs
 
 
-def _quantize_and_forward(tiny_llama, weight_kwargs, input_kwargs):
+def _quantize_and_forward(
+        tiny_llama, weight_kwargs, input_kwargs, weight_scaling_impl_type='parameter_from_stats'):
     model, input_ids = tiny_llama
     model = deepcopy(model)
     dtype = next(model.parameters()).dtype
@@ -196,7 +203,7 @@ def _quantize_and_forward(tiny_llama, weight_kwargs, input_kwargs):
     # Same flow as the LLM entrypoint (brevitas_examples/llm/main.py):
     #   generate_quantizers -> generate_quant_maps -> layerwise_quantize
     quantizers_dict = generate_quantizers(
-        **_generate_quantizers_kwargs(weight_kwargs, input_kwargs))
+        **_generate_quantizers_kwargs(weight_kwargs, input_kwargs, weight_scaling_impl_type))
     layer_map = generate_quant_maps(
         **quantizers_dict, dtype=dtype, device=device, quantize_embedding=False)
     model = layerwise_quantize(
@@ -213,23 +220,34 @@ def _quantize_and_forward(tiny_llama, weight_kwargs, input_kwargs):
 @pytest.mark.llm
 @requires_pt_ge('2.4')
 @jit_disabled_for_dynamic_quant_act()
+@pytest.mark.parametrize("weight_scaling_impl_type", WEIGHT_SCALING_IMPL_TYPES)
 @pytest.mark.parametrize(
     "weight_kwargs", [kw for _, kw in WEIGHT_COMBINATIONS], ids=[i for i, _ in WEIGHT_COMBINATIONS])
-def test_weight_quant_map(tiny_llama, weight_kwargs):
-    """Every WEIGHT_QUANT_MAP quantizer applies and runs a forward pass (weight-only)."""
-    _quantize_and_forward(tiny_llama, weight_kwargs, input_kwargs=None)
+def test_weight_quant_map(tiny_llama, weight_kwargs, weight_scaling_impl_type):
+    """Every WEIGHT_QUANT_MAP quantizer applies and runs a forward pass (weight-only).
+
+    Exercised with both weight scaling impl types used by the entrypoint:
+    'parameter_from_stats' and 'stats'.
+    """
+    _quantize_and_forward(
+        tiny_llama,
+        weight_kwargs,
+        input_kwargs=None,
+        weight_scaling_impl_type=weight_scaling_impl_type)
 
 
 @pytest.mark.llm
 @requires_pt_ge('2.4')
 @jit_disabled_for_dynamic_quant_act()
+@pytest.mark.parametrize("weight_scaling_impl_type", WEIGHT_SCALING_IMPL_TYPES)
 @pytest.mark.parametrize(
     "input_kwargs", [kw for _, kw in INPUT_COMBINATIONS], ids=[i for i, _ in INPUT_COMBINATIONS])
-def test_input_quant_map(tiny_llama, input_kwargs):
+def test_input_quant_map(tiny_llama, input_kwargs, weight_scaling_impl_type):
     """Every INPUT_QUANT_MAP quantizer applies and runs a forward pass.
 
     Paired with a fixed int/per_channel weight quantizer so we isolate the input
-    quantizer under test.
+    quantizer under test, across both weight scaling impl types used by the
+    entrypoint: 'parameter_from_stats' and 'stats'.
     """
     weight_kwargs = {
         "weight_quant_format": "int",
@@ -237,4 +255,5 @@ def test_input_quant_map(tiny_llama, input_kwargs):
         "weight_param_method": "stats",
         "weight_quant_granularity": "per_channel",
         "weight_quant_type": "sym",}
-    _quantize_and_forward(tiny_llama, weight_kwargs, input_kwargs)
+    _quantize_and_forward(
+        tiny_llama, weight_kwargs, input_kwargs, weight_scaling_impl_type=weight_scaling_impl_type)
