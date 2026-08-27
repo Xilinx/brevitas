@@ -510,7 +510,7 @@ class MSESymmetricScaleSubInjector(ExtendedInjector):
     mse_base_op = MSEUniformStepBase
     stats_reduce_dim = (this << 1).stats_reduce_dim
     device = (this << 1).device
-    type = (this << 1).type
+    dtype = (this << 1).dtype
     permute_dims = (this << 1).permute_dims
     inner_stats_input_view_shape_impl = (this << 1).inner_stats_input_view_shape_impl
     mse_search_method = 'grid'

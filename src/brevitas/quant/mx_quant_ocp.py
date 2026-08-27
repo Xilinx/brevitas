@@ -22,6 +22,7 @@ from brevitas.quant.base import MaxStatsScaling
 from brevitas.quant.base import MinMaxStatsScaling
 from brevitas.quant.base import MSEAsymmetricScale
 from brevitas.quant.base import MSESymmetricScale
+from brevitas.quant.base import MSEWeightZeroPoint
 from brevitas.quant.base import ShiftedMinUintQuant
 from brevitas.quant.float_base import ScaledFloatActBase
 from brevitas.quant.float_base import ScaledFloatWeightBase
@@ -149,7 +150,7 @@ class MXInt8WeightMSE(MSESymmetricScale, MXInt8Weight):
     pass
 
 
-class ShiftedMXUInt8WeightMSE(MSEAsymmetricScale, ShiftedMXUInt8Weight):
+class ShiftedMXUInt8WeightMSE(MSEAsymmetricScale, MSEWeightZeroPoint, ShiftedMXUInt8Weight):
     """
     MX Int signed weight quantizer with per-channel MSE-based scaling.
     """
