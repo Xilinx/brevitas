@@ -54,7 +54,7 @@ from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
 from brevitas_examples.llm.llm_quant.data_utils import llm_collate
 from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
 from brevitas_examples.llm.llm_quant.equalize import apply_weight_equalization
-from brevitas_examples.llm.llm_quant.eval import compute_perplexity
+from brevitas_examples.llm.llm_quant.eval import compute_evaluation_metrics
 from brevitas_examples.llm.llm_quant.export import _get_dataset_props
 from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.export import convert_hf_hparams_to_gguf
@@ -285,6 +285,9 @@ def quantize_llm(args, extra_args=None):
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     float_ppl = None
     quant_ppl = None
+    quant_ear = None
+    quant_kld = None
+    reference_probabilities = None
 
     require_fx = fx_required(args)
     if require_fx and args.calibration_batch_size > 1:
@@ -336,8 +339,15 @@ def quantize_llm(args, extra_args=None):
     if args.eval:
         print("Float model eval...")
         model = offload_model(model)
-        float_ppl = compute_perplexity(
-            model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
+        float_metrics = compute_evaluation_metrics(
+            model=model,
+            data=validation_loader,
+            context_length=args.seqlen // 2,
+            tokenizer=tokenizer,
+            compute_perplexity=True,
+            build_reference_probabilities=True)
+        float_ppl = float_metrics.perplexity
+        reference_probabilities = float_metrics.reference_probabilities
         remove_hooks(model)
         print(f"Float perplexity ({args.dataset}): {float_ppl:.3f}")
 
@@ -724,9 +734,20 @@ def quantize_llm(args, extra_args=None):
             print("Model eval...")
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
                 model(**next(iter(calibration_loader)))
-                quant_ppl = compute_perplexity(
-                    model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
+                quant_metrics = compute_evaluation_metrics(
+                    model=model,
+                    data=validation_loader,
+                    context_length=args.seqlen // 2,
+                    tokenizer=tokenizer,
+                    compute_perplexity=True,
+                    reference_probabilities=reference_probabilities)
+            quant_ppl = quant_metrics.perplexity
+            quant_ear = quant_metrics.expected_acceptance_rate
+            quant_kld = quant_metrics.kld
             print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
+            # Note: EAR and KLD use unnormalized probabilities
+            print(f"Quantized expected acceptance rate ({args.dataset}): {quant_ear:.6f}")
+            print(f"Quantized KL divergence ({args.dataset}): {quant_kld:.6f}")
         few_shot_eval_results = dict()
         if args.few_shot_eval == 'lm_eval':
             from lm_eval import evaluator
@@ -779,7 +800,12 @@ def quantize_llm(args, extra_args=None):
             model = model.to(dtype=torch.float32)
             model_export(model, tokenizer, next(iter(calibration_loader)), args, config)
 
-    return {"float_ppl": float_ppl, "quant_ppl": quant_ppl, **few_shot_eval_results}, model
+    eval_results = {
+        "float_ppl": float_ppl,
+        "quant_ppl": quant_ppl,
+        "quant_ear": quant_ear,
+        "quant_kld": quant_kld}
+    return {**eval_results, **few_shot_eval_results}, model
 
 
 def main():
