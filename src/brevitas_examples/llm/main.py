@@ -599,9 +599,7 @@ def quantize_llm(args, extra_args=None):
     fq_state = None
     if functional_quant_map:
         fq_state = prepare_functional_quantization(
-            model,
-            functional_quant_map,
-            example_kwargs=next(iter(calibration_loader)))
+            model, functional_quant_map, example_kwargs=next(iter(calibration_loader)))
         quantization_cm = functional_quantization_mode(
             fq_state, remove_parametrizations_on_exit=True)
     else:

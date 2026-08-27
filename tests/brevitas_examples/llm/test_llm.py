@@ -71,7 +71,8 @@ RTOL_ACC = 1e-5
         (None, None, set()),
         (
             'input',
-            None, {
+            None,
+            {
                 torch.nn.functional.linear,
                 torch.matmul,
                 torch.Tensor.matmul,
@@ -79,7 +80,8 @@ RTOL_ACC = 1e-5
                 torch.bmm}),
         (
             'weight',
-            None, {
+            None,
+            {
                 torch.nn.functional.linear,
                 torch.matmul,
                 torch.Tensor.matmul,
@@ -87,7 +89,8 @@ RTOL_ACC = 1e-5
                 torch.bmm}),
         (
             'all',
-            None, {
+            None,
+            {
                 torch.nn.functional.linear,
                 torch.matmul,
                 torch.Tensor.matmul,
@@ -128,15 +131,15 @@ def test_functional_quant_map_modes(functional_mode, quant_sdpa, expected_functi
 
 def test_functional_sdpa_map_does_not_require_linear_quantizers():
     """SDPA-only map construction is independent from functional linear quantizers."""
-    quant_map = _functional_quant_map(
-        {'q_scaled_quant': 'q', 'k_transposed_quant': 'k', 'v_quant': 'v'},
-        quant_sdpa='functional')
-    assert quant_map == {
-        torch.nn.functional.scaled_dot_product_attention: ('q', 'k', 'v')}
+    quant_map = _functional_quant_map({
+        'q_scaled_quant': 'q', 'k_transposed_quant': 'k', 'v_quant': 'v'},
+                                      quant_sdpa='functional')
+    assert quant_map == {torch.nn.functional.scaled_dot_product_attention: ('q', 'k', 'v')}
 
 
 def test_custom_quantizer_can_override_functional_map():
     """Custom quantizers can specialize functional specs independently of layer maps."""
+
     class FunctionalMapAdjuster(BaseQuantizer):
 
         @classmethod
@@ -146,8 +149,8 @@ def test_custom_quantizer_can_override_functional_map():
             return quant_map
 
     weight_quant = object()
-    quant_map = FunctionalMapAdjuster.override_functional_quant_map(
-        {}, {'weight_quant': weight_quant})
+    quant_map = FunctionalMapAdjuster.override_functional_quant_map({},
+                                                                    {'weight_quant': weight_quant})
     assert quant_map == {'custom': weight_quant}
 
 
