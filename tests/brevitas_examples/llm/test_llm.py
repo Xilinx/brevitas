@@ -46,11 +46,11 @@ from tests.brevitas_examples.common import get_default_args
 from tests.brevitas_examples.common import parse_args_and_defaults
 from tests.brevitas_examples.common import process_args_and_metrics
 from tests.brevitas_examples.common import UpdatableNamespace
-from tests.brevitas_examples.test_llm_cases import LLMPerplexityCases
-from tests.brevitas_examples.test_llm_cases import LLMQuantLayerCountCases
-from tests.brevitas_examples.test_llm_cases import LLMQuantLayerTypeCases
-from tests.brevitas_examples.test_llm_cases import LLMRotationOptimizationCases
-from tests.brevitas_examples.test_llm_cases import LLMRunCases
+from tests.brevitas_examples.llm.test_cases import LLMPerplexityCases
+from tests.brevitas_examples.llm.test_cases import LLMQuantLayerCountCases
+from tests.brevitas_examples.llm.test_cases import LLMQuantLayerTypeCases
+from tests.brevitas_examples.llm.test_cases import LLMRotationOptimizationCases
+from tests.brevitas_examples.llm.test_cases import LLMRunCases
 from tests.conftest import SEED
 from tests.marker import jit_disabled_for_dynamic_quant_act
 from tests.marker import jit_disabled_for_export
@@ -231,7 +231,7 @@ def test_custom_quantizer_file_override_and_post_process(caplog, default_run_arg
     args = default_run_args
     args.model = "hf-internal-testing/tiny-random-LlamaForCausalLM"
     args.custom_quantizer = (
-        "tests/brevitas_examples/llm_test_plugin.py:example_quant_and_model_adjuster")
+        "tests/brevitas_examples/llm/test_plugin.py:example_quant_and_model_adjuster")
 
     _, model = main(args)
 
@@ -262,7 +262,7 @@ def test_custom_quantizer_file_override_and_post_process(caplog, default_run_arg
 # Plugin spec for the example ``two_group_optimizer_trainer`` shipped with the
 # tests. Importing it (via parse_custom_trainer) registers the trainer into
 # TRAINER_REGISTRY as a side-effect.
-_LLM_PLUGIN_SPEC = "tests/brevitas_examples/llm_test_plugin.py:two_group_optimizer_trainer"
+_LLM_PLUGIN_SPEC = "tests/brevitas_examples/llm/test_plugin.py:two_group_optimizer_trainer"
 
 
 class _TwoGroupToyModel(nn.Module):
@@ -534,7 +534,7 @@ def test_small_models_rotation_optimization_layer_count(caplog, args_layer_count
     [
         {
             "yaml_file_path":
-                "./tests/brevitas_examples/llm_test_template.yml",
+                "./tests/brevitas_examples/llm/test_template.yml",
             "expected_extra_args": [
                 "--learning_rate",
                 "1.5",

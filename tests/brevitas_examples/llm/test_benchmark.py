@@ -34,6 +34,7 @@ _SRC_BENCHMARK_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
     "..",
     "..",
+    "..",
     "src",
     "brevitas_examples",
     "llm",
