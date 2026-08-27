@@ -341,6 +341,29 @@ def test_functional_qronos_expert_batch_matches_scalar(act_order):
 
 
 @torch.no_grad()
+def test_functional_scalar_qronos_restores_failed_expert():
+    model = _FunctionalRoutedExperts(num_experts=2).eval()
+    x = torch.randn(8, 4)
+    offsets = torch.tensor([4, 8])
+    quant_map = {torch.nn.functional.linear: (None, None, _functional_weight_spec(1, 2))}
+    state = prepare_functional_quantization(model, quant_map, example_inputs=(x, offsets))
+    before = model.parametrizations.weight.original.detach().clone()
+    with functional_quantization_mode(state):
+        with gpfq_mode(model,
+                       functional_state=state,
+                       min_samples=1,
+                       algorithm_impl=Qronos,
+                       expert_batch_size=1) as mode:
+            mode.model(x, offsets)
+            mode.gpxq_layers['weight[1]'].H.zero_()
+            mode.update()
+    after = model.parametrizations.weight.original.detach()
+    assert not torch.equal(after[0], before[0])
+    torch.testing.assert_close(after[1], before[1])
+    state.cleanup()
+
+
+@torch.no_grad()
 @pytest.mark.skipif(not hasattr(torch, '_grouped_mm'), reason='Torch grouped_mm is unavailable')
 def test_functional_qronos_two_stage_grouped_reference_pass():
     model = _TwoStageFunctionalGroupedExperts().eval()
@@ -476,7 +499,8 @@ def test_functional_gptq_schedules_stacked_owners_in_order():
 
 
 @torch.no_grad()
-def test_functional_batched_gptq_isolates_invalid_hessian():
+@pytest.mark.parametrize('expert_batch_size', [1, 2])
+def test_functional_gptq_isolates_invalid_hessian(expert_batch_size):
     """One failed expert factorization leaves that slice unchanged without blocking siblings."""
     model = _FunctionalRoutedExperts(num_experts=2).eval()
     x = torch.randn(8, 4)
@@ -485,7 +509,10 @@ def test_functional_batched_gptq_isolates_invalid_hessian():
     state = prepare_functional_quantization(model, quant_map, example_inputs=(x, offsets))
     before = model.parametrizations.weight.original.detach().clone()
     with functional_quantization_mode(state):
-        with gptq_mode(model, functional_state=state, min_samples=1, expert_batch_size=2) as mode:
+        with gptq_mode(model,
+                       functional_state=state,
+                       min_samples=1,
+                       expert_batch_size=expert_batch_size) as mode:
             mode.model(x, offsets)
             mode.gpxq_layers['weight[1]'].H.fill_(float('nan'))
             mode.update()

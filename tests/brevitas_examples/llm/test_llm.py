@@ -26,6 +26,7 @@ from brevitas import config
 from brevitas import torch_version
 from brevitas.graph.equalize import _compute_rotations
 from brevitas.graph.equalize import Region
+from brevitas.graph.functional_quant import grouped_mm_functions
 from brevitas.utils.python_utils import Registry
 from brevitas_examples.common.generative.quantizers import BaseQuantizer
 from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
@@ -120,14 +121,23 @@ def test_functional_quant_map_modes(functional_mode, quant_sdpa, expected_functi
         'v_quant': 'v'},
                                       functional_mode,
                                       quant_sdpa)
+    if functional_mode is not None:
+        expected_functions |= set(grouped_mm_functions())
     assert set(quant_map) == expected_functions
     if functional_mode == 'input':
         assert quant_map[torch.nn.functional.linear] is input_quant
         assert quant_map[torch.matmul] is input_quant
     elif functional_mode == 'weight':
-        assert quant_map[torch.matmul] == (None, None, weight_quant)
+        assert quant_map[torch.matmul][:2] == (None, None)
+        assert quant_map[torch.matmul][2](nn.Module(), '', 0) is weight_quant
     elif functional_mode == 'all':
-        assert quant_map[torch.matmul] == (input_quant, input_quant, weight_quant)
+        assert quant_map[torch.matmul][:2] == (input_quant, input_quant)
+        assert quant_map[torch.matmul][2](nn.Module(), '', 0) is weight_quant
+    if functional_mode in ('weight', 'all') and grouped_mm_functions():
+        grouped_spec = quant_map[grouped_mm_functions()[0]]
+        grouped_quant, grouped_kwargs = grouped_spec[2](nn.Module(), '', 0)
+        assert grouped_quant is weight_quant
+        assert grouped_kwargs['return_quant_tensor'] is False
 
 
 def test_functional_sdpa_map_does_not_require_linear_quantizers():

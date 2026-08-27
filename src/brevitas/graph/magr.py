@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 
+from brevitas.graph.functional_quant import FunctionalLinearTarget
 from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gpxq import FunctionalGPxQBatch
 from brevitas.graph.gpxq import GPxQ
@@ -103,6 +104,8 @@ class MagR(GPTQ):
         if hasattr(self.layer, 'allocate_params'):
             self.layer.allocate_params(self.layer)
         weight = self.layer.weight.data
+        functional_weight_before = (
+            weight.detach().clone() if isinstance(self.layer, FunctionalLinearTarget) else None)
         if self.create_weight_orig:
             weight_orig = self.layer.weight_orig.data
         else:
@@ -126,6 +129,7 @@ class MagR(GPTQ):
         weight_orig = weight_orig.view(
             self.groups, -1, weight_orig.shape[-1])  # [Groups, OC/Groups, IC]
         self.H = self.H.to(dev)
+        failed = False
         for group_index in range(self.groups):
             # approximate maximum singular value (ie, matrix L2 norm)
             singular_value = power_iteration(self.H[group_index], steps=self.power_steps)
@@ -133,6 +137,7 @@ class MagR(GPTQ):
             if singular_value <= 0 or matrix_norm <= 0:
                 warnings.warn(
                     f'MagR will not be applied to layer {self.name}: empty covariance matrix.')
+                failed = True
                 continue
             eta = 1. / singular_value
             alpha = self.alpha / (eta * matrix_norm)
@@ -143,10 +148,20 @@ class MagR(GPTQ):
                     self.H[group_index])  # argument of the proximal operator
                 wk = vk - alpha * _project_onto_l1_ball(vk / alpha)  # update via proximal operator
                 weight[group_index] = wk.to(dtype)  # downcast
-                assert torch.isfinite(weight[group_index]).all()
+                if not torch.isfinite(weight[group_index]).all():
+                    if functional_weight_before is not None:
+                        self.layer.writeback(functional_weight_before)
+                    warnings.warn(
+                        f'MagR update for layer {self.name} produced non-finite weights; '
+                        'restoring its pre-MagR weights.')
+                    del self.H
+                    if hasattr(self.layer, 'offload_params'):
+                        self.layer.offload_params(self.layer)
+                    return True
         del self.H  # free memory
         if hasattr(self.layer, 'offload_params'):
             self.layer.offload_params(self.layer)
+        return failed
 
     @staticmethod
     def batched_layer_update(optimizers):

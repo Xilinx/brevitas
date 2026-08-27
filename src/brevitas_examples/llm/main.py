@@ -24,6 +24,7 @@ from brevitas.graph.equalize import apply_rewriters
 from brevitas.graph.equalize import fuse_parametrizations
 from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.equalize import LayerwiseActivationRotation
+from brevitas.graph.functional_quant import grouped_mm_functions
 from brevitas.graph.permute import rotate_permute_mode
 from brevitas.graph.quantize import functional_quantization_mode
 from brevitas.graph.quantize import layerwise_quantize
@@ -111,7 +112,9 @@ def _functional_quant_map(quantizers_dict, functional_quantization=None, quant_s
 
     def functional_weight(module, module_name, call_index):
         """Select owner axes for standard stacked eager MoE expert projections."""
-        if hasattr(module, 'gate_up_proj') and hasattr(module, 'down_proj'):
+        if hasattr(module, 'gate_up_proj') and hasattr(module, 'down_proj') and all(
+                getattr(projection, 'dim', lambda: 0)() == 3
+                for projection in (module.gate_up_proj, module.down_proj)):
             return weight_quant, {'output_channel_dim': 1, 'group_dim': 2}
         return weight_quant
 
@@ -122,17 +125,27 @@ def _functional_quant_map(quantizers_dict, functional_quantization=None, quant_s
             return weight_quant, {'output_channel_dim': 2, 'group_dim': 1}
         return weight_quant
 
+    def functional_grouped_weight(module, module_name, call_index):
+        resolved = functional_weight(module, module_name, call_index)
+        quantizer, kwargs = resolved if isinstance(resolved, tuple) else (resolved, {})
+        kwargs = {} if kwargs is None else dict(kwargs)
+        kwargs['return_quant_tensor'] = False
+        return quantizer, kwargs
+
     if functional_quantization == 'input':
         linear_spec = input_quant
         matmul_spec = input_quant
+        grouped_spec = input_quant
     elif functional_quantization == 'weight':
         linear_spec = (None, None, functional_weight)
         matmul_spec = (None, None, functional_matmul_weight)
+        grouped_spec = (None, None, functional_grouped_weight)
     elif functional_quantization == 'all':
         linear_spec = (input_quant, input_quant, functional_weight)
         matmul_spec = (input_quant, input_quant, functional_matmul_weight)
+        grouped_spec = (input_quant, input_quant, functional_grouped_weight)
     else:
-        linear_spec = matmul_spec = None
+        linear_spec = matmul_spec = grouped_spec = None
 
     if linear_spec is not None:
         quant_map[torch.nn.functional.linear] = linear_spec
@@ -141,6 +154,9 @@ def _functional_quant_map(quantizers_dict, functional_quantization=None, quant_s
         quant_map[torch.Tensor.matmul] = matmul_spec
         quant_map[torch.Tensor.__matmul__] = matmul_spec
         quant_map[torch.bmm] = matmul_spec
+    if grouped_spec is not None:
+        for grouped_mm in grouped_mm_functions():
+            quant_map[grouped_mm] = grouped_spec
     if quant_sdpa == 'functional':
         quant_map[torch.nn.functional.scaled_dot_product_attention] = (
             quantizers_dict.get('q_scaled_quant'),

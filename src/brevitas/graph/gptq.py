@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import math
+from time import perf_counter
 from typing import List
 from typing import Optional
 from typing import Sequence
@@ -14,6 +15,7 @@ try:
 except:
     LinAlgError = RuntimeError
 
+from brevitas.graph.functional_quant import FunctionalLinearTarget
 from brevitas.graph.gpxq import FunctionalGPxQBatch
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
@@ -108,6 +110,8 @@ class GPTQ(GPxQ):
         if self.use_intermediate_buffer:
             del self.B  # free memory
         weight = self.layer.weight.data
+        functional_weight_before = (
+            weight.detach().clone() if isinstance(self.layer, FunctionalLinearTarget) else None)
         dev = weight.device
 
         # Store the original dtype of the weights
@@ -159,11 +163,13 @@ class GPTQ(GPxQ):
                     self.H[i, :, :] * c, upper=True) / math.sqrt(c)
             h_inv = self.H
         except LinAlgError as e:
+            if functional_weight_before is not None:
+                self.layer.writeback(functional_weight_before)
             warnings.warn(
                 f'Failed to compute the inverse of the Hessian for layer {self.name} '
                 f'GPTQ will not be applied. '
                 f'Increasing the number of samples might fix this issue')
-            return
+            return True
         finally:
             del self.H
 
@@ -195,6 +201,13 @@ class GPTQ(GPxQ):
                                                           i2:].to(dev))).to(dtype)
         if hasattr(self.layer, 'offload_params'):
             self.layer.offload_params(self.layer)
+        if functional_weight_before is not None and not torch.isfinite(self.layer.weight).all():
+            self.layer.writeback(functional_weight_before)
+            warnings.warn(
+                f'GPTQ update for layer {self.name} produced non-finite weights; '
+                'restoring its pre-GPTQ weights.')
+            return True
+        return False
 
     @staticmethod
     def batched_layer_update(optimizers: Sequence['GPTQ'], percdamp=.01, c=1e4):
@@ -399,7 +412,15 @@ class gptq_mode(gpxq_mode):
 
     def _update_functional_targets(self, targets, progress) -> int:
         if self.expert_batch_size == 1:
-            return super()._update_functional_targets(targets, progress)
+            failed = 0
+            for target in targets:
+                optimizer = self.gpxq_layers[target.name]
+                target_start = perf_counter()
+                failed += int(optimizer.single_layer_update() is True)
+                progress.set_postfix(
+                    samples=optimizer.nsamples, seconds=f'{perf_counter() - target_start:.1f}')
+                progress.update()
+            return failed
         failed = []
         for start in range(0, len(targets), self.expert_batch_size):
             batch_targets = targets[start:start + self.expert_batch_size]

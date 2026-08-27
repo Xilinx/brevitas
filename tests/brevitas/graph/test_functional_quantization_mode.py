@@ -163,6 +163,39 @@ class TransposedStackedFunctionalWeightModel(nn.Module):
         return x @ self.weight[index]
 
 
+class ConventionalMatmulWeightModel(nn.Module):
+    """Functional matmul using a conventional [output, input] weight transpose."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.weight = nn.Parameter(torch.randn(3, 4))
+
+    def forward(self, x: Tensor) -> Tensor:
+        return x @ self.weight.t()
+
+
+class TransposedLinearWeightModel(nn.Module):
+    """Functional linear using an [input, output] owner through a transpose view."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.weight = nn.Parameter(torch.randn(4, 3))
+
+    def forward(self, x: Tensor) -> Tensor:
+        return F.linear(x, self.weight.t())
+
+
+class MixedLayoutWeightModel(nn.Module):
+    """One square owner used with incompatible linear and direct-matmul layouts."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.weight = nn.Parameter(torch.randn(4, 4))
+
+    def forward(self, x: Tensor) -> Tensor:
+        return F.linear(x, self.weight) + torch.matmul(x, self.weight)
+
+
 class GroupedFunctionalWeightModel(nn.Module):
     """Grouped BF16 matmul over a final-two-axis transpose of a stacked owner."""
 
@@ -173,6 +206,17 @@ class GroupedFunctionalWeightModel(nn.Module):
 
     def forward(self, x: Tensor, offsets: Tensor) -> Tensor:
         return self.grouped_mm(x, self.weight.transpose(-2, -1), offs=offsets)
+
+
+class IndexedGroupedFunctionalWeightModel(nn.Module):
+    """Grouped experts selected from a higher-rank owner prefix."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.weight = nn.Parameter(torch.randn(2, 2, 64, 256, dtype=torch.bfloat16))
+
+    def forward(self, x: Tensor, offsets: Tensor, layer: int) -> Tensor:
+        return torch._grouped_mm(x, self.weight[layer].transpose(-2, -1), offs=offsets)
 
 
 class TwoStageGroupedFunctionalWeightModel(nn.Module):
@@ -380,6 +424,30 @@ class TestFunctionalQuantizationMode:
         assert out.shape == (2, 3)
         state.cleanup()
 
+    def test_transposed_matmul_preserves_canonical_weight_orientation(self):
+        model = ConventionalMatmulWeightModel()
+        weight_spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 0, 'group_dim': 1})
+        spec = (None, None, weight_spec)
+        quant_map = {torch.matmul: spec, torch.Tensor.matmul: spec, torch.Tensor.__matmul__: spec}
+        state = prepare_functional_quantization(
+            model, quant_map, example_inputs=(torch.randn(2, 4),))
+
+        target = state.iter_linear_targets()[0]
+        assert target.weight.shape == (3, 4)
+        assert not target.transpose_weight
+        state.cleanup()
+
+    def test_transposed_linear_uses_operand_weight_orientation(self):
+        model = TransposedLinearWeightModel()
+        weight_spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 1, 'group_dim': 0})
+        state = prepare_functional_quantization(
+            model, {F.linear: (None, None, weight_spec)}, example_inputs=(torch.randn(2, 4),))
+
+        target = state.iter_linear_targets()[0]
+        assert target.weight.shape == (3, 4)
+        assert target.transpose_weight
+        state.cleanup()
+
     @pytest.mark.skipif(not hasattr(torch, '_grouped_mm'), reason='Torch grouped_mm is unavailable')
     def test_grouped_mm_discovers_transposed_owner_and_preserves_gradients(self):
         model = GroupedFunctionalWeightModel()
@@ -430,6 +498,20 @@ class TestFunctionalQuantizationMode:
         assert [name for name, _ in observed] == ['weight[0]', 'weight[1]']
         torch.testing.assert_close(observed[0][1], x[:1])
         torch.testing.assert_close(observed[1][1], x[1:4])
+        state.cleanup()
+
+    @pytest.mark.skipif(not hasattr(torch, '_grouped_mm'), reason='Torch grouped_mm is unavailable')
+    def test_grouped_mm_rejects_indexed_owner_prefix(self):
+        model = IndexedGroupedFunctionalWeightModel()
+        weight_spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 2, 'group_dim': 3})
+        x = torch.randn(4, 256, dtype=torch.bfloat16)
+        offsets = torch.tensor([2, 4], dtype=torch.int32)
+        with pytest.warns(UserWarning, match='indexed grouped-MM owner prefixes are unsupported'):
+            state = prepare_functional_quantization(
+                model, {torch._grouped_mm: (None, None, weight_spec)},
+                example_inputs=(x, offsets, 1))
+
+        assert not state.iter_linear_targets()
         state.cleanup()
 
     @pytest.mark.skipif(not hasattr(torch, '_grouped_mm'), reason='Torch grouped_mm is unavailable')
@@ -579,6 +661,16 @@ class TestFunctionalQuantizationMode:
         with functional_quantization_mode(state):
             out = model(torch.randn(2, 4))
         assert out.shape == (2, 4)
+        state.cleanup()
+
+    def test_incompatible_direct_owner_layouts_fall_back(self):
+        model = MixedLayoutWeightModel()
+        spec = (Int8ActPerTensorFloat, Int8ActPerTensorFloat, Int8WeightPerTensorFloat)
+        with pytest.warns(UserWarning, match='incompatible quantizers or matrix layouts'):
+            state = prepare_functional_quantization(
+                model, {
+                    F.linear: spec, torch.matmul: spec}, example_inputs=(torch.randn(2, 4),))
+        assert not state.iter_linear_targets()
         state.cleanup()
 
     def test_preparametrized_owner_warns_and_falls_back(self):

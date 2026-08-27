@@ -339,7 +339,7 @@ class gpxq_mode(quantization_status_manager):
                         if self.gpxq_layers[target.name].nsamples < required_samples]
         if insufficient and self.insufficient_samples == 'error':
             details = ', '.join(
-                f'{target.name} ({optimizer.nsamples} samples)' for target,
+                f'{target.name} has {optimizer.nsamples} samples' for target,
                 optimizer in insufficient)
             raise RuntimeError(
                 f'Functional GPxQ owner {owner_id} has insufficient calibration samples: {details}.'
@@ -390,14 +390,15 @@ class gpxq_mode(quantization_status_manager):
 
     def _update_functional_targets(self, targets, progress) -> int:
         """Apply the algorithm to functional targets, returning numerical fallbacks."""
+        failed = 0
         for target in targets:
             optimizer = self.gpxq_layers[target.name]
             target_start = perf_counter()
-            optimizer.single_layer_update()
+            failed += int(optimizer.single_layer_update() is True)
             progress.set_postfix(
                 samples=optimizer.nsamples, seconds=f'{perf_counter() - target_start:.1f}')
             progress.update()
-        return 0
+        return failed
 
     def _finish_functional_target(
             self,

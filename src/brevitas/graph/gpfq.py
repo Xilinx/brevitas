@@ -13,6 +13,7 @@ import torch.nn as nn
 from tqdm import tqdm
 
 from brevitas.graph.calibrate import quantization_status_manager
+from brevitas.graph.functional_quant import FunctionalLinearTarget
 from brevitas.graph.gpxq import FunctionalGPxQBatch
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
@@ -123,6 +124,8 @@ class GPFQ(GPxQ):
             del self.B  # free memory
 
         weight = self.layer.weight.data
+        functional_weight_before = (
+            weight.detach().clone() if isinstance(self.layer, FunctionalLinearTarget) else None)
         weight_orig = self.layer.weight_orig.data
         dev = weight.device
         weight_orig = weight_orig.to(dev)
@@ -196,11 +199,21 @@ class GPFQ(GPxQ):
                 Lw = w.matmul(Lg[group_index, t, :t])
                 Lq = q.matmul(Lh[group_index, t, :t])
                 q_arg = Ds[group_index, t] * weight[group_index, :, i].to(self.dtype) + Lw - Lq
-                assert not torch.isnan(q_arg).any()
-                weight[group_index, :, i] = q_arg.to(dtype)
+                updated_weight = q_arg.to(dtype)
+                if not torch.isfinite(updated_weight).all():
+                    if functional_weight_before is not None:
+                        self.layer.writeback(functional_weight_before)
+                    warnings.warn(
+                        f'GPFQ update for layer {self.name} produced non-finite weights; '
+                        'restoring its pre-GPFQ weights.')
+                    if hasattr(self.layer, 'offload_params'):
+                        self.layer.offload_params(self.layer)
+                    return True
+                weight[group_index, :, i] = updated_weight
 
         if hasattr(self.layer, 'offload_params'):
             self.layer.offload_params(self.layer)
+        return False
 
     @staticmethod
     def batched_layer_update(optimizers):
@@ -462,7 +475,10 @@ class gpfq_mode(gpxq_mode):
                 torch.int8, torch.int16, torch.int32, torch.int64, torch.uint8):
             return args, kwargs
         token_input = args[0] if args and isinstance(args[0], Tensor) else None
-        if token_input is None or route.shape[0] != token_input.shape[0]:
+        if token_input is None or token_input.dim() < 2 or token_input.shape[-1] == 0:
+            return args, kwargs
+        token_count = token_input.numel() // token_input.shape[-1]
+        if route.shape[0] != token_count:
             return args, kwargs
 
         key = id(module)

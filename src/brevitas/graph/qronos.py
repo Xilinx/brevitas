@@ -13,6 +13,7 @@ except:
 
 import warnings
 
+from brevitas.graph.functional_quant import FunctionalLinearTarget
 from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpxq import FunctionalGPxQBatch
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
@@ -117,6 +118,8 @@ class Qronos(GPFQ):
             del self.B  # free memory
 
         weight: Tensor = self.layer.weight.data
+        functional_weight_before = (
+            weight.detach().clone() if isinstance(self.layer, FunctionalLinearTarget) else None)
         weight_orig: Tensor = self.layer.weight_orig.data
         dev = weight.device
         weight_orig = weight_orig.to(dev)
@@ -159,8 +162,16 @@ class Qronos(GPFQ):
             perm = perm.to(weight.device)
             permutation_list.append(perm)
 
-        assert not torch.isnan(self.H).any(), f"Error in {self.name}"
-        assert not torch.isnan(self.G).any(), f"Error in {self.name}"
+        if not torch.isfinite(self.H).all() or not torch.isfinite(self.G).all():
+            if functional_weight_before is not None:
+                self.layer.writeback(functional_weight_before)
+            warnings.warn(
+                f'Qronos covariance for layer {self.name} contains non-finite values; '
+                'restoring its pre-Qronos weights.')
+            del self.G, self.H
+            if hasattr(self.layer, 'offload_params'):
+                self.layer.offload_params(self.layer)
+            return True
 
         Dh: Tensor = torch.zeros((self.groups, self.columns), device=self.device, dtype=self.dtype)
         for group_index in range(self.groups):
@@ -185,6 +196,8 @@ class Qronos(GPFQ):
                 self.iH[group_index] = torch.linalg.cholesky(self.iH[group_index])
                 self.iH[group_index] = torch.cholesky_inverse(self.iH[group_index])
         except LinAlgError:
+            if functional_weight_before is not None:
+                self.layer.writeback(functional_weight_before)
             warnings.warn(
                 f'Failed to compute the inverse of H for layer {self.name} '
                 f'Forward error correction will be a null operation. '
@@ -192,7 +205,7 @@ class Qronos(GPFQ):
             del self.iH, self.G, self.H
             if hasattr(self.layer, 'offload_params'):
                 self.layer.offload_params(self.layer)
-            return
+            return True
 
         self.iH = self.iH.to(dev)
         self.G = self.G.to(dev)
@@ -211,7 +224,17 @@ class Qronos(GPFQ):
             Gw = w.matmul(self.G[group_index, :, 0] * Dhi[group_index, 0])
             Uv = v.matmul(Uh[group_index, 0, :] * Dhi[group_index, 0])
             q_arg = Gw - Uv
-            assert (q_arg >= dtype_min).all() and (q_arg <= dtype_max).all()
+            if not torch.isfinite(q_arg).all() or not ((q_arg >= dtype_min).all() and
+                                                       (q_arg <= dtype_max).all()):
+                if functional_weight_before is not None:
+                    self.layer.writeback(functional_weight_before)
+                warnings.warn(
+                    f'Qronos update for layer {self.name} exceeded its numerical range; '
+                    'restoring its pre-Qronos weights.')
+                del self.iH, self.G, self.H
+                if hasattr(self.layer, 'offload_params'):
+                    self.layer.offload_params(self.layer)
+                return True
             weight[group_index, :, perm[0]] = q_arg.to(dtype)
 
         # Sherman-Morrison-Woodbury update rule
@@ -242,6 +265,8 @@ class Qronos(GPFQ):
                 self.L[group_index] = torch.linalg.cholesky(
                     self.iH[group_index] * beta, upper=True) / math.sqrt(beta)
         except LinAlgError:
+            if functional_weight_before is not None:
+                self.layer.writeback(functional_weight_before)
             warnings.warn(
                 f'Failed to compute Cholesky decomposition for layer {self.name} '
                 f'Forward error correction will be a null operation. '
@@ -249,7 +274,7 @@ class Qronos(GPFQ):
             del self.L, self.iH
             if hasattr(self.layer, 'offload_params'):
                 self.layer.offload_params(self.layer)
-            return
+            return True
         del self.iH  # memory management
 
         # Qronos - step 2+
@@ -290,6 +315,7 @@ class Qronos(GPFQ):
                 'restoring its pre-Qronos weights.')
         if hasattr(self.layer, 'offload_params'):
             self.layer.offload_params(self.layer)
+        return not stable.all().item()
 
     @staticmethod
     def batched_layer_update(optimizers, beta: int = 1e4):

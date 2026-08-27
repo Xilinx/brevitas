@@ -378,6 +378,7 @@ class _OwnerPlan:
     quant_class: Type
     di_kwargs: Dict[str, Any]
     quantizer_key: str
+    transpose_weight: Optional[bool] = None
     error: Optional[str] = None
 
 
@@ -417,9 +418,14 @@ class FunctionalLinearTarget:
         suffix = ''.join(f'[{index}]' for index in self.view_indices)
         return f'{self.owner_id}{suffix}'
 
+    def _owner_view(self, value: Tensor) -> Tensor:
+        for index in self.view_indices:
+            value = value[index]
+        return value
+
     @property
     def weight(self) -> Tensor:
-        weight = self.owner.original_parameter[self.view_indices]
+        weight = self._owner_view(self.owner.original_parameter)
         return weight.t() if self.transpose_weight else weight
 
     def _target_proxy(self, native_weight: Tensor) -> nn.Module:
@@ -485,7 +491,7 @@ class FunctionalLinearTarget:
     def writeback(self, value: Tensor) -> None:
         native_value = value.t() if self.transpose_weight else value
         with torch.no_grad():
-            self.owner.original_parameter[self.view_indices].copy_(native_value)
+            self._owner_view(self.owner.original_parameter).copy_(native_value)
 
 
 class FunctionalLinearTargetBatch:
@@ -547,7 +553,7 @@ class FunctionalQuantState:
         self.owners: Dict[str, _FunctionalWeightOwner] = {}
         self.linear_targets: Dict[Tuple[str, Tuple[int, ...]], FunctionalLinearTarget] = {}
         self.linear_observers: List[Callable[[FunctionalLinearObservation], None]] = []
-        self.grouped_target_calls: Dict[Tuple[str, Callable, int], str] = {}
+        self.grouped_target_calls: Dict[Tuple[str, Callable, int], Tuple[str, Tuple[int, ...]]] = {}
         self.counter_resetters: List[Callable[[], None]] = []
         self.registered_parametrizations: List[Tuple[nn.Module, str]] = []
         self.parametrizations_removed = False
@@ -695,13 +701,44 @@ class _HookedMode(TorchFunctionMode):
             args: Tuple[Any, ...],
             kwargs: Dict[str, Any]) -> None:
         """Report supported parameter-backed linear calls without using call order as identity."""
-        if not self.state.linear_observers or func not in (torch.nn.functional.linear,
-                                                           torch.matmul,
-                                                           torch.Tensor.matmul,
-                                                           torch.Tensor.__matmul__):
+        if not self.state.linear_observers:
             return
         slots, _ = _logical_arguments(func, args, kwargs)
         values = {arg_idx: value for arg_idx, value, _ in slots}
+        if func is _grouped_mm_key:
+            grouped_target = self.state.grouped_target_calls.get((name, func, index))
+            inp, weight, offsets = values.get(0), values.get(1), values.get(2)
+            if grouped_target is None or not isinstance(inp, Tensor) or not isinstance(offsets,
+                                                                                       Tensor):
+                return
+            owner_id, prefix = grouped_target
+            runtime_owner_id = getattr(weight, '_functional_owner_id', None)
+            runtime_prefix = getattr(weight, '_functional_view_indices', None)
+            if runtime_owner_id == owner_id and isinstance(runtime_prefix, tuple):
+                prefix = runtime_prefix
+            targets = sorted((
+                target for target in self.state.linear_targets.values()
+                if target.owner_id == owner_id and target.view_indices[:len(prefix)] == prefix),
+                             key=lambda target: target.view_indices)
+            boundaries = [int(offset) for offset in offsets.detach().cpu().tolist()]
+            if len(boundaries) != len(targets) or any(
+                    end < start for start, end in zip((0, *boundaries), boundaries)) or (
+                        boundaries and boundaries[-1] != inp.shape[0]):
+                raise RuntimeError('Grouped-MM offsets do not match the prepared expert targets.')
+            start = 0
+            for target, end in zip(targets, boundaries):
+                if end > start:
+                    observation = FunctionalLinearObservation(
+                        target, inp[start:end], func, module, name, index)
+                    for observer in tuple(self.state.linear_observers):
+                        observer(observation)
+                start = end
+            return
+        if func not in (torch.nn.functional.linear,
+                        torch.matmul,
+                        torch.Tensor.matmul,
+                        torch.Tensor.__matmul__):
+            return
         if not isinstance(values.get(0), Tensor):
             return
         target = self.state._target_from_weight(values.get(1))
@@ -849,6 +886,17 @@ class _FunctionalQuantBuilder(_HookedMode):
         self.module_names = {id(module): name for name, module in self.model.named_modules()}
 
     @staticmethod
+    def _view_is_transposed(owner: Tuple[nn.Module, str], value: Tensor) -> bool:
+        owner_value = getattr(owner[0], owner[1])
+        rank_delta = owner_value.dim() - value.dim()
+        return rank_delta >= 0 and value.dim() >= 2 and tuple(value.shape) == (
+            *owner_value.shape[rank_delta:-2], owner_value.shape[-1],
+            owner_value.shape[-2]) and tuple(value.stride()) == (
+                *owner_value.stride()[rank_delta:-2],
+                owner_value.stride()[-1],
+                owner_value.stride()[-2])
+
+    @staticmethod
     def _view_indices(owner: Tuple[nn.Module, str], value: Tensor,
                       is_direct_parameter: bool) -> Optional[Tuple[int, ...]]:
         """Resolve direct or leading-index parameter views to stable owner indices."""
@@ -856,8 +904,10 @@ class _FunctionalQuantBuilder(_HookedMode):
             return ()
         owner_value = getattr(owner[0], owner[1])
         rank_delta = owner_value.dim() - value.dim()
-        if rank_delta <= 0 or tuple(value.shape) != tuple(owner_value.shape[rank_delta:]) or tuple(
-                value.stride()) != tuple(owner_value.stride()[rank_delta:]):
+        is_leading_index = rank_delta >= 0 and tuple(value.shape) == tuple(
+            owner_value.shape[rank_delta:]) and tuple(value.stride()) == tuple(
+                owner_value.stride()[rank_delta:])
+        if not is_leading_index and not _FunctionalQuantBuilder._view_is_transposed(owner, value):
             return None
         offset = value.storage_offset() - owner_value.storage_offset()
         indices = []
@@ -887,19 +937,10 @@ class _FunctionalQuantBuilder(_HookedMode):
         required = ('output_channel_dim', 'group_dim')
         if not is_direct_parameter:
             rank_delta = owner_value.dim() - value.dim()
-            is_leading_index = rank_delta > 0 and tuple(value.shape) == tuple(
+            is_leading_index = rank_delta >= 0 and tuple(value.shape) == tuple(
                 owner_value.shape[rank_delta:]) and tuple(value.stride()) == tuple(
                     owner_value.stride()[rank_delta:])
-            is_last_two_transpose = False
-            if owner_value.dim() >= 2:
-                transposed_shape = (
-                    *owner_value.shape[:-2], owner_value.shape[-1], owner_value.shape[-2])
-                transposed_stride = (
-                    *owner_value.stride()[:-2], owner_value.stride()[-1], owner_value.stride()[-2])
-                is_last_two_transpose = (
-                    value.dim() == owner_value.dim() and tuple(value.shape) == transposed_shape and
-                    tuple(value.stride()) == transposed_stride and
-                    value.storage_offset() == owner_value.storage_offset())
+            is_last_two_transpose = self._view_is_transposed(owner, value)
             if not is_leading_index and not is_last_two_transpose:
                 return owner_di_kwargs, (
                     'only leading-index views and final-two-axis transpose views are supported')
@@ -946,15 +987,6 @@ class _FunctionalQuantBuilder(_HookedMode):
             return _DiscoveredArgument(quant_class, di_kwargs)
 
         view_indices = self._view_indices(owner, value, is_direct_parameter)
-        if view_indices is None:
-            return _DiscoveredArgument(
-                quant_class,
-                di_kwargs,
-                owner,
-                fallback_quant_class=None,
-                fallback_di_kwargs={},
-                example_device=value.device)
-
         fallback_spec = self._fallback_spec_for(func, arg_idx)
         fallback_quant_class, fallback_di_kwargs = _resolve_spec(fallback_spec, module, name, index)
         owner_di_kwargs, error = self._owner_quant_kwargs(
@@ -964,6 +996,13 @@ class _FunctionalQuantBuilder(_HookedMode):
             error = 'tied parameters do not have a unique owner attribute'
         if is_parametrized(owner[0], owner[1]):
             error = 'the owner is already parametrized'
+        if view_indices is None:
+            view_indices = ()
+        if func is _grouped_mm_key and view_indices:
+            error = 'indexed grouped-MM owner prefixes are unsupported'
+        uses_rhs_matrix = func in (
+            torch.matmul, torch.Tensor.matmul, torch.Tensor.__matmul__, _grouped_mm_key)
+        transpose_weight = uses_rhs_matrix != self._view_is_transposed(owner, value)
 
         quantizer_key = _module_key(
             name, func, self.state.function_indices[func], index, arg_idx, weight=True)
@@ -973,11 +1012,13 @@ class _FunctionalQuantBuilder(_HookedMode):
                 quant_class=quant_class,
                 di_kwargs=owner_di_kwargs,
                 quantizer_key=quantizer_key,
+                transpose_weight=transpose_weight,
                 error=error)
         elif plan.error is None:
             if error is not None:
                 plan.error = error
-            elif plan.quant_class is not quant_class or plan.di_kwargs != owner_di_kwargs:
+            elif (plan.quant_class is not quant_class or plan.di_kwargs != owner_di_kwargs or
+                  plan.transpose_weight != transpose_weight):
                 plan.error = 'the owner is used with incompatible quantizers or matrix layouts'
         return _DiscoveredArgument(
             quant_class,
@@ -987,7 +1028,7 @@ class _FunctionalQuantBuilder(_HookedMode):
             fallback_di_kwargs,
             value.device,
             view_indices,
-            func in (torch.matmul, torch.Tensor.matmul, torch.Tensor.__matmul__))
+            transpose_weight)
 
     def _discover_call(
             self,
@@ -1058,12 +1099,20 @@ class _FunctionalQuantBuilder(_HookedMode):
                     # logical matrix target.
                     if argument.parameter_owner == owner and call_key[1] is torch.bmm:
                         continue
-                    if argument.parameter_owner != owner or not argument.view_indices:
-                        if argument.parameter_owner == owner and argument.view_indices == ():
+                    if argument.parameter_owner != owner:
+                        continue
+                    is_grouped_mm = call_key[1] is _grouped_mm_key
+                    if is_grouped_mm:
+                        self.state.grouped_target_calls[call_key] = (
+                            owner_id, argument.view_indices)
+                    if not argument.view_indices and not is_grouped_mm:
+                        if argument.view_indices == ():
                             direct_transpose_weight = argument.transpose_weight
                         continue
                     leading_dims = original.shape[:-2]
-                    for indices in product(*(range(size) for size in leading_dims)):
+                    prefix = ()
+                    for suffix in product(*(range(size) for size in leading_dims[len(prefix):])):
+                        indices = (*prefix, *suffix)
                         key = (owner_id, tuple(indices))
                         existing = self.state.linear_targets.get(key)
                         if existing is not None and existing.transpose_weight != argument.transpose_weight:
