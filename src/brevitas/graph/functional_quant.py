@@ -5,7 +5,6 @@ from collections import defaultdict
 import contextlib
 from dataclasses import dataclass
 from dataclasses import field
-from itertools import product
 from typing import Any
 from typing import Callable
 from typing import Dict
@@ -35,6 +34,7 @@ from brevitas.quant_tensor import QuantTensor
 
 __all__ = [
     'FunctionalQuantState',
+    'FunctionalWeightOwner',
     'functional_quantization_mode',
     'grouped_mm_functions',
     'prepare_functional_quantization',
@@ -204,33 +204,21 @@ class _WeightQuantHolder(nn.Module):
         self.out_channels = weight.shape[output_channel_dim]
 
 
-def _storage_tensor(value: Tensor) -> Tensor:
-    """Return the tensor whose storage is indexed by a functional weight view."""
-    if isinstance(value, QuantTensor):
-        return value._value_ if getattr(value, '_is_groupwise', False) else value.value
-    return value
-
-
 class _QuantParametrization(nn.Module):
 
-    def __init__(self, state: 'FunctionalQuantState', proxy: nn.Module, owner_id: str) -> None:
+    def __init__(self, state: 'FunctionalQuantState', proxy: nn.Module) -> None:
         """Store the mode state and proxy that quantize a parameter on demand."""
         super().__init__()
         self._state = state
         self.proxy = proxy
-        self.owner_id = owner_id
 
     def forward(self, value: Tensor) -> Tensor:
         """Return the original parameter or its quantized proxy output."""
         if not self._state.enabled:
             return value
         if getattr(self.proxy, 'disable_quant', False):
-            quantized_value = value
-        else:
-            quantized_value = self.proxy(value)
-        if self._state.linear_observers:
-            self._state._record_runtime_weight(self.owner_id, quantized_value)
-        return quantized_value
+            return value
+        return self.proxy(value)
 
 
 @dataclass
@@ -264,21 +252,24 @@ class _OwnerPlan:
     error: Optional[str] = None
 
 
-@dataclass
-class _FunctionalWeightOwner:
-    owner: nn.Module
-    owner_name: str
+@dataclass(frozen=True)
+class FunctionalWeightOwner:
+    """Read-only description of a parameter quantized through functional operations."""
+
+    module: nn.Module
+    module_name: str
     parameter_name: str
     proxy: nn.Module
-    parametrization: _QuantParametrization
+    parametrization: nn.Module
+    canonical_weight_transpose: Optional[bool] = None
 
     @property
     def id(self) -> str:
-        return f'{self.owner_name + ":" if self.owner_name else ""}{self.parameter_name}'
+        return f'{self.module_name + ":" if self.module_name else ""}{self.parameter_name}'
 
     @property
     def original_parameter(self) -> nn.Parameter:
-        return getattr(self.owner.parametrizations, self.parameter_name).original
+        return getattr(self.module.parametrizations, self.parameter_name).original
 
 
 class FunctionalQuantState:
@@ -295,12 +286,8 @@ class FunctionalQuantState:
         self.specs = _parse_quant_map(quant_map)
         self.function_indices = {func: index for index, func in enumerate(self.specs)}
         self.calls: Dict[Tuple[str, Callable, int], _PreparedCall] = {}
-        self.owners: Dict[str, _FunctionalWeightOwner] = {}
-        self.linear_owner_layouts: Dict[str, bool] = {}
-        self.linear_observers: List[Callable[[str, Tuple[int, ...], Tensor], None]] = []
-        self.runtime_weights: Dict[str, Tensor] = {}
-        self.grouped_view_calls: Dict[Tuple[str, Callable, int], Tuple[str, Tuple[int, ...]]] = {}
-        self.counter_resetters: List[Callable[[], None]] = []
+        self._weight_owners: Dict[str, FunctionalWeightOwner] = {}
+        self._call_sequence_resetters: List[Callable[[], None]] = []
         self.registered_parametrizations: List[Tuple[nn.Module, str]] = []
         self.parametrizations_removed = False
         self.enabled = False
@@ -338,102 +325,24 @@ class FunctionalQuantState:
         if getattr(self.model, _STATE_NAME, None) is self:
             delattr(self.model, _STATE_NAME)
         self.calls.clear()
-        self.owners.clear()
-        self.linear_owner_layouts.clear()
-        self.linear_observers.clear()
-        self.runtime_weights.clear()
-        self.grouped_view_calls.clear()
-        self.counter_resetters.clear()
+        self._weight_owners.clear()
+        self._call_sequence_resetters.clear()
         self._closed = True
 
-    def reset_active_counters(self) -> None:
+    def restart_call_sequence(self) -> None:
         """Restart prepared call-site ordinals for a nested functional forward."""
-        for reset in tuple(self.counter_resetters):
+        for reset in tuple(self._call_sequence_resetters):
             reset()
 
-    def register_linear_observer(self, observer: Callable[[str, Tuple[int, ...], Tensor], None]):
-        """Observe parameter-backed functional linear calls during an active mode."""
-        self.linear_observers.append(observer)
-
-        class _Handle:
-
-            def remove(handle_self) -> None:
-                if observer in self.linear_observers:
-                    self.linear_observers.remove(observer)
-                if not self.linear_observers:
-                    self.runtime_weights.clear()
-
-        return _Handle()
-
-    def iter_linear_owners(self,
-                           module_scope: Optional[nn.Module] = None) -> List[Tuple[str, bool]]:
-        """Return owner IDs and canonical layouts used by functional linear operations."""
-        owners = list(self.linear_owner_layouts.items())
+    def iter_weight_owners(self,
+                           module_scope: Optional[nn.Module] = None) -> List[FunctionalWeightOwner]:
+        """Return prepared functional weight owners, optionally restricted to a subtree."""
+        self._assert_open()
+        owners = list(self._weight_owners.values())
         if module_scope is None:
             return owners
         modules = set(module_scope.modules())
-        return [owner for owner in owners if self.owners[owner[0]].owner in modules]
-
-    def _record_runtime_weight(self, owner_id: str, value: Tensor) -> None:
-        """Remember a root layout only while an observer needs expert identity."""
-        self.runtime_weights[owner_id] = _storage_tensor(value)
-
-    @staticmethod
-    def _view_indices(root: Tensor, value: Tensor) -> Optional[Tuple[int, ...]]:
-        """Recover a supported leading-index prefix from a storage-sharing view."""
-        if root.device != value.device:
-            return None
-        try:
-            same_storage = root.untyped_storage().data_ptr() == value.untyped_storage().data_ptr()
-        except RuntimeError:
-            return None
-        if not same_storage:
-            return None
-
-        rank_delta = root.dim() - value.dim()
-        if rank_delta < 0:
-            return None
-        same_layout = tuple(value.shape) == tuple(root.shape[rank_delta:]) and tuple(
-            value.stride()) == tuple(root.stride()[rank_delta:])
-        transposed_layout = root.dim() >= 2 and value.dim() >= 2 and tuple(
-            value.shape) == (*root.shape[rank_delta:-2], root.shape[-1], root.shape[-2]) and tuple(
-                value.stride()) == (
-                    *root.stride()[rank_delta:-2], root.stride()[-1], root.stride()[-2])
-        if not same_layout and not transposed_layout:
-            return None
-
-        offset = value.storage_offset() - root.storage_offset()
-        indices = []
-        for axis in range(rank_delta):
-            stride = root.stride()[axis]
-            if stride == 0 or offset % stride:
-                return None
-            index = offset // stride
-            if not 0 <= index < root.shape[axis]:
-                return None
-            indices.append(index)
-            offset -= index * stride
-        return tuple(indices) if offset == 0 else None
-
-    def _owner_view_from_weight(self, value: Any) -> Optional[Tuple[str, Tuple[int, ...]]]:
-        """Resolve an owner and index prefix from a runtime storage-sharing view."""
-        if not isinstance(value, Tensor):
-            return None
-        value = _storage_tensor(value)
-        roots = {owner_id: owner.original_parameter for owner_id, owner in self.owners.items()}
-        roots.update(self.runtime_weights)
-        for owner_id, root in roots.items():
-            indices = self._view_indices(_storage_tensor(root), value)
-            if indices is not None:
-                return owner_id, indices
-        return None
-
-    def _linear_view_from_weight(self, value: Any) -> Optional[Tuple[str, Tuple[int, ...]]]:
-        """Resolve a runtime weight to a prepared linear owner and index path."""
-        owner_view = self._owner_view_from_weight(value)
-        if owner_view is None or owner_view[0] not in self.linear_owner_layouts:
-            return None
-        return owner_view
+        return [owner for owner in owners if owner.module in modules]
 
     def _assert_open(self) -> None:
         """Raise if this state was already cleaned up."""
@@ -491,58 +400,6 @@ class _HookedMode(TorchFunctionMode):
             self.module_stack.append((name, module))
 
         return hook
-
-    def _notify_linear_observers(
-            self,
-            name: str,
-            module: nn.Module,
-            func: Callable,
-            index: int,
-            args: Tuple[Any, ...],
-            kwargs: Dict[str, Any]) -> None:
-        """Report supported parameter-backed linear calls without using call order as identity."""
-        if not self.state.linear_observers:
-            return
-        slots, _ = _logical_arguments(func, args, kwargs)
-        values = {arg_idx: value for arg_idx, value, _ in slots}
-        if func is _grouped_mm_key:
-            grouped_view = self.state.grouped_view_calls.get((name, func, index))
-            inp, weight, offsets = values.get(0), values.get(1), values.get(2)
-            if grouped_view is None or not isinstance(inp, Tensor) or not isinstance(offsets,
-                                                                                     Tensor):
-                return
-            owner_id, prefix = grouped_view
-            runtime_owner_view = self.state._owner_view_from_weight(weight)
-            if runtime_owner_view is not None and runtime_owner_view[0] == owner_id:
-                prefix = runtime_owner_view[1]
-            leading_dims = self.state.owners[owner_id].original_parameter.shape[:-2]
-            view_indices = [
-                (*prefix, *suffix)
-                for suffix in product(*(range(size) for size in leading_dims[len(prefix):]))]
-            boundaries = [int(offset) for offset in offsets.detach().cpu().tolist()]
-            if len(boundaries) != len(view_indices) or any(
-                    end < start for start, end in zip((0, *boundaries), boundaries)) or (
-                        boundaries and boundaries[-1] != inp.shape[0]):
-                raise RuntimeError('Grouped-MM offsets do not match the prepared expert views.')
-            start = 0
-            for indices, end in zip(view_indices, boundaries):
-                if end > start:
-                    for observer in tuple(self.state.linear_observers):
-                        observer(owner_id, indices, inp[start:end])
-                start = end
-            return
-        if func not in (torch.nn.functional.linear,
-                        torch.matmul,
-                        torch.Tensor.matmul,
-                        torch.Tensor.__matmul__):
-            return
-        if not isinstance(values.get(0), Tensor):
-            return
-        owner_view = self.state._linear_view_from_weight(values.get(1))
-        if owner_view is None:
-            return
-        for observer in tuple(self.state.linear_observers):
-            observer(owner_view[0], owner_view[1], values[0])
 
     def _post_hook(self, name: str) -> Callable:
         """Create an always-call hook that removes a completed module entry."""
@@ -872,16 +729,8 @@ class _FunctionalQuantBuilder(_HookedMode):
             owner_name_qualified = self.module_names[id(owner_module)]
             owner_id = f'{owner_name_qualified + ":" if owner_name_qualified else ""}{owner_name}'
             register_parametrization(
-                owner_module, owner_name, _QuantParametrization(self.state, proxy, owner_id))
+                owner_module, owner_name, _QuantParametrization(self.state, proxy))
             self.state.registered_parametrizations.append(owner)
-            owner_record = _FunctionalWeightOwner(
-                owner_module,
-                owner_name_qualified,
-                owner_name,
-                proxy,
-                getattr(owner_module.parametrizations, owner_name)[-1])
-            self.state.owners[owner_id] = owner_record
-
             linear_layout = None
             for call_key, argument_map in self.discovered_calls.items():
                 for argument in argument_map.values():
@@ -896,16 +745,19 @@ class _FunctionalQuantBuilder(_HookedMode):
                                            torch.Tensor.matmul,
                                            torch.Tensor.__matmul__):
                         continue
-                    is_grouped_mm = call_key[1] is _grouped_mm_key
-                    if is_grouped_mm:
-                        self.state.grouped_view_calls[call_key] = (owner_id, argument.view_indices)
                     if linear_layout is not None and linear_layout != argument.transpose_weight:
                         raise RuntimeError(
                             f"Functional parameter '{owner_id}' is used with incompatible linear layouts."
                         )
                     linear_layout = argument.transpose_weight
-            if linear_layout is not None:
-                self.state.linear_owner_layouts[owner_id] = linear_layout
+            owner_record = FunctionalWeightOwner(
+                owner_module,
+                owner_name_qualified,
+                owner_name,
+                proxy,
+                getattr(owner_module.parametrizations, owner_name)[-1],
+                linear_layout)
+            self.state._weight_owners[owner_id] = owner_record
 
         for call_key, arguments in self.discovered_calls.items():
             name, func, index = call_key
@@ -957,7 +809,6 @@ class _FunctionalQuantBuilder(_HookedMode):
         name, module = self.module_stack[-1]
         index = self.counters[name][canonical_func]
         self.counters[name][canonical_func] += 1
-        self._notify_linear_observers(name, module, canonical_func, index, args, kwargs)
         return self._discover_call(name, module, canonical_func, func, index, args, kwargs)
 
 
@@ -981,7 +832,7 @@ class functional_quantization_mode(_HookedMode):
         self._attach_hooks()
         self._previous_enabled = self.state.enabled
         self.state.enabled = self.enabled
-        self.state.counter_resetters.append(self.counters.clear)
+        self.state._call_sequence_resetters.append(self.counters.clear)
         return super().__enter__()
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
@@ -990,8 +841,8 @@ class functional_quantization_mode(_HookedMode):
             return super().__exit__(exc_type, exc_val, exc_tb)
         finally:
             self.state.enabled = self._previous_enabled
-            if self.counters.clear in self.state.counter_resetters:
-                self.state.counter_resetters.remove(self.counters.clear)
+            if self.counters.clear in self.state._call_sequence_resetters:
+                self.state._call_sequence_resetters.remove(self.counters.clear)
             self._remove_hooks()
             if self.remove_parametrizations_on_exit:
                 self.state.remove_parametrizations()
@@ -1033,7 +884,6 @@ class functional_quantization_mode(_HookedMode):
         name, module = self.module_stack[-1]
         index = self.counters[name][canonical_func]
         self.counters[name][canonical_func] += 1
-        self._notify_linear_observers(name, module, canonical_func, index, args, kwargs)
         call = self.state.calls.get((name, canonical_func, index))
         if call is None:
             if self._unprepared_call_is_passthrough(canonical_func,

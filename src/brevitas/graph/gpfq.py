@@ -371,7 +371,7 @@ class gpfq_mode(gpxq_mode):
     def __enter__(self):
         mode = super().__enter__()
         if self.functional_state is not None:
-            owner_modules = {target.owner.owner for target in self.functional_targets}
+            owner_modules = {target.owner.module for target in self.functional_targets}
             for module in owner_modules:
                 self._routing_hook_handles.append(
                     module.register_forward_pre_hook(self._routing_hook, with_kwargs=True))
@@ -522,6 +522,8 @@ class gpfq_mode(gpxq_mode):
 
     def catch_stopfwd(self, *args, **kwargs):
         # Collect quant input
+        if self.functional_session is not None:
+            self.functional_session.begin_quantized_pass()
         self._routing_cache.clear()
         self._routing_replay_index.clear()
         self._routing_phase = 'capture'
@@ -533,11 +535,10 @@ class gpfq_mode(gpxq_mode):
         # Disable quantization
         # TODO: Ensure that removing is_training=False does not cause any regression and remove,
         # if that is the case
-        targets = self.functional_targets if self.functional_state is not None else ()
         if self.functional_state is not None:
-            self.functional_state.reset_active_counters()
-        for target in targets:
-            target.reference_pass = True
+            self.functional_state.restart_call_sequence()
+        if self.functional_session is not None:
+            self.functional_session.begin_reference_pass()
         self._routing_phase = 'replay'
         try:
             with quantization_status_manager(
@@ -553,16 +554,20 @@ class gpfq_mode(gpxq_mode):
                     pass
         finally:
             self._routing_phase = None
-            for target in targets:
-                target.reference_pass = False
 
         if self.return_forward_output:
             # If we want to return the output of the network, we need to disable all hooks
             for name, gpxq_class in self.gpxq_layers.items():
                 gpxq_class.disable_pre_forward_hook = True
-            out = self.orig_forward(*args, **kwargs)
-            for name, gpxq_class in self.gpxq_layers.items():
-                gpxq_class.disable_pre_forward_hook = False
+            if self.functional_session is not None:
+                self.functional_session.enabled = False
+            try:
+                out = self.orig_forward(*args, **kwargs)
+            finally:
+                if self.functional_session is not None:
+                    self.functional_session.enabled = True
+                for name, gpxq_class in self.gpxq_layers.items():
+                    gpxq_class.disable_pre_forward_hook = False
             return out
 
     def initialize_module_optimizer(self, layer, name, len_parallel_layers, create_weight_orig):

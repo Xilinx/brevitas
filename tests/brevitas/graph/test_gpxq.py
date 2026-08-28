@@ -173,6 +173,8 @@ def test_functional_gptq_updates_only_observed_expert(model_class, quant_map):
     before = model.parametrizations.weight.original.detach().clone()
     with functional_quantization_mode(state):
         with gptq_mode(model, functional_state=state, min_samples=1) as mode:
+            assert not hasattr(model.weight, '_functional_owner_id')
+            assert not hasattr(model.weight, '_functional_view_indices')
             for _ in range(mode.num_layers):
                 mode.model(x, 0)
                 mode.update()

@@ -10,6 +10,7 @@ from functools import partial
 from itertools import product
 from operator import attrgetter
 from time import perf_counter
+from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
@@ -20,12 +21,15 @@ import warnings
 import torch
 from torch.fx import GraphModule as TorchGraphModule
 import torch.nn as nn
+from torch.overrides import TorchFunctionMode
 from tqdm import tqdm
 import unfoldNd
 
 from brevitas.fx import GraphModule
 from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.functional_quant import FunctionalQuantState
+from brevitas.graph.functional_quant import FunctionalWeightOwner
+from brevitas.graph.functional_quant import grouped_mm_functions
 from brevitas.graph.utils import get_batch_dim
 from brevitas.graph.utils import is_conv_transposed
 from brevitas.graph.utils import is_quant_module
@@ -188,6 +192,208 @@ class FunctionalLinearTargetBatch:
         return value.reshape_as(canonical_weight)
 
 
+def _storage_tensor(value: torch.Tensor) -> torch.Tensor:
+    if isinstance(value, QuantTensor):
+        return value._value_ if getattr(value, '_is_groupwise', False) else value.value
+    return value
+
+
+class _FunctionalGPxQSession(TorchFunctionMode):
+    """Observe functional matrix calls without adding runtime state to functional quantization."""
+
+    def __init__(
+            self,
+            model: nn.Module,
+            functional_state: FunctionalQuantState,
+            owners: List[FunctionalWeightOwner],
+            callback: Callable[[str, Tuple[int, ...], torch.Tensor, bool], None]) -> None:
+        super().__init__()
+        self.model = model
+        self.functional_state = functional_state
+        self.owners = {owner.id: owner for owner in owners}
+        self.callback = callback
+        self.runtime_weights = {owner.id: None for owner in owners}
+        self.hooks = []
+        self.scope_depth = 0
+        self.materialization_depth = 0
+        self.enabled = True
+        self.reference_pass = False
+        self.grouped_functions = grouped_mm_functions()
+
+    def clear_runtime_weights(self) -> None:
+        for owner_id in self.runtime_weights:
+            self.runtime_weights[owner_id] = None
+
+    def begin_quantized_pass(self) -> None:
+        self.reference_pass = False
+        self.clear_runtime_weights()
+
+    def begin_reference_pass(self) -> None:
+        self.reference_pass = True
+        self.clear_runtime_weights()
+
+    def _scope_pre_hook(self, module, args) -> None:
+        if self.scope_depth == 0:
+            self.begin_quantized_pass()
+        self.scope_depth += 1
+
+    def _scope_post_hook(self, module, args, output) -> None:
+        self.scope_depth = max(0, self.scope_depth - 1)
+
+    def _materialization_pre_hook(self, module, args) -> None:
+        self.materialization_depth += 1
+
+    def _materialization_post_hook(self, owner_id, module, args, output) -> None:
+        try:
+            if self.enabled and self.scope_depth and isinstance(output, torch.Tensor):
+                self.runtime_weights[owner_id] = _storage_tensor(output)
+        finally:
+            self.materialization_depth = max(0, self.materialization_depth - 1)
+
+    def _attach_hooks(self) -> None:
+        self.hooks.append(self.model.register_forward_pre_hook(self._scope_pre_hook))
+        self.hooks.append(self.model.register_forward_hook(self._scope_post_hook, always_call=True))
+        for owner_id, owner in self.owners.items():
+            self.hooks.append(
+                owner.parametrization.register_forward_pre_hook(self._materialization_pre_hook))
+            self.hooks.append(
+                owner.parametrization.register_forward_hook(
+                    partial(self._materialization_post_hook, owner_id), always_call=True))
+
+    def _remove_hooks(self) -> None:
+        for hook in self.hooks:
+            hook.remove()
+        self.hooks.clear()
+        self.scope_depth = 0
+        self.materialization_depth = 0
+        self.clear_runtime_weights()
+
+    @staticmethod
+    def _view_indices(root: torch.Tensor, value: torch.Tensor) -> Optional[Tuple[int, ...]]:
+        if root.device != value.device:
+            return None
+        try:
+            same_storage = root.untyped_storage().data_ptr() == value.untyped_storage().data_ptr()
+        except RuntimeError:
+            return None
+        if not same_storage:
+            return None
+
+        rank_delta = root.dim() - value.dim()
+        if rank_delta < 0:
+            return None
+        same_layout = tuple(value.shape) == tuple(root.shape[rank_delta:]) and tuple(
+            value.stride()) == tuple(root.stride()[rank_delta:])
+        transposed_layout = root.dim() >= 2 and value.dim() >= 2 and tuple(
+            value.shape) == (*root.shape[rank_delta:-2], root.shape[-1], root.shape[-2]) and tuple(
+                value.stride()) == (
+                    *root.stride()[rank_delta:-2], root.stride()[-1], root.stride()[-2])
+        if not same_layout and not transposed_layout:
+            return None
+
+        offset = value.storage_offset() - root.storage_offset()
+        indices = []
+        for axis in range(rank_delta):
+            stride = root.stride()[axis]
+            if stride == 0 or offset % stride:
+                return None
+            index = offset // stride
+            if not 0 <= index < root.shape[axis]:
+                return None
+            indices.append(index)
+            offset -= index * stride
+        return tuple(indices) if offset == 0 else None
+
+    def _owner_view(self, value) -> Optional[Tuple[FunctionalWeightOwner, Tuple[int, ...]]]:
+        if not isinstance(value, torch.Tensor):
+            return None
+        value = _storage_tensor(value)
+        matches = []
+        for owner_id, owner in self.owners.items():
+            runtime_weight = self.runtime_weights[owner_id]
+            roots = ([runtime_weight] if runtime_weight is not None else []) + [
+                owner.original_parameter]
+            for root in roots:
+                indices = self._view_indices(_storage_tensor(root), value)
+                if indices is not None:
+                    matches.append((owner, indices))
+                    break
+        if len(matches) == 1:
+            return matches[0]
+        return None
+
+    @staticmethod
+    def _argument(args, kwargs, index, names):
+        if index < len(args):
+            return args[index]
+        for name in names:
+            if name in kwargs:
+                return kwargs[name]
+        return None
+
+    def _observe_linear(self, args, kwargs) -> None:
+        inp = self._argument(args, kwargs, 0, ('input', 'self'))
+        weight = self._argument(args, kwargs, 1, ('weight', 'other'))
+        owner_view = self._owner_view(weight)
+        if owner_view is not None and isinstance(inp, torch.Tensor):
+            self._dispatch(owner_view[0].id, owner_view[1], inp)
+
+    def _dispatch(self, owner_id, indices, inp) -> None:
+        previous_enabled = self.functional_state.enabled
+        self.functional_state.enabled = False
+        try:
+            self.callback(owner_id, indices, inp, self.reference_pass)
+        finally:
+            self.functional_state.enabled = previous_enabled
+
+    def _observe_grouped(self, args, kwargs) -> None:
+        inp = self._argument(args, kwargs, 0, ('input', 'self', 'mat_a'))
+        weight = self._argument(args, kwargs, 1, ('weight', 'mat2', 'mat_b'))
+        offsets = self._argument(args, kwargs, 2, ('offs',))
+        owner_view = self._owner_view(weight)
+        if owner_view is None or not isinstance(inp, torch.Tensor) or not isinstance(offsets,
+                                                                                     torch.Tensor):
+            return
+
+        owner, prefix = owner_view
+        leading_dims = owner.original_parameter.shape[:-2]
+        view_indices = [
+            (*prefix, *suffix)
+            for suffix in product(*(range(size) for size in leading_dims[len(prefix):]))]
+        boundaries = [int(offset) for offset in offsets.detach().cpu().tolist()]
+        if len(boundaries) != len(view_indices) or any(
+                end < start for start, end in zip((0, *boundaries), boundaries)) or (
+                    boundaries and boundaries[-1] != inp.shape[0]):
+            raise RuntimeError('Grouped-MM offsets do not match the functional expert views.')
+        start = 0
+        for indices, end in zip(view_indices, boundaries):
+            if end > start:
+                self._dispatch(owner.id, indices, inp[start:end])
+            start = end
+
+    def __enter__(self):
+        self._attach_hooks()
+        return super().__enter__()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        try:
+            return super().__exit__(exc_type, exc_val, exc_tb)
+        finally:
+            self._remove_hooks()
+
+    def __torch_function__(self, func, types, args=(), kwargs=None):
+        kwargs = {} if kwargs is None else kwargs
+        if self.enabled and self.scope_depth and not self.materialization_depth:
+            if any(func is grouped for grouped in self.grouped_functions):
+                self._observe_grouped(args, kwargs)
+            elif func in (torch.nn.functional.linear,
+                          torch.matmul,
+                          torch.Tensor.matmul,
+                          torch.Tensor.__matmul__):
+                self._observe_linear(args, kwargs)
+        return func(*args, **kwargs)
+
+
 class FunctionalGPxQBatch:
     """Shared invariants and quantization for one compatible functional expert batch."""
 
@@ -337,7 +543,7 @@ class gpxq_mode(quantization_status_manager):
         self.functional_targets_by_key = {}
         self.functional_target_groups = []
         self.functional_collection_seconds = {}
-        self.functional_observer_handle = None
+        self.functional_session = None
         self.active_functional_group = None
         self.completed_functional_owners = set()
 
@@ -372,11 +578,14 @@ class gpxq_mode(quantization_status_manager):
             module in self.model.named_modules() if self._is_module_supported(module)}
         if self.functional_state is not None:
             self.functional_targets = []
-            for owner_id, transpose_weight in self.functional_state.iter_linear_owners(self.model):
-                owner = self.functional_state.owners[owner_id]
+            functional_owners = [
+                owner for owner in self.functional_state.iter_weight_owners(self.model)
+                if owner.canonical_weight_transpose is not None]
+            for owner in functional_owners:
                 leading_dims = owner.original_parameter.shape[:-2]
                 self.functional_targets.extend(
-                    FunctionalLinearTarget(owner_id, owner, indices, transpose_weight)
+                    FunctionalLinearTarget(
+                        owner.id, owner, indices, owner.canonical_weight_transpose)
                     for indices in product(*(range(size) for size in leading_dims)))
             self.functional_targets_by_key = {
                 target.key: target for target in self.functional_targets}
@@ -430,25 +639,31 @@ class gpxq_mode(quantization_status_manager):
 
         self.num_layers = len(dict_of_layers) + len(self.functional_target_groups)
         if self.functional_target_groups:
-            self.functional_observer_handle = self.functional_state.register_linear_observer(
+            self.functional_session = _FunctionalGPxQSession(
+                self.model,
+                self.functional_state,
+                functional_owners,
                 self._observe_functional_target)
+            self.functional_session.__enter__()
             # Ordinary module hooks stop calibration before later functional calls.
             # Defer expert scheduling until those module targets are exhausted.
             self._advance_functional_target()
         return self
 
     def __exit__(self, type, value, traceback):
-        # Restore original quantization configuration
-        super().__exit__(type, value, traceback)
-        if self.functional_observer_handle is not None:
-            self.functional_observer_handle.remove()
-        for handle in self.hook_dict.values():
-            handle.remove()
-        self.hook_dict.clear()
-        if isinstance(self.model, (GraphModule, TorchGraphModule)):
-            self.model.__class__.forward = self.orig_forward
-        else:
-            self.model.forward = self.orig_forward
+        try:
+            if self.functional_session is not None:
+                self.functional_session.__exit__(type, value, traceback)
+                self.functional_session = None
+            return super().__exit__(type, value, traceback)
+        finally:
+            for handle in self.hook_dict.values():
+                handle.remove()
+            self.hook_dict.clear()
+            if isinstance(self.model, (GraphModule, TorchGraphModule)):
+                self.model.__class__.forward = self.orig_forward
+            else:
+                self.model.forward = self.orig_forward
 
     def update(self):
         for name in tuple(self.current_layer.layer_names):
@@ -464,7 +679,11 @@ class gpxq_mode(quantization_status_manager):
         self._advance_functional_target()
 
     def _observe_functional_target(
-            self, owner_id: str, view_indices: Tuple[int, ...], input: torch.Tensor) -> None:
+            self,
+            owner_id: str,
+            view_indices: Tuple[int, ...],
+            input: torch.Tensor,
+            reference_pass: bool) -> None:
         """Collect routed activations for every expert in the scheduled owner."""
         if self.active_functional_group is None or owner_id != self.active_functional_group[
                 0].owner_id:
@@ -474,7 +693,12 @@ class gpxq_mode(quantization_status_manager):
             return
         optimizer = self.gpxq_layers[target.name]
         start = perf_counter()
-        optimizer.update_batch(target, (input,), self.functional_layer)
+        previous_reference_pass = target.reference_pass
+        target.reference_pass = reference_pass
+        try:
+            optimizer.update_batch(target, (input,), self.functional_layer)
+        finally:
+            target.reference_pass = previous_reference_pass
         self.functional_collection_seconds[owner_id] = self.functional_collection_seconds.get(
             owner_id, 0.) + perf_counter() - start
 

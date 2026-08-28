@@ -10,7 +10,6 @@ from torch.nn.utils.parametrize import is_parametrized
 from torch.nn.utils.parametrize import register_parametrization
 from torch.utils.checkpoint import checkpoint
 
-from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.functional_quant import grouped_mm_functions
 from brevitas.graph.quantize import _QuantParametrization
 from brevitas.graph.quantize import functional_quantization_mode
@@ -392,7 +391,9 @@ class TestFunctionalQuantizationMode:
         state = prepare_functional_quantization(
             model, quant_map, example_inputs=(torch.randn(2, 4),))
 
-        assert state.iter_linear_owners() == [('weight', False)]
+        owners = state.iter_weight_owners()
+        assert [(owner.id, owner.canonical_weight_transpose) for owner in owners] == [
+            ('weight', False)]
         state.cleanup()
 
     def test_transposed_linear_uses_operand_weight_orientation(self):
@@ -401,7 +402,9 @@ class TestFunctionalQuantizationMode:
         state = prepare_functional_quantization(
             model, {F.linear: (None, None, weight_spec)}, example_inputs=(torch.randn(2, 4),))
 
-        assert state.iter_linear_owners() == [('weight', True)]
+        owners = state.iter_weight_owners()
+        assert [(owner.id, owner.canonical_weight_transpose) for owner in owners] == [
+            ('weight', True)]
         state.cleanup()
 
     @pytest.mark.skipif(not hasattr(torch, '_grouped_mm'), reason='Torch grouped_mm is unavailable')
@@ -428,8 +431,7 @@ class TestFunctionalQuantizationMode:
         state.cleanup()
 
     @pytest.mark.skipif(not hasattr(torch, '_grouped_mm'), reason='Torch grouped_mm is unavailable')
-    def test_grouped_mm_exposes_expert_views_and_observes_offset_slices(self):
-        """Grouped-MM reports logical expert views and cumulative-offset input slices."""
+    def test_grouped_mm_records_owner_linear_layout(self):
         model = GroupedFunctionalWeightModel()
         weight_spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 1, 'group_dim': 2})
         grouped_mm = next(func for func in grouped_mm_functions() if func is torch._grouped_mm)
@@ -438,20 +440,9 @@ class TestFunctionalQuantizationMode:
             example_inputs=(
                 torch.randn(4, 256, dtype=torch.bfloat16), torch.tensor([2, 4], dtype=torch.int32)))
 
-        assert state.iter_linear_owners() == [('weight', False)]
-
-        observed = []
-        handle = state.register_linear_observer(
-            lambda owner_id, indices, input: observed.append(((owner_id, indices), input)))
-        x = torch.randn(4, 256, dtype=torch.bfloat16)
-        offsets = torch.tensor([1, 4], dtype=torch.int32)
-        with functional_quantization_mode(state):
-            model(x, offsets)
-        handle.remove()
-
-        assert [key for key, _ in observed] == [('weight', (0,)), ('weight', (1,))]
-        torch.testing.assert_close(observed[0][1], x[:1])
-        torch.testing.assert_close(observed[1][1], x[1:4])
+        owners = state.iter_weight_owners()
+        assert [(owner.id, owner.canonical_weight_transpose) for owner in owners] == [
+            ('weight', False)]
         state.cleanup()
 
     @pytest.mark.skipif(not hasattr(torch, '_grouped_mm'), reason='Torch grouped_mm is unavailable')
@@ -465,32 +456,7 @@ class TestFunctionalQuantizationMode:
                 model, {torch._grouped_mm: (None, None, weight_spec)},
                 example_inputs=(x, offsets, 1))
 
-        assert not state.iter_linear_owners()
-        state.cleanup()
-
-    @pytest.mark.skipif(not hasattr(torch, '_grouped_mm'), reason='Torch grouped_mm is unavailable')
-    def test_grouped_mm_reference_weights_do_not_propagate_to_activations(self):
-        """Disabled weight views remain identifiable without contaminating grouped outputs."""
-        model = TwoStageGroupedFunctionalWeightModel().eval()
-        weight_spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 1, 'group_dim': 2})
-        x = torch.randn(4, 256, dtype=torch.bfloat16)
-        offsets = torch.tensor([2, 4], dtype=torch.int32)
-        state = prepare_functional_quantization(
-            model, {torch._grouped_mm: (None, None, weight_spec)}, example_inputs=(x, offsets))
-        observed_inputs = []
-        handle = state.register_linear_observer(
-            lambda owner_id, indices, input: observed_inputs.append(input))
-        with functional_quantization_mode(state):
-            with quantization_status_manager(model,
-                                             disable_act_quant=True,
-                                             disable_weight_quant=True,
-                                             disable_bias_quant=True):
-                output = model(x, offsets)
-        handle.remove()
-
-        assert type(output) is Tensor
-        assert len(observed_inputs) == 4
-        assert all(type(inp) is Tensor for inp in observed_inputs)
+        assert not state.iter_weight_owners()
         state.cleanup()
 
     def test_grouped_mm_transformers_fallback_alias(self):
@@ -507,7 +473,7 @@ class TestFunctionalQuantizationMode:
             example_inputs=(
                 torch.randn(4, 256, dtype=torch.bfloat16), torch.tensor([2, 4], dtype=torch.int32)))
 
-        assert set(state.quantized_parameters) == {'weight'}
+        assert {owner.id for owner in state.iter_weight_owners()} == {'weight'}
         with functional_quantization_mode(state):
             output = model(
                 torch.randn(4, 256, dtype=torch.bfloat16), torch.tensor([2, 4], dtype=torch.int32))
@@ -519,7 +485,9 @@ class TestFunctionalQuantizationMode:
         weight_spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 1, 'group_dim': 2})
         state = prepare_functional_quantization(
             model, {F.linear: (None, None, weight_spec)}, example_inputs=(torch.randn(2, 4), 0))
-        assert state.iter_linear_owners() == [('weight', False)]
+        owners = state.iter_weight_owners()
+        assert [(owner.id, owner.canonical_weight_transpose) for owner in owners] == [
+            ('weight', False)]
         state.cleanup()
 
     def test_matmul_view_records_canonical_linear_orientation(self):
@@ -531,45 +499,9 @@ class TestFunctionalQuantizationMode:
             model, {
                 torch.matmul: spec, torch.Tensor.matmul: spec, torch.Tensor.__matmul__: spec},
             example_inputs=(torch.randn(2, 4), 0))
-        assert state.iter_linear_owners() == [('weight', True)]
-        state.cleanup()
-
-    def test_linear_observer_resolves_dynamic_expert_view(self):
-        """Observer derives expert identity from the indexed weight storage layout."""
-        model = StackedFunctionalWeightModel()
-        weight_spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 1, 'group_dim': 2})
-        state = prepare_functional_quantization(
-            model, {F.linear: (None, None, weight_spec)}, example_inputs=(torch.randn(2, 4), 0))
-        observed = []
-        handle = state.register_linear_observer(
-            lambda owner_id, indices, input: observed.append((owner_id, indices)))
-        with functional_quantization_mode(state):
-            assert not hasattr(model.weight, '_functional_owner_id')
-            assert not hasattr(model.weight, '_functional_view_indices')
-            assert not hasattr(model.weight[1], '_functional_owner_id')
-            model(torch.randn(2, 4), 1)
-            model(torch.randn(2, 4), 0)
-        handle.remove()
-        assert observed == [('weight', (1,)), ('weight', (0,))]
-        state.cleanup()
-
-    def test_linear_observer_resolves_disabled_reference_weight_view(self):
-        """Reference passes resolve original parameter views without a tensor subclass."""
-        model = StackedFunctionalWeightModel()
-        weight_spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 1, 'group_dim': 2})
-        state = prepare_functional_quantization(
-            model, {F.linear: (None, None, weight_spec)}, example_inputs=(torch.randn(2, 4), 0))
-        observed = []
-        handle = state.register_linear_observer(
-            lambda owner_id, indices, input: observed.append((owner_id, indices)))
-        with functional_quantization_mode(state):
-            with quantization_status_manager(model,
-                                             disable_act_quant=True,
-                                             disable_weight_quant=True,
-                                             disable_bias_quant=True):
-                model(torch.randn(2, 4), 1)
-        handle.remove()
-        assert observed == [('weight', (1,))]
+        owners = state.iter_weight_owners()
+        assert [(owner.id, owner.canonical_weight_transpose) for owner in owners] == [
+            ('weight', True)]
         state.cleanup()
 
     def test_unsupported_weight_view_warns_and_uses_activation_fallback(self):
@@ -643,7 +575,7 @@ class TestFunctionalQuantizationMode:
             state = prepare_functional_quantization(
                 model, {
                     F.linear: spec, torch.matmul: spec}, example_inputs=(torch.randn(2, 4),))
-        assert not state.iter_linear_owners()
+        assert not state.iter_weight_owners()
         state.cleanup()
 
     def test_preparametrized_owner_warns_and_falls_back(self):
