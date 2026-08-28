@@ -35,12 +35,12 @@ from torch import nn
 from torch import Tensor
 from torch.nn import Module
 
+from brevitas import config
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
 from brevitas_examples.common.generative.quantize import INPUT_QUANT_MAP
 from brevitas_examples.common.generative.quantize import WEIGHT_QUANT_MAP
-from tests.marker import jit_disabled_for_dynamic_quant_act
 
 IN_FEATURES: int = 32
 OUT_FEATURES: int = 32
@@ -196,7 +196,6 @@ def _quantize_and_forward(
     return out
 
 
-@jit_disabled_for_dynamic_quant_act()
 @pytest.mark.parametrize("weight_scaling_impl_type", WEIGHT_SCALING_IMPL_TYPES)
 @pytest.mark.parametrize(
     "weight_kwargs", [kw for _, kw in WEIGHT_COMBINATIONS], ids=[i for i, _ in WEIGHT_COMBINATIONS])
@@ -208,7 +207,6 @@ def test_weight_quant_map(
         model, weight_kwargs, input_kwargs=None, weight_scaling_impl_type=weight_scaling_impl_type)
 
 
-@jit_disabled_for_dynamic_quant_act()
 @pytest.mark.parametrize("weight_scaling_impl_type", WEIGHT_SCALING_IMPL_TYPES)
 @pytest.mark.parametrize(
     "input_kwargs", [kw for _, kw in INPUT_COMBINATIONS], ids=[i for i, _ in INPUT_COMBINATIONS])
@@ -220,6 +218,9 @@ def test_input_quant_map(
 
     Paired with a fixed int/per_channel weight quantizer to isolate the input quantizer.
     """
+    # Dynamic activation quantization requires JIT to be disabled.
+    if input_kwargs["input_scale_type"] == "dynamic" and config.JIT_ENABLED:
+        pytest.skip("Dynamic activation quantization requires JIT to be disabled")
     weight_kwargs: Dict[str, Any] = {
         "weight_quant_format": "int",
         "weight_scale_precision": "float_scale",
