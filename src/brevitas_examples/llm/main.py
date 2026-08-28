@@ -631,8 +631,7 @@ def quantize_llm(args, extra_args=None):
     if functional_quant_map:
         fq_state = prepare_functional_quantization(
             model, functional_quant_map, example_kwargs=next(iter(calibration_loader)))
-        quantization_cm = functional_quantization_mode(
-            fq_state, remove_parametrizations_on_exit=True)
+        quantization_cm = functional_quantization_mode(fq_state)
     else:
         quantization_cm = nullcontext()
 
@@ -862,6 +861,9 @@ def quantize_llm(args, extra_args=None):
             # Currently we always export with a float32 container to avoid float16 CPU errors
             model = model.to(dtype=torch.float32)
             model_export(model, tokenizer, next(iter(calibration_loader)), args, config)
+
+    if fq_state is not None:
+        fq_state.cleanup()
 
     return {"float_ppl": float_ppl, "quant_ppl": quant_ppl, **few_shot_eval_results}, model
 

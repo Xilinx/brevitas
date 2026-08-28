@@ -20,9 +20,15 @@ from brevitas.graph.equalize import EqualizeGraph
 from brevitas.graph.fixed_point import CollapseConsecutiveConcats
 from brevitas.graph.fixed_point import MergeBatchNorm
 from brevitas.graph.fixed_point import MoveSplitBatchNormBeforeCat
-from brevitas.graph.functional_quant import _QuantParametrization
+from brevitas.graph.functional_quant import DEFAULT_FUNCTIONAL_OPERATION_REGISTRY
+from brevitas.graph.functional_quant import DEFAULT_FUNCTIONAL_QUANTIZER_FACTORY
 from brevitas.graph.functional_quant import functional_quantization_mode
+from brevitas.graph.functional_quant import FunctionalInterceptor
+from brevitas.graph.functional_quant import FunctionalOperation
+from brevitas.graph.functional_quant import FunctionalOperationRegistry
+from brevitas.graph.functional_quant import FunctionalQuantizerFactory
 from brevitas.graph.functional_quant import FunctionalQuantState
+from brevitas.graph.functional_quant import FunctionalWeightSource
 from brevitas.graph.functional_quant import prepare_functional_quantization
 from brevitas.graph.functional_quant import remove_functional_quantization
 from brevitas.graph.quantize_impl import act_handler

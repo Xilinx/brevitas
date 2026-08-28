@@ -10,11 +10,14 @@ from torch.nn.utils.parametrize import is_parametrized
 from torch.nn.utils.parametrize import register_parametrization
 from torch.utils.checkpoint import checkpoint
 
+from brevitas.graph.functional_quant import _QuantParametrization
+from brevitas.graph.functional_quant import DEFAULT_FUNCTIONAL_OPERATION_REGISTRY
+from brevitas.graph.functional_quant import DEFAULT_FUNCTIONAL_QUANTIZER_FACTORY
+from brevitas.graph.functional_quant import FunctionalInterceptor
+from brevitas.graph.functional_quant import FunctionalOperationRegistry
 from brevitas.graph.functional_quant import grouped_mm_functions
-from brevitas.graph.quantize import _QuantParametrization
 from brevitas.graph.quantize import functional_quantization_mode
 from brevitas.graph.quantize import prepare_functional_quantization
-from brevitas.graph.quantize import remove_functional_quantization
 from brevitas.nn import QuantIdentity
 from brevitas.nn import QuantLinear
 from brevitas.proxy.groupwise_int_runtime_quant import GroupwiseActQuantProxyFromInjector
@@ -37,6 +40,78 @@ class SimpleLinearModel(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         return self.linear(x)
+
+
+def test_functional_operation_registry_is_customizable():
+    registry = DEFAULT_FUNCTIONAL_OPERATION_REGISTRY.copy()
+    operation = registry.register(
+        torch.mm, argument_names=('input', 'mat2'), parameter_dispatch=True)
+
+    assert registry.resolve(torch.mm) is operation
+    assert operation.argument((torch.ones(1),), {'mat2': torch.ones(1)}, 1) is not None
+    assert DEFAULT_FUNCTIONAL_OPERATION_REGISTRY.resolve(torch.mm).canonical is torch.mm
+
+
+def test_functional_operation_registration_is_atomic():
+    registry = FunctionalOperationRegistry()
+    original = registry.register(torch.add, aliases=(torch.Tensor.add,))
+    registry.register(torch.mul)
+
+    with pytest.raises(ValueError, match='already registered'):
+        registry.register(torch.add, aliases=(torch.sub, torch.mul))
+
+    assert registry.resolve(torch.add) is original
+    assert registry.resolve(torch.Tensor.add) is original
+    assert registry.resolve(torch.sub).canonical is torch.sub
+
+
+def test_functional_interceptor_callback_and_suspend():
+    intercepted = []
+
+    def callback(operation, func, types, args, kwargs):
+        intercepted.append(operation.canonical)
+        return func(*args, **kwargs)
+
+    mode = FunctionalInterceptor(callback=callback)
+    lhs = torch.ones(1)
+    rhs = torch.ones(1)
+    with mode:
+        torch.add(lhs, rhs)
+        with mode.suspend():
+            torch.add(lhs, rhs)
+
+    assert intercepted == [torch.add]
+    assert mode.hooks == []
+
+
+def test_functional_quantizer_factory_is_customizable():
+
+    class RecordingFactory:
+
+        def __init__(self):
+            self.activation_calls = 0
+            self.weight_calls = 0
+
+        def create_activation(self, model, quant_class, di_kwargs, device):
+            self.activation_calls += 1
+            return DEFAULT_FUNCTIONAL_QUANTIZER_FACTORY.create_activation(
+                model, quant_class, di_kwargs, device)
+
+        def create_weight(self, quant_class, di_kwargs, value):
+            self.weight_calls += 1
+            return DEFAULT_FUNCTIONAL_QUANTIZER_FACTORY.create_weight(quant_class, di_kwargs, value)
+
+    model = SimpleLinearModel(4, 3).eval()
+    factory = RecordingFactory()
+    state = prepare_functional_quantization(
+        model, {F.linear: (Int8ActPerTensorFloat, None, Int8WeightPerTensorFloat)},
+        example_inputs=(torch.randn(2, 4),),
+        quantizer_factory=factory)
+
+    assert factory.activation_calls == 1
+    assert factory.weight_calls == 1
+    assert all(not quantizer.training for quantizer in state.quantizers.values())
+    state.cleanup()
 
 
 class QuantLinearFunctionalModel(nn.Module):
@@ -392,8 +467,8 @@ class TestFunctionalQuantizationMode:
             model, quant_map, example_inputs=(torch.randn(2, 4),))
 
         owners = state.iter_weight_owners()
-        assert [(owner.id, owner.canonical_weight_transpose) for owner in owners] == [
-            ('weight', False)]
+        assert [(owner.id, tuple(use[2] for use in owner.parameter_uses)) for owner in owners] == [
+            ('weight', (True,))]
         state.cleanup()
 
     def test_transposed_linear_uses_operand_weight_orientation(self):
@@ -403,8 +478,8 @@ class TestFunctionalQuantizationMode:
             model, {F.linear: (None, None, weight_spec)}, example_inputs=(torch.randn(2, 4),))
 
         owners = state.iter_weight_owners()
-        assert [(owner.id, owner.canonical_weight_transpose) for owner in owners] == [
-            ('weight', True)]
+        assert [(owner.id, tuple(use[2] for use in owner.parameter_uses)) for owner in owners] == [
+            ('weight', (True,))]
         state.cleanup()
 
     @pytest.mark.skipif(not hasattr(torch, '_grouped_mm'), reason='Torch grouped_mm is unavailable')
@@ -441,22 +516,19 @@ class TestFunctionalQuantizationMode:
                 torch.randn(4, 256, dtype=torch.bfloat16), torch.tensor([2, 4], dtype=torch.int32)))
 
         owners = state.iter_weight_owners()
-        assert [(owner.id, owner.canonical_weight_transpose) for owner in owners] == [
-            ('weight', False)]
+        assert [(owner.id, tuple(use[2] for use in owner.parameter_uses)) for owner in owners] == [
+            ('weight', (True,))]
         state.cleanup()
 
     @pytest.mark.skipif(not hasattr(torch, '_grouped_mm'), reason='Torch grouped_mm is unavailable')
-    def test_grouped_mm_rejects_indexed_owner_prefix(self):
+    def test_grouped_mm_supports_indexed_owner_prefix(self):
         model = IndexedGroupedFunctionalWeightModel()
         weight_spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 2, 'group_dim': 3})
         x = torch.randn(4, 256, dtype=torch.bfloat16)
         offsets = torch.tensor([2, 4], dtype=torch.int32)
-        with pytest.warns(UserWarning, match='indexed grouped-MM owner prefixes are unsupported'):
-            state = prepare_functional_quantization(
-                model, {torch._grouped_mm: (None, None, weight_spec)},
-                example_inputs=(x, offsets, 1))
-
-        assert not state.iter_weight_owners()
+        state = prepare_functional_quantization(
+            model, {torch._grouped_mm: (None, None, weight_spec)}, example_inputs=(x, offsets, 1))
+        assert {owner.id for owner in state.iter_weight_owners()} == {'weight'}
         state.cleanup()
 
     def test_grouped_mm_transformers_fallback_alias(self):
@@ -479,19 +551,17 @@ class TestFunctionalQuantizationMode:
                 torch.randn(4, 256, dtype=torch.bfloat16), torch.tensor([2, 4], dtype=torch.int32))
         assert output.dtype == torch.bfloat16
 
-    def test_stacked_weight_records_owner_linear_layout(self):
-        """A stacked functional weight records one canonical owner layout."""
+    def test_stacked_weight_records_owner_matrix_use(self):
         model = StackedFunctionalWeightModel()
         weight_spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 1, 'group_dim': 2})
         state = prepare_functional_quantization(
             model, {F.linear: (None, None, weight_spec)}, example_inputs=(torch.randn(2, 4), 0))
         owners = state.iter_weight_owners()
-        assert [(owner.id, owner.canonical_weight_transpose) for owner in owners] == [
-            ('weight', False)]
+        assert [(owner.id, tuple(use[2] for use in owner.parameter_uses)) for owner in owners] == [
+            ('weight', (False,))]
         state.cleanup()
 
-    def test_matmul_view_records_canonical_linear_orientation(self):
-        """GPT-OSS-style [expert, input, output] views require a canonical transpose."""
+    def test_matmul_view_records_owner_matrix_use(self):
         model = TransposedStackedFunctionalWeightModel()
         weight_spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 2, 'group_dim': 1})
         spec = (None, None, weight_spec)
@@ -500,8 +570,8 @@ class TestFunctionalQuantizationMode:
                 torch.matmul: spec, torch.Tensor.matmul: spec, torch.Tensor.__matmul__: spec},
             example_inputs=(torch.randn(2, 4), 0))
         owners = state.iter_weight_owners()
-        assert [(owner.id, owner.canonical_weight_transpose) for owner in owners] == [
-            ('weight', True)]
+        assert [(owner.id, tuple(use[2] for use in owner.parameter_uses)) for owner in owners] == [
+            ('weight', (False,))]
         state.cleanup()
 
     def test_unsupported_weight_view_warns_and_uses_activation_fallback(self):
@@ -555,7 +625,7 @@ class TestFunctionalQuantizationMode:
             Int8ActPerTensorFloat,
             (Int8WeightPerTensorFloat, {
                 'output_channel_dim': 1, 'group_dim': 0}))
-        with pytest.warns(UserWarning, match='incompatible quantizers or matrix layouts') as record:
+        with pytest.warns(UserWarning, match='incompatible quantizers') as record:
             state = prepare_functional_quantization(
                 model, {
                     F.linear: linear_spec, torch.matmul: matmul_spec},
@@ -568,14 +638,13 @@ class TestFunctionalQuantizationMode:
         assert out.shape == (2, 4)
         state.cleanup()
 
-    def test_incompatible_direct_owner_layouts_fall_back(self):
+    def test_mixed_direct_owner_layouts_are_recorded(self):
         model = MixedLayoutWeightModel()
         spec = (Int8ActPerTensorFloat, Int8ActPerTensorFloat, Int8WeightPerTensorFloat)
-        with pytest.warns(UserWarning, match='incompatible quantizers or matrix layouts'):
-            state = prepare_functional_quantization(
-                model, {
-                    F.linear: spec, torch.matmul: spec}, example_inputs=(torch.randn(2, 4),))
-        assert not state.iter_weight_owners()
+        state = prepare_functional_quantization(
+            model, {
+                F.linear: spec, torch.matmul: spec}, example_inputs=(torch.randn(2, 4),))
+        assert len(state.iter_weight_owners()[0].parameter_uses) == 2
         state.cleanup()
 
     def test_preparametrized_owner_warns_and_falls_back(self):
@@ -815,18 +884,16 @@ class TestFunctionalQuantizationMode:
         assert torch.allclose(actual, expected)
         state.cleanup()
 
-    def test_nested_disabled_mode_disables_weight_quantization(self):
-        """An inner disabled mode temporarily bypasses parametrized weights."""
+    def test_overlapping_modes_are_rejected(self):
         model = SimpleLinearModel(4, 3)
         x = torch.randn(2, 4)
-        expected = model(x)
         state = prepare_functional_quantization(
             model, {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)},
             example_inputs=(x,))
         with functional_quantization_mode(state):
-            with functional_quantization_mode(state, enabled=False):
-                actual = model(x)
-        assert torch.allclose(actual, expected)
+            with pytest.raises(RuntimeError, match='Overlapping'):
+                with functional_quantization_mode(state, enabled=False):
+                    pass
         state.cleanup()
 
     def test_cleanup_removes_retained_quantizers(self):
@@ -837,7 +904,7 @@ class TestFunctionalQuantizationMode:
         assert hasattr(model, '_functional_quantizers')
         state.cleanup()
         assert not hasattr(model, '_functional_quantizers')
-        remove_functional_quantization(model)
+        state.cleanup()
 
     def test_prepare_failure_rolls_back_model_mutations(self):
         """A failed discovery pass does not leave quantizers or parametrizations behind."""
@@ -985,7 +1052,7 @@ class TestFunctionalQuantizationMode:
         with functional_quantization_mode(state):
             out = model(x)
         assert out.shape == (2, 3)
-        # Still parametrized after an apply block with the default teardown flag.
+        # Parametrizations persist until explicitly removed or cleaned up.
         assert is_parametrized(model.linear, 'weight')
         state.remove_parametrizations()
         assert not is_parametrized(model.linear, 'weight')
@@ -1157,19 +1224,17 @@ class TestFunctionalQuantizationMode:
         assert len(second_quantizers) == 0
         state.remove_parametrizations()
 
-    def test_parametrization_removed_on_exit_when_requested(self):
-        """With remove_parametrizations_on_exit=True, parametrizations are removed on exit."""
+    def test_parametrization_removed_by_explicit_cleanup(self):
         model = SimpleLinearModel(4, 3)
         quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
         x = torch.randn(2, 4)
 
         state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
         assert is_parametrized(model.linear, 'weight')
-        with functional_quantization_mode(state, remove_parametrizations_on_exit=True):
+        with functional_quantization_mode(state):
             model(x)
             assert is_parametrized(model.linear, 'weight')
-
-        # After exiting, parametrization should be gone
+        state.cleanup()
         assert not is_parametrized(model.linear, 'weight')
 
     def test_parametrization_persists_across_blocks_by_default(self):
@@ -1611,8 +1676,7 @@ class TestFunctionalQuantizationMode:
         with pytest.raises(ValueError):
             prepare_functional_quantization(model, quant_map)
 
-    def test_unprepared_runtime_call_skips_weight_resolver(self):
-        """A later runtime-only call does not resolve the parameter weight spec."""
+    def test_unprepared_runtime_call_raises_without_rerunning_weight_resolver(self):
 
         class MaybeRuntimeLinear(nn.Module):
 
@@ -1637,10 +1701,9 @@ class TestFunctionalQuantizationMode:
         state = prepare_functional_quantization(
             model, {F.linear: (None, None, weight_resolver)}, example_inputs=(x,))
 
-        with functional_quantization_mode(state):
-            output = model(x, run_runtime=True)
-
-        assert output.shape == (2, 3)
+        with pytest.raises(RuntimeError, match='No prepared quantizer'):
+            with functional_quantization_mode(state):
+                model(x, run_runtime=True)
         state.cleanup()
 
     def test_unprepared_call_site_raises(self):
@@ -1670,8 +1733,7 @@ class TestFunctionalQuantizationMode:
                 model(x, run_second=True)
         state.remove_parametrizations()
 
-    def test_unprepared_disabled_call_site_passes_through(self):
-        """An unseen call whose resolver disables quantization is a no-op."""
+    def test_unprepared_disabled_call_site_raises(self):
 
         class MaybeSecondLinear(nn.Module):
 
@@ -1692,9 +1754,9 @@ class TestFunctionalQuantizationMode:
         model = MaybeSecondLinear()
         state = prepare_functional_quantization(
             model, {F.linear: resolver}, example_inputs=(torch.randn(2, 4),))
-        with functional_quantization_mode(state):
-            out = model(torch.randn(2, 4), run_second=True)
-        assert out.shape == (2, 2)
+        with pytest.raises(RuntimeError, match='No prepared quantizer'):
+            with functional_quantization_mode(state):
+                model(torch.randn(2, 4), run_second=True)
         state.cleanup()
 
     @requires_pt_ge('2.1')

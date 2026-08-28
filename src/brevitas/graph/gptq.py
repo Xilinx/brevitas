@@ -3,6 +3,7 @@
 
 import math
 from time import perf_counter
+from typing import Callable
 from typing import List
 from typing import Optional
 from typing import Sequence
@@ -375,22 +376,26 @@ class gptq_mode(gpxq_mode):
     """
 
     def __init__(
-            self,
-            model,
-            group_of_parallel_layers: Optional[List[str]] = None,
-            inplace: bool = True,
-            create_weight_orig: bool = True,
-            use_quant_activations: bool = True,
-            num_blocks: int = 100,
-            return_forward_output: bool = False,
-            act_order: bool = False,
-            gptq_class: GPTQ = GPTQ,
-            device: str = 'cpu',
-            dtype: torch.dtype = torch.float32,
-            functional_state=None,
-            min_samples: int = 0,
-            insufficient_samples: str = 'rtn',
-            expert_batch_size: int = 1) -> None:
+        self,
+        model,
+        group_of_parallel_layers: Optional[List[str]] = None,
+        inplace: bool = True,
+        create_weight_orig: bool = True,
+        use_quant_activations: bool = True,
+        num_blocks: int = 100,
+        return_forward_output: bool = False,
+        act_order: bool = False,
+        gptq_class: GPTQ = GPTQ,
+        device: str = 'cpu',
+        dtype: torch.dtype = torch.float32,
+        functional_state=None,
+        min_samples: int = 0,
+        insufficient_samples: str = 'rtn',
+        expert_batch_size: int = 1,
+        functional_linear_functions: Sequence[Callable] = (),
+        functional_matmul_functions: Sequence[Callable] = (),
+        functional_grouped_mm_functions: Sequence[Callable] = ()
+    ) -> None:
         super().__init__(
             model,
             group_of_parallel_layers,
@@ -404,14 +409,20 @@ class gptq_mode(gpxq_mode):
             functional_state,
             min_samples,
             insufficient_samples,
-            expert_batch_size)
+            expert_batch_size,
+            functional_linear_functions,
+            functional_matmul_functions,
+            functional_grouped_mm_functions)
 
         # How many subblock to use during GPTQ for each layer
         self.num_blocks = num_blocks
         self.gptq_class = gptq_class
 
     def _update_functional_targets(self, targets, progress) -> int:
-        if self.expert_batch_size == 1:
+        batch_impl = getattr(
+            self.gptq_class,
+            'batched_layer_update') if 'batched_layer_update' in self.gptq_class.__dict__ else None
+        if self.expert_batch_size == 1 or batch_impl is None:
             failed = 0
             for target in targets:
                 optimizer = self.gpxq_layers[target.name]
@@ -425,7 +436,7 @@ class gptq_mode(gpxq_mode):
         for start in range(0, len(targets), self.expert_batch_size):
             batch_targets = targets[start:start + self.expert_batch_size]
             optimizers = [self.gpxq_layers[target.name] for target in batch_targets]
-            failed.extend(self.gptq_class.batched_layer_update(optimizers))
+            failed.extend(batch_impl(optimizers))
             progress.set_postfix(batch=len(batch_targets), failed=len(failed))
             progress.update(len(batch_targets))
         return len(failed)
@@ -440,9 +451,17 @@ class gptq_mode(gpxq_mode):
                 # If we want to return the output of the network, we need to disable all hooks
                 for name, gpxq_class in self.gpxq_layers.items():
                     gpxq_class.disable_pre_forward_hook = True
-                out = self.orig_forward(*args, **kwargs)
-                for name, gpxq_class in self.gpxq_layers.items():
-                    gpxq_class.disable_pre_forward_hook = False
+                if self.functional_source is not None:
+                    self.functional_source.restart_call_sequence()
+                if self.functional_session is not None:
+                    self.functional_session.enabled = False
+                try:
+                    out = self.orig_forward(*args, **kwargs)
+                finally:
+                    if self.functional_session is not None:
+                        self.functional_session.enabled = True
+                    for name, gpxq_class in self.gpxq_layers.items():
+                        gpxq_class.disable_pre_forward_hook = False
                 return out
 
     def initialize_module_optimizer(self, layer, name, len_parallel_layers, create_weight_orig):

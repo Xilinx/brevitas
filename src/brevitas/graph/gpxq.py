@@ -9,26 +9,27 @@ from dataclasses import field
 from functools import partial
 from itertools import product
 from operator import attrgetter
+import sys
 from time import perf_counter
 from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
+from typing import Sequence
 from typing import Set
 from typing import Tuple
 import warnings
 
 import torch
-from torch.fx import GraphModule as TorchGraphModule
 import torch.nn as nn
-from torch.overrides import TorchFunctionMode
 from tqdm import tqdm
 import unfoldNd
 
-from brevitas.fx import GraphModule
 from brevitas.graph.calibrate import quantization_status_manager
-from brevitas.graph.functional_quant import FunctionalQuantState
+from brevitas.graph.functional_quant import FunctionalInterceptor
+from brevitas.graph.functional_quant import FunctionalOperation
 from brevitas.graph.functional_quant import FunctionalWeightOwner
+from brevitas.graph.functional_quant import FunctionalWeightSource
 from brevitas.graph.functional_quant import grouped_mm_functions
 from brevitas.graph.utils import get_batch_dim
 from brevitas.graph.utils import is_conv_transposed
@@ -64,7 +65,10 @@ class FunctionalLinearTarget:
     """Adapt one functional owner view to the layer contract used by GPxQ."""
 
     def __init__(
-            self, owner_id: str, owner, view_indices: Tuple[int, ...],
+            self,
+            owner_id: str,
+            owner: FunctionalWeightOwner,
+            view_indices: Tuple[int, ...],
             transpose_weight: bool) -> None:
         self.owner_id = owner_id
         self.owner = owner
@@ -166,16 +170,11 @@ class FunctionalLinearTargetBatch:
 
     def __init__(
             self, targets: List[FunctionalLinearTarget], canonical_weight: torch.Tensor) -> None:
-        if not targets:
-            raise ValueError('A functional target batch cannot be empty.')
         first = targets[0]
-        if any(target.owner_id != first.owner_id or
-               target.transpose_weight != first.transpose_weight for target in targets):
-            raise ValueError('Functional target batches require one owner and matrix layout.')
         self.targets = targets
         flat_weight = canonical_weight.flatten(0, 1)
         di_kwargs = {'output_channel_dim': 0}
-        if getattr(first.owner.proxy.quant_injector, 'group_dim', None) is not None:
+        if first.owner.proxy.is_groupwise:
             di_kwargs['group_dim'] = 1
         self.holder = _FunctionalTargetQuantHolder(flat_weight, 0)
         owner_injector = first.owner.proxy.quant_injector
@@ -198,27 +197,31 @@ def _storage_tensor(value: torch.Tensor) -> torch.Tensor:
     return value
 
 
-class _FunctionalGPxQSession(TorchFunctionMode):
+class _FunctionalGPxQSession(FunctionalInterceptor):
     """Observe functional matrix calls without adding runtime state to functional quantization."""
 
     def __init__(
             self,
             model: nn.Module,
-            functional_state: FunctionalQuantState,
+            functional_source: FunctionalWeightSource,
             owners: List[FunctionalWeightOwner],
-            callback: Callable[[str, Tuple[int, ...], torch.Tensor, bool], None]) -> None:
-        super().__init__()
+            callback: Callable[[str, Tuple[int, ...], torch.Tensor, bool], None],
+            linear_functions: Sequence[Callable],
+            matmul_functions: Sequence[Callable],
+            grouped_functions: Sequence[Callable]) -> None:
+        super().__init__(operation_registry=functional_source.operation_registry)
         self.model = model
-        self.functional_state = functional_state
+        self.functional_source = functional_source
         self.owners = {owner.id: owner for owner in owners}
         self.callback = callback
+        self.linear_functions = tuple(linear_functions)
+        self.matmul_functions = tuple(matmul_functions)
+        self.grouped_functions = tuple(grouped_functions)
         self.runtime_weights = {owner.id: None for owner in owners}
-        self.hooks = []
         self.scope_depth = 0
         self.materialization_depth = 0
         self.enabled = True
         self.reference_pass = False
-        self.grouped_functions = grouped_mm_functions()
 
     def clear_runtime_weights(self) -> None:
         for owner_id in self.runtime_weights:
@@ -260,10 +263,7 @@ class _FunctionalGPxQSession(TorchFunctionMode):
                 owner.parametrization.register_forward_hook(
                     partial(self._materialization_post_hook, owner_id), always_call=True))
 
-    def _remove_hooks(self) -> None:
-        for hook in self.hooks:
-            hook.remove()
-        self.hooks.clear()
+    def _clear_interception_state(self) -> None:
         self.scope_depth = 0
         self.materialization_depth = 0
         self.clear_runtime_weights()
@@ -308,7 +308,6 @@ class _FunctionalGPxQSession(TorchFunctionMode):
         if not isinstance(value, torch.Tensor):
             return None
         value = _storage_tensor(value)
-        matches = []
         for owner_id, owner in self.owners.items():
             runtime_weight = self.runtime_weights[owner_id]
             roots = ([runtime_weight] if runtime_weight is not None else []) + [
@@ -316,40 +315,24 @@ class _FunctionalGPxQSession(TorchFunctionMode):
             for root in roots:
                 indices = self._view_indices(_storage_tensor(root), value)
                 if indices is not None:
-                    matches.append((owner, indices))
-                    break
-        if len(matches) == 1:
-            return matches[0]
+                    return owner, indices
         return None
 
-    @staticmethod
-    def _argument(args, kwargs, index, names):
-        if index < len(args):
-            return args[index]
-        for name in names:
-            if name in kwargs:
-                return kwargs[name]
-        return None
-
-    def _observe_linear(self, args, kwargs) -> None:
-        inp = self._argument(args, kwargs, 0, ('input', 'self'))
-        weight = self._argument(args, kwargs, 1, ('weight', 'other'))
+    def _observe_linear(self, operation, args, kwargs) -> None:
+        inp = operation.argument(args, kwargs, 0)
+        weight = operation.argument(args, kwargs, 1)
         owner_view = self._owner_view(weight)
         if owner_view is not None and isinstance(inp, torch.Tensor):
             self._dispatch(owner_view[0].id, owner_view[1], inp)
 
     def _dispatch(self, owner_id, indices, inp) -> None:
-        previous_enabled = self.functional_state.enabled
-        self.functional_state.enabled = False
-        try:
+        with self.functional_source.suspend_quantization(), self.suspend():
             self.callback(owner_id, indices, inp, self.reference_pass)
-        finally:
-            self.functional_state.enabled = previous_enabled
 
-    def _observe_grouped(self, args, kwargs) -> None:
-        inp = self._argument(args, kwargs, 0, ('input', 'self', 'mat_a'))
-        weight = self._argument(args, kwargs, 1, ('weight', 'mat2', 'mat_b'))
-        offsets = self._argument(args, kwargs, 2, ('offs',))
+    def _observe_grouped(self, operation, args, kwargs) -> None:
+        inp = operation.argument(args, kwargs, 0)
+        weight = operation.argument(args, kwargs, 1)
+        offsets = operation.argument(args, kwargs, 2)
         owner_view = self._owner_view(weight)
         if owner_view is None or not isinstance(inp, torch.Tensor) or not isinstance(offsets,
                                                                                      torch.Tensor):
@@ -361,36 +344,24 @@ class _FunctionalGPxQSession(TorchFunctionMode):
             (*prefix, *suffix)
             for suffix in product(*(range(size) for size in leading_dims[len(prefix):]))]
         boundaries = [int(offset) for offset in offsets.detach().cpu().tolist()]
-        if len(boundaries) != len(view_indices) or any(
-                end < start for start, end in zip((0, *boundaries), boundaries)) or (
-                    boundaries and boundaries[-1] != inp.shape[0]):
-            raise RuntimeError('Grouped-MM offsets do not match the functional expert views.')
         start = 0
         for indices, end in zip(view_indices, boundaries):
             if end > start:
                 self._dispatch(owner.id, indices, inp[start:end])
             start = end
 
-    def __enter__(self):
-        self._attach_hooks()
-        return super().__enter__()
+    def _matches(self, operation, func, functions) -> bool:
+        return any(
+            func is candidate or
+            operation.canonical is self.operation_registry.resolve(candidate).canonical
+            for candidate in functions)
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        try:
-            return super().__exit__(exc_type, exc_val, exc_tb)
-        finally:
-            self._remove_hooks()
-
-    def __torch_function__(self, func, types, args=(), kwargs=None):
-        kwargs = {} if kwargs is None else kwargs
+    def _intercept(self, operation: FunctionalOperation, func, types, args, kwargs):
         if self.enabled and self.scope_depth and not self.materialization_depth:
-            if any(func is grouped for grouped in self.grouped_functions):
-                self._observe_grouped(args, kwargs)
-            elif func in (torch.nn.functional.linear,
-                          torch.matmul,
-                          torch.Tensor.matmul,
-                          torch.Tensor.__matmul__):
-                self._observe_linear(args, kwargs)
+            if self._matches(operation, func, self.grouped_functions):
+                self._observe_grouped(operation, args, kwargs)
+            elif self._matches(operation, func, (*self.linear_functions, *self.matmul_functions)):
+                self._observe_linear(operation, args, kwargs)
         return func(*args, **kwargs)
 
 
@@ -398,23 +369,6 @@ class FunctionalGPxQBatch:
     """Shared invariants and quantization for one compatible functional expert batch."""
 
     def __init__(self, optimizers) -> None:
-        if not optimizers:
-            raise ValueError('A functional GPxQ batch cannot be empty.')
-        first = optimizers[0]
-        first_target = first.layer
-        if not isinstance(first_target, FunctionalLinearTarget):
-            raise TypeError('Functional GPxQ batching requires functional linear targets.')
-        for optimizer in optimizers:
-            target = optimizer.layer
-            if optimizer.groups != 1:
-                raise ValueError('Functional GPxQ expert targets must have one matrix group.')
-            if not isinstance(target, FunctionalLinearTarget) or target.owner_id != first_target.owner_id or \
-                    target.transpose_weight != first_target.transpose_weight:
-                raise ValueError('Functional GPxQ batches require one owner and matrix layout.')
-            if target.weight.shape != first_target.weight.shape or target.weight.dtype != first_target.weight.dtype or \
-                    target.weight.device != first_target.weight.device:
-                raise ValueError(
-                    'Functional GPxQ batches require matching shape, dtype, and device.')
         self.optimizers = list(optimizers)
         self.targets = [optimizer.layer for optimizer in optimizers]
         self.weight = torch.stack([target.weight.detach() for target in self.targets])
@@ -422,7 +376,7 @@ class FunctionalGPxQBatch:
 
     def quantize(self, targets, weight):
         """Use proven row-separable groupwise batching, otherwise quantize targets locally."""
-        if all(getattr(target.owner.proxy, 'is_groupwise', False) for target in targets):
+        if all(target.owner.proxy.is_groupwise for target in targets):
             key = tuple(target.name for target in targets)
             if key not in self._quantizers:
                 self._quantizers[key] = FunctionalLinearTargetBatch(targets, weight)
@@ -485,20 +439,24 @@ class gpxq_mode(quantization_status_manager):
     """
 
     def __init__(
-            self,
-            model,
-            group_of_parallel_layers: Optional[List[str]] = None,
-            inplace: bool = True,
-            create_weight_orig: bool = True,
-            use_quant_activations: bool = True,
-            act_order: bool = False,
-            return_forward_output: bool = False,
-            device: str = 'cpu',
-            dtype: torch.dtype = torch.float32,
-            functional_state: Optional[FunctionalQuantState] = None,
-            min_samples: int = 0,
-            insufficient_samples: str = 'rtn',
-            expert_batch_size: int = 1) -> None:
+        self,
+        model,
+        group_of_parallel_layers: Optional[List[str]] = None,
+        inplace: bool = True,
+        create_weight_orig: bool = True,
+        use_quant_activations: bool = True,
+        act_order: bool = False,
+        return_forward_output: bool = False,
+        device: str = 'cpu',
+        dtype: torch.dtype = torch.float32,
+        functional_state: Optional[FunctionalWeightSource] = None,
+        min_samples: int = 0,
+        insufficient_samples: str = 'rtn',
+        expert_batch_size: int = 1,
+        functional_linear_functions: Sequence[Callable] = (),
+        functional_matmul_functions: Sequence[Callable] = (),
+        functional_grouped_mm_functions: Sequence[Callable] = ()
+    ) -> None:
         if functional_state is not None and not inplace:
             raise ValueError(
                 'Functional GPxQ requires inplace=True because targets own model parameters.')
@@ -535,7 +493,17 @@ class gpxq_mode(quantization_status_manager):
             raise ValueError('expert_batch_size must be positive.')
         if insufficient_samples not in ('rtn', 'error', 'gpxq'):
             raise ValueError("insufficient_samples must be 'rtn', 'error', or 'gpxq'.")
-        self.functional_state = functional_state
+        self.functional_source = functional_state
+        # Functional GPxQ operations use one activation at argument 0 and one weight at argument 1.
+        self.functional_linear_functions = (
+            torch.nn.functional.linear, *functional_linear_functions)
+        self.functional_matmul_functions = (
+            torch.matmul,
+            torch.Tensor.matmul,
+            torch.Tensor.__matmul__,
+            *functional_matmul_functions)
+        self.functional_grouped_mm_functions = (
+            *grouped_mm_functions(), *functional_grouped_mm_functions)
         self.min_samples = min_samples
         self.insufficient_samples = insufficient_samples
         self.expert_batch_size = expert_batch_size
@@ -544,14 +512,27 @@ class gpxq_mode(quantization_status_manager):
         self.functional_target_groups = []
         self.functional_collection_seconds = {}
         self.functional_session = None
+        self._functional_session_entered = False
         self.active_functional_group = None
         self.completed_functional_owners = set()
 
         self.orig_forward = self.model.forward
-        if isinstance(self.model, (GraphModule, TorchGraphModule)):
-            self.model.__class__.forward = self.catch_stopfwd
+        self._instance_forward = self.model.__dict__.get('forward')
+        self._had_instance_forward = 'forward' in self.model.__dict__
+        self._forward_overridden = False
+
+    def _override_forward(self):
+        self.model.forward = self.catch_stopfwd
+        self._forward_overridden = True
+
+    def _restore_forward(self):
+        if not self._forward_overridden:
+            return
+        if self._had_instance_forward:
+            self.model.forward = self._instance_forward
         else:
-            self.model.forward = self.catch_stopfwd
+            delattr(self.model, 'forward')
+        self._forward_overridden = False
 
     def _is_module_supported(self, module):
         if is_quant_module(module):
@@ -568,24 +549,44 @@ class gpxq_mode(quantization_status_manager):
         else:
             return False
 
-    def __enter__(self):
-        # Disable quantization selectively
-        super().__enter__()
+    def _functional_operation_matches(self, func, candidates) -> bool:
+        return any(
+            func is candidate or
+            self.functional_source.operation_registry.resolve(candidate).canonical is func
+            for candidate in candidates)
+
+    def _setup(self):
         # The user can specify on which layers to apply gptq in parallel.
         # All the others will be executed sequentially
         dict_of_layers = {
             name: [(name, module)] for name,
             module in self.model.named_modules() if self._is_module_supported(module)}
-        if self.functional_state is not None:
+        if self.functional_source is not None:
             self.functional_targets = []
-            functional_owners = [
-                owner for owner in self.functional_state.iter_weight_owners(self.model)
-                if owner.canonical_weight_transpose is not None]
+            functional_owners = []
+            owner_layouts = {}
+            for owner in self.functional_source.iter_weight_owners(self.model):
+                layouts = []
+                for func, argument_index, operand_transposed in owner.parameter_uses:
+                    if argument_index != 1:
+                        continue
+                    if self._functional_operation_matches(func, self.functional_linear_functions):
+                        layouts.append(operand_transposed)
+                    elif self._functional_operation_matches(
+                            func,
+                        (*self.functional_matmul_functions, *self.functional_grouped_mm_functions)):
+                        layouts.append(not operand_transposed)
+                if layouts:
+                    if any(layout != layouts[0] for layout in layouts[1:]):
+                        raise RuntimeError(
+                            f"Functional parameter '{owner.id}' has incompatible matrix layouts.")
+                    functional_owners.append(owner)
+                    owner_layouts[owner.id] = layouts[0]
             for owner in functional_owners:
+                # Functional matrix owners define every leading-index combination as a target.
                 leading_dims = owner.original_parameter.shape[:-2]
                 self.functional_targets.extend(
-                    FunctionalLinearTarget(
-                        owner.id, owner, indices, owner.canonical_weight_transpose)
+                    FunctionalLinearTarget(owner.id, owner, indices, owner_layouts[owner.id])
                     for indices in product(*(range(size) for size in leading_dims)))
             self.functional_targets_by_key = {
                 target.key: target for target in self.functional_targets}
@@ -641,29 +642,53 @@ class gpxq_mode(quantization_status_manager):
         if self.functional_target_groups:
             self.functional_session = _FunctionalGPxQSession(
                 self.model,
-                self.functional_state,
+                self.functional_source,
                 functional_owners,
-                self._observe_functional_target)
+                self._observe_functional_target,
+                self.functional_linear_functions,
+                self.functional_matmul_functions,
+                self.functional_grouped_mm_functions)
             self.functional_session.__enter__()
+            self._functional_session_entered = True
             # Ordinary module hooks stop calibration before later functional calls.
             # Defer expert scheduling until those module targets are exhausted.
             self._advance_functional_target()
+
+    def __enter__(self):
+        status_entered = False
+        try:
+            # Disable quantization selectively
+            super().__enter__()
+            status_entered = True
+            self._setup()
+            self._override_forward()
+        except Exception:
+            exc_info = sys.exc_info()
+            if self.functional_session is not None and self._functional_session_entered:
+                self.functional_session.__exit__(*exc_info)
+            self.functional_session = None
+            self._functional_session_entered = False
+            for handle in self.hook_dict.values():
+                handle.remove()
+            self.hook_dict.clear()
+            self._restore_forward()
+            if status_entered:
+                super().__exit__(*exc_info)
+            raise
         return self
 
     def __exit__(self, type, value, traceback):
         try:
-            if self.functional_session is not None:
+            if self.functional_session is not None and self._functional_session_entered:
                 self.functional_session.__exit__(type, value, traceback)
-                self.functional_session = None
+            self.functional_session = None
+            self._functional_session_entered = False
             return super().__exit__(type, value, traceback)
         finally:
             for handle in self.hook_dict.values():
                 handle.remove()
             self.hook_dict.clear()
-            if isinstance(self.model, (GraphModule, TorchGraphModule)):
-                self.model.__class__.forward = self.orig_forward
-            else:
-                self.model.forward = self.orig_forward
+            self._restore_forward()
 
     def update(self):
         for name in tuple(self.current_layer.layer_names):

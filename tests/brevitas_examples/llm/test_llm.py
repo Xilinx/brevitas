@@ -203,7 +203,14 @@ def test_axe_context_receives_only_supported_gpxq_kwargs(monkeypatch):
     gpxq_utils.apply_gptq(model, [], max_accumulator_bit_width=16)
     gpxq_utils.apply_gpfq(model, [], act_order=False, max_accumulator_bit_width=16)
 
-    unsupported = {'functional_state', 'min_samples', 'insufficient_samples', 'expert_batch_size'}
+    unsupported = {
+        'functional_state',
+        'min_samples',
+        'insufficient_samples',
+        'expert_batch_size',
+        'functional_linear_functions',
+        'functional_matmul_functions',
+        'functional_grouped_mm_functions'}
     assert len(captured) == 2
     assert all(not unsupported.intersection(kwargs) for kwargs in captured)
 

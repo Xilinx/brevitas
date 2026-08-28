@@ -3,8 +3,10 @@
 
 from functools import partial
 import math
+from typing import Callable
 from typing import List
 from typing import Optional
+from typing import Sequence
 import warnings
 
 import torch
@@ -328,22 +330,26 @@ class gpfq_mode(gpxq_mode):
     """
 
     def __init__(
-            self,
-            model: nn.Module,
-            group_of_parallel_layers: Optional[List[str]] = None,
-            inplace: bool = True,
-            create_weight_orig: bool = True,
-            use_quant_activations: bool = True,
-            return_forward_output: bool = False,
-            act_order: bool = False,
-            algorithm_impl: GPFQ = GPFQ,
-            device: str = 'cpu',
-            dtype: torch.dtype = torch.float32,
-            functional_state=None,
-            min_samples: int = 0,
-            insufficient_samples: str = 'rtn',
-            expert_batch_size: int = 1,
-            monitor_routing: bool = False) -> None:
+        self,
+        model: nn.Module,
+        group_of_parallel_layers: Optional[List[str]] = None,
+        inplace: bool = True,
+        create_weight_orig: bool = True,
+        use_quant_activations: bool = True,
+        return_forward_output: bool = False,
+        act_order: bool = False,
+        algorithm_impl: GPFQ = GPFQ,
+        device: str = 'cpu',
+        dtype: torch.dtype = torch.float32,
+        functional_state=None,
+        min_samples: int = 0,
+        insufficient_samples: str = 'rtn',
+        expert_batch_size: int = 1,
+        monitor_routing: bool = False,
+        functional_linear_functions: Sequence[Callable] = (),
+        functional_matmul_functions: Sequence[Callable] = (),
+        functional_grouped_mm_functions: Sequence[Callable] = ()
+    ) -> None:
         super().__init__(
             model,
             group_of_parallel_layers,
@@ -357,7 +363,10 @@ class gpfq_mode(gpxq_mode):
             functional_state,
             min_samples,
             insufficient_samples,
-            expert_batch_size)
+            expert_batch_size,
+            functional_linear_functions,
+            functional_matmul_functions,
+            functional_grouped_mm_functions)
 
         self.algorithm_impl = algorithm_impl
         self._routing_phase = None
@@ -370,7 +379,7 @@ class gpfq_mode(gpxq_mode):
 
     def __enter__(self):
         mode = super().__enter__()
-        if self.functional_state is not None:
+        if self.functional_source is not None:
             owner_modules = {target.owner.module for target in self.functional_targets}
             for module in owner_modules:
                 self._routing_hook_handles.append(
@@ -459,7 +468,10 @@ class gpfq_mode(gpxq_mode):
         )
 
     def _routing_hook(self, module, args, kwargs):
-        """Replay quantized-pass expert assignments during the paired reference pass."""
+        """Replay quantized-pass expert assignments during the paired reference pass.
+
+        Supported MoE modules expose routes by a known keyword or positional argument 1.
+        """
         route_location = None
         route = None
         for name in ('selected_experts', 'top_k_index', 'expert_index'):
@@ -508,7 +520,9 @@ class gpfq_mode(gpxq_mode):
     def _update_functional_targets(self, targets, progress) -> int:
         algorithm_class = self.algorithm_impl.func if isinstance(
             self.algorithm_impl, partial) else self.algorithm_impl
-        batch_impl = getattr(algorithm_class, 'batched_layer_update', None)
+        batch_impl = getattr(
+            algorithm_class,
+            'batched_layer_update') if 'batched_layer_update' in algorithm_class.__dict__ else None
         if self.expert_batch_size == 1 or batch_impl is None:
             return super()._update_functional_targets(targets, progress)
         failed = []
@@ -535,8 +549,8 @@ class gpfq_mode(gpxq_mode):
         # Disable quantization
         # TODO: Ensure that removing is_training=False does not cause any regression and remove,
         # if that is the case
-        if self.functional_state is not None:
-            self.functional_state.restart_call_sequence()
+        if self.functional_source is not None:
+            self.functional_source.restart_call_sequence()
         if self.functional_session is not None:
             self.functional_session.begin_reference_pass()
         self._routing_phase = 'replay'
@@ -559,6 +573,8 @@ class gpfq_mode(gpxq_mode):
             # If we want to return the output of the network, we need to disable all hooks
             for name, gpxq_class in self.gpxq_layers.items():
                 gpxq_class.disable_pre_forward_hook = True
+            if self.functional_source is not None:
+                self.functional_source.restart_call_sequence()
             if self.functional_session is not None:
                 self.functional_session.enabled = False
             try:

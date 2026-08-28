@@ -1,8 +1,10 @@
 # Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from typing import Callable
 from typing import List
 from typing import Optional
+from typing import Sequence
 import warnings
 
 import torch
@@ -17,6 +19,7 @@ from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.utils import is_conv_transposed
 from brevitas.graph.utils import power_iteration
+from brevitas.utils.torch_utils import StopFwdException
 
 
 def _project_onto_l1_ball(x, eps=1.0):
@@ -255,20 +258,24 @@ class magr_mode(gpxq_mode):
     """
 
     def __init__(
-            self,
-            model,
-            alpha: float = 0.1,
-            num_steps: int = 10,
-            group_of_parallel_layers: Optional[List[str]] = None,
-            inplace: bool = True,
-            create_weight_orig: bool = True,
-            return_forward_output: bool = False,
-            device: str = 'cpu',
-            dtype: torch.dtype = torch.float32,
-            functional_state=None,
-            min_samples: int = 0,
-            insufficient_samples: str = 'rtn',
-            expert_batch_size: int = 1) -> None:
+        self,
+        model,
+        alpha: float = 0.1,
+        num_steps: int = 10,
+        group_of_parallel_layers: Optional[List[str]] = None,
+        inplace: bool = True,
+        create_weight_orig: bool = True,
+        return_forward_output: bool = False,
+        device: str = 'cpu',
+        dtype: torch.dtype = torch.float32,
+        functional_state=None,
+        min_samples: int = 0,
+        insufficient_samples: str = 'rtn',
+        expert_batch_size: int = 1,
+        functional_linear_functions: Sequence[Callable] = (),
+        functional_matmul_functions: Sequence[Callable] = (),
+        functional_grouped_mm_functions: Sequence[Callable] = ()
+    ) -> None:
         super().__init__(
             model=model,
             group_of_parallel_layers=group_of_parallel_layers,
@@ -280,7 +287,10 @@ class magr_mode(gpxq_mode):
             functional_state=functional_state,
             min_samples=min_samples,
             insufficient_samples=insufficient_samples,
-            expert_batch_size=expert_batch_size)
+            expert_batch_size=expert_batch_size,
+            functional_linear_functions=functional_linear_functions,
+            functional_matmul_functions=functional_matmul_functions,
+            functional_grouped_mm_functions=functional_grouped_mm_functions)
         self.num_steps = num_steps
         self.alpha = alpha
 
@@ -303,14 +313,25 @@ class magr_mode(gpxq_mode):
         super().update()
 
     def catch_stopfwd(self, *args, **kwargs):
-        self.orig_forward(*args, **kwargs)
+        try:
+            self.orig_forward(*args, **kwargs)
+        except StopFwdException:
+            pass
         if self.return_forward_output:
             # If we want to return the output of the network, we need to disable all hooks
             for name, gpxq_class in self.gpxq_layers.items():
                 gpxq_class.disable_pre_forward_hook = True
-            out = self.orig_forward(*args, **kwargs)
-            for name, gpxq_class in self.gpxq_layers.items():
-                gpxq_class.disable_pre_forward_hook = False
+            if self.functional_source is not None:
+                self.functional_source.restart_call_sequence()
+            if self.functional_session is not None:
+                self.functional_session.enabled = False
+            try:
+                out = self.orig_forward(*args, **kwargs)
+            finally:
+                if self.functional_session is not None:
+                    self.functional_session.enabled = True
+                for name, gpxq_class in self.gpxq_layers.items():
+                    gpxq_class.disable_pre_forward_hook = False
             return out
 
     def initialize_module_optimizer(self, layer, name, len_parallel_layers, create_weight_orig):

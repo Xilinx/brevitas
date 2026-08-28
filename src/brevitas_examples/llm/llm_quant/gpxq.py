@@ -117,21 +117,24 @@ def block_optimization(
 
 @torch.no_grad()
 def apply_gptq(
-        model,
-        dataloader,
-        act_order=True,
-        use_quant_activations=False,
-        create_weight_orig=False,
-        group_of_parallel_layers=None,
-        block_name=None,
-        max_accumulator_bit_width=None,
-        max_accumulator_tile_size=None,
-        buffer_device='cpu',
-        buffer_dtype=torch.float32,
-        functional_state=None,
-        min_samples=0,
-        insufficient_samples='rtn',
-        expert_batch_size=1):
+    model,
+    dataloader,
+    act_order=True,
+    use_quant_activations=False,
+    create_weight_orig=False,
+    group_of_parallel_layers=None,
+    block_name=None,
+    max_accumulator_bit_width=None,
+    max_accumulator_tile_size=None,
+    buffer_device='cpu',
+    buffer_dtype=torch.float32,
+    functional_state=None,
+    min_samples=0,
+    insufficient_samples='rtn',
+    expert_batch_size=1,
+    functional_linear_functions=(),
+    functional_matmul_functions=(),
+    functional_grouped_mm_functions=()):
     context_manager_kwargs = {
         'act_order': act_order,
         'group_of_parallel_layers': group_of_parallel_layers,
@@ -142,7 +145,10 @@ def apply_gptq(
         'functional_state': functional_state,
         'min_samples': min_samples,
         'insufficient_samples': insufficient_samples,
-        'expert_batch_size': expert_batch_size}
+        'expert_batch_size': expert_batch_size,
+        'functional_linear_functions': functional_linear_functions,
+        'functional_matmul_functions': functional_matmul_functions,
+        'functional_grouped_mm_functions': functional_grouped_mm_functions}
     context_manager_func = gptq_mode
     if max_accumulator_bit_width is not None:
         if functional_state is not None:
@@ -151,7 +157,13 @@ def apply_gptq(
         context_manager_kwargs = {
             key: value for key,
             value in context_manager_kwargs.items() if key not in (
-                'functional_state', 'min_samples', 'insufficient_samples', 'expert_batch_size')}
+                'functional_state',
+                'min_samples',
+                'insufficient_samples',
+                'expert_batch_size',
+                'functional_linear_functions',
+                'functional_matmul_functions',
+                'functional_grouped_mm_functions')}
         context_manager_kwargs.update(
             max_accumulator_bit_width=max_accumulator_bit_width,
             max_accumulator_tile_size=max_accumulator_tile_size)
@@ -168,21 +180,24 @@ def apply_gptq(
 
 
 def _dual_optimization_callback(
-        model,
-        dataloader,
-        act_order=True,
-        block_name=None,
-        group_of_parallel_layers=None,
-        algorithm_impl=GPFQ,
-        max_accumulator_bit_width=None,
-        max_accumulator_tile_size=None,
-        device='cpu',
-        dtype=torch.float32,
-        functional_state=None,
-        min_samples=0,
-        insufficient_samples='rtn',
-        expert_batch_size=1,
-        monitor_routing=False):
+    model,
+    dataloader,
+    act_order=True,
+    block_name=None,
+    group_of_parallel_layers=None,
+    algorithm_impl=GPFQ,
+    max_accumulator_bit_width=None,
+    max_accumulator_tile_size=None,
+    device='cpu',
+    dtype=torch.float32,
+    functional_state=None,
+    min_samples=0,
+    insufficient_samples='rtn',
+    expert_batch_size=1,
+    monitor_routing=False,
+    functional_linear_functions=(),
+    functional_matmul_functions=(),
+    functional_grouped_mm_functions=()):
     """
     This wraps gpfq_mode, which can be used for any layerwise PTQ algorithm that
     optimizes the mismatched objective function || XW - \tilde{X}Q ||, where
@@ -202,7 +217,10 @@ def _dual_optimization_callback(
         'min_samples': min_samples,
         'insufficient_samples': insufficient_samples,
         'expert_batch_size': expert_batch_size,
-        'monitor_routing': monitor_routing}
+        'monitor_routing': monitor_routing,
+        'functional_linear_functions': functional_linear_functions,
+        'functional_matmul_functions': functional_matmul_functions,
+        'functional_grouped_mm_functions': functional_grouped_mm_functions}
     if monitor_routing and functional_state is not None:
         print('Functional GPxQ routing monitor enabled.')
     context_manager_func = gpfq_mode
@@ -217,7 +235,10 @@ def _dual_optimization_callback(
                 'min_samples',
                 'insufficient_samples',
                 'expert_batch_size',
-                'monitor_routing')}
+                'monitor_routing',
+                'functional_linear_functions',
+                'functional_matmul_functions',
+                'functional_grouped_mm_functions')}
         context_manager_kwargs.update(
             max_accumulator_bit_width=max_accumulator_bit_width,
             max_accumulator_tile_size=max_accumulator_tile_size)
@@ -235,20 +256,23 @@ def _dual_optimization_callback(
 
 @torch.no_grad()
 def apply_gpfq(
-        model,
-        dataloader,
-        act_order=True,
-        group_of_parallel_layers=None,
-        block_name=None,
-        max_accumulator_bit_width=None,
-        max_accumulator_tile_size=None,
-        buffer_device='cpu',
-        buffer_dtype=torch.float32,
-        functional_state=None,
-        min_samples=0,
-        insufficient_samples='rtn',
-        expert_batch_size=1,
-        monitor_routing=False):
+    model,
+    dataloader,
+    act_order=True,
+    group_of_parallel_layers=None,
+    block_name=None,
+    max_accumulator_bit_width=None,
+    max_accumulator_tile_size=None,
+    buffer_device='cpu',
+    buffer_dtype=torch.float32,
+    functional_state=None,
+    min_samples=0,
+    insufficient_samples='rtn',
+    expert_batch_size=1,
+    monitor_routing=False,
+    functional_linear_functions=(),
+    functional_matmul_functions=(),
+    functional_grouped_mm_functions=()):
     # We use the dual optimization callback, which uses two forward passes to correct
     # quantization error in both the weights and activations from previous layers
     _dual_optimization_callback(
@@ -266,24 +290,30 @@ def apply_gpfq(
         min_samples=min_samples,
         insufficient_samples=insufficient_samples,
         expert_batch_size=expert_batch_size,
-        monitor_routing=monitor_routing)
+        monitor_routing=monitor_routing,
+        functional_linear_functions=functional_linear_functions,
+        functional_matmul_functions=functional_matmul_functions,
+        functional_grouped_mm_functions=functional_grouped_mm_functions)
 
 
 @torch.no_grad()
 def apply_qronos(
-        model,
-        dataloader,
-        act_order=True,
-        group_of_parallel_layers=None,
-        block_name=None,
-        alpha=1e-6,
-        buffer_device='cpu',
-        buffer_dtype=torch.float32,
-        functional_state=None,
-        min_samples=0,
-        insufficient_samples='rtn',
-        expert_batch_size=1,
-        monitor_routing=False):
+    model,
+    dataloader,
+    act_order=True,
+    group_of_parallel_layers=None,
+    block_name=None,
+    alpha=1e-6,
+    buffer_device='cpu',
+    buffer_dtype=torch.float32,
+    functional_state=None,
+    min_samples=0,
+    insufficient_samples='rtn',
+    expert_batch_size=1,
+    monitor_routing=False,
+    functional_linear_functions=(),
+    functional_matmul_functions=(),
+    functional_grouped_mm_functions=()):
     assert alpha > 0, "Error: alpha needs to be strictly positive"
     # We use the dual optimization callback, which uses two forward passes to correct
     # quantization error in both the weights and activations from previous layers
@@ -300,24 +330,30 @@ def apply_qronos(
         min_samples=min_samples,
         insufficient_samples=insufficient_samples,
         expert_batch_size=expert_batch_size,
-        monitor_routing=monitor_routing)
+        monitor_routing=monitor_routing,
+        functional_linear_functions=functional_linear_functions,
+        functional_matmul_functions=functional_matmul_functions,
+        functional_grouped_mm_functions=functional_grouped_mm_functions)
 
 
 @torch.no_grad()
 def apply_magr(
-        model,
-        dataloader,
-        create_weight_orig=False,
-        group_of_parallel_layers=None,
-        block_name=None,
-        alpha=0.01,
-        num_steps=200,
-        buffer_device='cpu',
-        buffer_dtype=torch.float32,
-        functional_state=None,
-        min_samples=0,
-        insufficient_samples='rtn',
-        expert_batch_size=1):
+    model,
+    dataloader,
+    create_weight_orig=False,
+    group_of_parallel_layers=None,
+    block_name=None,
+    alpha=0.01,
+    num_steps=200,
+    buffer_device='cpu',
+    buffer_dtype=torch.float32,
+    functional_state=None,
+    min_samples=0,
+    insufficient_samples='rtn',
+    expert_batch_size=1,
+    functional_linear_functions=(),
+    functional_matmul_functions=(),
+    functional_grouped_mm_functions=()):
     if block_name is not None:
         context_manager_kwargs = {
             'group_of_parallel_layers': group_of_parallel_layers,
@@ -329,7 +365,10 @@ def apply_magr(
             'functional_state': functional_state,
             'min_samples': min_samples,
             'insufficient_samples': insufficient_samples,
-            'expert_batch_size': expert_batch_size}
+            'expert_batch_size': expert_batch_size,
+            'functional_linear_functions': functional_linear_functions,
+            'functional_matmul_functions': functional_matmul_functions,
+            'functional_grouped_mm_functions': functional_grouped_mm_functions}
         block_optimization(
             model,
             dataloader,
@@ -348,7 +387,10 @@ def apply_magr(
                        functional_state=functional_state,
                        min_samples=min_samples,
                        insufficient_samples=insufficient_samples,
-                       expert_batch_size=expert_batch_size) as magr:
+                       expert_batch_size=expert_batch_size,
+                       functional_linear_functions=functional_linear_functions,
+                       functional_matmul_functions=functional_matmul_functions,
+                       functional_grouped_mm_functions=functional_grouped_mm_functions) as magr:
             while True:
                 magr_model = magr.model
                 for inps in tqdm(dataloader, desc="Calculating covariances..."):

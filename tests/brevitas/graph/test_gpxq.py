@@ -12,10 +12,12 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.utils.data import TensorDataset
 
+from brevitas.graph.functional_quant import DEFAULT_FUNCTIONAL_OPERATION_REGISTRY
 from brevitas.graph.functional_quant import functional_quantization_mode
 from brevitas.graph.functional_quant import prepare_functional_quantization
 from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
+from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gptq import gptq_mode
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
@@ -50,6 +52,17 @@ class _FunctionalExpertMatmul(torch.nn.Module):
 
     def forward(self, x, expert):
         return x @ self.weight[expert]
+
+
+class _FunctionalExpertMM(torch.nn.Module):
+    """Stacked experts using a user-registered linear-like operation."""
+
+    def __init__(self):
+        super().__init__()
+        self.weight = torch.nn.Parameter(torch.randn(2, 4, 3))
+
+    def forward(self, x, expert):
+        return torch.mm(x, self.weight[expert])
 
 
 class _FunctionalGroupedExperts(torch.nn.Module):
@@ -185,6 +198,89 @@ def test_functional_gptq_updates_only_observed_expert(model_class, quant_map):
 
 
 @torch.no_grad()
+def test_functional_gptq_uses_custom_operation_registry():
+    torch.manual_seed(0)
+    model = _FunctionalExpertMM().eval()
+    x = torch.randn(8, 4)
+    registry = DEFAULT_FUNCTIONAL_OPERATION_REGISTRY.copy()
+    registry.register(torch.mm, argument_names=('input', 'mat2'), parameter_dispatch=True)
+    quant_map = {torch.mm: (None, None, _functional_weight_spec(2, 1))}
+    state = prepare_functional_quantization(
+        model, quant_map, example_inputs=(x, 0), operation_registry=registry)
+
+    class WeightSource:
+
+        def __init__(self, state):
+            self.state = state
+            self.model = state.model
+            self.operation_registry = state.operation_registry
+
+        def iter_weight_owners(self, module_scope=None):
+            return self.state.iter_weight_owners(module_scope)
+
+        def suspend_quantization(self):
+            return self.state.suspend_quantization()
+
+        def restart_call_sequence(self):
+            return self.state.restart_call_sequence()
+
+    source = WeightSource(state)
+    before = model.parametrizations.weight.original.detach().clone()
+
+    with functional_quantization_mode(state):
+        with gptq_mode(model,
+                       functional_state=source,
+                       min_samples=1,
+                       functional_matmul_functions=(torch.mm,)) as mode:
+            assert mode.num_layers == 1
+            mode.model(x, 0)
+            mode.update()
+
+    after = model.parametrizations.weight.original.detach()
+    assert not torch.equal(after[0], before[0])
+    torch.testing.assert_close(after[1], before[1])
+    state.cleanup()
+
+
+def test_functional_gptq_rejects_mixed_owner_layouts():
+
+    class MixedLayout(torch.nn.Module):
+
+        def __init__(self):
+            super().__init__()
+            self.weight = torch.nn.Parameter(torch.randn(4, 4))
+
+        def forward(self, x):
+            return torch.nn.functional.linear(x, self.weight) + x @ self.weight
+
+    model = MixedLayout().eval()
+    spec = (None, None, Int8WeightPerTensorFloat)
+    state = prepare_functional_quantization(
+        model, {
+            torch.nn.functional.linear: spec, torch.Tensor.__matmul__: spec},
+        example_inputs=(torch.randn(2, 4),))
+
+    with functional_quantization_mode(state):
+        with pytest.raises(RuntimeError, match='incompatible matrix layouts'):
+            with gptq_mode(model, functional_state=state):
+                pass
+    state.cleanup()
+
+
+def test_gpxq_setup_failure_restores_model_and_hooks():
+    model = qnn.QuantLinear(4, 3, weight_quant=Int8WeightPerTensorFloat).eval()
+    model(torch.randn(2, 4))
+    original_forward = model.forward
+    mode = gptq_mode(model, group_of_parallel_layers=[['missing']])
+
+    with pytest.raises(ValueError, match='not present'):
+        mode.__enter__()
+
+    assert model.forward == original_forward
+    assert mode.hook_dict == {}
+
+
+@torch.no_grad()
 def test_functional_targets_share_one_owner_schedule_step():
     """All expert slices of one stacked owner are calibrated in one replay."""
     model = _FunctionalExpertLinear().eval()
@@ -196,6 +292,48 @@ def test_functional_targets_share_one_owner_schedule_step():
             assert mode.num_layers == 1
             mode.model(x, 0)
             mode.update()
+    state.cleanup()
+
+
+@torch.no_grad()
+def test_functional_gptq_returns_forward_output_with_strict_call_sequence():
+    model = _FunctionalExpertLinear().eval()
+    x = torch.randn(8, 4)
+    quant_map = {torch.nn.functional.linear: (None, None, _functional_weight_spec(1, 2))}
+    state = prepare_functional_quantization(model, quant_map, example_inputs=(x, 0))
+    with functional_quantization_mode(state):
+        with gptq_mode(model, functional_state=state, min_samples=1,
+                       return_forward_output=True) as mode:
+            output = mode.model(x, 0)
+            assert output.shape == (8, 3)
+            mode.update()
+    state.cleanup()
+
+
+@torch.no_grad()
+def test_custom_gptq_without_batch_override_uses_scalar_updates():
+
+    class ScalarGPTQ(GPTQ):
+        calls = 0
+
+        def single_layer_update(self, *args, **kwargs):
+            type(self).calls += 1
+            return super().single_layer_update(*args, **kwargs)
+
+    model = _FunctionalRoutedExperts(num_experts=2).eval()
+    x = torch.randn(8, 4)
+    offsets = torch.tensor([4, 8])
+    quant_map = {torch.nn.functional.linear: (None, None, _functional_weight_spec(1, 2))}
+    state = prepare_functional_quantization(model, quant_map, example_inputs=(x, offsets))
+    with functional_quantization_mode(state):
+        with gptq_mode(model,
+                       functional_state=state,
+                       min_samples=1,
+                       expert_batch_size=2,
+                       gptq_class=ScalarGPTQ) as mode:
+            mode.model(x, offsets)
+            mode.update()
+    assert ScalarGPTQ.calls == 2
     state.cleanup()
 
 
