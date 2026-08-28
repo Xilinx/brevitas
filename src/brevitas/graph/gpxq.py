@@ -7,6 +7,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from dataclasses import field
 from functools import partial
+from itertools import product
 from operator import attrgetter
 from time import perf_counter
 from typing import Dict
@@ -24,7 +25,6 @@ import unfoldNd
 
 from brevitas.fx import GraphModule
 from brevitas.graph.calibrate import quantization_status_manager
-from brevitas.graph.functional_quant import FunctionalLinearObservation
 from brevitas.graph.functional_quant import FunctionalQuantState
 from brevitas.graph.utils import get_batch_dim
 from brevitas.graph.utils import is_conv_transposed
@@ -371,14 +371,13 @@ class gpxq_mode(quantization_status_manager):
             name: [(name, module)] for name,
             module in self.model.named_modules() if self._is_module_supported(module)}
         if self.functional_state is not None:
-            self.functional_targets = [
-                FunctionalLinearTarget(
-                    owner_id,
-                    self.functional_state.owners[owner_id],
-                    view_indices,
-                    transpose_weight) for owner_id,
-                view_indices,
-                transpose_weight in self.functional_state.iter_linear_views(self.model)]
+            self.functional_targets = []
+            for owner_id, transpose_weight in self.functional_state.iter_linear_owners(self.model):
+                owner = self.functional_state.owners[owner_id]
+                leading_dims = owner.original_parameter.shape[:-2]
+                self.functional_targets.extend(
+                    FunctionalLinearTarget(owner_id, owner, indices, transpose_weight)
+                    for indices in product(*(range(size) for size in leading_dims)))
             self.functional_targets_by_key = {
                 target.key: target for target in self.functional_targets}
             target_groups = {}
@@ -464,19 +463,18 @@ class gpxq_mode(quantization_status_manager):
 
         self._advance_functional_target()
 
-    def _observe_functional_target(self, observation: FunctionalLinearObservation) -> None:
+    def _observe_functional_target(
+            self, owner_id: str, view_indices: Tuple[int, ...], input: torch.Tensor) -> None:
         """Collect routed activations for every expert in the scheduled owner."""
-        if self.active_functional_group is None or observation.owner_id != self.active_functional_group[
+        if self.active_functional_group is None or owner_id != self.active_functional_group[
                 0].owner_id:
             return
-        target = self.functional_targets_by_key.get(
-            (observation.owner_id, observation.view_indices))
+        target = self.functional_targets_by_key.get((owner_id, view_indices))
         if target is None:
             return
         optimizer = self.gpxq_layers[target.name]
         start = perf_counter()
-        optimizer.update_batch(target, (observation.input,), self.functional_layer)
-        owner_id = target.owner_id
+        optimizer.update_batch(target, (input,), self.functional_layer)
         self.functional_collection_seconds[owner_id] = self.functional_collection_seconds.get(
             owner_id, 0.) + perf_counter() - start
 

@@ -392,7 +392,7 @@ class TestFunctionalQuantizationMode:
         state = prepare_functional_quantization(
             model, quant_map, example_inputs=(torch.randn(2, 4),))
 
-        assert state.iter_linear_views() == [('weight', (), False)]
+        assert state.iter_linear_owners() == [('weight', False)]
         state.cleanup()
 
     def test_transposed_linear_uses_operand_weight_orientation(self):
@@ -401,7 +401,7 @@ class TestFunctionalQuantizationMode:
         state = prepare_functional_quantization(
             model, {F.linear: (None, None, weight_spec)}, example_inputs=(torch.randn(2, 4),))
 
-        assert state.iter_linear_views() == [('weight', (), True)]
+        assert state.iter_linear_owners() == [('weight', True)]
         state.cleanup()
 
     @pytest.mark.skipif(not hasattr(torch, '_grouped_mm'), reason='Torch grouped_mm is unavailable')
@@ -438,12 +438,11 @@ class TestFunctionalQuantizationMode:
             example_inputs=(
                 torch.randn(4, 256, dtype=torch.bfloat16), torch.tensor([2, 4], dtype=torch.int32)))
 
-        assert state.iter_linear_views() == [('weight', (0,), False), ('weight', (1,), False)]
+        assert state.iter_linear_owners() == [('weight', False)]
 
         observed = []
         handle = state.register_linear_observer(
-            lambda observation: observed.append(
-                ((observation.owner_id, observation.view_indices), observation.input)))
+            lambda owner_id, indices, input: observed.append(((owner_id, indices), input)))
         x = torch.randn(4, 256, dtype=torch.bfloat16)
         offsets = torch.tensor([1, 4], dtype=torch.int32)
         with functional_quantization_mode(state):
@@ -466,12 +465,12 @@ class TestFunctionalQuantizationMode:
                 model, {torch._grouped_mm: (None, None, weight_spec)},
                 example_inputs=(x, offsets, 1))
 
-        assert not state.iter_linear_views()
+        assert not state.iter_linear_owners()
         state.cleanup()
 
     @pytest.mark.skipif(not hasattr(torch, '_grouped_mm'), reason='Torch grouped_mm is unavailable')
     def test_grouped_mm_reference_weights_do_not_propagate_to_activations(self):
-        """Disabled reference weights retain provenance without contaminating grouped outputs."""
+        """Disabled weight views remain identifiable without contaminating grouped outputs."""
         model = TwoStageGroupedFunctionalWeightModel().eval()
         weight_spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 1, 'group_dim': 2})
         x = torch.randn(4, 256, dtype=torch.bfloat16)
@@ -480,7 +479,7 @@ class TestFunctionalQuantizationMode:
             model, {torch._grouped_mm: (None, None, weight_spec)}, example_inputs=(x, offsets))
         observed_inputs = []
         handle = state.register_linear_observer(
-            lambda observation: observed_inputs.append(observation.input))
+            lambda owner_id, indices, input: observed_inputs.append(input))
         with functional_quantization_mode(state):
             with quantization_status_manager(model,
                                              disable_act_quant=True,
@@ -514,13 +513,13 @@ class TestFunctionalQuantizationMode:
                 torch.randn(4, 256, dtype=torch.bfloat16), torch.tensor([2, 4], dtype=torch.int32))
         assert output.dtype == torch.bfloat16
 
-    def test_stacked_weight_exposes_all_expert_views(self):
-        """One observed expert prepares stable metadata for the full stacked owner."""
+    def test_stacked_weight_records_owner_linear_layout(self):
+        """A stacked functional weight records one canonical owner layout."""
         model = StackedFunctionalWeightModel()
         weight_spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 1, 'group_dim': 2})
         state = prepare_functional_quantization(
             model, {F.linear: (None, None, weight_spec)}, example_inputs=(torch.randn(2, 4), 0))
-        assert state.iter_linear_views() == [('weight', (0,), False), ('weight', (1,), False)]
+        assert state.iter_linear_owners() == [('weight', False)]
         state.cleanup()
 
     def test_matmul_view_records_canonical_linear_orientation(self):
@@ -532,7 +531,7 @@ class TestFunctionalQuantizationMode:
             model, {
                 torch.matmul: spec, torch.Tensor.matmul: spec, torch.Tensor.__matmul__: spec},
             example_inputs=(torch.randn(2, 4), 0))
-        assert state.iter_linear_views() == [('weight', (0,), True), ('weight', (1,), True)]
+        assert state.iter_linear_owners() == [('weight', True)]
         state.cleanup()
 
     def test_linear_observer_resolves_dynamic_expert_view(self):
@@ -543,7 +542,7 @@ class TestFunctionalQuantizationMode:
             model, {F.linear: (None, None, weight_spec)}, example_inputs=(torch.randn(2, 4), 0))
         observed = []
         handle = state.register_linear_observer(
-            lambda observation: observed.append((observation.owner_id, observation.view_indices)))
+            lambda owner_id, indices, input: observed.append((owner_id, indices)))
         with functional_quantization_mode(state):
             assert not hasattr(model.weight, '_functional_owner_id')
             assert not hasattr(model.weight, '_functional_view_indices')
@@ -562,7 +561,7 @@ class TestFunctionalQuantizationMode:
             model, {F.linear: (None, None, weight_spec)}, example_inputs=(torch.randn(2, 4), 0))
         observed = []
         handle = state.register_linear_observer(
-            lambda observation: observed.append((observation.owner_id, observation.view_indices)))
+            lambda owner_id, indices, input: observed.append((owner_id, indices)))
         with functional_quantization_mode(state):
             with quantization_status_manager(model,
                                              disable_act_quant=True,
@@ -644,7 +643,7 @@ class TestFunctionalQuantizationMode:
             state = prepare_functional_quantization(
                 model, {
                     F.linear: spec, torch.matmul: spec}, example_inputs=(torch.randn(2, 4),))
-        assert not state.iter_linear_views()
+        assert not state.iter_linear_owners()
         state.cleanup()
 
     def test_preparametrized_owner_warns_and_falls_back(self):

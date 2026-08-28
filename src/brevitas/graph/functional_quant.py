@@ -281,19 +281,6 @@ class _FunctionalWeightOwner:
         return getattr(self.owner.parametrizations, self.parameter_name).original
 
 
-@dataclass(frozen=True)
-class FunctionalLinearObservation:
-    """An intercepted functional linear operation resolved to an owner view."""
-
-    owner_id: str
-    view_indices: Tuple[int, ...]
-    input: Tensor
-    function: Callable
-    module: nn.Module
-    module_name: str
-    call_index: int
-
-
 class FunctionalQuantState:
     """Prepared functional quantization state.
 
@@ -309,8 +296,8 @@ class FunctionalQuantState:
         self.function_indices = {func: index for index, func in enumerate(self.specs)}
         self.calls: Dict[Tuple[str, Callable, int], _PreparedCall] = {}
         self.owners: Dict[str, _FunctionalWeightOwner] = {}
-        self.linear_views: Dict[Tuple[str, Tuple[int, ...]], bool] = {}
-        self.linear_observers: List[Callable[[FunctionalLinearObservation], None]] = []
+        self.linear_owner_layouts: Dict[str, bool] = {}
+        self.linear_observers: List[Callable[[str, Tuple[int, ...], Tensor], None]] = []
         self.runtime_weights: Dict[str, Tensor] = {}
         self.grouped_view_calls: Dict[Tuple[str, Callable, int], Tuple[str, Tuple[int, ...]]] = {}
         self.counter_resetters: List[Callable[[], None]] = []
@@ -352,7 +339,7 @@ class FunctionalQuantState:
             delattr(self.model, _STATE_NAME)
         self.calls.clear()
         self.owners.clear()
-        self.linear_views.clear()
+        self.linear_owner_layouts.clear()
         self.linear_observers.clear()
         self.runtime_weights.clear()
         self.grouped_view_calls.clear()
@@ -364,7 +351,7 @@ class FunctionalQuantState:
         for reset in tuple(self.counter_resetters):
             reset()
 
-    def register_linear_observer(self, observer: Callable[[FunctionalLinearObservation], None]):
+    def register_linear_observer(self, observer: Callable[[str, Tuple[int, ...], Tensor], None]):
         """Observe parameter-backed functional linear calls during an active mode."""
         self.linear_observers.append(observer)
 
@@ -378,16 +365,14 @@ class FunctionalQuantState:
 
         return _Handle()
 
-    def iter_linear_views(
-            self,
-            module_scope: Optional[nn.Module] = None) -> List[Tuple[str, Tuple[int, ...], bool]]:
-        """Return owner IDs, indices, and layouts for prepared linear views."""
-        views = [(owner_id, indices, transpose_weight) for (owner_id, indices),
-                 transpose_weight in self.linear_views.items()]
+    def iter_linear_owners(self,
+                           module_scope: Optional[nn.Module] = None) -> List[Tuple[str, bool]]:
+        """Return owner IDs and canonical layouts used by functional linear operations."""
+        owners = list(self.linear_owner_layouts.items())
         if module_scope is None:
-            return views
+            return owners
         modules = set(module_scope.modules())
-        return [view for view in views if self.owners[view[0]].owner in modules]
+        return [owner for owner in owners if self.owners[owner[0]].owner in modules]
 
     def _record_runtime_weight(self, owner_id: str, value: Tensor) -> None:
         """Remember a root layout only while an observer needs expert identity."""
@@ -444,9 +429,9 @@ class FunctionalQuantState:
         return None
 
     def _linear_view_from_weight(self, value: Any) -> Optional[Tuple[str, Tuple[int, ...]]]:
-        """Resolve a runtime weight to a prepared owner-view key."""
+        """Resolve a runtime weight to a prepared linear owner and index path."""
         owner_view = self._owner_view_from_weight(value)
-        if owner_view is None or owner_view not in self.linear_views:
+        if owner_view is None or owner_view[0] not in self.linear_owner_layouts:
             return None
         return owner_view
 
@@ -530,11 +515,10 @@ class _HookedMode(TorchFunctionMode):
             runtime_owner_view = self.state._owner_view_from_weight(weight)
             if runtime_owner_view is not None and runtime_owner_view[0] == owner_id:
                 prefix = runtime_owner_view[1]
-            view_indices = sorted(
-                indices for candidate_owner_id,
-                indices,
-                _ in self.state.iter_linear_views()
-                if candidate_owner_id == owner_id and indices[:len(prefix)] == prefix)
+            leading_dims = self.state.owners[owner_id].original_parameter.shape[:-2]
+            view_indices = [
+                (*prefix, *suffix)
+                for suffix in product(*(range(size) for size in leading_dims[len(prefix):]))]
             boundaries = [int(offset) for offset in offsets.detach().cpu().tolist()]
             if len(boundaries) != len(view_indices) or any(
                     end < start for start, end in zip((0, *boundaries), boundaries)) or (
@@ -543,10 +527,8 @@ class _HookedMode(TorchFunctionMode):
             start = 0
             for indices, end in zip(view_indices, boundaries):
                 if end > start:
-                    observation = FunctionalLinearObservation(
-                        owner_id, indices, inp[start:end], func, module, name, index)
                     for observer in tuple(self.state.linear_observers):
-                        observer(observation)
+                        observer(owner_id, indices, inp[start:end])
                 start = end
             return
         if func not in (torch.nn.functional.linear,
@@ -559,10 +541,8 @@ class _HookedMode(TorchFunctionMode):
         owner_view = self.state._linear_view_from_weight(values.get(1))
         if owner_view is None:
             return
-        observation = FunctionalLinearObservation(
-            owner_view[0], owner_view[1], values[0], func, module, name, index)
         for observer in tuple(self.state.linear_observers):
-            observer(observation)
+            observer(owner_view[0], owner_view[1], values[0])
 
     def _post_hook(self, name: str) -> Callable:
         """Create an always-call hook that removes a completed module entry."""
@@ -902,10 +882,7 @@ class _FunctionalQuantBuilder(_HookedMode):
                 getattr(owner_module.parametrizations, owner_name)[-1])
             self.state.owners[owner_id] = owner_record
 
-            # Preparation may observe only some routes through a stacked owner, so
-            # enumerate every leading-index matrix with the same supported layout.
-            original = owner_record.original_parameter
-            direct_transpose_weight = False
+            linear_layout = None
             for call_key, argument_map in self.discovered_calls.items():
                 for argument in argument_map.values():
                     # A batched operand does not identify one stable logical matrix view.
@@ -913,26 +890,22 @@ class _FunctionalQuantBuilder(_HookedMode):
                         continue
                     if argument.parameter_owner != owner:
                         continue
+                    if call_key[1] not in (_grouped_mm_key,
+                                           torch.nn.functional.linear,
+                                           torch.matmul,
+                                           torch.Tensor.matmul,
+                                           torch.Tensor.__matmul__):
+                        continue
                     is_grouped_mm = call_key[1] is _grouped_mm_key
                     if is_grouped_mm:
                         self.state.grouped_view_calls[call_key] = (owner_id, argument.view_indices)
-                    if not argument.view_indices and not is_grouped_mm:
-                        if argument.view_indices == ():
-                            direct_transpose_weight = argument.transpose_weight
-                        continue
-                    leading_dims = original.shape[:-2]
-                    prefix = ()
-                    for suffix in product(*(range(size) for size in leading_dims[len(prefix):])):
-                        indices = (*prefix, *suffix)
-                        key = (owner_id, tuple(indices))
-                        existing = self.state.linear_views.get(key)
-                        if existing is not None and existing != argument.transpose_weight:
-                            raise RuntimeError(
-                                f"Functional parameter '{owner_id}' is used with incompatible linear layouts."
-                            )
-                        self.state.linear_views[key] = argument.transpose_weight
-            if original.dim() == 2:
-                self.state.linear_views[(owner_id, ())] = direct_transpose_weight
+                    if linear_layout is not None and linear_layout != argument.transpose_weight:
+                        raise RuntimeError(
+                            f"Functional parameter '{owner_id}' is used with incompatible linear layouts."
+                        )
+                    linear_layout = argument.transpose_weight
+            if linear_layout is not None:
+                self.state.linear_owner_layouts[owner_id] = linear_layout
 
         for call_key, arguments in self.discovered_calls.items():
             name, func, index = call_key
