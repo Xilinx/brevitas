@@ -72,7 +72,7 @@ if not brevitas_path.is_relative_to(version_src_dir):
 # -- Project information -----------------------------------------------------
 
 project = 'Brevitas'
-copyright = '2025 - Advanced Micro Devices, Inc.'
+copyright = '2026 - Advanced Micro Devices, Inc.'
 author = 'AMD Research and Advanced Development'
 
 current_version = os.environ.get('SPHINX_MULTIVERSION_NAME')
