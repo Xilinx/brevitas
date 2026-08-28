@@ -54,6 +54,20 @@ Combination = Tuple[str, Dict[str, Any]]
 # Weight scaling impl types used by the generative entrypoints.
 WEIGHT_SCALING_IMPL_TYPES: List[str] = ['parameter_from_stats', 'stats']
 
+# Param methods that rely on local loss (e.g. MSE, HQO), which require JIT to be disabled.
+LOCAL_LOSS_PARAM_METHODS = {'mse', 'hqo'}
+
+
+def _skip_if_incompatible_with_jit(kwargs: Dict[str, Any]) -> None:
+    """Skip combinations that require JIT to be disabled when JIT is enabled."""
+    if not config.JIT_ENABLED:
+        return
+    if kwargs.get("input_scale_type") == "dynamic":
+        pytest.skip("Dynamic activation quantization requires JIT to be disabled")
+    if kwargs.get("weight_param_method") in LOCAL_LOSS_PARAM_METHODS or \
+            kwargs.get("input_param_method") in LOCAL_LOSS_PARAM_METHODS:
+        pytest.skip("Local loss functions (e.g. MSE, HQO) require JIT to be disabled")
+
 
 def _flatten_paths(d: Any, depth: int, prefix: Tuple[str, ...] = ()) -> Iterator[Tuple[str, ...]]:
     """Yield key-paths of exactly `depth` levels whose leaf is a quantizer class."""
@@ -203,6 +217,7 @@ def test_weight_quant_map(
         model: Tuple[Module, Tensor], weight_kwargs: Dict[str, Any],
         weight_scaling_impl_type: str) -> None:
     """Each WEIGHT_QUANT_MAP quantizer applies and runs a forward pass (weight-only)."""
+    _skip_if_incompatible_with_jit(weight_kwargs)
     _quantize_and_forward(
         model, weight_kwargs, input_kwargs=None, weight_scaling_impl_type=weight_scaling_impl_type)
 
@@ -218,9 +233,7 @@ def test_input_quant_map(
 
     Paired with a fixed int/per_channel weight quantizer to isolate the input quantizer.
     """
-    # Dynamic activation quantization requires JIT to be disabled.
-    if input_kwargs["input_scale_type"] == "dynamic" and config.JIT_ENABLED:
-        pytest.skip("Dynamic activation quantization requires JIT to be disabled")
+    _skip_if_incompatible_with_jit(input_kwargs)
     weight_kwargs: Dict[str, Any] = {
         "weight_quant_format": "int",
         "weight_scale_precision": "float_scale",
