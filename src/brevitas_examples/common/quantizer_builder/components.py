@@ -13,7 +13,7 @@ kind-specific (weight / input) ones.
 from abc import abstractmethod
 from typing import Any
 from typing import Dict
-from typing import Literal
+from typing import Optional
 from typing import Type
 
 from brevitas.core.function_wrapper.shape import OverOutputFeaturesView
@@ -57,6 +57,7 @@ from brevitas_examples.common.quantizer_builder.mixins import MSEScaleInjectorMi
 from brevitas_examples.common.quantizer_builder.mixins import MSEZeroPointInjectorMixin
 from brevitas_examples.common.quantizer_builder.mixins import ParamMethod
 from brevitas_examples.common.quantizer_builder.mixins import parse_float_quant_format
+from brevitas_examples.common.quantizer_builder.mixins import Target
 from brevitas_examples.common.quantizer_builder.mixins import ZeroPointImplType
 
 
@@ -127,24 +128,26 @@ class ScaleComponent(Component):
 
 
 class ParamMethodComponent(Component):
-    """Template: select the MSE / HQO local-loss mixin for a target (scale or
-    zero-point). Subclasses supply the config field, the target name (for the error
-    message) and the MSE / HQO mixin pair. STATS / None contributes nothing."""
+    """Template: select the MSE / HQO local-loss mixin for a :class:`Target` (scale
+    or zero-point). Subclasses supply the target and the MSE / HQO mixin pair; the
+    config field (``<prefix>_param_method``) is derived from the target. STATS /
+    None contributes nothing."""
 
-    param_method_attr: Literal["scaling_param_method", "zero_point_param_method"]
-    target: Literal["scale", "zero-point"]
+    target: Target
     mse_mixin: Type
     hqo_mixin: Type
+
+    def _param_method(self, config: QuantizerConfig) -> Optional[ParamMethod]:
+        return getattr(config, f"{self.target.prefix}_param_method")
 
     def validate(self, config: QuantizerConfig) -> None:
         # MSE/HQO calibrate a stored parameter once; a dynamic scale is recomputed
         # per-forward, so the two are mutually exclusive.
-        if getattr(config, self.param_method_attr) in (ParamMethod.MSE,
-                                                       ParamMethod.HQO) and config.is_dynamic:
-            raise ValueError(f"MSE/HQO {self.target} is incompatible with a dynamic scale.")
+        if self._param_method(config) in (ParamMethod.MSE, ParamMethod.HQO) and config.is_dynamic:
+            raise ValueError(f"MSE/HQO {self.target.value} is incompatible with a dynamic scale.")
 
     def build(self, config: QuantizerConfig) -> Contribution:
-        match getattr(config, self.param_method_attr):
+        match self._param_method(config):
             case ParamMethod.MSE:
                 return Contribution(bases=(self.mse_mixin,))
             case ParamMethod.HQO:
@@ -156,8 +159,7 @@ class ParamMethodComponent(Component):
 class ScaleParamMethodComponent(ParamMethodComponent):
     """Scale parameter method: MSE / HQO local-loss injectors (STATS = nothing)."""
 
-    param_method_attr = "scaling_param_method"
-    target = "scale"
+    target = Target.SCALE
     mse_mixin = MSEScaleInjectorMixin
     hqo_mixin = HQOScaleInjectorMixin
 
@@ -166,8 +168,7 @@ class ZeroPointParamMethodComponent(ParamMethodComponent):
     """Zero-point parameter method: MSE / HQO local-loss injectors (only relevant
     for asymmetric quantizers; None = nothing)."""
 
-    param_method_attr = "zero_point_param_method"
-    target = "zero-point"
+    target = Target.ZERO_POINT
     mse_mixin = MSEZeroPointInjectorMixin
     hqo_mixin = HQOZeroPointInjectorMixin
 
