@@ -174,6 +174,13 @@ class SolveInputViewImpl(ExtendedInjector):
             return Identity
 
 
+class SolveActDtypeDevice(ExtendedInjector):
+    # Activations, unlike weights/biases, have no tracked parameter to derive dtype and
+    # device from, so they default to None.
+    dtype = None
+    device = None
+
+
 class ActQuantSolver(SolveActTensorQuantFromEnum,
                      SolveActScalingImplFromEnum,
                      SolveIntScalingImplFromEnum,
@@ -188,6 +195,7 @@ class ActQuantSolver(SolveActTensorQuantFromEnum,
                      SolveActScalingPerOutputChannelShape,
                      SolveUpdateStateDictImplFromEnum,
                      SolveInputViewImpl,
+                     SolveActDtypeDevice,
                      SolveRestrictScaleSign):
     """
     Translate enum directives to activation-specific quantization core modules.
