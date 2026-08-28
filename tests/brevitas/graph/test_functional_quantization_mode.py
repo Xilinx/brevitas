@@ -11,7 +11,6 @@ from torch.nn.utils.parametrize import register_parametrization
 from torch.utils.checkpoint import checkpoint
 
 from brevitas.graph.calibrate import quantization_status_manager
-from brevitas.graph.functional_quant import _FunctionalReferenceTensor
 from brevitas.graph.functional_quant import grouped_mm_functions
 from brevitas.graph.quantize import _QuantParametrization
 from brevitas.graph.quantize import functional_quantization_mode
@@ -344,45 +343,6 @@ class CheckpointedTwoLinearModel(nn.Module):
 @requires_pt_ge('1.12')
 class TestFunctionalQuantizationMode:
 
-    def test_reference_tensor_preserves_structural_weight_views_only(self):
-        reference = _FunctionalReferenceTensor(torch.randn(2, 2, 3, 4), 'weight')
-
-        negative = reference[-1]
-        assert negative._functional_view_indices == (1,)
-        tuple_index = reference[1, 0]
-        assert tuple_index._functional_view_indices == (1, 0)
-        selected = torch.select(reference, dim=0, index=1)
-        assert selected._functional_view_indices == (1,)
-        unbound = torch.unbind(reference, dim=0)
-        assert [item._functional_view_indices for item in unbound] == [(0,), (1,)]
-        transposed = torch.transpose(input=tuple_index, dim0=-2, dim1=-1)
-        assert transposed._functional_view_indices == (1, 0)
-
-        output = torch.matmul(torch.randn(5, 4), transposed)
-        assert type(output) is Tensor
-
-    def test_reference_tensor_preserves_other_subclass_dispatch(self):
-
-        class OtherTensor(Tensor):
-            calls = 0
-
-            @staticmethod
-            def __new__(cls, value):
-                return value.as_subclass(cls)
-
-            @classmethod
-            def __torch_function__(cls, func, types, args=(), kwargs=None):
-                cls.calls += 1
-                plain_args = tuple(
-                    item.as_subclass(Tensor) if isinstance(item, cls) else item for item in args)
-                return func(*plain_args, **(kwargs or {}))
-
-        reference = _FunctionalReferenceTensor(torch.randn(2, 3), 'weight')
-        other = OtherTensor(torch.randn(2, 3))
-        output = torch.add(reference, other)
-        assert OtherTensor.calls == 1
-        assert type(output) is Tensor
-
     def test_input_only_skips_parameter_derived_weight_view(self):
         """A missing second spec does not quantize a parameter-derived view."""
         model = StackedFunctionalWeightModel()
@@ -584,7 +544,7 @@ class TestFunctionalQuantizationMode:
         state.cleanup()
 
     def test_linear_observer_resolves_dynamic_expert_view(self):
-        """Observer identity follows the indexed owner view, not the call ordinal."""
+        """Observer derives expert identity from the indexed weight storage layout."""
         model = StackedFunctionalWeightModel()
         weight_spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 1, 'group_dim': 2})
         state = prepare_functional_quantization(
@@ -593,10 +553,32 @@ class TestFunctionalQuantizationMode:
         handle = state.register_linear_observer(
             lambda observation: observed.append(observation.target.name))
         with functional_quantization_mode(state):
+            assert not hasattr(model.weight, '_functional_owner_id')
+            assert not hasattr(model.weight, '_functional_view_indices')
+            assert not hasattr(model.weight[1], '_functional_owner_id')
             model(torch.randn(2, 4), 1)
             model(torch.randn(2, 4), 0)
         handle.remove()
         assert observed == ['weight[1]', 'weight[0]']
+        state.cleanup()
+
+    def test_linear_observer_resolves_disabled_reference_weight_view(self):
+        """Reference passes resolve original parameter views without a tensor subclass."""
+        model = StackedFunctionalWeightModel()
+        weight_spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 1, 'group_dim': 2})
+        state = prepare_functional_quantization(
+            model, {F.linear: (None, None, weight_spec)}, example_inputs=(torch.randn(2, 4), 0))
+        observed = []
+        handle = state.register_linear_observer(
+            lambda observation: observed.append(observation.target.name))
+        with functional_quantization_mode(state):
+            with quantization_status_manager(model,
+                                             disable_act_quant=True,
+                                             disable_weight_quant=True,
+                                             disable_bias_quant=True):
+                model(torch.randn(2, 4), 1)
+        handle.remove()
+        assert observed == ['weight[1]']
         state.cleanup()
 
     def test_unsupported_weight_view_warns_and_uses_activation_fallback(self):

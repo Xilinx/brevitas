@@ -137,19 +137,7 @@ class QuantTensor(Tensor):
                     ctor_kwargs['dequant_shape'] = tuple(self.dequant_shape[1:])
             elif self.dequant_shape is not None:
                 ctor_kwargs['dequant_shape'] = tuple(self.value[index].shape)
-        result = type(self)(source_value[index], **ctor_kwargs)
-        # Functional quantization attaches private owner provenance to the
-        # quantized stacked parameter. Preserve it across expert indexing while
-        # leaving ordinary QuantTensor behavior unchanged.
-        owner_id = getattr(self, '_functional_owner_id', None)
-        if owner_id is not None:
-            if not isinstance(index, int):
-                raise TypeError('Functional quantized parameters require integer indexing.')
-            index = index if index >= 0 else original_shape[0] + index
-            result._functional_owner_id = owner_id
-            result._functional_view_indices = (
-                *getattr(self, '_functional_view_indices', ()), index)
-        return result
+        return type(self)(source_value[index], **ctor_kwargs)
 
     @property
     def shape(self):

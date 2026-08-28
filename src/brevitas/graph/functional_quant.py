@@ -205,13 +205,16 @@ class _WeightQuantHolder(nn.Module):
         self.out_channels = weight.shape[output_channel_dim]
 
 
+def _storage_tensor(value: Tensor) -> Tensor:
+    """Return the tensor whose storage is indexed by a functional weight view."""
+    if isinstance(value, QuantTensor):
+        return value._value_ if getattr(value, '_is_groupwise', False) else value.value
+    return value
+
+
 class _QuantParametrization(nn.Module):
 
-    def __init__(
-            self,
-            state: 'FunctionalQuantState',
-            proxy: nn.Module,
-            owner_id: str) -> None:
+    def __init__(self, state: 'FunctionalQuantState', proxy: nn.Module, owner_id: str) -> None:
         """Store the mode state and proxy that quantize a parameter on demand."""
         super().__init__()
         self._state = state
@@ -223,132 +226,12 @@ class _QuantParametrization(nn.Module):
         if not self._state.enabled:
             return value
         if getattr(self.proxy, 'disable_quant', False):
-            return _FunctionalReferenceTensor(value, self.owner_id)
-        quantized_value = self.proxy(value)
-        # QuantTensor preserves these optional attributes when expert indexing creates
-        # a new QuantTensor. They are consumed only by FunctionalQuantState.
-        if isinstance(quantized_value, QuantTensor):
-            quantized_value._functional_owner_id = self.owner_id
-            quantized_value._functional_view_indices = ()
+            quantized_value = value
+        else:
+            quantized_value = self.proxy(value)
+        if self._state.linear_observers:
+            self._state._record_runtime_weight(self.owner_id, quantized_value)
         return quantized_value
-
-
-class _FunctionalReferenceTensor(Tensor):
-    """Carry owner provenance through a disabled functional weight proxy."""
-
-    @staticmethod
-    def __new__(cls, value: Tensor, owner_id: str, indices: Tuple[int, ...] = ()):
-        return value.as_subclass(cls)
-
-    def __init__(self, value: Tensor, owner_id: str, indices: Tuple[int, ...] = ()):
-        self._functional_owner_id = owner_id
-        self._functional_view_indices = indices
-
-    def __getitem__(self, index):
-        indices = index if isinstance(index, tuple) else (index,)
-        plain = self.as_subclass(Tensor)
-        normalized = []
-        for axis, item in enumerate(indices):
-            if isinstance(item, Tensor):
-                if item.dim() != 0 or item.dtype not in (
-                        torch.int8, torch.int16, torch.int32, torch.int64, torch.uint8):
-                    raise TypeError('Functional reference parameters require integer indexing.')
-                item = int(item.item())
-            if not isinstance(item, int) or isinstance(item, bool):
-                raise TypeError('Functional reference parameters require integer indexing.')
-            item = item if item >= 0 else plain.shape[axis] + item
-            if not 0 <= item < plain.shape[axis]:
-                raise IndexError('Functional reference parameter index is out of range.')
-            normalized.append(item)
-        return _FunctionalReferenceTensor(
-            plain[index], self._functional_owner_id, (*self._functional_view_indices, *normalized))
-
-    @classmethod
-    def __torch_function__(cls, func, types, args=(), kwargs=None):
-        """Preserve provenance on weight views but never propagate it to activations."""
-        kwargs = {} if kwargs is None else kwargs
-
-        def find_references(value):
-            if isinstance(value, cls):
-                return [value]
-            if isinstance(value, (tuple, list)):
-                return [reference for item in value for reference in find_references(item)]
-            if isinstance(value, dict):
-                return [reference for item in value.values() for reference in find_references(item)]
-            return []
-
-        def unwrap(value):
-            if isinstance(value, cls):
-                return value.as_subclass(Tensor)
-            if isinstance(value, tuple):
-                return tuple(unwrap(item) for item in value)
-            if isinstance(value, list):
-                return [unwrap(item) for item in value]
-            if isinstance(value, dict):
-                return {key: unwrap(item) for key, item in value.items()}
-            return value
-
-        references = find_references((args, kwargs))
-        output = func(*unwrap(args), **unwrap(kwargs))
-
-        if not references:
-            return output
-        reference = references[0]
-        if any(item._functional_owner_id != reference._functional_owner_id or
-               item._functional_view_indices != reference._functional_view_indices
-               for item in references[1:]):
-            return output
-        source = reference.as_subclass(Tensor)
-
-        def wrap_supported_view(value):
-            if isinstance(value, tuple):
-                return tuple(wrap_supported_view(item) for item in value)
-            if isinstance(value, list):
-                return [wrap_supported_view(item) for item in value]
-            if not isinstance(value, Tensor):
-                return value
-            try:
-                shares_storage = value.device == source.device and value.untyped_storage().data_ptr(
-                ) == source.untyped_storage().data_ptr()
-            except RuntimeError:
-                shares_storage = False
-            if not shares_storage:
-                return value
-
-            indices = reference._functional_view_indices
-            rank_delta = source.dim() - value.dim()
-            if rank_delta > 0 and tuple(value.shape) == tuple(source.shape[rank_delta:]) and tuple(
-                    value.stride()) == tuple(source.stride()[rank_delta:]):
-                offset = value.storage_offset() - source.storage_offset()
-                added_indices = []
-                for axis in range(rank_delta):
-                    stride = source.stride()[axis]
-                    if stride == 0 or offset % stride:
-                        return value
-                    index = offset // stride
-                    if not 0 <= index < source.shape[axis]:
-                        return value
-                    added_indices.append(index)
-                    offset -= index * stride
-                if offset:
-                    return value
-                indices = (*indices, *added_indices)
-            elif value.dim() == source.dim():
-                same_layout = tuple(
-                    value.shape) == tuple(source.shape) and tuple(value.stride()) == tuple(
-                        source.stride()) and value.storage_offset() == source.storage_offset()
-                transposed_layout = source.dim() >= 2 and tuple(value.shape) == (
-                    *source.shape[:-2], source.shape[-1],
-                    source.shape[-2]) and tuple(value.stride()) == (
-                        *source.stride()[:-2], source.stride()[-1],
-                        source.stride()[-2]) and value.storage_offset() == source.storage_offset()
-                if not same_layout and not transposed_layout:
-                    return value
-            else:
-                return value
-            return cls(value, reference._functional_owner_id, indices)
-
-        return wrap_supported_view(output)
 
 
 @dataclass
@@ -553,6 +436,7 @@ class FunctionalQuantState:
         self.owners: Dict[str, _FunctionalWeightOwner] = {}
         self.linear_targets: Dict[Tuple[str, Tuple[int, ...]], FunctionalLinearTarget] = {}
         self.linear_observers: List[Callable[[FunctionalLinearObservation], None]] = []
+        self.runtime_weights: Dict[str, Tensor] = {}
         self.grouped_target_calls: Dict[Tuple[str, Callable, int], Tuple[str, Tuple[int, ...]]] = {}
         self.counter_resetters: List[Callable[[], None]] = []
         self.registered_parametrizations: List[Tuple[nn.Module, str]] = []
@@ -595,6 +479,7 @@ class FunctionalQuantState:
         self.owners.clear()
         self.linear_targets.clear()
         self.linear_observers.clear()
+        self.runtime_weights.clear()
         self.grouped_target_calls.clear()
         self.counter_resetters.clear()
         self._closed = True
@@ -613,6 +498,8 @@ class FunctionalQuantState:
             def remove(handle_self) -> None:
                 if observer in self.linear_observers:
                     self.linear_observers.remove(observer)
+                if not self.linear_observers:
+                    self.runtime_weights.clear()
 
         return _Handle()
 
@@ -625,15 +512,66 @@ class FunctionalQuantState:
         modules = set(module_scope.modules())
         return [target for target in self.linear_targets.values() if target.owner.owner in modules]
 
-    def _target_from_weight(self, value: Any) -> Optional[FunctionalLinearTarget]:
-        """Resolve a QuantTensor expert view to its prepared logical target."""
+    def _record_runtime_weight(self, owner_id: str, value: Tensor) -> None:
+        """Remember a root layout only while an observer needs expert identity."""
+        self.runtime_weights[owner_id] = _storage_tensor(value)
+
+    @staticmethod
+    def _view_indices(root: Tensor, value: Tensor) -> Optional[Tuple[int, ...]]:
+        """Recover a supported leading-index prefix from a storage-sharing view."""
+        if root.device != value.device:
+            return None
+        try:
+            same_storage = root.untyped_storage().data_ptr() == value.untyped_storage().data_ptr()
+        except RuntimeError:
+            return None
+        if not same_storage:
+            return None
+
+        rank_delta = root.dim() - value.dim()
+        if rank_delta < 0:
+            return None
+        same_layout = tuple(value.shape) == tuple(root.shape[rank_delta:]) and tuple(
+            value.stride()) == tuple(root.stride()[rank_delta:])
+        transposed_layout = root.dim() >= 2 and value.dim() >= 2 and tuple(
+            value.shape) == (*root.shape[rank_delta:-2], root.shape[-1], root.shape[-2]) and tuple(
+                value.stride()) == (
+                    *root.stride()[rank_delta:-2], root.stride()[-1], root.stride()[-2])
+        if not same_layout and not transposed_layout:
+            return None
+
+        offset = value.storage_offset() - root.storage_offset()
+        indices = []
+        for axis in range(rank_delta):
+            stride = root.stride()[axis]
+            if stride == 0 or offset % stride:
+                return None
+            index = offset // stride
+            if not 0 <= index < root.shape[axis]:
+                return None
+            indices.append(index)
+            offset -= index * stride
+        return tuple(indices) if offset == 0 else None
+
+    def _owner_view_from_weight(self, value: Any) -> Optional[Tuple[str, Tuple[int, ...]]]:
+        """Resolve an owner and index prefix from a runtime storage-sharing view."""
         if not isinstance(value, Tensor):
             return None
-        owner_id = getattr(value, '_functional_owner_id', None)
-        indices = getattr(value, '_functional_view_indices', None)
-        if owner_id is None or not isinstance(indices, tuple):
+        value = _storage_tensor(value)
+        roots = {owner_id: owner.original_parameter for owner_id, owner in self.owners.items()}
+        roots.update(self.runtime_weights)
+        for owner_id, root in roots.items():
+            indices = self._view_indices(_storage_tensor(root), value)
+            if indices is not None:
+                return owner_id, indices
+        return None
+
+    def _target_from_weight(self, value: Any) -> Optional[FunctionalLinearTarget]:
+        """Resolve a runtime weight view to its prepared logical target."""
+        owner_view = self._owner_view_from_weight(value)
+        if owner_view is None:
             return None
-        return self.linear_targets.get((owner_id, indices))
+        return self.linear_targets.get(owner_view)
 
     def _assert_open(self) -> None:
         """Raise if this state was already cleaned up."""
@@ -712,10 +650,9 @@ class _HookedMode(TorchFunctionMode):
                                                                                        Tensor):
                 return
             owner_id, prefix = grouped_target
-            runtime_owner_id = getattr(weight, '_functional_owner_id', None)
-            runtime_prefix = getattr(weight, '_functional_view_indices', None)
-            if runtime_owner_id == owner_id and isinstance(runtime_prefix, tuple):
-                prefix = runtime_prefix
+            runtime_owner_view = self.state._owner_view_from_weight(weight)
+            if runtime_owner_view is not None and runtime_owner_view[0] == owner_id:
+                prefix = runtime_owner_view[1]
             targets = sorted((
                 target for target in self.state.linear_targets.values()
                 if target.owner_id == owner_id and target.view_indices[:len(prefix)] == prefix),
@@ -1076,9 +1013,7 @@ class _FunctionalQuantBuilder(_HookedMode):
             owner_name_qualified = self.module_names[id(owner_module)]
             owner_id = f'{owner_name_qualified + ":" if owner_name_qualified else ""}{owner_name}'
             register_parametrization(
-                owner_module,
-                owner_name,
-                _QuantParametrization(self.state, proxy, owner_id))
+                owner_module, owner_name, _QuantParametrization(self.state, proxy, owner_id))
             self.state.registered_parametrizations.append(owner)
             owner_record = _FunctionalWeightOwner(
                 owner_module,
