@@ -13,6 +13,7 @@ kind-specific (weight / input) ones.
 from abc import abstractmethod
 from typing import Any
 from typing import Dict
+from typing import Literal
 from typing import Type
 
 from brevitas.core.function_wrapper.shape import OverOutputFeaturesView
@@ -115,7 +116,6 @@ class FormatComponent(Component):
             bases=bases)
 
 
-# TODO (pml): Refactor to avoid duplication with ScaleParamMethodComponent
 class ScaleComponent(Component):
     """Generic scale wiring (counterpart of :class:`ZeroPointComponent`): sets the
     scale implementation type from the config (the act / weight solver resolves it
@@ -126,45 +126,50 @@ class ScaleComponent(Component):
         return Contribution(attrs={"scaling_impl_type": config.scaling_impl_type})
 
 
-class ScaleParamMethodComponent(Component):
-    """Scale parameter method: MSE / HQO local-loss injectors (STATS = nothing).
+class ParamMethodComponent(Component):
+    """Template: select the MSE / HQO local-loss mixin for a target (scale or
+    zero-point). Subclasses supply the config field, the target name (for the error
+    message) and the MSE / HQO mixin pair. STATS / None contributes nothing."""
 
-    MSE/HQO force a parameter-from-stats scale, so any ``scaling_impl_type`` set
-    by an earlier component is dropped.
-    """
+    param_method_attr: Literal["scaling_param_method", "zero_point_param_method"]
+    target: Literal["scale", "zero-point"]
+    mse_mixin: Type
+    hqo_mixin: Type
 
     def validate(self, config: QuantizerConfig) -> None:
-        # MSE/HQO calibrate a stored parameter scale; a dynamic scale is recomputed
+        # MSE/HQO calibrate a stored parameter once; a dynamic scale is recomputed
         # per-forward, so the two are mutually exclusive.
-        if config.scaling_param_method in (ParamMethod.MSE, ParamMethod.HQO) and config.is_dynamic:
-            raise ValueError("MSE/HQO scale is incompatible with a dynamic scale.")
+        if getattr(config, self.param_method_attr) in (ParamMethod.MSE,
+                                                       ParamMethod.HQO) and config.is_dynamic:
+            raise ValueError(f"MSE/HQO {self.target} is incompatible with a dynamic scale.")
 
     def build(self, config: QuantizerConfig) -> Contribution:
-        if config.scaling_param_method == ParamMethod.MSE:
-            return Contribution(bases=(MSEScaleInjectorMixin,),)
-        if config.scaling_param_method == ParamMethod.HQO:
-            return Contribution(bases=(HQOScaleInjectorMixin,),)
-        return Contribution()
+        match getattr(config, self.param_method_attr):
+            case ParamMethod.MSE:
+                return Contribution(bases=(self.mse_mixin,))
+            case ParamMethod.HQO:
+                return Contribution(bases=(self.hqo_mixin,))
+            case _:
+                return Contribution()
 
 
-# TODO (pml): Refactor to avoid duplication with ScaleParamMethodComponent
-class ZeroPointParamMethodComponent(Component):
+class ScaleParamMethodComponent(ParamMethodComponent):
+    """Scale parameter method: MSE / HQO local-loss injectors (STATS = nothing)."""
+
+    param_method_attr = "scaling_param_method"
+    target = "scale"
+    mse_mixin = MSEScaleInjectorMixin
+    hqo_mixin = HQOScaleInjectorMixin
+
+
+class ZeroPointParamMethodComponent(ParamMethodComponent):
     """Zero-point parameter method: MSE / HQO local-loss injectors (only relevant
     for asymmetric quantizers; None = nothing)."""
 
-    def validate(self, config: QuantizerConfig) -> None:
-        # As for the scale: an MSE/HQO zero-point is calibrated once, so it cannot
-        # coexist with a per-forward dynamic scale.
-        if config.zero_point_param_method in (ParamMethod.MSE,
-                                              ParamMethod.HQO) and config.is_dynamic:
-            raise ValueError("MSE/HQO zero-point is incompatible with a dynamic scale.")
-
-    def build(self, config: QuantizerConfig) -> Contribution:
-        if config.zero_point_param_method == ParamMethod.MSE:
-            return Contribution(bases=(MSEZeroPointInjectorMixin,))
-        if config.zero_point_param_method == ParamMethod.HQO:
-            return Contribution(bases=(HQOZeroPointInjectorMixin,))
-        return Contribution()
+    param_method_attr = "zero_point_param_method"
+    target = "zero-point"
+    mse_mixin = MSEZeroPointInjectorMixin
+    hqo_mixin = HQOZeroPointInjectorMixin
 
 
 class ScaleRestrictComponent(Component):
@@ -178,23 +183,15 @@ class ScaleRestrictComponent(Component):
     def build(self, config: QuantizerConfig) -> Contribution:
         if not config.is_power_of_two:
             return Contribution()
-        if config.is_groupwise:
-            return self.build_po2_restrict_groupwise(config)
-        return self.build_po2_restrict_non_groupwise(config)
-
-    def build_po2_restrict_groupwise(self, config: QuantizerConfig) -> Contribution:
+        # Groupwise (MX) and dynamic (activation) po2 scales floor the exponent;
+        # non-group static scales ceil it (weights never use dynamic scaling). The
+        # groupwise (MX) mixin is added only for groupwise.
+        rounding = FloatToIntImplType.FLOOR if (config.is_groupwise or config.is_dynamic) \
+            else FloatToIntImplType.CEIL
+        bases = (GroupwisePoTMixin,) if config.is_groupwise else ()
         return Contribution(
-            attrs={
-                "restrict_value_float_to_int_impl":
-                    solve_float_to_int_impl_from_enum(FloatToIntImplType.FLOOR)},
-            bases=(GroupwisePoTMixin,))
-
-    def build_po2_restrict_non_groupwise(self, config: QuantizerConfig) -> Contribution:
-        # Dynamic (activation) power-of-two scales floor the exponent; static
-        # scales ceil it. Weights never use dynamic scaling, so they always ceil.
-        impl = FloatToIntImplType.FLOOR if config.is_dynamic else FloatToIntImplType.CEIL
-        return Contribution(
-            attrs={"restrict_value_float_to_int_impl": solve_float_to_int_impl_from_enum(impl)})
+            attrs={"restrict_value_float_to_int_impl": solve_float_to_int_impl_from_enum(rounding)},
+            bases=bases)
 
 
 class ZeroPointComponent(Component):
