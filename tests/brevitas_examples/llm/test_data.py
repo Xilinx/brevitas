@@ -8,12 +8,15 @@ from unittest.mock import patch
 
 from datasets import Dataset
 import numpy as np
+import pytest
 import pytest_cases
 import torch
 
 from brevitas_examples.llm.llm_quant.data import get_wikitext2
 from brevitas_examples.llm.llm_quant.data import tokenize_and_group_texts
 from brevitas_examples.llm.llm_quant.data_utils import llm_collate
+
+pytestmark = pytest.mark.llm
 
 # Identifiers for the special tokens of DummyTokenizer
 BOS_TOKEN_ID = 0

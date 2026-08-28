@@ -17,6 +17,8 @@ from brevitas_examples.llm.gguf_export.quant import q4_k_quant_block
 from brevitas_examples.llm.gguf_export.quant import q6_k_quant_block
 from brevitas_examples.llm.gguf_export.quant import q8_0_quant_block
 
+pytestmark = pytest.mark.llm
+
 Q4_0 = gguf.GGMLQuantizationType.Q4_0
 Q4_1 = gguf.GGMLQuantizationType.Q4_1
 Q8_0 = gguf.GGMLQuantizationType.Q8_0
@@ -53,7 +55,6 @@ MODEL_TENSORS = {
     "outlier": _outlier(),}
 
 
-@pytest.mark.llm
 class TestQ6KQuant:
     """gguf ships no Q6_K quantizer, so the export module monkey-patches
     gguf.quants.Q6_K.quantize_blocks with our numpy encoder. These tests cover the
@@ -92,7 +93,6 @@ class TestQ6KQuant:
         assert np.abs(x - x_hat).max() <= amax / 32
 
 
-@pytest.mark.llm
 @pytest_cases.parametrize(
     "qtype", list(SUPPORTED_OVERRIDE_QTYPES), ids=[t.name for t in SUPPORTED_OVERRIDE_QTYPES])
 def test_override_qtype_encodes(qtype):
@@ -104,7 +104,6 @@ def test_override_qtype_encodes(qtype):
     assert np.isfinite(x_hat).all()
 
 
-@pytest.mark.llm
 def test_q4_0_pack():
     """Lossless pack: signed 4-bit codes + fp16 scale d decode to exactly code * d."""
     rng = np.random.default_rng(0)
@@ -114,7 +113,6 @@ def test_q4_0_pack():
     np.testing.assert_allclose(x_hat, codes * fp16(d), rtol=0, atol=0)
 
 
-@pytest.mark.llm
 def test_q8_0_pack():
     """Lossless pack: int8 codes + fp16 scale d decode to exactly code * d."""
     rng = np.random.default_rng(1)
@@ -124,7 +122,6 @@ def test_q8_0_pack():
     np.testing.assert_allclose(x_hat, codes * fp16(d), rtol=0, atol=0)
 
 
-@pytest.mark.llm
 def test_q4_1_pack():
     """Lossless pack: codes + scale d and zero-point zp decode to exactly code * d + min."""
     rng = np.random.default_rng(2)
@@ -136,7 +133,6 @@ def test_q4_1_pack():
     np.testing.assert_allclose(x_hat, codes * fp16(d) + fp16(m), rtol=0, atol=0)
 
 
-@pytest.mark.llm
 def test_q4_k_pack():
     """Lossless pack: codes + sub-block scales/mins and fp16 super-scales decode to
     exactly d_scale*qs*code - d_wmin*qm."""
@@ -157,7 +153,6 @@ def test_q4_k_pack():
     np.testing.assert_allclose(x_hat, expected, rtol=0, atol=0)
 
 
-@pytest.mark.llm
 def test_q6_k_pack():
     """Lossless pack: signed 6-bit codes + sub-block scales (int8, fp16 super-d) decode
     to exactly (d*q_scale)*code."""
