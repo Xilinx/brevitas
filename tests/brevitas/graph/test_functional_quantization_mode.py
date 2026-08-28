@@ -392,9 +392,7 @@ class TestFunctionalQuantizationMode:
         state = prepare_functional_quantization(
             model, quant_map, example_inputs=(torch.randn(2, 4),))
 
-        target = state.iter_linear_targets()[0]
-        assert target.weight.shape == (3, 4)
-        assert not target.transpose_weight
+        assert state.iter_linear_views() == [('weight', (), False)]
         state.cleanup()
 
     def test_transposed_linear_uses_operand_weight_orientation(self):
@@ -403,9 +401,7 @@ class TestFunctionalQuantizationMode:
         state = prepare_functional_quantization(
             model, {F.linear: (None, None, weight_spec)}, example_inputs=(torch.randn(2, 4),))
 
-        target = state.iter_linear_targets()[0]
-        assert target.weight.shape == (3, 4)
-        assert target.transpose_weight
+        assert state.iter_linear_views() == [('weight', (), True)]
         state.cleanup()
 
     @pytest.mark.skipif(not hasattr(torch, '_grouped_mm'), reason='Torch grouped_mm is unavailable')
@@ -432,8 +428,8 @@ class TestFunctionalQuantizationMode:
         state.cleanup()
 
     @pytest.mark.skipif(not hasattr(torch, '_grouped_mm'), reason='Torch grouped_mm is unavailable')
-    def test_grouped_mm_exposes_expert_targets_and_observes_offset_slices(self):
-        """Grouped-MM experts use canonical targets and cumulative-offset input slices."""
+    def test_grouped_mm_exposes_expert_views_and_observes_offset_slices(self):
+        """Grouped-MM reports logical expert views and cumulative-offset input slices."""
         model = GroupedFunctionalWeightModel()
         weight_spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 1, 'group_dim': 2})
         grouped_mm = next(func for func in grouped_mm_functions() if func is torch._grouped_mm)
@@ -442,20 +438,19 @@ class TestFunctionalQuantizationMode:
             example_inputs=(
                 torch.randn(4, 256, dtype=torch.bfloat16), torch.tensor([2, 4], dtype=torch.int32)))
 
-        targets = state.iter_linear_targets()
-        assert [target.name for target in targets] == ['weight[0]', 'weight[1]']
-        assert [target.weight.shape for target in targets] == [(64, 256), (64, 256)]
+        assert state.iter_linear_views() == [('weight', (0,), False), ('weight', (1,), False)]
 
         observed = []
         handle = state.register_linear_observer(
-            lambda observation: observed.append((observation.target.name, observation.input)))
+            lambda observation: observed.append(
+                ((observation.owner_id, observation.view_indices), observation.input)))
         x = torch.randn(4, 256, dtype=torch.bfloat16)
         offsets = torch.tensor([1, 4], dtype=torch.int32)
         with functional_quantization_mode(state):
             model(x, offsets)
         handle.remove()
 
-        assert [name for name, _ in observed] == ['weight[0]', 'weight[1]']
+        assert [key for key, _ in observed] == [('weight', (0,)), ('weight', (1,))]
         torch.testing.assert_close(observed[0][1], x[:1])
         torch.testing.assert_close(observed[1][1], x[1:4])
         state.cleanup()
@@ -471,7 +466,7 @@ class TestFunctionalQuantizationMode:
                 model, {torch._grouped_mm: (None, None, weight_spec)},
                 example_inputs=(x, offsets, 1))
 
-        assert not state.iter_linear_targets()
+        assert not state.iter_linear_views()
         state.cleanup()
 
     @pytest.mark.skipif(not hasattr(torch, '_grouped_mm'), reason='Torch grouped_mm is unavailable')
@@ -519,19 +514,17 @@ class TestFunctionalQuantizationMode:
                 torch.randn(4, 256, dtype=torch.bfloat16), torch.tensor([2, 4], dtype=torch.int32))
         assert output.dtype == torch.bfloat16
 
-    def test_stacked_weight_exposes_all_expert_targets(self):
-        """One observed expert prepares stable targets for the full stacked owner."""
+    def test_stacked_weight_exposes_all_expert_views(self):
+        """One observed expert prepares stable metadata for the full stacked owner."""
         model = StackedFunctionalWeightModel()
         weight_spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 1, 'group_dim': 2})
         state = prepare_functional_quantization(
             model, {F.linear: (None, None, weight_spec)}, example_inputs=(torch.randn(2, 4), 0))
-        targets = state.iter_linear_targets()
-        assert [target.name for target in targets] == ['weight[0]', 'weight[1]']
-        assert all(target.weight.shape == (3, 4) for target in targets)
+        assert state.iter_linear_views() == [('weight', (0,), False), ('weight', (1,), False)]
         state.cleanup()
 
-    def test_matmul_target_uses_canonical_linear_orientation(self):
-        """GPT-OSS-style [expert, input, output] targets expose [output, input]."""
+    def test_matmul_view_records_canonical_linear_orientation(self):
+        """GPT-OSS-style [expert, input, output] views require a canonical transpose."""
         model = TransposedStackedFunctionalWeightModel()
         weight_spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 2, 'group_dim': 1})
         spec = (None, None, weight_spec)
@@ -539,8 +532,7 @@ class TestFunctionalQuantizationMode:
             model, {
                 torch.matmul: spec, torch.Tensor.matmul: spec, torch.Tensor.__matmul__: spec},
             example_inputs=(torch.randn(2, 4), 0))
-        targets = state.iter_linear_targets()
-        assert [target.weight.shape for target in targets] == [(3, 4), (3, 4)]
+        assert state.iter_linear_views() == [('weight', (0,), True), ('weight', (1,), True)]
         state.cleanup()
 
     def test_linear_observer_resolves_dynamic_expert_view(self):
@@ -551,7 +543,7 @@ class TestFunctionalQuantizationMode:
             model, {F.linear: (None, None, weight_spec)}, example_inputs=(torch.randn(2, 4), 0))
         observed = []
         handle = state.register_linear_observer(
-            lambda observation: observed.append(observation.target.name))
+            lambda observation: observed.append((observation.owner_id, observation.view_indices)))
         with functional_quantization_mode(state):
             assert not hasattr(model.weight, '_functional_owner_id')
             assert not hasattr(model.weight, '_functional_view_indices')
@@ -559,7 +551,7 @@ class TestFunctionalQuantizationMode:
             model(torch.randn(2, 4), 1)
             model(torch.randn(2, 4), 0)
         handle.remove()
-        assert observed == ['weight[1]', 'weight[0]']
+        assert observed == [('weight', (1,)), ('weight', (0,))]
         state.cleanup()
 
     def test_linear_observer_resolves_disabled_reference_weight_view(self):
@@ -570,7 +562,7 @@ class TestFunctionalQuantizationMode:
             model, {F.linear: (None, None, weight_spec)}, example_inputs=(torch.randn(2, 4), 0))
         observed = []
         handle = state.register_linear_observer(
-            lambda observation: observed.append(observation.target.name))
+            lambda observation: observed.append((observation.owner_id, observation.view_indices)))
         with functional_quantization_mode(state):
             with quantization_status_manager(model,
                                              disable_act_quant=True,
@@ -578,7 +570,7 @@ class TestFunctionalQuantizationMode:
                                              disable_bias_quant=True):
                 model(torch.randn(2, 4), 1)
         handle.remove()
-        assert observed == ['weight[1]']
+        assert observed == [('weight', (1,))]
         state.cleanup()
 
     def test_unsupported_weight_view_warns_and_uses_activation_fallback(self):
@@ -652,7 +644,7 @@ class TestFunctionalQuantizationMode:
             state = prepare_functional_quantization(
                 model, {
                     F.linear: spec, torch.matmul: spec}, example_inputs=(torch.randn(2, 4),))
-        assert not state.iter_linear_targets()
+        assert not state.iter_linear_views()
         state.cleanup()
 
     def test_preparametrized_owner_warns_and_falls_back(self):

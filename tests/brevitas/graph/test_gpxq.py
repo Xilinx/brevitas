@@ -204,10 +204,11 @@ def test_functional_target_quantizes_only_its_expert_view():
     x = torch.randn(8, 4)
     quant_map = {torch.nn.functional.linear: (None, None, _functional_weight_spec(1, 2))}
     state = prepare_functional_quantization(model, quant_map, example_inputs=(x, 0))
-    target = state.iter_linear_targets()[0]
-    target.quant_weight()
-    assert target.target_quant_proxy is not target.owner.proxy
-    assert target.target_quant_holder.weight.shape == (3, 4)
+    with gptq_mode(model, functional_state=state) as mode:
+        target = mode.functional_targets[0]
+        target.quant_weight()
+        assert target.target_quant_proxy is not target.owner.proxy
+        assert target.target_quant_holder.weight.shape == (3, 4)
     state.cleanup()
 
 
@@ -271,10 +272,6 @@ def test_functional_magr_batch_ignores_cached_reference_when_disabled():
     for batch_size in (1, 2):
         model = deepcopy(base_model)
         state = prepare_functional_quantization(model, quant_map, example_inputs=(x, offsets))
-        for target in state.iter_linear_targets():
-            target.weight_orig
-        with torch.no_grad():
-            model.parametrizations.weight.original.add_(0.25)
         with functional_quantization_mode(state):
             with magr_mode(model,
                            functional_state=state,
@@ -282,6 +279,10 @@ def test_functional_magr_batch_ignores_cached_reference_when_disabled():
                            min_samples=1,
                            num_steps=1,
                            expert_batch_size=batch_size) as mode:
+                for target in mode.functional_targets:
+                    target.weight_orig
+                with torch.no_grad():
+                    model.parametrizations.weight.original.add_(0.25)
                 mode.model(x, offsets)
                 mode.update()
         results.append(model.parametrizations.weight.original.detach().clone())

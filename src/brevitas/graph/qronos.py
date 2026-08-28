@@ -13,9 +13,9 @@ except:
 
 import warnings
 
-from brevitas.graph.functional_quant import FunctionalLinearTarget
 from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpxq import FunctionalGPxQBatch
+from brevitas.graph.gpxq import FunctionalLinearTarget
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.utils import is_conv_transposed
 from brevitas.graph.utils import power_iteration

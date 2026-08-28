@@ -9,9 +9,11 @@ from dataclasses import field
 from functools import partial
 from operator import attrgetter
 from time import perf_counter
+from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Set
+from typing import Tuple
 import warnings
 
 import torch
@@ -23,8 +25,6 @@ import unfoldNd
 from brevitas.fx import GraphModule
 from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.functional_quant import FunctionalLinearObservation
-from brevitas.graph.functional_quant import FunctionalLinearTarget
-from brevitas.graph.functional_quant import FunctionalLinearTargetBatch
 from brevitas.graph.functional_quant import FunctionalQuantState
 from brevitas.graph.utils import get_batch_dim
 from brevitas.graph.utils import is_conv_transposed
@@ -43,6 +43,149 @@ class LayerHandler:
     layer_names: Set = field(default_factory=set)
     forward_count: int = 0
     stop_forward: bool = True
+
+
+class _FunctionalTargetQuantHolder(nn.Module):
+    """Expose one target matrix and its output axis to a weight proxy."""
+
+    def __init__(self, weight: torch.Tensor, output_channel_dim: int) -> None:
+        super().__init__()
+        self.weight = weight
+        self.bias = None
+        self.output_channel_dim = output_channel_dim
+        self.out_channels = weight.shape[output_channel_dim]
+
+
+class FunctionalLinearTarget:
+    """Adapt one functional owner view to the layer contract used by GPxQ."""
+
+    def __init__(
+            self, owner_id: str, owner, view_indices: Tuple[int, ...],
+            transpose_weight: bool) -> None:
+        self.owner_id = owner_id
+        self.owner = owner
+        self.view_indices = view_indices
+        self.transpose_weight = transpose_weight
+        self.reference_weight = None
+        self.reference_pass = False
+        self.target_quant_holder = None
+        self.target_quant_proxy = None
+        self.target_quant_device = None
+
+    @property
+    def key(self) -> Tuple[str, Tuple[int, ...]]:
+        return self.owner_id, self.view_indices
+
+    @property
+    def name(self) -> str:
+        suffix = ''.join(f'[{index}]' for index in self.view_indices)
+        return f'{self.owner_id}{suffix}'
+
+    def _owner_view(self, value: torch.Tensor) -> torch.Tensor:
+        for index in self.view_indices:
+            value = value[index]
+        return value
+
+    @property
+    def weight(self) -> torch.Tensor:
+        weight = self._owner_view(self.owner.original_parameter)
+        return weight.t() if self.transpose_weight else weight
+
+    def _target_proxy(self, native_weight: torch.Tensor) -> nn.Module:
+        """Build a 2-D proxy so GPxQ never requantizes sibling matrices."""
+        if self.target_quant_proxy is None:
+            owner_injector = self.owner.proxy.quant_injector
+            target_di_kwargs = self._remap_owner_axes(len(self.view_indices), 0)
+            self.target_quant_holder = _FunctionalTargetQuantHolder(
+                native_weight, target_di_kwargs.get('output_channel_dim', 0))
+            target_injector = owner_injector.let(**target_di_kwargs)
+            self.target_quant_proxy = target_injector.proxy_class(
+                self.target_quant_holder, target_injector).to(native_weight.device)
+            self.target_quant_proxy.train(self.owner.proxy.training)
+            self.target_quant_device = native_weight.device
+        else:
+            self.target_quant_holder.weight = native_weight
+            self.target_quant_holder.out_channels = native_weight.shape[
+                self.target_quant_holder.output_channel_dim]
+            if self.target_quant_device != native_weight.device:
+                self.target_quant_proxy.to(native_weight.device)
+                self.target_quant_device = native_weight.device
+        return self.target_quant_proxy
+
+    def _remap_owner_axes(self, dropped_dims: int, added_dims: int) -> Dict[str, int]:
+        """Map owner quantizer axes after replacing leading owner dimensions."""
+        owner_injector = self.owner.proxy.quant_injector
+        owner_rank = self.owner.original_parameter.dim()
+        target_di_kwargs = {}
+        for name in ('output_channel_dim', 'group_dim'):
+            axis = getattr(owner_injector, name, None)
+            if axis is None:
+                continue
+            axis = axis if axis >= 0 else owner_rank + axis
+            if axis < dropped_dims:
+                raise RuntimeError(
+                    f"Functional target '{self.name}' cannot use owner {name} {axis} after expert indexing."
+                )
+            target_di_kwargs[name] = axis - dropped_dims + added_dims
+        return target_di_kwargs
+
+    def quant_weight(self) -> torch.Tensor:
+        return self.quantize(self.weight)
+
+    def quantize(self, canonical_weight: torch.Tensor) -> torch.Tensor:
+        """Quantize one canonical target matrix with its independent proxy."""
+        native_weight = canonical_weight.t() if self.transpose_weight else canonical_weight
+        weight = self._target_proxy(native_weight)(native_weight)
+        value = weight.value if isinstance(weight, QuantTensor) else weight
+        return value.t() if self.transpose_weight else value
+
+    @property
+    def weight_quant(self) -> nn.Module:
+        """Expose this target's local proxy through the GPxQ layer contract."""
+        return self._target_proxy(self._owner_view(self.owner.original_parameter))
+
+    @property
+    def weight_orig(self) -> torch.Tensor:
+        """Preserve this target's floating matrix before its first update."""
+        if self.reference_weight is None:
+            self.reference_weight = self.weight.detach().clone().cpu()
+        return self.reference_weight
+
+    def writeback(self, value: torch.Tensor) -> None:
+        native_value = value.t() if self.transpose_weight else value
+        with torch.no_grad():
+            self._owner_view(self.owner.original_parameter).copy_(native_value)
+
+
+class FunctionalLinearTargetBatch:
+    """Temporary compatible expert batch used by functional GPxQ kernels."""
+
+    def __init__(
+            self, targets: List[FunctionalLinearTarget], canonical_weight: torch.Tensor) -> None:
+        if not targets:
+            raise ValueError('A functional target batch cannot be empty.')
+        first = targets[0]
+        if any(target.owner_id != first.owner_id or
+               target.transpose_weight != first.transpose_weight for target in targets):
+            raise ValueError('Functional target batches require one owner and matrix layout.')
+        self.targets = targets
+        flat_weight = canonical_weight.flatten(0, 1)
+        di_kwargs = {'output_channel_dim': 0}
+        if getattr(first.owner.proxy.quant_injector, 'group_dim', None) is not None:
+            di_kwargs['group_dim'] = 1
+        self.holder = _FunctionalTargetQuantHolder(flat_weight, 0)
+        owner_injector = first.owner.proxy.quant_injector
+        batch_injector = owner_injector.let(**di_kwargs)
+        self.proxy = batch_injector.proxy_class(self.holder, batch_injector).to(flat_weight.device)
+        self.proxy.train(first.owner.proxy.training)
+
+    def quant_weight(self, canonical_weight: torch.Tensor) -> torch.Tensor:
+        flat_weight = canonical_weight.flatten(0, 1)
+        self.holder.weight = flat_weight
+        self.holder.out_channels = flat_weight.shape[0]
+        quant_weight = self.proxy(flat_weight)
+        value = quant_weight.value if isinstance(quant_weight, QuantTensor) else quant_weight
+        return value.reshape_as(canonical_weight)
 
 
 class FunctionalGPxQBatch:
@@ -191,6 +334,7 @@ class gpxq_mode(quantization_status_manager):
         self.insufficient_samples = insufficient_samples
         self.expert_batch_size = expert_batch_size
         self.functional_targets = []
+        self.functional_targets_by_key = {}
         self.functional_target_groups = []
         self.functional_collection_seconds = {}
         self.functional_observer_handle = None
@@ -227,7 +371,16 @@ class gpxq_mode(quantization_status_manager):
             name: [(name, module)] for name,
             module in self.model.named_modules() if self._is_module_supported(module)}
         if self.functional_state is not None:
-            self.functional_targets = self.functional_state.iter_linear_targets(self.model)
+            self.functional_targets = [
+                FunctionalLinearTarget(
+                    owner_id,
+                    self.functional_state.owners[owner_id],
+                    view_indices,
+                    transpose_weight) for owner_id,
+                view_indices,
+                transpose_weight in self.functional_state.iter_linear_views(self.model)]
+            self.functional_targets_by_key = {
+                target.key: target for target in self.functional_targets}
             target_groups = {}
             for target in self.functional_targets:
                 target_groups.setdefault(target.owner_id, []).append(target)
@@ -313,13 +466,17 @@ class gpxq_mode(quantization_status_manager):
 
     def _observe_functional_target(self, observation: FunctionalLinearObservation) -> None:
         """Collect routed activations for every expert in the scheduled owner."""
-        if self.active_functional_group is None or observation.target.owner_id != self.active_functional_group[
+        if self.active_functional_group is None or observation.owner_id != self.active_functional_group[
                 0].owner_id:
             return
-        optimizer = self.gpxq_layers[observation.target.name]
+        target = self.functional_targets_by_key.get(
+            (observation.owner_id, observation.view_indices))
+        if target is None:
+            return
+        optimizer = self.gpxq_layers[target.name]
         start = perf_counter()
-        optimizer.update_batch(observation.target, (observation.input,), self.functional_layer)
-        owner_id = observation.target.owner_id
+        optimizer.update_batch(target, (observation.input,), self.functional_layer)
+        owner_id = target.owner_id
         self.functional_collection_seconds[owner_id] = self.functional_collection_seconds.get(
             owner_id, 0.) + perf_counter() - start
 

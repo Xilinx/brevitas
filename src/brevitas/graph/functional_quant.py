@@ -35,7 +35,6 @@ from brevitas.quant_tensor import QuantTensor
 
 __all__ = [
     'FunctionalQuantState',
-    'FunctionalLinearTarget',
     'functional_quantization_mode',
     'grouped_mm_functions',
     'prepare_functional_quantization',
@@ -282,136 +281,12 @@ class _FunctionalWeightOwner:
         return getattr(self.owner.parametrizations, self.parameter_name).original
 
 
-@dataclass
-class FunctionalLinearTarget:
-    """One canonical linear matrix view backed by a functional weight owner."""
-
-    owner_id: str
-    owner: _FunctionalWeightOwner
-    view_indices: Tuple[int, ...]
-    transpose_weight: bool
-    reference_weight: Optional[Tensor] = None
-    reference_pass: bool = False
-    target_quant_holder: Optional[_WeightQuantHolder] = None
-    target_quant_proxy: Optional[nn.Module] = None
-    target_quant_device: Optional[torch.device] = None
-
-    @property
-    def name(self) -> str:
-        suffix = ''.join(f'[{index}]' for index in self.view_indices)
-        return f'{self.owner_id}{suffix}'
-
-    def _owner_view(self, value: Tensor) -> Tensor:
-        for index in self.view_indices:
-            value = value[index]
-        return value
-
-    @property
-    def weight(self) -> Tensor:
-        weight = self._owner_view(self.owner.original_parameter)
-        return weight.t() if self.transpose_weight else weight
-
-    def _target_proxy(self, native_weight: Tensor) -> nn.Module:
-        """Build a 2-D proxy so GPTQ never requantizes sibling expert matrices."""
-        if self.target_quant_proxy is None:
-            owner_injector = self.owner.proxy.quant_injector
-            target_di_kwargs = self._remap_owner_axes(len(self.view_indices), 0)
-            self.target_quant_holder = _WeightQuantHolder(
-                native_weight, target_di_kwargs.get('output_channel_dim', 0))
-            target_injector = owner_injector.let(**target_di_kwargs)
-            self.target_quant_proxy = target_injector.proxy_class(
-                self.target_quant_holder, target_injector).to(native_weight.device)
-            self.target_quant_proxy.train(self.owner.proxy.training)
-            self.target_quant_device = native_weight.device
-        else:
-            self.target_quant_holder.weight = native_weight
-            self.target_quant_holder.out_channels = native_weight.shape[
-                self.target_quant_holder.output_channel_dim]
-            if self.target_quant_device != native_weight.device:
-                self.target_quant_proxy.to(native_weight.device)
-                self.target_quant_device = native_weight.device
-        return self.target_quant_proxy
-
-    def _remap_owner_axes(self, dropped_dims: int, added_dims: int) -> Dict[str, int]:
-        """Map owner quantizer axes after replacing leading owner dimensions."""
-        owner_injector = self.owner.proxy.quant_injector
-        owner_rank = self.owner.original_parameter.dim()
-        target_di_kwargs = {}
-        for name in ('output_channel_dim', 'group_dim'):
-            axis = getattr(owner_injector, name, None)
-            if axis is None:
-                continue
-            axis = axis if axis >= 0 else owner_rank + axis
-            if axis < dropped_dims:
-                raise RuntimeError(
-                    f"Functional target '{self.name}' cannot use owner {name} {axis} after expert indexing."
-                )
-            target_di_kwargs[name] = axis - dropped_dims + added_dims
-        return target_di_kwargs
-
-    def quant_weight(self) -> Tensor:
-        return self.quantize(self.weight)
-
-    def quantize(self, canonical_weight: Tensor) -> Tensor:
-        """Quantize one canonical target matrix with its independent proxy."""
-        native_weight = canonical_weight.t() if self.transpose_weight else canonical_weight
-        weight = self._target_proxy(native_weight)(native_weight)
-        value = weight.value if isinstance(weight, QuantTensor) else weight
-        return value.t() if self.transpose_weight else value
-
-    @property
-    def weight_quant(self) -> nn.Module:
-        """Expose this target's local proxy through the GPxQ layer contract."""
-        return self._target_proxy(self._owner_view(self.owner.original_parameter))
-
-    @property
-    def weight_orig(self) -> Tensor:
-        """Preserve this target's floating matrix before its first update."""
-        if self.reference_weight is None:
-            self.reference_weight = self.weight.detach().clone().cpu()
-        return self.reference_weight
-
-    def writeback(self, value: Tensor) -> None:
-        native_value = value.t() if self.transpose_weight else value
-        with torch.no_grad():
-            self._owner_view(self.owner.original_parameter).copy_(native_value)
-
-
-class FunctionalLinearTargetBatch:
-    """Temporary compatible expert batch used by the functional GPTQ update kernel."""
-
-    def __init__(self, targets: List[FunctionalLinearTarget], canonical_weight: Tensor) -> None:
-        if not targets:
-            raise ValueError('A functional target batch cannot be empty.')
-        first = targets[0]
-        if any(target.owner_id != first.owner_id or
-               target.transpose_weight != first.transpose_weight for target in targets):
-            raise ValueError('Functional target batches require one owner and matrix layout.')
-        self.targets = targets
-        flat_weight = canonical_weight.flatten(0, 1)
-        di_kwargs = {'output_channel_dim': 0}
-        if getattr(first.owner.proxy.quant_injector, 'group_dim', None) is not None:
-            di_kwargs['group_dim'] = 1
-        self.holder = _WeightQuantHolder(flat_weight, 0)
-        owner_injector = first.owner.proxy.quant_injector
-        batch_injector = owner_injector.let(**di_kwargs)
-        self.proxy = batch_injector.proxy_class(self.holder, batch_injector).to(flat_weight.device)
-        self.proxy.train(first.owner.proxy.training)
-
-    def quant_weight(self, canonical_weight: Tensor) -> Tensor:
-        flat_weight = canonical_weight.flatten(0, 1)
-        self.holder.weight = flat_weight
-        self.holder.out_channels = flat_weight.shape[0]
-        quant_weight = self.proxy(flat_weight)
-        value = quant_weight.value if isinstance(quant_weight, QuantTensor) else quant_weight
-        return value.reshape_as(canonical_weight)
-
-
 @dataclass(frozen=True)
 class FunctionalLinearObservation:
-    """An intercepted functional linear operation resolved to a stable target."""
+    """An intercepted functional linear operation resolved to an owner view."""
 
-    target: FunctionalLinearTarget
+    owner_id: str
+    view_indices: Tuple[int, ...]
     input: Tensor
     function: Callable
     module: nn.Module
@@ -434,10 +309,10 @@ class FunctionalQuantState:
         self.function_indices = {func: index for index, func in enumerate(self.specs)}
         self.calls: Dict[Tuple[str, Callable, int], _PreparedCall] = {}
         self.owners: Dict[str, _FunctionalWeightOwner] = {}
-        self.linear_targets: Dict[Tuple[str, Tuple[int, ...]], FunctionalLinearTarget] = {}
+        self.linear_views: Dict[Tuple[str, Tuple[int, ...]], bool] = {}
         self.linear_observers: List[Callable[[FunctionalLinearObservation], None]] = []
         self.runtime_weights: Dict[str, Tensor] = {}
-        self.grouped_target_calls: Dict[Tuple[str, Callable, int], Tuple[str, Tuple[int, ...]]] = {}
+        self.grouped_view_calls: Dict[Tuple[str, Callable, int], Tuple[str, Tuple[int, ...]]] = {}
         self.counter_resetters: List[Callable[[], None]] = []
         self.registered_parametrizations: List[Tuple[nn.Module, str]] = []
         self.parametrizations_removed = False
@@ -477,10 +352,10 @@ class FunctionalQuantState:
             delattr(self.model, _STATE_NAME)
         self.calls.clear()
         self.owners.clear()
-        self.linear_targets.clear()
+        self.linear_views.clear()
         self.linear_observers.clear()
         self.runtime_weights.clear()
-        self.grouped_target_calls.clear()
+        self.grouped_view_calls.clear()
         self.counter_resetters.clear()
         self._closed = True
 
@@ -503,14 +378,16 @@ class FunctionalQuantState:
 
         return _Handle()
 
-    def iter_linear_targets(self,
-                            module_scope: Optional[nn.Module] = None
-                           ) -> List[FunctionalLinearTarget]:
-        """Return prepared functional linear targets, optionally restricted to a subtree."""
+    def iter_linear_views(
+            self,
+            module_scope: Optional[nn.Module] = None) -> List[Tuple[str, Tuple[int, ...], bool]]:
+        """Return owner IDs, indices, and layouts for prepared linear views."""
+        views = [(owner_id, indices, transpose_weight) for (owner_id, indices),
+                 transpose_weight in self.linear_views.items()]
         if module_scope is None:
-            return list(self.linear_targets.values())
+            return views
         modules = set(module_scope.modules())
-        return [target for target in self.linear_targets.values() if target.owner.owner in modules]
+        return [view for view in views if self.owners[view[0]].owner in modules]
 
     def _record_runtime_weight(self, owner_id: str, value: Tensor) -> None:
         """Remember a root layout only while an observer needs expert identity."""
@@ -566,12 +443,12 @@ class FunctionalQuantState:
                 return owner_id, indices
         return None
 
-    def _target_from_weight(self, value: Any) -> Optional[FunctionalLinearTarget]:
-        """Resolve a runtime weight view to its prepared logical target."""
+    def _linear_view_from_weight(self, value: Any) -> Optional[Tuple[str, Tuple[int, ...]]]:
+        """Resolve a runtime weight to a prepared owner-view key."""
         owner_view = self._owner_view_from_weight(value)
-        if owner_view is None:
+        if owner_view is None or owner_view not in self.linear_views:
             return None
-        return self.linear_targets.get(owner_view)
+        return owner_view
 
     def _assert_open(self) -> None:
         """Raise if this state was already cleaned up."""
@@ -644,29 +521,30 @@ class _HookedMode(TorchFunctionMode):
         slots, _ = _logical_arguments(func, args, kwargs)
         values = {arg_idx: value for arg_idx, value, _ in slots}
         if func is _grouped_mm_key:
-            grouped_target = self.state.grouped_target_calls.get((name, func, index))
+            grouped_view = self.state.grouped_view_calls.get((name, func, index))
             inp, weight, offsets = values.get(0), values.get(1), values.get(2)
-            if grouped_target is None or not isinstance(inp, Tensor) or not isinstance(offsets,
-                                                                                       Tensor):
+            if grouped_view is None or not isinstance(inp, Tensor) or not isinstance(offsets,
+                                                                                     Tensor):
                 return
-            owner_id, prefix = grouped_target
+            owner_id, prefix = grouped_view
             runtime_owner_view = self.state._owner_view_from_weight(weight)
             if runtime_owner_view is not None and runtime_owner_view[0] == owner_id:
                 prefix = runtime_owner_view[1]
-            targets = sorted((
-                target for target in self.state.linear_targets.values()
-                if target.owner_id == owner_id and target.view_indices[:len(prefix)] == prefix),
-                             key=lambda target: target.view_indices)
+            view_indices = sorted(
+                indices for candidate_owner_id,
+                indices,
+                _ in self.state.iter_linear_views()
+                if candidate_owner_id == owner_id and indices[:len(prefix)] == prefix)
             boundaries = [int(offset) for offset in offsets.detach().cpu().tolist()]
-            if len(boundaries) != len(targets) or any(
+            if len(boundaries) != len(view_indices) or any(
                     end < start for start, end in zip((0, *boundaries), boundaries)) or (
                         boundaries and boundaries[-1] != inp.shape[0]):
-                raise RuntimeError('Grouped-MM offsets do not match the prepared expert targets.')
+                raise RuntimeError('Grouped-MM offsets do not match the prepared expert views.')
             start = 0
-            for target, end in zip(targets, boundaries):
+            for indices, end in zip(view_indices, boundaries):
                 if end > start:
                     observation = FunctionalLinearObservation(
-                        target, inp[start:end], func, module, name, index)
+                        owner_id, indices, inp[start:end], func, module, name, index)
                     for observer in tuple(self.state.linear_observers):
                         observer(observation)
                 start = end
@@ -678,10 +556,11 @@ class _HookedMode(TorchFunctionMode):
             return
         if not isinstance(values.get(0), Tensor):
             return
-        target = self.state._target_from_weight(values.get(1))
-        if target is None:
+        owner_view = self.state._linear_view_from_weight(values.get(1))
+        if owner_view is None:
             return
-        observation = FunctionalLinearObservation(target, values[0], func, module, name, index)
+        observation = FunctionalLinearObservation(
+            owner_view[0], owner_view[1], values[0], func, module, name, index)
         for observer in tuple(self.state.linear_observers):
             observer(observation)
 
@@ -818,7 +697,7 @@ class _FunctionalQuantBuilder(_HookedMode):
         self.module_names: Dict[int, str] = {}
 
     def _build_parameter_owners(self) -> None:
-        """Map parameters to owners and retain stable module names for target IDs."""
+        """Map parameters to owners and retain stable qualified names."""
         super()._build_parameter_owners()
         self.module_names = {id(module): name for name, module in self.model.named_modules()}
 
@@ -1023,23 +902,20 @@ class _FunctionalQuantBuilder(_HookedMode):
                 getattr(owner_module.parametrizations, owner_name)[-1])
             self.state.owners[owner_id] = owner_record
 
-            # A direct matrix has one target. For a stack, preparation may observe
-            # only some routes, so enumerate all leading-index expert matrices.
+            # Preparation may observe only some routes through a stacked owner, so
+            # enumerate every leading-index matrix with the same supported layout.
             original = owner_record.original_parameter
             direct_transpose_weight = False
             for call_key, argument_map in self.discovered_calls.items():
                 for argument in argument_map.values():
-                    # Functional quantization supports bmm inference, but its
-                    # gathered/batched parameter semantics are not yet a GPxQ
-                    # logical matrix target.
+                    # A batched operand does not identify one stable logical matrix view.
                     if argument.parameter_owner == owner and call_key[1] is torch.bmm:
                         continue
                     if argument.parameter_owner != owner:
                         continue
                     is_grouped_mm = call_key[1] is _grouped_mm_key
                     if is_grouped_mm:
-                        self.state.grouped_target_calls[call_key] = (
-                            owner_id, argument.view_indices)
+                        self.state.grouped_view_calls[call_key] = (owner_id, argument.view_indices)
                     if not argument.view_indices and not is_grouped_mm:
                         if argument.view_indices == ():
                             direct_transpose_weight = argument.transpose_weight
@@ -1049,16 +925,14 @@ class _FunctionalQuantBuilder(_HookedMode):
                     for suffix in product(*(range(size) for size in leading_dims[len(prefix):])):
                         indices = (*prefix, *suffix)
                         key = (owner_id, tuple(indices))
-                        existing = self.state.linear_targets.get(key)
-                        if existing is not None and existing.transpose_weight != argument.transpose_weight:
+                        existing = self.state.linear_views.get(key)
+                        if existing is not None and existing != argument.transpose_weight:
                             raise RuntimeError(
                                 f"Functional parameter '{owner_id}' is used with incompatible linear layouts."
                             )
-                        self.state.linear_targets[key] = FunctionalLinearTarget(
-                            owner_id, owner_record, tuple(indices), argument.transpose_weight)
+                        self.state.linear_views[key] = argument.transpose_weight
             if original.dim() == 2:
-                self.state.linear_targets[(owner_id, ())] = FunctionalLinearTarget(
-                    owner_id, owner_record, (), direct_transpose_weight)
+                self.state.linear_views[(owner_id, ())] = direct_transpose_weight
 
         for call_key, arguments in self.discovered_calls.items():
             name, func, index = call_key

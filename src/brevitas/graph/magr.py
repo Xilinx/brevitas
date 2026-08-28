@@ -9,9 +9,9 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 
-from brevitas.graph.functional_quant import FunctionalLinearTarget
 from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gpxq import FunctionalGPxQBatch
+from brevitas.graph.gpxq import FunctionalLinearTarget
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
