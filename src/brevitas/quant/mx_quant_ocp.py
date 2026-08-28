@@ -152,6 +152,6 @@ class MXInt8WeightMSE(MSESymmetricScale, MXInt8Weight):
 
 class ShiftedMXUInt8WeightMSE(MSEAsymmetricScale, MSEWeightZeroPoint, ShiftedMXUInt8Weight):
     """
-    MX Int signed weight quantizer with per-channel MSE-based scaling.
+    MX UInt asymmetric weight quantizer with MSE-based scale and zero-point.
     """
     pass
