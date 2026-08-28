@@ -10,6 +10,7 @@ Object) and returns a :class:`Contribution` (namespace attrs + base mixins). The
 injector. This module holds the kind-agnostic (shared) components as well as the
 kind-specific (weight / input) ones.
 """
+from abc import abstractmethod
 from typing import Any
 from typing import Dict
 from typing import Type
@@ -22,6 +23,7 @@ from brevitas.core.zero_point import ZeroZeroPoint
 from brevitas.inject.enum import BitWidthImplType
 from brevitas.inject.enum import FloatToIntImplType
 from brevitas.inject.enum import QuantType
+from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.inject.enum import StatsOp
 from brevitas.proxy.float_parameter_quant import WeightFloatQuantProxyFromInjector
@@ -131,6 +133,12 @@ class ScaleParamMethodComponent(Component):
     by an earlier component is dropped.
     """
 
+    def validate(self, config: QuantizerConfig) -> None:
+        # MSE/HQO calibrate a stored parameter scale; a dynamic scale is recomputed
+        # per-forward, so the two are mutually exclusive.
+        if config.scaling_param_method in (ParamMethod.MSE, ParamMethod.HQO) and config.is_dynamic:
+            raise ValueError("MSE/HQO scale is incompatible with a dynamic scale.")
+
     def build(self, config: QuantizerConfig) -> Contribution:
         if config.scaling_param_method == ParamMethod.MSE:
             return Contribution(bases=(MSEScaleInjectorMixin,),)
@@ -143,6 +151,13 @@ class ScaleParamMethodComponent(Component):
 class ZeroPointParamMethodComponent(Component):
     """Zero-point parameter method: MSE / HQO local-loss injectors (only relevant
     for asymmetric quantizers; None = nothing)."""
+
+    def validate(self, config: QuantizerConfig) -> None:
+        # As for the scale: an MSE/HQO zero-point is calibrated once, so it cannot
+        # coexist with a per-forward dynamic scale.
+        if config.zero_point_param_method in (ParamMethod.MSE,
+                                              ParamMethod.HQO) and config.is_dynamic:
+            raise ValueError("MSE/HQO zero-point is incompatible with a dynamic scale.")
 
     def build(self, config: QuantizerConfig) -> Contribution:
         if config.zero_point_param_method == ParamMethod.MSE:
@@ -203,23 +218,47 @@ class ZeroPointComponent(Component):
         return Contribution(bases=(AsymmetricZeroPointMixin,))
 
 
-class WeightSolverComponent(Component):
+class SolverComponent(Component):
+    """Template: assemble the solver / proxy Contribution (the solver / float base
+    goes in ``bases``, the proxy class in ``attrs``). Subclasses supply only the
+    kind-specific base class (:meth:`_base`) and proxy class (:meth:`_proxy`)."""
+
+    def build(self, config: QuantizerConfig) -> Contribution:
+        return Contribution(
+            attrs={"proxy_class": self._proxy(config)}, bases=(self._base(config),))
+
+    @abstractmethod
+    def _base(self, config: QuantizerConfig) -> Type:
+        ...
+
+    @abstractmethod
+    def _proxy(self, config: QuantizerConfig) -> Type:
+        ...
+
+
+class WeightSolverComponent(SolverComponent):
     """Weight solver, float base and proxy class. The scale implementation type is
     provided by the base :class:`ScaleComponent` (default STATS)."""
 
-    def build(self, config: QuantizerConfig) -> Contribution:
-        return self.build_int(config) if config.is_int else self.build_float(config)
+    def validate(self, config: QuantizerConfig) -> None:
+        # Weights are parameters: DYNAMIC (per-forward) and no_scale (None) are
+        # activation-only scale modes.
+        if config.scaling_impl_type in (ScalingImplType.DYNAMIC, None):
+            raise ValueError("Weight quantizers require a static scale (not DYNAMIC / no_scale).")
 
-    def build_int(self, config: QuantizerConfig) -> Contribution:
-        proxy = GroupwiseWeightQuantProxyFromInjector if config.is_groupwise \
+    def _base(self, config: QuantizerConfig) -> Type:
+        return WeightQuantSolver if config.is_int else ScaledFloatWeightBase
+
+    def _proxy(self, config: QuantizerConfig) -> Type:
+        return self._int_proxy(config) if config.is_int else self._float_proxy(config)
+
+    def _int_proxy(self, config: QuantizerConfig) -> Type:
+        return GroupwiseWeightQuantProxyFromInjector if config.is_groupwise \
             else WeightQuantProxyFromInjector
-        return Contribution(attrs={"proxy_class": proxy}, bases=(WeightQuantSolver,))
 
-    def build_float(self, config: QuantizerConfig) -> Contribution:
-        # ScaledFloatWeightBase already brings the weight solver and a stats scale.
-        proxy = GroupwiseWeightFloatQuantProxyFromInjector if config.is_groupwise \
+    def _float_proxy(self, config: QuantizerConfig) -> Type:
+        return GroupwiseWeightFloatQuantProxyFromInjector if config.is_groupwise \
             else WeightFloatQuantProxyFromInjector
-        return Contribution(attrs={"proxy_class": proxy}, bases=(ScaledFloatWeightBase,))
 
 
 class IntQuantComponent(Component):
@@ -282,6 +321,13 @@ class InputScaleComponent(ScaleComponent):
     percentile, everything else uses max); the asymmetric scale-stats op is owned
     by :class:`InputZeroPointComponent` / the asymmetric mixin.
     """
+
+    def validate(self, config: QuantizerConfig) -> None:
+        # Groupwise activations are recomputed per-forward from the tensor's
+        # per-group stats; brevitas has no static / no_scale groupwise activation
+        # quantizer, so groupwise requires a dynamic scale.
+        if config.is_groupwise and not config.is_dynamic:
+            raise ValueError("Groupwise activation quantization requires a dynamic scale.")
 
     def build(self, config: QuantizerConfig) -> Contribution:
         # Base: scaling_impl_type = config.scaling_impl_type (act solver resolves it).
@@ -368,36 +414,38 @@ class InputZeroPointComponent(ZeroPointComponent):
         return base + Contribution(attrs=attrs)
 
 
-class InputSolverComponent(Component):
+class InputSolverComponent(SolverComponent):
     """Activation solver, float base and proxy class (replaces
     :class:`WeightSolverComponent`). Contributed last so the solver / float base
     sits at the bottom of the MRO, matching the reference activation quantizers."""
 
-    def build(self, config: QuantizerConfig) -> Contribution:
-        return self.build_int(config) if config.is_int else self.build_float(config)
-
-    def build_int(self, config: QuantizerConfig) -> Contribution:
-        return Contribution(attrs={"proxy_class": self._int_proxy(config)}, bases=(ActQuantSolver,))
-
-    def build_float(self, config: QuantizerConfig) -> Contribution:
+    def _base(self, config: QuantizerConfig) -> Type:
+        if config.is_int:
+            return ActQuantSolver
         # NO_SCALE uses FloatActBase (no scale), otherwise ScaledFloatActBase
         # (which brings the act solver and a stats scale).
-        base = FloatActBase if config.is_no_scale else ScaledFloatActBase
-        return Contribution(attrs={"proxy_class": self._float_proxy(config)}, bases=(base,))
+        return FloatActBase if config.is_no_scale else ScaledFloatActBase
+
+    def _proxy(self, config: QuantizerConfig) -> Type:
+        return self._int_proxy(config) if config.is_int else self._float_proxy(config)
 
     def _int_proxy(self, config: QuantizerConfig) -> Type:
-        if config.is_dynamic:
-            if config.is_groupwise:
+        # Static / no_scale use the plain proxy; groupwise requires dynamic, which is
+        # enforced by InputScaleComponent.validate, so (False, True) never reaches here.
+        match (config.is_dynamic, config.is_groupwise):
+            case (False, _):
+                return ActQuantProxyFromInjector
+            case (True, True):
                 return GroupwiseActQuantProxyFromInjector
-            return DynamicActQuantProxyFromInjector
-        # Groupwise static activation int proxy is not supported yet.
-        return ActQuantProxyFromInjector
+            case (True, False):
+                return DynamicActQuantProxyFromInjector
 
     def _float_proxy(self, config: QuantizerConfig) -> Type:
-        if config.is_dynamic:
-            if config.is_groupwise:
-                return GroupwiseActFloatQuantProxyFromInjector
-            # Per-tensor / per-row dynamic float use the dynamic float act proxy.
-            return DynamicActFloatQuantProxyFromInjector
         # Static / no_scale float use the plain float act proxy.
-        return ActFloatQuantProxyFromInjector
+        match (config.is_dynamic, config.is_groupwise):
+            case (False, _):
+                return ActFloatQuantProxyFromInjector
+            case (True, True):
+                return GroupwiseActFloatQuantProxyFromInjector
+            case (True, False):
+                return DynamicActFloatQuantProxyFromInjector

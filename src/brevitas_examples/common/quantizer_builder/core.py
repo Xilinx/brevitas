@@ -173,6 +173,10 @@ class Component(ABC):
     def build(self, config: QuantizerConfig) -> Contribution:
         ...
 
+    def validate(self, config: QuantizerConfig) -> None:
+        """Raise ``ValueError`` on unsupported axis combinations for this component
+        (default: no constraints). Run by the builder before assembly."""
+        pass
 
 def config_from_flat_args(
         quant_type: Union[str, QuantType],

@@ -57,6 +57,8 @@ class QuantizerBuilder(ABC):
         writers).
         """
         components = self.base_components() + self.extra_components
+        for component in components:
+            component.validate(self.config)
         merged = Contribution.merge(component.build(self.config) for component in components)
         return self._assemble(merged)
 
