@@ -27,7 +27,7 @@ Brevitas
    About <about>
 
 Brevitas implements a set of building blocks at different levels of abstraction to model a reduced precision hardware data-path at training time.
-It provides a platform both for researchers interested in implementing new quantization-aware training techinques, as well as for practitioners interested in applying current techniques to their models.
+It provides a platform both for researchers interested in implementing new quantization-aware training techniques, as well as for practitioners interested in applying current techniques to their models.
 
 Brevitas supports a super-set of quantization schemes implemented across various frameworks and compilers under a single unified API.
 For certain combinations of layers and types of of quantization inference acceleration is supported by exporting to *FINN*, *onnxruntime* or *Pytorch*'s own quantized operators.
