@@ -3,9 +3,11 @@ name: Pytest
 on:
   push:
     branches: [ master, dev ]
-  pull_request:
-    types:
-      - review_requested
+  workflow_dispatch:
+    inputs:
+      pr_ref:
+        description: 'PR head ref/sha to test'
+        required: true
 
 jobs:
   build:
@@ -23,11 +25,12 @@ jobs:
 
 
 
-    if: ${{ !github.event.pull_request.draft }}
     steps:
 
     - name: Checkout repo
       uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event.inputs.pr_ref || github.ref }}
 
     - name: Set up Python
       uses: actions/setup-python@v2
