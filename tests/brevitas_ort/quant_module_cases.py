@@ -46,10 +46,10 @@ class WBIOLConfig:
 def wbiol_config_st(draw):
     """Draw a WBIOL configuration.
 
-    fp8/floor bit-widths are drawn unconstrained on purpose (see the NOTE below), so a drawn
-    config is not guaranteed exportable/valid: those constraints are being left to CI to confirm
-    as genuinely required vs merely search-space-shrinking. The dynamic-act 8-bit constraint has
-    already been confirmed required by CI and is enforced here.
+    floor bit-widths are drawn unconstrained on purpose (see the NOTE below), so a drawn config
+    is not guaranteed exportable/valid: that constraint is being left to CI to confirm as
+    genuinely required vs merely search-space-shrinking. The fp8 and dynamic-act 8-bit
+    constraints have already been confirmed required by CI and are enforced here.
     """
     names = list(WBIOL_QUANTIZERS)
     if torch_version < parse('2.1'):
@@ -67,16 +67,23 @@ def wbiol_config_st(draw):
 
     rounding_type = draw(st.sampled_from(['round', 'floor']))
 
+    # fp8 requires all-8 bit-widths: OCP e4m3 is a fixed 1+4+3 split, so overriding bit_width
+    # breaks is_ocp_e4m3 (mantissa==3 and exponent==4, src/brevitas/proxy/float_parameter_quant.py)
+    # and the exporter rejects it with 'Only OCP/FNUZ Standard are supported for FP8 export'
+    # (src/brevitas/export/onnx/standard/qcdq/handler.py). Confirmed matrix-wide by CI run
+    # 33414112132.
+    #
     # Dynamic act quant requires 8-bit input/output: the QCDQ exporter validates it via
     # validate_8b_bit_width (src/brevitas/export/onnx/standard/qcdq/handler.py), which raised
     # 'Bit width 2 is not supported, should be 8b.' on every matrix cell of CI run 33403653736
     # once this was left unconstrained. Weight bit-width is not validated, so it stays free.
     #
-    # NOTE: fp8/floor bit-widths are drawn unconstrained on purpose. They were previously forced
-    # to all-8 (inherited from the old pytest_cases skips); we are deliberately letting CI
-    # determine whether those constraints are genuinely required or only existed to shrink the
-    # search space. Re-add whichever prove necessary.
-    if is_dynamic:
+    # NOTE: floor bit-widths are drawn unconstrained on purpose. floor was previously lumped into
+    # the fp8 all-8 branch (commit 004479ef) with no independent justification; we are letting CI
+    # determine whether it is genuinely required. Re-add if it proves necessary.
+    if is_fp8:
+        o = w = i = 8
+    elif is_dynamic:
         o, i = 8, 8
         w = draw(st.sampled_from(list(BIT_WIDTHS)))
     else:
