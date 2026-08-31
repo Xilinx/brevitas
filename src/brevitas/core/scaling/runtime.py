@@ -41,6 +41,8 @@ class StatsFromParameterScaling(brevitas.jit.ScriptModule):
             dtype: Optional[torch.dtype] = None,
             device: Optional[torch.device] = None) -> None:
         super(StatsFromParameterScaling, self).__init__()
+        self.supports_groupwise_region = scaling_affine_rescaling_init is None and len(
+            tracked_parameter_list) == 1 and not force_parameter
 
         # Ensure retro-compatibility with shared threshold/scaling restrict
         if restrict_threshold_impl is None:
@@ -70,6 +72,20 @@ class StatsFromParameterScaling(brevitas.jit.ScriptModule):
             x: Optional[torch.Tensor],
             threshold: Optional[torch.Tensor] = None) -> torch.Tensor:
         stats = self.parameter_list_stats(x)
+        if threshold is None:
+            threshold = torch.ones(1).type_as(stats)
+        return self.stats_scaling_impl(stats, threshold)
+
+    @brevitas.jit.ignore
+    def forward_group(
+            self, x: torch.Tensor, threshold: Optional[torch.Tensor] = None) -> torch.Tensor:
+        """Compute scale from an already-expanded physical group.
+
+        Region-capable groupwise proxies pass tensors in canonical
+        ``[..., num_groups=1, group_size]`` layout, so the full-parameter view and output reshape
+        performed by ``_ParameterListStats`` are intentionally unnecessary here.
+        """
+        stats = self.parameter_list_stats.stats.stats_impl(x)
         if threshold is None:
             threshold = torch.ones(1).type_as(stats)
         return self.stats_scaling_impl(stats, threshold)

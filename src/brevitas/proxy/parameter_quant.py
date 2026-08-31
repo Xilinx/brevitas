@@ -100,13 +100,33 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
         self.cache_class = None  # To be redefined by each class
         self.quant_tensor_class = None  # To be redefined by each class
         self.skip_create_quant_tensor = False
+        self.supports_quant_weight_region = False
+        self.region_quant = None
+        self.is_region_quant_compiled = False
 
     def compile_quant(self, compile_export=False):
         if compile_export and hasattr(self, 'export_handler') and self.export_handler is not None:
             self.export_handler.inner_forward = torch.compile(
                 self.export_handler.inner_forward, fullgraph=True)
         elif self.tensor_quant is not None:
+            if self.region_quant is not None:
+                self.region_quant = torch.compile(
+                    self.region_quant, dynamic=True, fullgraph=not self.is_groupwise)
+                self.is_region_quant_compiled = True
             self.tensor_quant = torch.compile(self.tensor_quant, fullgraph=True)
+
+    def quantize_weight_group(self, weight: torch.Tensor,
+                              group_index: int) -> Optional[torch.Tensor]:
+        """Return one exactly quantized physical group, or ``None`` when unsupported."""
+        return None
+
+    def quantize_weight_region(
+            self,
+            weight: torch.Tensor,
+            bounds: List[Tuple[int, int]],
+            quant_input: Optional[QuantTensor] = None) -> Optional[torch.Tensor]:
+        """Return an exact dequantized weight region, or ``None`` to request full fallback."""
+        return None
 
     @property
     def is_proxy_compiled(self):

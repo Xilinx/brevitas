@@ -202,6 +202,23 @@ def dynamic_over_sub_channel_block_view(
     return x
 
 
+def extract_groupwise_block(x: torch.Tensor, group_dim: int, group_size: int,
+                            group_index: int) -> Tuple[torch.Tensor, int]:
+    """Extract one physical group and return it in canonical expanded layout."""
+    group_dim = group_dim if group_dim >= 0 else group_dim + x.ndim
+    group_start = group_index * group_size
+    group_end = min(group_start + group_size, x.shape[group_dim])
+    logical_group_size = group_end - group_start
+    group = x.narrow(group_dim, group_start, logical_group_size)
+    if logical_group_size < group_size:
+        pad = [0] * (2 * x.ndim)
+        pad_index = 2 * (x.ndim - group_dim - 1) + 1
+        pad[pad_index] = group_size - logical_group_size
+        group = torch.nn.functional.pad(group, pad)
+    group = torch.unsqueeze(group, group_dim)
+    return group, logical_group_size
+
+
 class StatsInputViewShapeImpl(object):
     """
     Enum-like object to collect pointers to variants of ScriptModules that perform a view on a tensor.

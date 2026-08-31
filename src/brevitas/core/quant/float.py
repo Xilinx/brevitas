@@ -80,14 +80,29 @@ class FloatQuant(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self, x):
+        float_scaling_impl_value = self.float_scaling_value()
+        scale = self.scaling_impl(x, float_scaling_impl_value)
+        return self.forward_with_scale(x, scale)
+
+    @brevitas.jit.ignore
+    def forward_group(self, x):
+        """Quantize an already-expanded physical group through the canonical float path."""
+        float_scaling_impl_value = self.float_scaling_value()
+        scale = self.scaling_impl.forward_group(x, float_scaling_impl_value)
+        return self.forward_with_scale(x, scale)
+
+    @brevitas.jit.script_method
+    def float_scaling_value(self) -> Optional[torch.Tensor]:
         if self.float_scaling_impl is not None:
-            float_scaling_impl_value = self.float_scaling_impl(
+            return self.float_scaling_impl(
                 self.exponent_bit_width_impl(),
                 self.compute_max_mantissa(self.mantissa_bit_width_impl()),
                 self.exponent_bias_impl())
         else:
-            float_scaling_impl_value = None
-        scale = self.scaling_impl(x, float_scaling_impl_value)
+            return None
+
+    @brevitas.jit.script_method
+    def forward_with_scale(self, x, scale):
         if self.observer_only:
             y = x
             saturating, inf_values, nan_values = self.float_clamp_impl.saturating, self.float_clamp_impl.inf_values, self.float_clamp_impl.nan_values
