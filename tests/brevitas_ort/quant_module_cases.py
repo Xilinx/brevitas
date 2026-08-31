@@ -17,7 +17,9 @@ from .common import *
 
 # Number of Hypothesis examples drawn for the (very large) WBIOL configuration space. Drawing
 # per-axis keeps rare quantizers/export types well represented without any explicit handling.
-WBIOL_MAX_EXAMPLES = 252
+# Each example is a full ONNX export + ORT inference, so this constant directly drives the
+# runtime of test_ort_wbiol (a single, serially-run @given node).
+WBIOL_MAX_EXAMPLES = 1000
 
 
 @dataclass(frozen=True)
