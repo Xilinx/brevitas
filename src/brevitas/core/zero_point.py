@@ -14,6 +14,7 @@ from torch.nn import Parameter
 import brevitas
 from brevitas import config
 from brevitas.core.function_wrapper import Identity
+from brevitas.core.function_wrapper.shape import select_groupwise_metadata
 from brevitas.core.scaling.runtime import _AffineRescaling
 from brevitas.core.stats import _ParameterListStats
 from brevitas.core.stats import DEFAULT_MOMENTUM
@@ -47,6 +48,12 @@ class ZeroZeroPoint(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> Tensor:
         return self.zero_point()
+
+    @brevitas.jit.ignore
+    def forward_group(
+            self, x: Tensor, scale: Tensor, bit_width: Tensor, group_index: Tensor,
+            group_dim: int) -> Tensor:
+        return self.forward(x, scale, bit_width)
 
 
 class _ScaleShiftZeroPoint(brevitas.jit.ScriptModule):
@@ -111,6 +118,9 @@ class StatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
             dtype: Optional[torch.dtype] = None,
             device: Optional[torch.device] = None) -> None:
         super(StatsFromParameterZeroPoint, self).__init__()
+        self.supports_groupwise_region = (
+            zero_point_affine_rescaling_init is None and len(tracked_parameter_list) == 1 and
+            scale_shift_zero_point_impl is None)
         self.parameter_list_stats = _ParameterListStats(
             zero_point_stats_impl,
             zero_point_shape,
@@ -142,6 +152,13 @@ class StatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
     def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> torch.Tensor:
         stats = self.parameter_list_stats(x)
         stats = self.affine_rescaling(stats)
+        return self.scale_shift_zero_point(-stats, scale, bit_width)
+
+    @brevitas.jit.ignore
+    def forward_group(
+            self, x: Tensor, scale: Tensor, bit_width: Tensor, group_index: Tensor,
+            group_dim: int) -> torch.Tensor:
+        stats = self.parameter_list_stats.stats.stats_impl(x)
         return self.scale_shift_zero_point(-stats, scale, bit_width)
 
 
@@ -276,12 +293,21 @@ class ParameterZeroPoint(brevitas.jit.ScriptModule):
                 zero_point_shape, zero_point_init, dtype=dtype, device=device)
         self.value = Parameter(zero_point_init)
         self.scale_shift_zero_point = _ScaleShiftZeroPoint(int_quant, quantize_zero_point)
+        self.supports_groupwise_region = True
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> Tensor:
         out = abs_binary_sign_grad(self.value)
         out = self.scale_shift_zero_point(out, scale, bit_width)
         return out
+
+    @brevitas.jit.ignore
+    def forward_group(
+            self, x: Tensor, scale: Tensor, bit_width: Tensor, group_index: Tensor,
+            group_dim: int) -> Tensor:
+        value = select_groupwise_metadata(self.value, group_dim, group_index)
+        value = abs_binary_sign_grad(value)
+        return self.scale_shift_zero_point(value, scale, bit_width)
 
     def _load_from_state_dict(
             self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
@@ -314,6 +340,9 @@ class ParameterFromStatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
             dtype: Optional[torch.dtype] = None,
             device: Optional[torch.device] = None) -> None:
         super(ParameterFromStatsFromParameterZeroPoint, self).__init__()
+        self.supports_groupwise_region = (
+            zero_point_affine_rescaling_init is None and len(tracked_parameter_list) == 1 and
+            scale_shift_zero_point_impl is None)
         self.parameter_list_stats = _ParameterListStats(
             zero_point_stats_impl,
             zero_point_shape,
@@ -360,6 +389,17 @@ class ParameterFromStatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
             value = self.scale_shift_zero_point(value, scale, bit_width)
             self.init_done = True
             return value
+
+    @brevitas.jit.ignore
+    def forward_group(
+            self, x: Tensor, scale: Tensor, bit_width: Tensor, group_index: Tensor,
+            group_dim: int) -> Tensor:
+        if not self.init_done:
+            raise RuntimeError(
+                "Parameter-from-stats zero point is not ready for regional quantization")
+        value = select_groupwise_metadata(self.value, group_dim, group_index)
+        value = abs_binary_sign_grad(value)
+        return self.scale_shift_zero_point(value, scale, bit_width)
 
     def state_dict(self, destination=None, prefix='', keep_vars=False):
         output_dict = super(ParameterFromStatsFromParameterZeroPoint, self).state_dict(

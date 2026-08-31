@@ -78,7 +78,11 @@ class StatsFromParameterScaling(brevitas.jit.ScriptModule):
 
     @brevitas.jit.ignore
     def forward_group(
-            self, x: torch.Tensor, threshold: Optional[torch.Tensor] = None) -> torch.Tensor:
+            self,
+            x: torch.Tensor,
+            threshold: Optional[torch.Tensor],
+            group_index: torch.Tensor,
+            group_dim: int) -> torch.Tensor:
         """Compute scale from an already-expanded physical group.
 
         Region-capable groupwise proxies pass tensors in canonical
