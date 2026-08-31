@@ -48,10 +48,12 @@ from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPWeightSymme
 from brevitas_examples.common.generative.quantizers import Fp8e4m3WeightSymmetricGroupQuant
 from brevitas_examples.common.generative.quantizers import IntWeightSymmetricGroupQuant
 from brevitas_examples.common.generative.quantizers import ShiftedUint8WeightGroupQuantFloatMSE
-from brevitas_examples.common.quantizer_builder import build_weight_quantizer
+from brevitas_examples.common.quantizer_builder import build_quantizer
 from brevitas_examples.common.quantizer_builder import FloatFormat
 from brevitas_examples.common.quantizer_builder import ParamMethod
 from brevitas_examples.common.quantizer_builder import QuantParamType
+from brevitas_examples.common.quantizer_builder import WeightQuantizerBuilder
+from brevitas_examples.common.quantizer_builder import ZeroPointImplType
 
 # Keep the model small and deterministic so that weight-quant outputs are
 # directly comparable between the reference quantizer and the builder.
@@ -303,8 +305,11 @@ BUILDER_SPECS = {
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
+            # asym+HQO keeps a plain STATS scale, so the zero-point storage cannot
+            # be mirrored from scaling_impl_type; request it explicitly.
             "kwargs": {
-                "quantize_zero_point": False,},},
+                "quantize_zero_point": False,
+                "zero_point_impl_type": ZeroPointImplType.PARAMETER_FROM_STATS,},},
         "layer_kwargs": {},},
     "int_per_channel_asym_hqo": {
         "ref": ShiftedUint8WeightPerChannelFloatHQO,
@@ -316,8 +321,11 @@ BUILDER_SPECS = {
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
+            # asym+HQO keeps a plain STATS scale, so the zero-point storage cannot
+            # be mirrored from scaling_impl_type; request it explicitly.
             "kwargs": {
-                "quantize_zero_point": False,},},
+                "quantize_zero_point": False,
+                "zero_point_impl_type": ZeroPointImplType.PARAMETER_FROM_STATS,},},
         "layer_kwargs": {},},
     "int_per_group_asym_hqo": {
         "ref": ShiftedUint8WeightPerGroupFloatHQO,
@@ -329,9 +337,12 @@ BUILDER_SPECS = {
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
+            # asym+HQO keeps a plain STATS scale, so the zero-point storage cannot
+            # be mirrored from scaling_impl_type; request it explicitly.
             "kwargs": {
                 "quantize_zero_point": False,
-                "group_size": GROUP_SIZE,},},
+                "group_size": GROUP_SIZE,
+                "zero_point_impl_type": ZeroPointImplType.PARAMETER_FROM_STATS,},},
         "layer_kwargs": {
             "weight_group_size": GROUP_SIZE},},
     # ----------------------------------------------------------------------
@@ -714,7 +725,7 @@ def test_builder_weight_quant_matches_reference(spec_name):
     ref_linear = _make_quant_linear(ref_quant, **layer_kwargs)
 
     # Builder layer built from the generic QuantizerBuilder.
-    builder = build_weight_quantizer(**spec["builder_args"])
+    builder = build_quantizer(WeightQuantizerBuilder, **spec["builder_args"])
     builder_quant = builder.build_quant_injector()
     builder_linear = _make_quant_linear(builder_quant, **layer_kwargs)
 

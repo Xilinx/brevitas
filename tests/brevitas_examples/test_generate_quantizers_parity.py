@@ -47,6 +47,7 @@ from brevitas_examples.common.generative.quantize import WEIGHT_QUANT_MAP
 from brevitas_examples.common.quantizer_builder import FloatFormat
 from brevitas_examples.common.quantizer_builder import ParamMethod
 from brevitas_examples.common.quantizer_builder import QuantParamType
+from brevitas_examples.common.quantizer_builder import ZeroPointImplType
 from brevitas_examples.common.quantizer_builder.generate import generate_weight_quantizer
 
 # Keep the layer small and deterministic so the quantized weights / outputs are
@@ -240,6 +241,13 @@ def _new_weight_quant(combo):
         exponent = float_format_dict["exponent_bit_width"]
         mantissa = float_format_dict["mantissa_bit_width"]
         kwargs["float_quant_format"] = f"e{exponent}m{mantissa}"
+    # Asymmetric MSE/HQO weights store the zero-point as a parameter-from-stats
+    # (reference MSEWeightZeroPoint / HQOWeightZeroPoint), independently of the
+    # scale. The builder otherwise mirrors zero_point_impl_type from
+    # scaling_impl_type, which is only correct here when the scale itself is
+    # parameter_from_stats; request the parameter-from-stats zero-point explicitly.
+    if combo["weight_quant_type"] == "asym" and combo["weight_param_method"] in ("mse", "hqo"):
+        kwargs["extra_kwargs"] = {"zero_point_impl_type": ZeroPointImplType.PARAMETER_FROM_STATS}
     return generate_weight_quantizer(**kwargs)
 
 
