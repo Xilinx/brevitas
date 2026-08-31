@@ -14,10 +14,19 @@ from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Type
+from typing import Union
 
+from brevitas.inject.enum import QuantType
+from brevitas.inject.enum import RestrictValueType
+from brevitas.inject.enum import ScalingImplType
+from brevitas.inject.enum import ScalingPerOutputType
 from brevitas_examples.common.quantizer_builder.core import Component
+from brevitas_examples.common.quantizer_builder.core import config_from_flat_args
 from brevitas_examples.common.quantizer_builder.core import Contribution
 from brevitas_examples.common.quantizer_builder.core import QuantizerConfig
+from brevitas_examples.common.quantizer_builder.mixins import FloatFormat
+from brevitas_examples.common.quantizer_builder.mixins import ParamMethod
+from brevitas_examples.common.quantizer_builder.mixins import QuantParamType
 
 
 class QuantizerBuilder(ABC):
@@ -76,3 +85,39 @@ class QuantizerBuilder(ABC):
         and (for ``@value`` functions) the args they require and resolve to."""
         from brevitas_examples.common.quantizer_builder.injector_utils import describe_injector
         describe_injector(self.build_quant_injector(), resolve=resolve)
+
+
+def build_quantizer(
+        builder_cls: Type[QuantizerBuilder],
+        quant_type: Union[str, QuantType],
+        *,
+        quant_param_type: QuantParamType = QuantParamType.SYM,
+        bit_width: int = 8,
+        scaling_impl_type: Optional[ScalingImplType] = ScalingImplType.STATS,
+        scaling_per_output_type: ScalingPerOutputType = ScalingPerOutputType.TENSOR,
+        restrict_scaling_type: RestrictValueType = RestrictValueType.FP,
+        scaling_min_val: Optional[float] = None,
+        scaling_param_method: ParamMethod = ParamMethod.STATS,
+        zero_point_param_method: Optional[ParamMethod] = None,
+        float_format: Optional[FloatFormat] = None,
+        float_quant_format: Optional[str] = None,
+        extra_components: Optional[List[Component]] = None,
+        kwargs: Optional[dict] = None) -> QuantizerBuilder:
+    """Assemble a :class:`QuantizerConfig` from the legacy flat quantizer arguments
+    and return an instance of ``builder_cls`` (e.g. :class:`WeightQuantizerBuilder`
+    / :class:`InputQuantizerBuilder`). ``extra_components`` are folded after the
+    builder's own components (see :class:`QuantizerBuilder`)."""
+    config = config_from_flat_args(
+        quant_type,
+        quant_param_type=quant_param_type,
+        bit_width=bit_width,
+        scaling_impl_type=scaling_impl_type,
+        scaling_per_output_type=scaling_per_output_type,
+        restrict_scaling_type=restrict_scaling_type,
+        scaling_min_val=scaling_min_val,
+        scaling_param_method=scaling_param_method,
+        zero_point_param_method=zero_point_param_method,
+        float_format=float_format,
+        float_quant_format=float_quant_format,
+        kwargs=kwargs)
+    return builder_cls(config, extra_components=extra_components)

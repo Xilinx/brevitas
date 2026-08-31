@@ -3,17 +3,11 @@ Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 Weight quantizer builder (v2): the concrete :class:`WeightQuantizerBuilder` with
-its ordered component list, plus the ``build_weight_quantizer`` factory shim that
-keeps the legacy ``(quant_type, **kwargs)`` signature.
+its ordered component list. Instantiate it via the shared
+``build_quantizer(WeightQuantizerBuilder, ...)`` factory (see :mod:`.builder`).
 """
 from typing import List
-from typing import Optional
-from typing import Union
 
-from brevitas.inject.enum import QuantType
-from brevitas.inject.enum import RestrictValueType
-from brevitas.inject.enum import ScalingImplType
-from brevitas.inject.enum import ScalingPerOutputType
 from brevitas_examples.common.quantizer_builder.builder import QuantizerBuilder
 from brevitas_examples.common.quantizer_builder.components import CommonComponent
 from brevitas_examples.common.quantizer_builder.components import FormatComponent
@@ -25,10 +19,6 @@ from brevitas_examples.common.quantizer_builder.components import WeightSolverCo
 from brevitas_examples.common.quantizer_builder.components import ZeroPointComponent
 from brevitas_examples.common.quantizer_builder.components import ZeroPointParamMethodComponent
 from brevitas_examples.common.quantizer_builder.core import Component
-from brevitas_examples.common.quantizer_builder.core import config_from_flat_args
-from brevitas_examples.common.quantizer_builder.mixins import FloatFormat
-from brevitas_examples.common.quantizer_builder.mixins import ParamMethod
-from brevitas_examples.common.quantizer_builder.mixins import QuantParamType
 
 
 class WeightQuantizerBuilder(QuantizerBuilder):
@@ -51,37 +41,3 @@ class WeightQuantizerBuilder(QuantizerBuilder):
             CommonComponent(),
             WeightSolverComponent(),
             WeightIntQuantComponent(),]
-
-
-def build_weight_quantizer(
-        quant_type: Union[str, QuantType],
-        *,
-        quant_param_type: QuantParamType = QuantParamType.SYM,
-        bit_width: int = 8,
-        scaling_impl_type: ScalingImplType = ScalingImplType.STATS,
-        scaling_per_output_type: ScalingPerOutputType = ScalingPerOutputType.TENSOR,
-        restrict_scaling_type: RestrictValueType = RestrictValueType.FP,
-        scaling_min_val: Optional[float] = None,
-        scaling_param_method: ParamMethod = ParamMethod.STATS,
-        zero_point_param_method: Optional[ParamMethod] = None,
-        float_format: Optional[FloatFormat] = None,
-        float_quant_format: Optional[str] = None,
-        extra_components: Optional[List[Component]] = None,
-        kwargs: Optional[dict] = None) -> WeightQuantizerBuilder:
-    """Assemble a :class:`QuantizerConfig` from the legacy flat arguments and
-    return a :class:`WeightQuantizerBuilder`. ``extra_components`` are folded after
-    the builder's own components (see :class:`QuantizerBuilder`)."""
-    config = config_from_flat_args(
-        quant_type,
-        quant_param_type=quant_param_type,
-        bit_width=bit_width,
-        scaling_impl_type=scaling_impl_type,
-        scaling_per_output_type=scaling_per_output_type,
-        restrict_scaling_type=restrict_scaling_type,
-        scaling_min_val=scaling_min_val,
-        scaling_param_method=scaling_param_method,
-        zero_point_param_method=zero_point_param_method,
-        float_format=float_format,
-        float_quant_format=float_quant_format,
-        kwargs=kwargs)
-    return WeightQuantizerBuilder(config, extra_components=extra_components)

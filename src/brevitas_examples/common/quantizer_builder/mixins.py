@@ -237,19 +237,21 @@ def parse_float_quant_format(float_quant_format: str) -> Tuple[int, int, int]:
 def scale_init_op(
     scaling_stats_op: EnumType[StatsOp] = None,
     restrict_scaling_type: EnumType[RestrictValueType] = None,
-) -> Optional[nn.Module]:
+) -> Optional[Type[nn.Module]]:
     return solve_stats_impl(scaling_stats_op, restrict_scaling_type)
 
 
 @value
-def zero_point_init_op(zero_point_stats_op: EnumType[StatsOp] = None,) -> Optional[nn.Module]:
+def zero_point_init_op(zero_point_stats_op: EnumType[StatsOp] = None,) -> Optional[Type[nn.Module]]:
     return solve_stats_impl(zero_point_stats_op)
 
 
 # TODO (pml): Consider merging the MSE and HQO sub-injector factories into a single
 # `_make_local_loss_injector`
-def _make_mse_injector(target: Target = Target.SCALE,
-                       overrides: Optional[Dict[str, Any]] = None) -> Type[ExtendedInjector]:
+def _make_mse_injector(
+    target: Target = Target.SCALE,
+    overrides: Optional[Dict[str, Any]] = None
+) -> Type[ExtendedInjector]:  # pyright: ignore[reportInvalidTypeForm]
     # The scale init op derives from scaling_stats_op (AbsMax / AbsMinMax / ...),
     # while the zero-point init op derives from zero_point_stats_op
     # (NegativeMinOrZero for asym quantizers). See the mse_init_op clash note.
@@ -273,7 +275,9 @@ def _make_mse_injector(target: Target = Target.SCALE,
     return type(f'MSE{target.capitalize()}Injector', (ExtendedInjector,), namespace)
 
 
-def _make_hqo_injector(target: Target = Target.SCALE) -> Type[ExtendedInjector]:
+def _make_hqo_injector(
+    target: Target = Target.SCALE
+) -> Type[ExtendedInjector]:  # pyright: ignore[reportInvalidTypeForm]
     HQOClass = HalfQuadraticOptimizerScale if target == Target.SCALE \
         else HalfQuadraticOptimizerZeroPoint
     # See the mse_init_op clash note: scale init op derives from scaling_stats_op,
