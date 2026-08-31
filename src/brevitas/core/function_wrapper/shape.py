@@ -219,6 +219,17 @@ def extract_groupwise_block(x: torch.Tensor, group_dim: int, group_size: int,
     return group, logical_group_size
 
 
+def select_groupwise_metadata(
+        value: torch.Tensor, group_dim: int, group_index: torch.Tensor) -> torch.Tensor:
+    """Select one compact groupwise metadata entry while preserving broadcast dimensions."""
+    if value.ndim == 0:
+        return value
+    group_dim = group_dim if group_dim >= 0 else group_dim + value.ndim - 1
+    if group_dim >= value.ndim:
+        raise RuntimeError("Groupwise metadata is incompatible with the requested group")
+    return value.narrow(group_dim, group_index, 1)
+
+
 class StatsInputViewShapeImpl(object):
     """
     Enum-like object to collect pointers to variants of ScriptModules that perform a view on a tensor.

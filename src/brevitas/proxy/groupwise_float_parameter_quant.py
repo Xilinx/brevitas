@@ -54,10 +54,13 @@ class GroupwiseWeightFloatQuantProxyFromInjector(WeightFloatQuantProxyFromInject
         start_dim = self.group_dim if self.group_dim >= 0 else self.group_dim - 1
         return x.flatten(start_dim, start_dim + 1)
 
+    def _region_components_ready(self):
+        return bool(getattr(self.tensor_quant.scaling_impl, 'init_done', True))
+
     def quantize_weight_group(self, weight: torch.Tensor,
                               group_index: int) -> Optional[torch.Tensor]:
-        if (not self.supports_quant_weight_region or not self.is_quant_enabled or
-                self.export_mode or self.training):
+        if (not self.supports_quant_weight_region or not self._region_components_ready() or
+                not self.is_quant_enabled or self.export_mode or self.training):
             return None
         if weight.ndim != 2 or self.group_dim != 1 or self.region_quant is None:
             return None
@@ -66,7 +69,8 @@ class GroupwiseWeightFloatQuantProxyFromInjector(WeightFloatQuantProxyFromInject
             return None
         group, logical_group_size = extract_groupwise_block(
             weight, self.group_dim, self.group_size, group_index)
-        quantized_group = self.region_quant(group)[0]
+        group_index_tensor = torch.tensor(group_index, device=weight.device)
+        quantized_group = self.region_quant(group, group_index_tensor, self.group_dim)[0]
         quantized_group = quantized_group.squeeze(self.group_dim)
         return quantized_group.narrow(self.group_dim, 0, logical_group_size)
 
