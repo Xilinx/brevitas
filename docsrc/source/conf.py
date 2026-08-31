@@ -16,8 +16,23 @@
 
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
+
+
+# nbsphinx renders notebook markdown cells through pandoc, which nbconvert locates on PATH.
+# The `pypandoc-binary` docs dependency ships a pandoc executable inside site-packages rather
+# than on PATH, so expose it here. A system-wide pandoc, if present, takes precedence.
+if shutil.which('pandoc') is None:
+    try:
+        import pypandoc
+    except ImportError:
+        pass
+    else:
+        bundled_pandoc_dir = Path(pypandoc.__file__).resolve().parent / 'files'
+        if (bundled_pandoc_dir / 'pandoc').is_file():
+            os.environ['PATH'] = os.pathsep.join((str(bundled_pandoc_dir), os.environ['PATH']))
 
 
 # sphinx-multiversion copies each selected ref to this source directory. Put that ref's `src/`
