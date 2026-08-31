@@ -46,9 +46,10 @@ class WBIOLConfig:
 def wbiol_config_st(draw):
     """Draw a WBIOL configuration.
 
-    Bit-widths are drawn unconstrained on purpose (see the NOTE below), so a drawn config is
-    no longer guaranteed exportable/valid: some constraints that used to live here are being
-    left to CI to confirm as genuinely required vs merely search-space-shrinking.
+    fp8/floor bit-widths are drawn unconstrained on purpose (see the NOTE below), so a drawn
+    config is not guaranteed exportable/valid: those constraints are being left to CI to confirm
+    as genuinely required vs merely search-space-shrinking. The dynamic-act 8-bit constraint has
+    already been confirmed required by CI and is enforced here.
     """
     names = list(WBIOL_QUANTIZERS)
     if torch_version < parse('2.1'):
@@ -66,14 +67,22 @@ def wbiol_config_st(draw):
 
     rounding_type = draw(st.sampled_from(['round', 'floor']))
 
-    # NOTE: bit-widths are drawn unconstrained on purpose. fp8/floor were previously forced to
-    # all-8 and dynamic act quant to 8-bit i/o (inherited from the old pytest_cases skips). We
-    # are deliberately letting CI determine which of those constraints are genuinely required
-    # and which only existed to shrink the search space - and to sanity-check that CI surfaces
-    # bad configs at all. Re-add whichever prove necessary.
-    o = draw(st.sampled_from(list(BIT_WIDTHS)))
-    w = draw(st.sampled_from(list(BIT_WIDTHS)))
-    i = draw(st.sampled_from(list(BIT_WIDTHS)))
+    # Dynamic act quant requires 8-bit input/output: the QCDQ exporter validates it via
+    # validate_8b_bit_width (src/brevitas/export/onnx/standard/qcdq/handler.py), which raised
+    # 'Bit width 2 is not supported, should be 8b.' on every matrix cell of CI run 33403653736
+    # once this was left unconstrained. Weight bit-width is not validated, so it stays free.
+    #
+    # NOTE: fp8/floor bit-widths are drawn unconstrained on purpose. They were previously forced
+    # to all-8 (inherited from the old pytest_cases skips); we are deliberately letting CI
+    # determine whether those constraints are genuinely required or only existed to shrink the
+    # search space. Re-add whichever prove necessary.
+    if is_dynamic:
+        o, i = 8, 8
+        w = draw(st.sampled_from(list(BIT_WIDTHS)))
+    else:
+        o = draw(st.sampled_from(list(BIT_WIDTHS)))
+        w = draw(st.sampled_from(list(BIT_WIDTHS)))
+        i = draw(st.sampled_from(list(BIT_WIDTHS)))
 
     exports = ['qcdq', 'qonnx']
     if torch_version >= parse('2.8'):

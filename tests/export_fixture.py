@@ -58,7 +58,11 @@ def qcdq_export_fn(export_fn):
 
 
 def rm_onnx(path):
-    os.remove(path)
+    try:
+        os.remove(path)
+    except OSError:
+        pass  # An export that raised may never have written the file; cleanup is best-effort
+        # and must not mask the underlying error.
     try:
         os.remove(f"{path}.data")
     except OSError:
