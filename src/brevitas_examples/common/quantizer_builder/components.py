@@ -131,11 +131,17 @@ class ParamMethodComponent(Component):
     """Template: select the MSE / HQO local-loss mixin for a :class:`Target` (scale
     or zero-point). Subclasses supply the target and the MSE / HQO mixin pair; the
     config field (``<prefix>_param_method``) is derived from the target. STATS /
-    None contributes nothing."""
+    None contributes nothing.
 
-    target: Target
-    mse_mixin: Type
-    hqo_mixin: Type
+    The target and mixins are stored as *instance* attributes (set in ``__init__``)
+    rather than class attributes so the brevitas injector classes are never probed
+    for ``__isabstractmethod__`` during ABCMeta class creation -- that access raises
+    a ``DependencyError`` on an ``ExtendedInjector``."""
+
+    def __init__(self, target: Target, mse_mixin: Type, hqo_mixin: Type) -> None:
+        self.target = target
+        self.mse_mixin = mse_mixin
+        self.hqo_mixin = hqo_mixin
 
     def _param_method(self, config: QuantizerConfig) -> Optional[ParamMethod]:
         return getattr(config, f"{self.target.prefix}_param_method")
@@ -159,18 +165,16 @@ class ParamMethodComponent(Component):
 class ScaleParamMethodComponent(ParamMethodComponent):
     """Scale parameter method: MSE / HQO local-loss injectors (STATS = nothing)."""
 
-    target = Target.SCALE
-    mse_mixin = MSEScaleInjectorMixin
-    hqo_mixin = HQOScaleInjectorMixin
+    def __init__(self) -> None:
+        super().__init__(Target.SCALE, MSEScaleInjectorMixin, HQOScaleInjectorMixin)
 
 
 class ZeroPointParamMethodComponent(ParamMethodComponent):
     """Zero-point parameter method: MSE / HQO local-loss injectors (only relevant
     for asymmetric quantizers; None = nothing)."""
 
-    target = Target.ZERO_POINT
-    mse_mixin = MSEZeroPointInjectorMixin
-    hqo_mixin = HQOZeroPointInjectorMixin
+    def __init__(self) -> None:
+        super().__init__(Target.ZERO_POINT, MSEZeroPointInjectorMixin, HQOZeroPointInjectorMixin)
 
 
 class ScaleRestrictComponent(Component):

@@ -15,11 +15,12 @@ from brevitas.inject.enum import QuantType
 from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
-from brevitas_examples.common.quantizer_builder.input import build_input_quantizer
+from brevitas_examples.common.quantizer_builder.builder import build_quantizer
+from brevitas_examples.common.quantizer_builder.input import InputQuantizerBuilder
 from brevitas_examples.common.quantizer_builder.mixins import FloatFormat
 from brevitas_examples.common.quantizer_builder.mixins import ParamMethod
 from brevitas_examples.common.quantizer_builder.mixins import QuantParamType
-from brevitas_examples.common.quantizer_builder.weight import build_weight_quantizer
+from brevitas_examples.common.quantizer_builder.weight import WeightQuantizerBuilder
 
 BIT_WIDTH = 8
 GROUP_SIZE = 8
@@ -98,11 +99,11 @@ def _header(title: str) -> None:
 def main() -> None:
     for name, builder_args in WEIGHT_SPECS.items():
         _header(f"[weight] {name}")
-        build_weight_quantizer(**builder_args).describe_quantizer()
+        build_quantizer(WeightQuantizerBuilder, **builder_args).describe_quantizer()
 
     for name, builder_args in INPUT_SPECS.items():
         _header(f"[input] {name}")
-        build_input_quantizer(**builder_args).describe_quantizer()
+        build_quantizer(InputQuantizerBuilder, **builder_args).describe_quantizer()
 
 
 if __name__ == "__main__":

@@ -8,10 +8,11 @@ Lean, enum-driven quantizer generation built on top of the
 This is a leaner take on ``brevitas_examples.common.generative.quantize.
 generate_quantizers``: instead of indexing the static ``WEIGHT_QUANT_MAP`` /
 ``INPUT_QUANT_MAP`` tables and threading string keys around, the injectors are
-assembled directly from their quantization axes via ``build_weight_quantizer`` /
-``build_input_quantizer``. The two concerns are split into two functions --
-:func:`generate_weight_quantizer` and :func:`generate_input_quantizers` -- and
-every argument is a brevitas / builder enum rather than a string.
+assembled directly from their quantization axes via
+``build_quantizer(WeightQuantizerBuilder / InputQuantizerBuilder, ...)``. The two
+concerns are split into two functions -- :func:`generate_weight_quantizer` and
+:func:`generate_input_quantizers` -- and every argument is a brevitas / builder
+enum rather than a string.
 
 Only genuinely *layer-supplied* attributes (per-row / per-group broadcast and
 reduce dims, group sizes, attention permute dims) are still applied here via
@@ -27,12 +28,13 @@ from brevitas.inject.enum import QuantType
 from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
-from brevitas_examples.common.quantizer_builder import build_input_quantizer
-from brevitas_examples.common.quantizer_builder import build_weight_quantizer
+from brevitas_examples.common.quantizer_builder import build_quantizer
 from brevitas_examples.common.quantizer_builder import Component
 from brevitas_examples.common.quantizer_builder import FloatFormat
+from brevitas_examples.common.quantizer_builder import InputQuantizerBuilder
 from brevitas_examples.common.quantizer_builder import ParamMethod
 from brevitas_examples.common.quantizer_builder import QuantParamType
+from brevitas_examples.common.quantizer_builder import WeightQuantizerBuilder
 
 # Runtime, layer-supplied per-row overrides for an input/activation quantizer
 # hosted by a linear/conv layer (the layer supplies the reduce/broadcast dims).
@@ -110,7 +112,8 @@ def generate_weight_quantizer(
         elif param_method == ParamMethod.MSE:
             zero_point_param_method = ParamMethod.MSE
 
-    return build_weight_quantizer(
+    return build_quantizer(
+        WeightQuantizerBuilder,
         quant_type,
         quant_param_type=quant_param_type,
         bit_width=bit_width,
@@ -145,7 +148,8 @@ def _build_input_quant(
     if extra_kwargs:
         kwargs.update(extra_kwargs)
 
-    return build_input_quantizer(
+    return build_quantizer(
+        InputQuantizerBuilder,
         quant_type,
         quant_param_type=quant_param_type,
         scaling_impl_type=scaling_impl_type,

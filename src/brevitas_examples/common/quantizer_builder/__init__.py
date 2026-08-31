@@ -9,10 +9,12 @@ Assembles brevitas quantizer injectors from orthogonal quantization axes
 Component design, reproducing the entries of ``WEIGHT_QUANT_MAP`` /
 ``INPUT_QUANT_MAP`` without the static lookup tables.
 
-Public entry points are the ``build_weight_quantizer`` / ``build_input_quantizer``
-factory shims; the remaining exports (config, enums, base classes) support
-customisation via ``extra_components``.
+The public entry point is the ``build_quantizer(builder_cls, ...)`` factory (with
+``builder_cls`` being :class:`WeightQuantizerBuilder` / :class:`InputQuantizerBuilder`);
+the remaining exports (config, enums, base classes) support customisation via
+``extra_components``.
 """
+from brevitas_examples.common.quantizer_builder.builder import build_quantizer
 from brevitas_examples.common.quantizer_builder.builder import QuantizerBuilder
 from brevitas_examples.common.quantizer_builder.core import Component
 from brevitas_examples.common.quantizer_builder.core import config_from_flat_args
@@ -21,21 +23,18 @@ from brevitas_examples.common.quantizer_builder.core import FloatFormatConfig
 from brevitas_examples.common.quantizer_builder.core import FormatConfig
 from brevitas_examples.common.quantizer_builder.core import IntFormatConfig
 from brevitas_examples.common.quantizer_builder.core import QuantizerConfig
-from brevitas_examples.common.quantizer_builder.input import build_input_quantizer
 from brevitas_examples.common.quantizer_builder.input import InputQuantizerBuilder
 from brevitas_examples.common.quantizer_builder.mixins import FloatFormat
 from brevitas_examples.common.quantizer_builder.mixins import ParamMethod
 from brevitas_examples.common.quantizer_builder.mixins import QuantParamType
 from brevitas_examples.common.quantizer_builder.mixins import ZeroPointImplType
-from brevitas_examples.common.quantizer_builder.weight import build_weight_quantizer
 from brevitas_examples.common.quantizer_builder.weight import WeightQuantizerBuilder
 
 __all__ = [
     "QuantizerBuilder",
     "WeightQuantizerBuilder",
     "InputQuantizerBuilder",
-    "build_weight_quantizer",
-    "build_input_quantizer",
+    "build_quantizer",
     "config_from_flat_args",
     "QuantizerConfig",
     "IntFormatConfig",
