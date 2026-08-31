@@ -42,6 +42,8 @@ setup(
         "stt": read_requirements('requirements-stt.txt'),
         "llm": read_requirements('requirements-llm.txt'),
         "lighteval": read_requirements('requirements-lighteval.txt'),
+        "vllm_eval_lm_eval": read_requirements('requirements-vllm-eval-lm-eval.txt'),
+        "vllm_eval_lighteval": read_requirements('requirements-vllm-eval-lighteval.txt'),
         "diffusion": read_requirements('requirements-diffusion.txt'),
         "vision": read_requirements('requirements-vision.txt'),
         "finn_integration": read_requirements('requirements-finn-integration.txt'),
@@ -59,4 +61,5 @@ setup(
             'brevitas_quartznet_preprocess = brevitas_examples.speech_to_text.get_librispeech_data:main',
             'brevitas_melgan_preprocess = brevitas_examples.text_to_speech.preprocess_dataset:main',
             'brevitas_ptq_imagenet_val = brevitas_examples.imagenet_classification.ptq.ptq_evaluate:main',
-            'brevitas_ptq_llm = brevitas_examples.llm.main:main'],})
+            'brevitas_ptq_llm = brevitas_examples.llm.main:main',
+            'brevitas_vllm_eval = brevitas_examples.llm.eval_vllm:main'],})
