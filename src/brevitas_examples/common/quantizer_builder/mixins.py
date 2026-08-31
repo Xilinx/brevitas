@@ -12,7 +12,6 @@ the base of the builder package.
 from enum import auto
 import re
 from typing import Any
-from typing import Callable
 from typing import Dict
 from typing import Optional
 from typing import Tuple
@@ -247,59 +246,50 @@ def zero_point_init_op(zero_point_stats_op: EnumType[StatsOp] = None,) -> Option
     return solve_stats_impl(zero_point_stats_op)
 
 
+# TODO (pml): Consider merging the MSE and HQO sub-injector factories into a single
+# `_make_local_loss_injector`
 def _make_mse_injector(target: Target = Target.SCALE,
                        overrides: Optional[Dict[str, Any]] = None) -> Type[ExtendedInjector]:
+    # The scale init op derives from scaling_stats_op (AbsMax / AbsMinMax / ...),
+    # while the zero-point init op derives from zero_point_stats_op
+    # (NegativeMinOrZero for asym quantizers). See the mse_init_op clash note.
+    init_op = scale_init_op if target == Target.SCALE else zero_point_init_op
+    init_op_name = f"{target.prefix}_mse_init_op"
     MSESubInjector = type(
         f'MSE{target.capitalize()}SubInjector', (MSESubInjectorMixin,), {
-            "mse_init_op": getattr(this << 1, f"{target.prefix}_mse_init_op"),})
-
-    def _make_scaling_init_op() -> Callable:
-        # The scale init op derives from scaling_stats_op (AbsMax / AbsMinMax /
-        # ...), while the zero-point init op derives from zero_point_stats_op
-        # (NegativeMinOrZero for asym quantizers). See the mse_init_op clash note.
-        init_op = scale_init_op if target == Target.SCALE else zero_point_init_op
-        init_op.__name__ = f"{target.prefix}_mse_init_op"
-        return init_op
+            "mse_init_op": getattr(this << 1, init_op_name),})
 
     namespace = {
         f"mse_{target}": MSESubInjector,
-        f"{target.prefix}_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
         f"{target.prefix}_stats_input_view_shape_impl": nn.Identity(),
         f"{target.prefix}_stats_impl": getattr(this, f"mse_{target}").stats_impl,
-        f"{target.prefix}_mse_init_op": _make_scaling_init_op(),
+        init_op_name: init_op,
         "inner_stats_input_view_shape_impl": inner_stats_input_view_shape_impl,}
 
     # Caller can override any of the default namespace entries
     if overrides is not None:
         namespace.update(overrides)
 
-    mse_injector = type(f'MSE{target.capitalize()}Injector', (ExtendedInjector,), namespace)
-    return mse_injector
+    return type(f'MSE{target.capitalize()}Injector', (ExtendedInjector,), namespace)
 
 
 def _make_hqo_injector(target: Target = Target.SCALE) -> Type[ExtendedInjector]:
-    if target == Target.SCALE:
-        HQOClass = HalfQuadraticOptimizerScale
-    elif target == Target.ZERO_POINT:
-        HQOClass = HalfQuadraticOptimizerZeroPoint
-
-    def _make_init_op() -> Callable:
-        # The scale init op derives from scaling_stats_op (AbsMax / AbsMinMax /
-        # ...), while the zero-point init op derives from zero_point_stats_op
-        # (NegativeMinOrZero for asym quantizers). See the mse_init_op clash note.
-        init_op = scale_init_op if target == Target.SCALE else zero_point_init_op
-        init_op.__name__ = f"hqo_init_op_{target.suffix}"
-        return init_op
+    HQOClass = HalfQuadraticOptimizerScale if target == Target.SCALE \
+        else HalfQuadraticOptimizerZeroPoint
+    # See the mse_init_op clash note: scale init op derives from scaling_stats_op,
+    # zero-point init op from zero_point_stats_op.
+    init_op = scale_init_op if target == Target.SCALE else zero_point_init_op
 
     namespace = {
-        f"hqo_{target}": HQOClass,
-        f"{target.prefix}_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
-        f"{target.prefix}_stats_impl": getattr(this, f"hqo_{target}"),
-        f"hqo_init_op_{target.suffix}": _make_init_op(),
-        "inner_stats_input_view_shape_impl": getattr(
-            this, f"{target.prefix}_stats_input_view_shape_impl"),}
-    hqo_injector = type(f'HQO{target.capitalize()}Injector', (ExtendedInjector,), namespace)
-    return hqo_injector
+        f"hqo_{target}":
+            HQOClass,
+        f"{target.prefix}_stats_impl":
+            getattr(this, f"hqo_{target}"),
+        f"hqo_init_op_{target.suffix}":
+            init_op,
+        "inner_stats_input_view_shape_impl":
+            getattr(this, f"{target.prefix}_stats_input_view_shape_impl"),}
+    return type(f'HQO{target.capitalize()}Injector', (ExtendedInjector,), namespace)
 
 
 # The init op is derived at the parent injector level from the requested enums
