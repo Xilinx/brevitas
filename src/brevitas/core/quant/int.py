@@ -158,6 +158,19 @@ class RescalingIntQuant(brevitas.jit.ScriptModule):
         bit_width = self.msb_clamp_bit_width_impl()
         int_threshold = self.int_scaling_impl(bit_width)
         scale = self.scaling_impl(x, int_threshold)
+        return self.forward_with_scale(x, scale, bit_width)
+
+    @brevitas.jit.ignore
+    def forward_group(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+        """Quantize an already-expanded physical group through the canonical integer path."""
+        bit_width = self.msb_clamp_bit_width_impl()
+        int_threshold = self.int_scaling_impl(bit_width)
+        scale = self.scaling_impl.forward_group(x, int_threshold)
+        return self.forward_with_scale(x, scale, bit_width)
+
+    @brevitas.jit.script_method
+    def forward_with_scale(self, x: Tensor, scale: Tensor,
+                           bit_width: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         zero_point = self.zero_point_impl(x, scale, bit_width)
         if self.observer_only:
             y = x

@@ -35,6 +35,8 @@ __all__ = [
 
 class ZeroZeroPoint(brevitas.jit.ScriptModule):
 
+    supports_groupwise_region = True
+
     def __init__(
             self,
             dtype: Optional[torch.dtype] = None,

@@ -181,7 +181,7 @@ class GPFQ(GPxQ):
         del self.H, self.G  # memory management
 
         for t in range(weight.shape[-1]):
-            q_groups = self.get_quant_weights(t, 0, permutation_list, with_quant_history=True)
+            q_groups = self.get_quant_weight_history(t, permutation_list)
             for group_index in range(self.groups):
                 # t := time step (Lg, Lh, and Ds are re-ordered in time)
                 # i := input channel index (weight and error are not re-ordered)

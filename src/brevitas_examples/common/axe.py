@@ -376,7 +376,7 @@ class A2GPTQ(AXEMixin, GPTQ):
                         q_arg.abs() - thresholds[group_index, block_index])
                     q_arg.clamp_(q_min, q_max)  # clamping to bounds
                     weight[group_index, :, perm[i1:i2][i]] = q_arg.to(dtype)
-                q_groups = self.get_quant_weights(i, i1, permutation_list)  # [Groups, OC/groups]
+                q_groups = self.get_quant_weight(i, i1, permutation_list)  # [Groups, OC/groups]
                 for group_index in range(self.groups):
                     perm = permutation_list[group_index]
                     q = q_groups[group_index].to(self.dtype)  # [OC/groups]
@@ -533,7 +533,7 @@ class A2GPFQ(AXEMixin, GPFQ):
         max_limits = ((2 ** (self.max_accumulator_bit_width.to(lim_dtype) - 1)) - 1)
 
         for t in range(weight.shape[-1]):
-            q_groups = self.get_quant_weights(t, 0, permutation_list, with_quant_history=True)
+            q_groups = self.get_quant_weight_history(t, permutation_list)
             for group_index in range(self.groups):
                 # t := time step (Lg, Lh, and Ds are re-ordered in time)
                 # i := input channel index (weight and error are not re-ordered)
@@ -565,7 +565,7 @@ class A2GPFQ(AXEMixin, GPFQ):
                 weight[group_index, :, i] = q_arg.to(dtype)
 
             # update the tracking mechanisms
-            q_groups = self.get_quant_weights(t, 0, permutation_list)  # [Groups, OC/groups]
+            q_groups = self.get_quant_weight(t, 0, permutation_list)  # [Groups, OC/groups]
             for group_index in range(self.groups):
                 i = permutation_list[group_index][t]
                 block_index = get_block_index(i)  # block index

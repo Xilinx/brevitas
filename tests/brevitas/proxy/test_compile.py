@@ -12,7 +12,9 @@ import torch
 
 from brevitas import torch_version
 from brevitas.export.inference import quant_inference_mode
+from brevitas.graph.gptq import gptq_mode
 import brevitas.nn as qnn
+from brevitas.nn.mixin import WeightRegion
 from brevitas.quant import Int8ActPerTensorFloat
 from brevitas.quant import Int8WeightPerTensorFloat
 from brevitas.quant import ShiftedUint8ActPerTensorFloat
@@ -25,6 +27,8 @@ from brevitas.quant.mx_quant_ocp import MXInt8Act
 from brevitas.quant.mx_quant_ocp import MXInt8Weight
 from brevitas_examples.common.generative.quantize import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import FP8e4m3OCPDynamicActPerRowFloat
+from brevitas_examples.common.generative.quantizers import Fp8e4m3WeightSymmetricGroupQuant
+from brevitas_examples.common.generative.quantizers import IntWeightSymmetricGroupQuant
 from tests.brevitas.hyp_helper import float_tensor_st
 from tests.marker import jit_disabled_for_compile
 from tests.marker import requires_pt_ge
@@ -82,6 +86,76 @@ def test_compile_weight(weight, weight_quantizer):
         inference_out = linear.quant_weight()
     assert torch.allclose(out, quant_out)
     assert torch.allclose(out, inference_out)
+
+
+@pytest.mark.parametrize(
+    'weight_quantizer',
+    [
+        MXInt8Weight,
+        MXFloat8e4m3Weight,
+        IntWeightSymmetricGroupQuant.let(group_size=32),
+        Fp8e4m3WeightSymmetricGroupQuant.let(group_size=32)])
+@requires_pt_ge('2.3.1')
+@requires_torch_compile()
+@jit_disabled_for_compile()
+def test_compile_groupwise_weight_region(monkeypatch, weight_quantizer):
+    if platform.system() == "Windows":
+        pytest.skip("Skip compile + windows because of unknown failure")
+    if version.parse('2.5.0') <= torch_version < version.parse('2.8.0'):
+        pytest.skip("Unknown compile error on torch versions above 2.5")
+
+    linear = qnn.QuantLinear(33, 8, bias=False, weight_quant=weight_quantizer)
+    linear.eval()
+    linear(torch.randn(2, 33))
+    region = WeightRegion((None, (32, 33)))
+    expected = linear.quant_weight_region(region)
+
+    linear.weight_quant.compile_quant()
+
+    def fail_full_quantization(*args, **kwargs):
+        raise AssertionError("Compiled region request fell back to full-weight quantization")
+
+    monkeypatch.setattr(linear, 'quant_weight', fail_full_quantization)
+    actual = linear.quant_weight_region(region)
+
+    assert linear.weight_quant.supports_quant_weight_region
+    assert linear.weight_quant.is_region_quant_compiled
+    assert torch.allclose(expected, actual)
+
+
+@pytest.mark.parametrize(
+    'weight_quantizer',
+    [
+        MXInt8Weight,
+        MXFloat8e4m3Weight,
+        IntWeightSymmetricGroupQuant.let(group_size=32),
+        Fp8e4m3WeightSymmetricGroupQuant.let(group_size=32)])
+@requires_pt_ge('2.3.1')
+@requires_torch_compile()
+@jit_disabled_for_compile()
+def test_gptq_with_compiled_groupwise_weight_region(monkeypatch, weight_quantizer):
+    if platform.system() == "Windows":
+        pytest.skip("Skip compile + windows because of unknown failure")
+    if version.parse('2.5.0') <= torch_version < version.parse('2.8.0'):
+        pytest.skip("Unknown compile error on torch versions above 2.5")
+
+    model = qnn.QuantLinear(33, 8, bias=False, weight_quant=weight_quantizer)
+    model.eval()
+    inp = torch.randn(4, 33)
+    model(inp)
+    model.weight_quant.compile_quant()
+
+    with gptq_mode(model, act_order=True, num_blocks=4) as gptq:
+        gptq.model(inp)
+
+        def fail_full_quantization(*args, **kwargs):
+            raise AssertionError("Compiled GPTQ update fell back to full-weight quantization")
+
+        monkeypatch.setattr(model, 'quant_weight', fail_full_quantization)
+        gptq.update()
+
+    assert model.weight_quant.is_region_quant_compiled
+    assert torch.isfinite(model.weight).all()
 
 
 @pytest_cases.parametrize('act_quantizer', ACT_QUANTIZERS.items())
