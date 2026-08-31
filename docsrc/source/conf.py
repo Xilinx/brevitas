@@ -16,48 +16,24 @@
 
 import os
 from pathlib import Path
-import shutil
 import subprocess
 import sys
 
+import pypandoc
 
-# The pandoc version bundled by the pinned `pypandoc-binary` release. Notebook markdown cells are
-# rendered by pandoc, and its HTML output changes between releases, so a mismatch here means the
-# generated documentation no longer matches what is committed under `docs/`.
+
+# nbsphinx renders notebook markdown cells with pandoc, which nbconvert looks up on PATH.
+# `pypandoc-binary` ships a pinned pandoc inside site-packages, so put it first: a system pandoc
+# would be a different version and would silently change the generated HTML.
+pandoc_dir = Path(pypandoc.__file__).resolve().parent / 'files'
+os.environ['PATH'] = os.pathsep.join((str(pandoc_dir), os.environ['PATH']))
+
+# Keep in sync with the `pypandoc-binary` pin in requirements/requirements-docs.txt.
 EXPECTED_PANDOC_VERSION = '3.9'
-
-# nbsphinx renders notebook markdown cells through pandoc, which nbconvert resolves by calling
-# `shutil.which('pandoc')` and then running it as a bare `pandoc`. Prepending the executable
-# bundled by `pypandoc-binary` to PATH is therefore the only way to select it. An unpinned system
-# pandoc is deliberately ignored: it is a different version and silently changes the output.
-try:
-    import pypandoc
-except ImportError as exc:
-    raise RuntimeError(
-        "Building the documentation requires the `pypandoc-binary` package, which bundles a "
-        "pinned pandoc executable. Install the documentation dependencies with "
-        "`pip install -e .[docs]`.") from exc
-
-bundled_pandoc_dir = Path(pypandoc.__file__).resolve().parent / 'files'
-# `shutil.which` honours PATHEXT on Windows and checks the executable bit on POSIX.
-bundled_pandoc = shutil.which('pandoc', path=str(bundled_pandoc_dir))
-if bundled_pandoc is None:
-    raise RuntimeError(
-        f"No usable pandoc executable was found in {bundled_pandoc_dir}. This usually means plain "
-        "`pypandoc` is installed instead of `pypandoc-binary`; reinstall the documentation "
-        "dependencies with `pip install -e .[docs]`.")
-os.environ['PATH'] = os.pathsep.join((str(bundled_pandoc_dir), os.environ.get('PATH', '')))
-
-bundled_pandoc_version = subprocess.run([bundled_pandoc, '--version'],
-                                        capture_output=True,
-                                        text=True,
-                                        check=True).stdout.split()[1]
-if bundled_pandoc_version != EXPECTED_PANDOC_VERSION:
-    raise RuntimeError(
-        f"Expected pandoc {EXPECTED_PANDOC_VERSION} but {bundled_pandoc} reports "
-        f"{bundled_pandoc_version}. pandoc renders notebook markdown cells and its output changes "
-        "between releases, so update the `pypandoc-binary` pin in requirements/requirements-docs."
-        "txt and EXPECTED_PANDOC_VERSION together, then rebuild and review the diff under `docs/`.")
+pandoc_version = subprocess.run(['pandoc', '--version'], capture_output=True, text=True,
+                                check=True).stdout.split()[1]
+if pandoc_version != EXPECTED_PANDOC_VERSION:
+    raise RuntimeError(f"Expected pandoc {EXPECTED_PANDOC_VERSION}, found {pandoc_version}")
 
 
 # sphinx-multiversion copies each selected ref to this source directory. Put that ref's `src/`
