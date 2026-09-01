@@ -195,6 +195,10 @@ class ScaleComponent(Component):
             attrs={
                 "scaling_impl_type": config.scaling_impl_type,
                 "scaling_per_output_type": config.scaling_granularity,
+                "scaling_stats_op": (
+                    _sym_scaling_stats_op(config, StatsOp.MAX)
+                    if config.is_sym else StatsOp.MIN_MAX
+                )
             })
 
 
@@ -244,8 +248,7 @@ class ZeroPointComponent(Component):
     def build_sym(self, config: QuantizerConfig) -> Contribution:
         return Contribution(
             attrs={
-                "zero_point_impl": ZeroZeroPoint,
-                "scaling_stats_op": _sym_scaling_stats_op(config, StatsOp.MAX)})
+                "zero_point_impl": ZeroZeroPoint})
 
     def build_asym(self, config: QuantizerConfig) -> Contribution:
         return Contribution(
