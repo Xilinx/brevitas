@@ -195,7 +195,8 @@ def tests_brevitas_examples_llm_lm_eval(session, pytorch, jit_status):
 
     # lm_eval >= 0.4.10 required for transformers >= 5.0.
     session.install('-e', '.[test, llm, export]', *cmd, 'lm_eval>=0.4.10')
-    session.run('pytest', '-n', 'logical', '-m', 'few_shot', 'tests/brevitas_examples/llm/test_llm.py')
+    session.run(
+        'pytest', '-n', 'logical', '-m', 'few_shot', 'tests/brevitas_examples/llm/test_llm.py')
 
 
 @nox.session(python=PYTHON_VERSIONS)
