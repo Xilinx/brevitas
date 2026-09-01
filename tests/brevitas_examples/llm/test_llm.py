@@ -31,13 +31,13 @@ from brevitas.utils.python_utils import Registry
 from brevitas_examples.common.generative.quantizers import BaseQuantizer
 from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
 from brevitas_examples.llm.llm_args import create_args_parser
+from brevitas_examples.llm.llm_args import dynamo_required
 from brevitas_examples.llm.llm_quant.ln_affine_merge import rmsnorm_patch
 from brevitas_examples.llm.llm_quant.parse_utils import parse_custom_trainer
 from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
 from brevitas_examples.llm.llm_quant.trainer_utils import _build_optimizers_from_configs
 from brevitas_examples.llm.llm_quant.trainer_utils import GeneralizedTrainer
 from brevitas_examples.llm.llm_quant.trainer_utils import TRAINER_REGISTRY
-from brevitas_examples.llm.main import fx_required
 from brevitas_examples.llm.main import main as llm_main
 from brevitas_examples.llm.main import quantize_llm
 from tests.brevitas_examples.common import assert_layer_types
@@ -117,12 +117,12 @@ def validate_args(parser: ArgumentParser, args: Namespace) -> None:
             f"OPT-style model {args.model} not support with learned_round={args.learned_round} with block module named {args.gpxq_block_name}"
         )
 
-    use_fx = fx_required(args) or args.rotation == 'fused_no_fx'
-    #if use_fx and not model_with_ppl.supports_fx:
+    use_dynamo = dynamo_required(args)
+    #if use_dynamo and not model_with_ppl.supports_fx:
     #    pytest.xfail(f"{model_with_ppl.name} does not support FX")
     if args.input_scale_type == 'dynamic' and config.JIT_ENABLED:
         pytest.skip("Dynamic activation not compatible with JIT")
-    if platform.system() == 'Windows' and use_fx:
+    if platform.system() == 'Windows' and use_dynamo:
         pytest.skip("Skipping dynamo + Windows")
 
     if args.weight_param_method == 'hqo' and config.JIT_ENABLED:
@@ -145,11 +145,12 @@ def main(parser) -> Callable:
             # Validate the arguments before running the entrypoint
             validate_args(parser, args)
 
-            # torch < 2.7 + transformers >= 5.0: FX export is unsupported (see dynamo_export_ctx).
+            # torch < 2.7 + transformers >= 5.0: Dynamo export is unsupported.
             # Assert the guard fires, then skip.
-            use_fx = fx_required(args) or args.rotation == 'fused_no_fx'
+            use_dynamo = dynamo_required(args)
             tr_ver = version.parse(transformers.__version__)
-            if use_fx and torch_version < version.parse("2.7") and tr_ver >= version.parse("5.0"):
+            if use_dynamo and torch_version < version.parse("2.7") and tr_ver >= version.parse(
+                    "5.0"):
                 with pytest.raises(RuntimeError, match="FX-based quantization.*is not supported"):
                     quantize_llm(args, extra_args=extra_args)
                 pytest.skip(
@@ -420,9 +421,9 @@ def test_small_models_quant_layer_hyperparam(caplog, layer_args_hyperparam, main
     caplog.set_level(logging.INFO)
     args, _, _ = layer_args_hyperparam
 
-    use_fx = fx_required(args) or args.rotation == 'fused_no_fx'
+    use_dynamo = dynamo_required(args)
 
-    if platform.system() == 'Windows' and use_fx:
+    if platform.system() == 'Windows' and use_dynamo:
         pytest.skip("Skipping dynamo + Windows")
 
     _, model = main(args)

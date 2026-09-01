@@ -535,6 +535,10 @@ def fx_required(args: Namespace):
     return args.weight_equalization or args.act_equalization == 'fx' or args.rotation == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or args.quant_sdpa == 'fx'
 
 
+def dynamo_required(args: Namespace):
+    return fx_required(args) or args.rotation == 'fused_no_fx' or args.permute_fn is not None
+
+
 def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
     # --optimize-rotations is a deprecated alias for --fine-tune
     if args.optimize_rotations:
