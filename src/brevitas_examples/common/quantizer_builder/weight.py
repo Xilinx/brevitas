@@ -12,11 +12,9 @@ from brevitas_examples.common.quantizer_builder.builder import QuantizerBuilder
 from brevitas_examples.common.quantizer_builder.components import CommonComponent
 from brevitas_examples.common.quantizer_builder.components import FormatComponent
 from brevitas_examples.common.quantizer_builder.components import ScaleComponent
-from brevitas_examples.common.quantizer_builder.components import ScaleParamMethodComponent
 from brevitas_examples.common.quantizer_builder.components import ScaleRestrictComponent
 from brevitas_examples.common.quantizer_builder.components import WeightSolverComponent
 from brevitas_examples.common.quantizer_builder.components import ZeroPointComponent
-from brevitas_examples.common.quantizer_builder.components import ZeroPointParamMethodComponent
 from brevitas_examples.common.quantizer_builder.core import Component
 
 
@@ -31,11 +29,9 @@ class WeightQuantizerBuilder(QuantizerBuilder):
 
     def base_components(self) -> List[Component]:
         return [
-            ZeroPointParamMethodComponent(),
-            ScaleParamMethodComponent(),
-            FormatComponent(),
             ScaleComponent(),
-            ScaleRestrictComponent(),
             ZeroPointComponent(),
+            FormatComponent(),
+            ScaleRestrictComponent(),
             CommonComponent(),
             WeightSolverComponent(),]
