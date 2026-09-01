@@ -96,14 +96,25 @@ def _header(title: str) -> None:
     print("=" * 80)
 
 
+def _build(builder_cls, builder_args: dict):
+    # scaling_min_val / narrow_range are not explicit build_quantizer args; route
+    # them through the injector kwargs (config.extra).
+    builder_args = dict(builder_args)
+    kwargs = dict(builder_args.pop("kwargs", None) or {})
+    for key in ("scaling_min_val", "narrow_range"):
+        if key in builder_args:
+            kwargs[key] = builder_args.pop(key)
+    return build_quantizer(builder_cls, **builder_args, kwargs=kwargs)
+
+
 def main() -> None:
     for name, builder_args in WEIGHT_SPECS.items():
         _header(f"[weight] {name}")
-        build_quantizer(WeightQuantizerBuilder, **builder_args).describe_quantizer()
+        _build(WeightQuantizerBuilder, builder_args).describe_quantizer()
 
     for name, builder_args in INPUT_SPECS.items():
         _header(f"[input] {name}")
-        build_quantizer(InputQuantizerBuilder, **builder_args).describe_quantizer()
+        _build(InputQuantizerBuilder, builder_args).describe_quantizer()
 
 
 if __name__ == "__main__":

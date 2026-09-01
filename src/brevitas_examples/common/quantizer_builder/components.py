@@ -84,8 +84,7 @@ class CommonComponent(Component):
                 "bit_width_impl_type": BitWidthImplType.CONST,
                 "float_to_int_impl_type": FloatToIntImplType.ROUND,
                 "scaling_per_output_type": config.scaling_granularity,
-                "restrict_scaling_type": config.restrict_scaling_type,
-                "scaling_min_val": config.scaling_min_val,})
+                "restrict_scaling_type": config.restrict_scaling_type,})
 
 
 class FormatComponent(Component):
@@ -98,7 +97,11 @@ class FormatComponent(Component):
         return Contribution(
             attrs={
                 "quant_type": QuantType.INT,
-                "bit_width": config.format.bit_width,})
+                "bit_width": config.format.bit_width,
+                "signed": config.is_sym,
+                "narrow_range": config.is_sym and (config.format.narrow_range
+                    if config.format.narrow_range is not None else True),
+            })
 
     def build_float(self, config: QuantizerConfig) -> Contribution:
         exponent_bit_width, mantissa_bit_width, bit_width = parse_float_quant_format(
@@ -198,7 +201,6 @@ class ScaleRestrictComponent(Component):
             attrs={"restrict_value_float_to_int_impl": solve_float_to_int_impl_from_enum(rounding)},
             bases=bases)
 
-
 class ZeroPointComponent(Component):
     """Generic zero-point wiring, used by the weight builder. Symmetric quantizers
     get a fixed zero zero-point (and the max-abs scale stats op); asymmetric
@@ -217,7 +219,12 @@ class ZeroPointComponent(Component):
                 "scaling_stats_op": _sym_scaling_stats_op(config, StatsOp.MAX)})
 
     def build_asym(self, config: QuantizerConfig) -> Contribution:
-        return Contribution(bases=(AsymmetricZeroPointMixin,))
+        return Contribution(
+            attrs={
+                "quantize_zero_point": True,
+            },
+            bases=(AsymmetricZeroPointMixin,),
+        )
 
 
 class SolverComponent(Component):
@@ -227,7 +234,7 @@ class SolverComponent(Component):
 
     def build(self, config: QuantizerConfig) -> Contribution:
         return Contribution(
-            attrs={"proxy_class": self._proxy(config)}, bases=(self._base(config),))
+            attrs={"proxy_class": self._proxy(config), **self._extra_attrs(config)}, bases=(self._base(config),))
 
     @abstractmethod
     def _base(self, config: QuantizerConfig) -> Type:
@@ -235,6 +242,11 @@ class SolverComponent(Component):
 
     @abstractmethod
     def _proxy(self, config: QuantizerConfig) -> Type:
+        ...
+
+    # TODO (pml): Consider whether this is the right approach
+    @abstractmethod
+    def _extra_attrs(self, config: QuantizerConfig) -> Dict[str, Any]:
         ...
 
 
@@ -262,36 +274,8 @@ class WeightSolverComponent(SolverComponent):
         return GroupwiseWeightFloatQuantProxyFromInjector if config.is_groupwise \
             else WeightFloatQuantProxyFromInjector
 
-
-class IntQuantComponent(Component):
-    """Signedness / narrow-range / zero-point enable for integer quantizers (no-op
-    for float, whose signedness comes from the float base).
-
-    The symmetric narrow-range policy is kind-specific (weights use a narrow range
-    -> NarrowIntQuant; activations do not -> IntQuant) and supplied by subclasses
-    via :attr:`sym_narrow_range`.
-    """
-
-    sym_narrow_range: bool
-
-    def build(self, config: QuantizerConfig) -> Contribution:
-        if not config.is_int:
-            return Contribution()
-        return self.build_asym(config) if config.is_asym else self.build_sym(config)
-
-    def build_sym(self, config: QuantizerConfig) -> Contribution:
-        return Contribution(attrs={"signed": True, "narrow_range": self.sym_narrow_range})
-
-    def build_asym(self, config: QuantizerConfig) -> Contribution:
-        return Contribution(
-            attrs={
-                "signed": False, "narrow_range": False, "quantize_zero_point": True})
-
-
-class WeightIntQuantComponent(IntQuantComponent):
-    """Integer weight tuning: symmetric weights use a narrow range (NarrowIntQuant)."""
-
-    sym_narrow_range = True
+    def _extra_attrs(self, config: QuantizerConfig) -> Dict[str, Any]:
+        return {}
 
 
 # ---------------------------------------------------------------------------
@@ -300,12 +284,6 @@ class WeightIntQuantComponent(IntQuantComponent):
 # than layering on top), which keeps the number of overridden / dropped keys to
 # a minimum.
 # ---------------------------------------------------------------------------
-class InputIntQuantComponent(IntQuantComponent):
-    """Integer activation tuning: activations use a non-narrow range (IntQuant)."""
-
-    sym_narrow_range = False
-
-
 class InputScaleComponent(ScaleComponent):
     """Activation scale wiring. Reuses :class:`ScaleComponent`'s base (the
     ``scaling_impl_type`` carried by the config, resolved by the act solver) and
@@ -451,3 +429,8 @@ class InputSolverComponent(SolverComponent):
                 return GroupwiseActFloatQuantProxyFromInjector
             case (True, False):
                 return DynamicActFloatQuantProxyFromInjector
+
+    def _extra_attrs(self, config: QuantizerConfig) -> Dict[str, Any]:
+        return {
+            "narrow_range": False,  # activations are never narrow
+        }
