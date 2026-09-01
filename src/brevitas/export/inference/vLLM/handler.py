@@ -54,8 +54,8 @@ class StandaloneGroupwiseQuantMixin(DynamicScaleZeroPointMixin):
 class vLLMGroupwiseMetadataMixin:
 
     def __init__(self, **kwargs):
-        device = kwargs.get('device')
         super().__init__(**kwargs)
+        device = kwargs.get('device')
         self.register_buffer('group_dim_t', torch.zeros((), dtype=torch.int, device=device))
         self.register_buffer('group_size_t', torch.ones((), dtype=torch.int, device=device))
 

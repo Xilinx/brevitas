@@ -184,8 +184,8 @@ class GroupwiseMixin(torch.nn.Module):
             **kwargs) -> None:
         super().__init__(**kwargs)
         self.skip_create_quant_tensor = True
-        self._group_dim = 0
-        self._group_size = 1
+        self._group_dim = None
+        self._group_size = None
 
     @property
     def group_dim(self) -> int:
