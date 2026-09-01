@@ -100,7 +100,6 @@ class ZeroPointImplType(AutoName):
 
 
 class AsymmetricZeroPointMixin(ExtendedInjector):
-    scaling_stats_op = StatsOp.MIN_MAX
     zero_point_stats_op = StatsOp.NEG_MIN_OR_ZERO
     zero_point_shape = this.scaling_shape
     zero_point_stats_input_view_shape_impl = this.scaling_stats_input_view_shape_impl
