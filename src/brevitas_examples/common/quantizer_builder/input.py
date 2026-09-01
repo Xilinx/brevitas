@@ -15,9 +15,7 @@ from brevitas_examples.common.quantizer_builder.components import FormatComponen
 from brevitas_examples.common.quantizer_builder.components import InputScaleComponent
 from brevitas_examples.common.quantizer_builder.components import InputSolverComponent
 from brevitas_examples.common.quantizer_builder.components import InputZeroPointComponent
-from brevitas_examples.common.quantizer_builder.components import ScaleParamMethodComponent
 from brevitas_examples.common.quantizer_builder.components import ScaleRestrictComponent
-from brevitas_examples.common.quantizer_builder.components import ZeroPointParamMethodComponent
 from brevitas_examples.common.quantizer_builder.core import Component
 
 
@@ -34,11 +32,9 @@ class InputQuantizerBuilder(QuantizerBuilder):
 
     def base_components(self) -> List[Component]:
         return [
-            ZeroPointParamMethodComponent(),
-            ScaleParamMethodComponent(),
-            FormatComponent(),
             InputScaleComponent(),
             ScaleRestrictComponent(),
             InputZeroPointComponent(),
+            FormatComponent(),
             CommonComponent(),
             InputSolverComponent(),]
