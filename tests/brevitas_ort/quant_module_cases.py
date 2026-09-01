@@ -46,10 +46,9 @@ class WBIOLConfig:
 def wbiol_config_st(draw):
     """Draw a WBIOL configuration.
 
-    floor bit-widths are drawn unconstrained on purpose (see the NOTE below), so a drawn config
-    is not guaranteed exportable/valid: that constraint is being left to CI to confirm as
-    genuinely required vs merely search-space-shrinking. The fp8 and dynamic-act 8-bit
-    constraints have already been confirmed required by CI and are enforced here.
+    The bit-width constraints (fp8/dynamic all-8) are settled and enforced here. The
+    QuantLinear + asymmetric impl filter is currently relaxed (see the NOTE below) so CI can
+    confirm whether it is still needed, so a drawn config is not yet guaranteed exportable.
     """
     names = list(WBIOL_QUANTIZERS)
     if torch_version < parse('2.1'):
@@ -59,11 +58,12 @@ def wbiol_config_st(draw):
     is_fp8 = weight_quant == Fp8e4m3OCPWeightPerTensorFloat
     is_dynamic = io_quant == ShiftedUint8DynamicActPerTensorFloat
 
-    impls = QUANT_WBIOL_IMPL
-    if 'asymmetric' in quantizer_name:
-        # QuantLinear + asymmetric fails unreliably in ORT execution.
-        impls = [i for i in impls if i is not QuantLinear]
-    impl = draw(st.sampled_from(impls))
+    # NOTE: QuantLinear + asymmetric was excluded as 'ORT execution is unreliable and fails
+    # randomly on a subset of cases' (commit 97337ec3, Jan 2023). Its sibling constraint from the
+    # previous day (per-channel asymmetric, 35f330c1) proved stale and was re-enabled in #1576, so
+    # this one is under test too. Unlike the bit-width constraints this is a *flakiness* claim -
+    # re-add the QuantLinear exclusion if CI shows nondeterministic failures.
+    impl = draw(st.sampled_from(QUANT_WBIOL_IMPL))
 
     rounding_type = draw(st.sampled_from(['round', 'floor']))
 
@@ -78,9 +78,10 @@ def wbiol_config_st(draw):
     # 'Bit width 2 is not supported, should be 8b.' on every matrix cell of CI run 33403653736
     # once this was left unconstrained. Weight bit-width is not validated, so it stays free.
     #
-    # NOTE: floor bit-widths are drawn unconstrained on purpose. floor was previously lumped into
-    # the fp8 all-8 branch (commit 004479ef) with no independent justification; we are letting CI
-    # determine whether it is genuinely required. Re-add if it proves necessary.
+    # floor rounding is intentionally NOT restricted to 8-bit. It used to be lumped into the fp8
+    # all-8 branch (commit 004479ef) without independent justification; running it unconstrained
+    # across the CI matrix showed it exports and matches ORT at every bit-width (including the
+    # integer-initializer fallback path), so the old restriction was over-broad.
     if is_fp8:
         o = w = i = 8
     elif is_dynamic:
