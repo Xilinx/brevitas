@@ -19,7 +19,7 @@ from .common import *
 # per-axis keeps rare quantizers/export types well represented without any explicit handling.
 # Each example is a full ONNX export + ORT inference, so this constant directly drives the
 # runtime of test_ort_wbiol (a single, serially-run @given node).
-WBIOL_MAX_EXAMPLES = 1000
+WBIOL_MAX_EXAMPLES = 10000
 
 
 @dataclass(frozen=True)
