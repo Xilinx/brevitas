@@ -21,32 +21,12 @@ limitations under the License.
 
 from contextlib import contextmanager
 
-from optimum.utils.normalized_config import NormalizedConfigManager
 import torch
 from torch.utils._python_dispatch import TorchDispatchMode
 from torch.utils._pytree import tree_map
-from transformers import AutoConfig
 
 from brevitas.fx.value_tracer import ValueProxy
 from brevitas.utils.torch_utils import same_storage
-
-
-def modify_dataloader(model_name_or_path, data, dtype):
-    config = AutoConfig.from_pretrained(model_name_or_path)
-
-    normalized_config_class = NormalizedConfigManager.get_normalized_config_class(config.model_type)
-    normalized_config = normalized_config_class(config)
-
-    num_heads = normalized_config.num_attention_heads
-    head_dim = normalized_config.hidden_size // num_heads
-    num_layers = normalized_config.num_layers
-
-    for sample in data:
-        sample["past_key_values"] = tuple((
-            torch.zeros(1, num_heads, 0, head_dim, device=sample["input_ids"].device, dtype=dtype),
-            torch.zeros(1, num_heads, 0, head_dim, device=sample["input_ids"].device, dtype=dtype),
-        ) for _ in range(num_layers))
-    return data
 
 
 @contextmanager

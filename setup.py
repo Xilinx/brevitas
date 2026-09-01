@@ -41,6 +41,7 @@ setup(
         "tts": read_requirements('requirements-tts.txt'),
         "stt": read_requirements('requirements-stt.txt'),
         "llm": read_requirements('requirements-llm.txt'),
+        "llm_onnx_export": read_requirements('requirements-llm-onnx-export.txt'),
         "lighteval": read_requirements('requirements-lighteval.txt'),
         "diffusion": read_requirements('requirements-diffusion.txt'),
         "vision": read_requirements('requirements-vision.txt'),

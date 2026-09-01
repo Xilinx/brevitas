@@ -162,7 +162,8 @@ def tests_brevitas_examples_llm_export(session, pytorch, jit_status):
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)  # Optimum seems to require torchvision
-    session.install('-e', '.[test, llm, export]', 'optimum[onnxruntime]', *cmd)
+    # llm_onnx_export installs optimum; constrains transformers to < 4.58.
+    session.install('-e', '.[test, llm, export, llm_onnx_export]', *cmd)
     session.run(
         'pytest', '-n', 'logical', '-m', 'onnx_export', 'tests/brevitas_examples/llm/test_llm.py')
 
@@ -192,7 +193,8 @@ def tests_brevitas_examples_llm_lm_eval(session, pytorch, jit_status):
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)  # Optim um seems to require torchvision
 
-    session.install('-e', '.[test, llm, export]', *cmd, 'lm_eval')
+    # lm_eval >= 0.4.10 required for transformers >= 5.0.
+    session.install('-e', '.[test, llm, export]', *cmd, 'lm_eval>=0.4.10')
     session.run(
         'pytest', '-n', 'logical', '-m', 'few_shot', 'tests/brevitas_examples/llm/test_llm.py')
 

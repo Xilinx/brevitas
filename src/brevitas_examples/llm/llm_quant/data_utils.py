@@ -37,7 +37,6 @@ import warnings
 
 from datasets import Dataset
 import numpy as np
-from optimum.utils.normalized_config import NormalizedConfigManager
 import torch
 from transformers import AutoConfig
 
@@ -84,17 +83,12 @@ def llm_collate(
     # In case the dataset is loaded to be used with an fx.GraphModule, we need to add empty past_key_values inputs in the dataset.
     if require_fx:
         config = AutoConfig.from_pretrained(model_name_or_path)
+        # Multimodal models nest text config fields under get_text_config().
+        text_config = config.get_text_config() if hasattr(config, "get_text_config") else config
 
-        normalized_config_class = NormalizedConfigManager.get_normalized_config_class(
-            config.model_type)
-        normalized_config = normalized_config_class(config)
-
-        num_heads = normalized_config.num_attention_heads
-        if hasattr(normalized_config, "num_key_value_heads"):
-            num_kv_heads = normalized_config.num_key_value_heads
-        else:
-            num_kv_heads = num_heads
-        head_dim = normalized_config.hidden_size // num_heads
+        num_heads = text_config.num_attention_heads
+        num_kv_heads = getattr(text_config, "num_key_value_heads", None) or num_heads
+        head_dim = getattr(text_config, "head_dim", None) or (text_config.hidden_size // num_heads)
         return partial(collate_batch_fx, num_kv_heads=num_kv_heads, head_dim=head_dim)
 
     return partial(collate_batch)

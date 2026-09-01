@@ -10,8 +10,11 @@ import sys
 import warnings
 
 import numpy as np
+from packaging import version
 import torch
+from torch.utils._pytree import tree_map
 from torch.utils.data import DataLoader
+from transformers import __version__ as transformers_version
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
 
@@ -54,7 +57,6 @@ from brevitas_examples.llm.llm_quant.equalize import apply_weight_equalization
 from brevitas_examples.llm.llm_quant.eval import compute_perplexity
 from brevitas_examples.llm.llm_quant.export import _get_dataset_props
 from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
-from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
 from brevitas_examples.llm.llm_quant.export import convert_hf_hparams_to_gguf
 from brevitas_examples.llm.llm_quant.export import gguf_mapping
 from brevitas_examples.llm.llm_quant.gpxq import apply_gpfq
@@ -181,7 +183,11 @@ def set_seed(seed):
 
 def model_export(model, tokenizer, ref_input, args, config=None):
     if args.export_target == 'onnx_qcdq':
-        # Local import to allow for optional install
+        export_device = torch.device('cpu')
+        model = model.to(export_device)
+        ref_input = tree_map(
+            lambda value: value.to(export_device) if isinstance(value, torch.Tensor) else value,
+            ref_input)
         from optimum.exporters.onnx import onnx_export_from_model
 
         if args.weight_quant_granularity == 'per_group':
@@ -191,12 +197,15 @@ def model_export(model, tokenizer, ref_input, args, config=None):
             export_manager.change_weight_export(export_weight_q_node=True)
 
         print(f"Exporting the model in ./{args.export_prefix}")
-        with torch.no_grad(), brevitas_proxy_export_mode(model, export_manager=export_manager):
+        model.eval()
+        with torch.no_grad(), quant_inference_mode(model, export_manager=export_manager):
+            model(**ref_input)
             onnx_export_from_model(
                 model,
                 f"./{args.export_prefix}",
                 task="text-generation-with-past",
-                do_validation=False)
+                do_validation=False,
+                device=str(export_device))
     elif 'gguf' in args.export_target:
         import gguf
 
@@ -211,8 +220,10 @@ def model_export(model, tokenizer, ref_input, args, config=None):
     elif args.export_target == 'vllm':
         from brevitas.export.inference.vLLM.manager import vLLMExportManager
 
+        model = offload_model(model)
         with quant_inference_mode(model, export_manager=vLLMExportManager) as export_mode:
             model(**ref_input)
+            remove_hooks(model)
             export_mode.export_manager.export(model, tokenizer, args.export_prefix)
     elif args.export_target == 'shark':
         assert SharkManager is not None, "Please install shark-ai to export to Shark"
@@ -258,7 +269,10 @@ def quantize_llm(args, extra_args=None):
 
     # Whether to quantize SDPA with FX
 
-    kwargs = {"torch_dtype": args.dtype}
+    # `torch_dtype` renamed to `dtype` in transformers 4.56, removed in 5.x.
+    dtype_kwarg = "dtype" if version.parse(transformers_version) >= version.parse(
+        "4.56.0") else "torch_dtype"
+    kwargs = {dtype_kwarg: args.dtype}
     if args.quant_sdpa:
         kwargs["attn_implementation"] = "sdpa"
 
