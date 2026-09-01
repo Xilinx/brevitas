@@ -44,12 +44,7 @@ class WBIOLConfig:
 
 @st.composite
 def wbiol_config_st(draw):
-    """Draw a WBIOL configuration.
-
-    The bit-width constraints (fp8/dynamic all-8) are settled and enforced here. The
-    QuantLinear + asymmetric impl filter is currently relaxed (see the NOTE below) so CI can
-    confirm whether it is still needed, so a drawn config is not yet guaranteed exportable.
-    """
+    """Draw a valid WBIOL configuration (valid-by-construction: no assume/skip needed)."""
     names = list(WBIOL_QUANTIZERS)
     if torch_version < parse('2.1'):
         names = [n for n in names if 'fp8' not in n]  # fp8 requires PyTorch >= 2.1
@@ -58,11 +53,12 @@ def wbiol_config_st(draw):
     is_fp8 = weight_quant == Fp8e4m3OCPWeightPerTensorFloat
     is_dynamic = io_quant == ShiftedUint8DynamicActPerTensorFloat
 
-    # NOTE: QuantLinear + asymmetric was excluded as 'ORT execution is unreliable and fails
-    # randomly on a subset of cases' (commit 97337ec3, Jan 2023). Its sibling constraint from the
-    # previous day (per-channel asymmetric, 35f330c1) proved stale and was re-enabled in #1576, so
-    # this one is under test too. Unlike the bit-width constraints this is a *flakiness* claim -
-    # re-add the QuantLinear exclusion if CI shows nondeterministic failures.
+    # QuantLinear + asymmetric is intentionally NOT excluded. It was disabled as 'ORT execution is
+    # unreliable and fails randomly on a subset of cases' (97337ec3, Jan 2023); its sibling from the
+    # previous day (per-channel asymmetric, 35f330c1) proved stale and was re-enabled in #1576.
+    # Running it unfiltered exercised ~34 such configs per job across the CI matrix with no
+    # failures, so the exclusion looks obsolete on current ORT. Being a flakiness claim rather than
+    # a hard limit, re-add the QuantLinear exclusion here if intermittent failures reappear.
     impl = draw(st.sampled_from(QUANT_WBIOL_IMPL))
 
     rounding_type = draw(st.sampled_from(['round', 'floor']))
