@@ -19,6 +19,22 @@ from pathlib import Path
 import subprocess
 import sys
 
+import pypandoc
+
+
+# nbsphinx renders notebook markdown cells with pandoc, which nbconvert looks up on PATH.
+# `pypandoc-binary` ships a pinned pandoc inside site-packages, so put it first: a system pandoc
+# would be a different version and would silently change the generated HTML.
+pandoc_dir = Path(pypandoc.__file__).resolve().parent / 'files'
+os.environ['PATH'] = os.pathsep.join((str(pandoc_dir), os.environ['PATH']))
+
+# Keep in sync with the `pypandoc-binary` pin in requirements/requirements-docs.txt.
+EXPECTED_PANDOC_VERSION = '3.9'
+pandoc_version = subprocess.run(['pandoc', '--version'], capture_output=True, text=True,
+                                check=True).stdout.split()[1]
+if pandoc_version != EXPECTED_PANDOC_VERSION:
+    raise RuntimeError(f"Expected pandoc {EXPECTED_PANDOC_VERSION}, found {pandoc_version}")
+
 
 # sphinx-multiversion copies each selected ref to this source directory. Put that ref's `src/`
 # first so autodoc documents the tag being built, not the installed development package.
