@@ -360,6 +360,10 @@ class BlockQuantProxyLevelManager(BaseManager):
     def set_export_handler(cls, module):
         _set_proxy_export_handler(cls, module)
 
+    @classmethod
+    def set_export_mode(cls, model, enabled):
+        _set_proxy_export_mode(model, enabled)
+
 
 def block_quant_layer_level_manager(export_handlers):
 

@@ -12,6 +12,7 @@ import warnings
 import numpy as np
 from packaging import version
 import torch
+from torch.utils._pytree import tree_map
 from torch.utils.data import DataLoader
 from transformers import __version__ as transformers_version
 from transformers import AutoModelForCausalLM
@@ -56,7 +57,6 @@ from brevitas_examples.llm.llm_quant.equalize import apply_weight_equalization
 from brevitas_examples.llm.llm_quant.eval import compute_perplexity
 from brevitas_examples.llm.llm_quant.export import _get_dataset_props
 from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
-from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
 from brevitas_examples.llm.llm_quant.export import convert_hf_hparams_to_gguf
 from brevitas_examples.llm.llm_quant.export import gguf_mapping
 from brevitas_examples.llm.llm_quant.gpxq import apply_gpfq
@@ -193,7 +193,11 @@ def align_model_to_cached_act_device(model):
 
 def model_export(model, tokenizer, ref_input, args, config=None):
     if args.export_target == 'onnx_qcdq':
-        model, export_device = align_model_to_cached_act_device(model)
+        export_device = torch.device('cpu')
+        model = model.to(export_device)
+        ref_input = tree_map(
+            lambda value: value.to(export_device) if isinstance(value, torch.Tensor) else value,
+            ref_input)
         from optimum.exporters.onnx import onnx_export_from_model
 
         if args.weight_quant_granularity == 'per_group':
@@ -203,14 +207,19 @@ def model_export(model, tokenizer, ref_input, args, config=None):
             export_manager.change_weight_export(export_weight_q_node=True)
 
         print(f"Exporting the model in ./{args.export_prefix}")
-        with torch.no_grad(), brevitas_proxy_export_mode(model, export_manager=export_manager):
-            onnx_export_from_model(
-                model,
-                f"./{args.export_prefix}",
-                task="text-generation-with-past",
-                do_validation=False,
-                # Align optimum's traced dummy inputs to the model device.
-                device=str(export_device))
+        is_training = model.training
+        model.eval()
+        try:
+            with torch.no_grad(), quant_inference_mode(model, export_manager=export_manager):
+                model(**ref_input)
+                onnx_export_from_model(
+                    model,
+                    f"./{args.export_prefix}",
+                    task="text-generation-with-past",
+                    do_validation=False,
+                    device=str(export_device))
+        finally:
+            model.train(is_training)
     elif 'gguf' in args.export_target:
         import gguf
 
