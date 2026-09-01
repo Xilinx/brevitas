@@ -61,6 +61,64 @@ from brevitas_examples.common.quantizer_builder.mixins import Target
 from brevitas_examples.common.quantizer_builder.mixins import ZeroPointImplType
 
 
+class SolverComponent(Component):
+    """Template: assemble the solver / proxy Contribution (the solver / float base
+    goes in ``bases``, the proxy class in ``attrs``). Subclasses supply only the
+    kind-specific base class (:meth:`_base`) and proxy class (:meth:`_proxy`)."""
+
+    def build(self, config: QuantizerConfig) -> Contribution:
+        return Contribution(
+            attrs={"proxy_class": self._proxy(config), **self._extra_attrs(config)}, bases=(self._base(config),))
+
+    @abstractmethod
+    def _base(self, config: QuantizerConfig) -> Type:
+        ...
+
+    @abstractmethod
+    def _proxy(self, config: QuantizerConfig) -> Type:
+        ...
+
+    # TODO (pml): Consider whether this is the right approach
+    @abstractmethod
+    def _extra_attrs(self, config: QuantizerConfig) -> Dict[str, Any]:
+        ...
+
+
+class ParamMethodComponent(Component):
+    """Template: select the MSE / HQO local-loss mixin for a :class:`Target` (scale
+    or zero-point). Subclasses supply the target and the MSE / HQO mixin pair; the
+    config field (``<prefix>_param_method``) is derived from the target. STATS /
+    None contributes nothing.
+
+    The target and mixins are stored as *instance* attributes (set in ``__init__``)
+    rather than class attributes so the brevitas injector classes are never probed
+    for ``__isabstractmethod__`` during ABCMeta class creation -- that access raises
+    a ``DependencyError`` on an ``ExtendedInjector``."""
+
+    def __init__(self, target: Target, mse_mixin: Type, hqo_mixin: Type) -> None:
+        self.target = target
+        self.mse_mixin = mse_mixin
+        self.hqo_mixin = hqo_mixin
+
+    def _param_method(self, config: QuantizerConfig) -> Optional[ParamMethod]:
+        return getattr(config, f"{self.target.prefix}_param_method")
+
+    def validate(self, config: QuantizerConfig) -> None:
+        # MSE/HQO calibrate a stored parameter once; a dynamic scale is recomputed
+        # per-forward, so the two are mutually exclusive.
+        if self._param_method(config) in (ParamMethod.MSE, ParamMethod.HQO) and config.is_dynamic:
+            raise ValueError(f"MSE/HQO {self.target.value} is incompatible with a dynamic scale.")
+
+    def build(self, config: QuantizerConfig) -> Contribution:
+        match self._param_method(config):
+            case ParamMethod.MSE:
+                return Contribution(bases=(self.mse_mixin,))
+            case ParamMethod.HQO:
+                return Contribution(bases=(self.hqo_mixin,))
+            case _:
+                return Contribution()
+
+
 def _sym_scaling_stats_op(config: QuantizerConfig, default: StatsOp) -> StatsOp:
     """Symmetric scale-stats op, upgraded to the signed variant for a signed
     (SIGNED_FP) scale. Signed scales are a symmetric-only concept, so this helper
@@ -83,8 +141,7 @@ class CommonComponent(Component):
             attrs={
                 "bit_width_impl_type": BitWidthImplType.CONST,
                 "float_to_int_impl_type": FloatToIntImplType.ROUND,
-                "scaling_per_output_type": config.scaling_granularity,
-                "restrict_scaling_type": config.restrict_scaling_type,})
+            })
 
 
 class FormatComponent(Component):
@@ -126,58 +183,19 @@ class ScaleComponent(Component):
     to a concrete scaling impl). :class:`InputScaleComponent` subclasses this to add
     the activation-only static / dynamic / no_scale overrides."""
 
-    def build(self, config: QuantizerConfig) -> Contribution:
-        return Contribution(attrs={"scaling_impl_type": config.scaling_impl_type})
-
-
-class ParamMethodComponent(Component):
-    """Template: select the MSE / HQO local-loss mixin for a :class:`Target` (scale
-    or zero-point). Subclasses supply the target and the MSE / HQO mixin pair; the
-    config field (``<prefix>_param_method``) is derived from the target. STATS /
-    None contributes nothing.
-
-    The target and mixins are stored as *instance* attributes (set in ``__init__``)
-    rather than class attributes so the brevitas injector classes are never probed
-    for ``__isabstractmethod__`` during ABCMeta class creation -- that access raises
-    a ``DependencyError`` on an ``ExtendedInjector``."""
-
-    def __init__(self, target: Target, mse_mixin: Type, hqo_mixin: Type) -> None:
-        self.target = target
-        self.mse_mixin = mse_mixin
-        self.hqo_mixin = hqo_mixin
-
-    def _param_method(self, config: QuantizerConfig) -> Optional[ParamMethod]:
-        return getattr(config, f"{self.target.prefix}_param_method")
+    def __init__(self) -> None:
+        self._param_method = ParamMethodComponent(
+            Target.SCALE, MSEScaleInjectorMixin, HQOScaleInjectorMixin)
 
     def validate(self, config: QuantizerConfig) -> None:
-        # MSE/HQO calibrate a stored parameter once; a dynamic scale is recomputed
-        # per-forward, so the two are mutually exclusive.
-        if self._param_method(config) in (ParamMethod.MSE, ParamMethod.HQO) and config.is_dynamic:
-            raise ValueError(f"MSE/HQO {self.target.value} is incompatible with a dynamic scale.")
+        self._param_method.validate(config)
 
     def build(self, config: QuantizerConfig) -> Contribution:
-        match self._param_method(config):
-            case ParamMethod.MSE:
-                return Contribution(bases=(self.mse_mixin,))
-            case ParamMethod.HQO:
-                return Contribution(bases=(self.hqo_mixin,))
-            case _:
-                return Contribution()
-
-
-class ScaleParamMethodComponent(ParamMethodComponent):
-    """Scale parameter method: MSE / HQO local-loss injectors (STATS = nothing)."""
-
-    def __init__(self) -> None:
-        super().__init__(Target.SCALE, MSEScaleInjectorMixin, HQOScaleInjectorMixin)
-
-
-class ZeroPointParamMethodComponent(ParamMethodComponent):
-    """Zero-point parameter method: MSE / HQO local-loss injectors (only relevant
-    for asymmetric quantizers; None = nothing)."""
-
-    def __init__(self) -> None:
-        super().__init__(Target.ZERO_POINT, MSEZeroPointInjectorMixin, HQOZeroPointInjectorMixin)
+        return self._param_method.build(config) + Contribution(
+            attrs={
+                "scaling_impl_type": config.scaling_impl_type,
+                "scaling_per_output_type": config.scaling_granularity,
+            })
 
 
 class ScaleRestrictComponent(Component):
@@ -189,8 +207,10 @@ class ScaleRestrictComponent(Component):
     """
 
     def build(self, config: QuantizerConfig) -> Contribution:
+        base_attrs = {
+            "restrict_scaling_type": config.restrict_scaling_type,}
         if not config.is_power_of_two:
-            return Contribution()
+            return Contribution(attrs=base_attrs)
         # Groupwise (MX) and dynamic (activation) po2 scales floor the exponent;
         # non-group static scales ceil it (weights never use dynamic scaling). The
         # groupwise (MX) mixin is added only for groupwise.
@@ -198,7 +218,10 @@ class ScaleRestrictComponent(Component):
             else FloatToIntImplType.CEIL
         bases = (GroupwisePoTMixin,) if config.is_groupwise else ()
         return Contribution(
-            attrs={"restrict_value_float_to_int_impl": solve_float_to_int_impl_from_enum(rounding)},
+            attrs={
+                **base_attrs,
+                "restrict_value_float_to_int_impl": solve_float_to_int_impl_from_enum(rounding),
+            },
             bases=bases)
 
 class ZeroPointComponent(Component):
@@ -209,8 +232,14 @@ class ZeroPointComponent(Component):
     activation-specific tuning (zero_point_impl_type, stats ops, runtime/dynamic
     zero-point)."""
 
+    def __init__(self) -> None:
+        self._param_method = ParamMethodComponent(
+            Target.ZERO_POINT, MSEZeroPointInjectorMixin, HQOZeroPointInjectorMixin)
+
     def build(self, config: QuantizerConfig) -> Contribution:
-        return self.build_asym(config) if config.is_asym else self.build_sym(config)
+        return (self._param_method.build(config) +
+            (self.build_asym(config) if config.is_asym else self.build_sym(config))
+        )
 
     def build_sym(self, config: QuantizerConfig) -> Contribution:
         return Contribution(
@@ -225,29 +254,6 @@ class ZeroPointComponent(Component):
             },
             bases=(AsymmetricZeroPointMixin,),
         )
-
-
-class SolverComponent(Component):
-    """Template: assemble the solver / proxy Contribution (the solver / float base
-    goes in ``bases``, the proxy class in ``attrs``). Subclasses supply only the
-    kind-specific base class (:meth:`_base`) and proxy class (:meth:`_proxy`)."""
-
-    def build(self, config: QuantizerConfig) -> Contribution:
-        return Contribution(
-            attrs={"proxy_class": self._proxy(config), **self._extra_attrs(config)}, bases=(self._base(config),))
-
-    @abstractmethod
-    def _base(self, config: QuantizerConfig) -> Type:
-        ...
-
-    @abstractmethod
-    def _proxy(self, config: QuantizerConfig) -> Type:
-        ...
-
-    # TODO (pml): Consider whether this is the right approach
-    @abstractmethod
-    def _extra_attrs(self, config: QuantizerConfig) -> Dict[str, Any]:
-        ...
 
 
 class WeightSolverComponent(SolverComponent):
