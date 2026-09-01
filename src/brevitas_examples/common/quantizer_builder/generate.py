@@ -83,10 +83,14 @@ def generate_weight_quantizer(
         extra_kwargs: Optional[Dict[str, Any]] = None,
         extra_components: Optional[List[Component]] = None) -> Type:
     """Build a weight quantizer injector from its quantization axes."""
+    # Reference weight quantizers are non-narrow (generate_quantizers forces
+    # narrow_range=False), overriding the builder's narrow-by-default weights.
     kwargs: Dict[str, Any] = {
         'narrow_range': False,
         'quantize_zero_point': quantize_zero_point,}
     kwargs.update(_scale_rounding_kwargs(scale_rounding_impl))
+    if scaling_min_val is not None:
+        kwargs['scaling_min_val'] = scaling_min_val
     if group_dim is not None:
         kwargs['group_dim'] = group_dim
     if granularity == ScalingPerOutputType.GROUP and group_size is not None:
@@ -120,7 +124,6 @@ def generate_weight_quantizer(
         scaling_impl_type=scaling_impl_type,
         scaling_per_output_type=granularity,
         restrict_scaling_type=scale_precision,
-        scaling_min_val=scaling_min_val,
         scaling_param_method=scaling_param_method,
         zero_point_param_method=zero_point_param_method,
         float_format=float_format,
@@ -145,6 +148,8 @@ def _build_input_quant(
         extra_kwargs: Optional[Dict[str, Any]]) -> Type:
     kwargs: Dict[str, Any] = {'quantize_zero_point': quantize_zero_point}
     kwargs.update(_scale_rounding_kwargs(scale_rounding_impl))
+    if scaling_min_val is not None:
+        kwargs['scaling_min_val'] = scaling_min_val
     if extra_kwargs:
         kwargs.update(extra_kwargs)
 
@@ -156,7 +161,6 @@ def _build_input_quant(
         bit_width=bit_width,
         scaling_per_output_type=granularity,
         restrict_scaling_type=scale_precision,
-        scaling_min_val=scaling_min_val,
         scaling_param_method=param_method,
         float_format=float_format,
         float_quant_format=float_quant_format,
