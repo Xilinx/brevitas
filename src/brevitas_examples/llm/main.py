@@ -181,16 +181,6 @@ def set_seed(seed):
     torch.random.manual_seed(seed)
 
 
-def align_model_to_cached_act_device(model):
-    # Accelerate may leave parameters on CPU while cached scales remain on the execution device.
-    for module in model.modules():
-        cached_act = getattr(module, '_cached_act', None)
-        if cached_act is not None and getattr(cached_act, 'scale', None) is not None:
-            return model.to(cached_act.scale.device), cached_act.scale.device
-    export_device = next(model.parameters()).device
-    return model.to(export_device), export_device
-
-
 def model_export(model, tokenizer, ref_input, args, config=None):
     if args.export_target == 'onnx_qcdq':
         export_device = torch.device('cpu')
@@ -207,19 +197,15 @@ def model_export(model, tokenizer, ref_input, args, config=None):
             export_manager.change_weight_export(export_weight_q_node=True)
 
         print(f"Exporting the model in ./{args.export_prefix}")
-        is_training = model.training
         model.eval()
-        try:
-            with torch.no_grad(), quant_inference_mode(model, export_manager=export_manager):
-                model(**ref_input)
-                onnx_export_from_model(
-                    model,
-                    f"./{args.export_prefix}",
-                    task="text-generation-with-past",
-                    do_validation=False,
-                    device=str(export_device))
-        finally:
-            model.train(is_training)
+        with torch.no_grad(), quant_inference_mode(model, export_manager=export_manager):
+            model(**ref_input)
+            onnx_export_from_model(
+                model,
+                f"./{args.export_prefix}",
+                task="text-generation-with-past",
+                do_validation=False,
+                device=str(export_device))
     elif 'gguf' in args.export_target:
         import gguf
 
@@ -234,12 +220,15 @@ def model_export(model, tokenizer, ref_input, args, config=None):
     elif args.export_target == 'vllm':
         from brevitas.export.inference.vLLM.manager import vLLMExportManager
 
-        model, export_device = align_model_to_cached_act_device(model)
-        ref_input = {
-            name: value.to(export_device) if isinstance(value, torch.Tensor) else value for name,
-            value in ref_input.items()}
+        export_device = torch.device('cpu')
+        model = model.to(export_device)
+        ref_input = tree_map(
+            lambda value: value.to(export_device) if isinstance(value, torch.Tensor) else value,
+            ref_input)
+        model = offload_model(model)
         with quant_inference_mode(model, export_manager=vLLMExportManager) as export_mode:
             model(**ref_input)
+            remove_hooks(model)
             export_mode.export_manager.export(model, tokenizer, args.export_prefix)
     elif args.export_target == 'shark':
         assert SharkManager is not None, "Please install shark-ai to export to Shark"
