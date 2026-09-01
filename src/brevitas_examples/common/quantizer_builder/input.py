@@ -12,7 +12,6 @@ from typing import List
 from brevitas_examples.common.quantizer_builder.builder import QuantizerBuilder
 from brevitas_examples.common.quantizer_builder.components import CommonComponent
 from brevitas_examples.common.quantizer_builder.components import FormatComponent
-from brevitas_examples.common.quantizer_builder.components import InputIntQuantComponent
 from brevitas_examples.common.quantizer_builder.components import InputScaleComponent
 from brevitas_examples.common.quantizer_builder.components import InputSolverComponent
 from brevitas_examples.common.quantizer_builder.components import InputZeroPointComponent
@@ -42,5 +41,4 @@ class InputQuantizerBuilder(QuantizerBuilder):
             ScaleRestrictComponent(),
             InputZeroPointComponent(),
             CommonComponent(),
-            InputSolverComponent(),
-            InputIntQuantComponent(),]
+            InputSolverComponent(),]

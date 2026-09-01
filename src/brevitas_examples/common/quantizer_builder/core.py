@@ -35,6 +35,10 @@ from brevitas_examples.common.quantizer_builder.mixins import QuantParamType
 @dataclass(frozen=True)
 class IntFormatConfig:
     bit_width: int = 8
+    # None = use the kind-specific default (weights are narrow, activations are not);
+    # set explicitly to override. Only meaningful for symmetric int (asymmetric int
+    # is never narrow). Float formats have no narrow-range concept.
+    narrow_range: Optional[bool] = None
 
 
 @dataclass(frozen=True)
@@ -64,7 +68,6 @@ class QuantizerConfig:
     scaling_impl_type: Optional[ScalingImplType] = field(
         default_factory=lambda: ScalingImplType.STATS)
     restrict_scaling_type: RestrictValueType = field(default_factory=lambda: RestrictValueType.FP)
-    scaling_min_val: Optional[float] = None
     scaling_param_method: ParamMethod = field(default_factory=lambda: ParamMethod.STATS)
     zero_point_param_method: Optional[ParamMethod] = None
     extra: Dict[str, Any] = field(default_factory=dict)
@@ -178,6 +181,7 @@ class Component(ABC):
         (default: no constraints). Run by the builder before assembly."""
         pass
 
+
 def config_from_flat_args(
         quant_type: Union[str, QuantType],
         *,
@@ -186,7 +190,6 @@ def config_from_flat_args(
         scaling_impl_type: Optional[ScalingImplType] = ScalingImplType.STATS,
         scaling_per_output_type: ScalingPerOutputType = ScalingPerOutputType.TENSOR,
         restrict_scaling_type: RestrictValueType = RestrictValueType.FP,
-        scaling_min_val: Optional[float] = None,
         scaling_param_method: ParamMethod = ParamMethod.STATS,
         zero_point_param_method: Optional[ParamMethod] = None,
         float_format: Optional[FloatFormat] = None,
@@ -198,6 +201,10 @@ def config_from_flat_args(
     mode is carried by ``scaling_impl_type`` (PARAMETER_FROM_STATS=static,
     DYNAMIC=dynamic, None=no_scale). The ``format`` axis is discriminated on
     ``quant_type`` into an :class:`IntFormatConfig` or :class:`FloatFormatConfig`.
+
+    Only the common axes are exposed as explicit arguments; less-common knobs
+    (e.g. ``narrow_range``, ``scaling_min_val``) are passed through ``kwargs`` and
+    applied to the injector as-is.
     """
     if QuantType(quant_type) == QuantType.INT:
         fmt: FormatConfig = IntFormatConfig(bit_width=bit_width)
@@ -211,7 +218,6 @@ def config_from_flat_args(
         scaling_granularity=scaling_per_output_type,
         scaling_impl_type=scaling_impl_type,
         restrict_scaling_type=restrict_scaling_type,
-        scaling_min_val=scaling_min_val,
         scaling_param_method=scaling_param_method,
         zero_point_param_method=zero_point_param_method,
         extra=kwargs or {})

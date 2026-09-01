@@ -724,8 +724,15 @@ def test_builder_weight_quant_matches_reference(spec_name):
     # Reference layer built directly from the WEIGHT_QUANT_MAP leaf class.
     ref_linear = _make_quant_linear(ref_quant, **layer_kwargs)
 
-    # Builder layer built from the generic QuantizerBuilder.
-    builder = build_quantizer(WeightQuantizerBuilder, **spec["builder_args"])
+    # Builder layer built from the generic QuantizerBuilder. scaling_min_val /
+    # narrow_range are not explicit build_quantizer args; route them through the
+    # injector kwargs (config.extra).
+    builder_args = dict(spec["builder_args"])
+    builder_kwargs = dict(builder_args.pop("kwargs", None) or {})
+    for _key in ("scaling_min_val", "narrow_range"):
+        if _key in builder_args:
+            builder_kwargs[_key] = builder_args.pop(_key)
+    builder = build_quantizer(WeightQuantizerBuilder, **builder_args, kwargs=builder_kwargs)
     builder_quant = builder.build_quant_injector()
     builder_linear = _make_quant_linear(builder_quant, **layer_kwargs)
 
