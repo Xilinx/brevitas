@@ -91,6 +91,20 @@ def _restore_act_caching_mode(m: Module):
         del m.cache_inference_quant_act_backup
 
 
+def _override_cache_class(m: Module, enabled: bool):
+    """Temporarily disable cached QuantTensor reconstruction during Dynamo export."""
+    if not hasattr(m, 'cache_class'):
+        return
+    backup_name = '_brevitas_cache_class_backup'
+    if enabled:
+        if not hasattr(m, backup_name):
+            setattr(m, backup_name, m.cache_class)
+        m.cache_class = None
+    elif hasattr(m, backup_name):
+        m.cache_class = getattr(m, backup_name)
+        delattr(m, backup_name)
+
+
 def _set_recurrent_layer_export_mode(model: Module, enabled: bool):
     for m in model.modules():
         if isinstance(m, QuantRecurrentLayerMixin) and hasattr(m, 'export_mode'):

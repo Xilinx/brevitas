@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from typing import List
-from typing import NamedTuple
 from typing import Optional
 from typing import Tuple
 
@@ -15,38 +14,130 @@ from brevitas.utils.torch_utils import float_internal_scale
 TOLERANCE = {torch.float64: 1e-1, torch.float32: 2e-1, torch.float16: 0.5, torch.bfloat16: 0.5}
 
 
-# Base class for all QuantTensor.
-# Only assumptions made by these methods are:
-# - `self` is a NamedTuple with a `_fields` attribute
-# - `self` has a `value` attribute
-class QuantTensor:
+# Base class for all QuantTensor types.
+# Subclasses torch.Tensor, where the underlying tensor data represents the dequantized `value`.
+# Quantization metadata (scale, zero_point, bit_width, etc.) are stored as regular attributes.
+class QuantTensor(Tensor):
 
-    def detach_(self):
-        for field in self._fields:
-            getattr(self, field).detach_()
+    @staticmethod
+    def __new__(cls, value, *args, **kwargs):
+        if not isinstance(value, Tensor):
+            value = torch.tensor(value, dtype=torch.float)
+        # Create tensor subclass wrapping the value data.
+        # Use as_subclass to preserve grad_fn and requires_grad.
+        return value.as_subclass(cls)
 
-    def detach(self):
-        qt_type = type(self)
-        values = []
-        for field in self._fields:
-            value = getattr(self, field)
-            if isinstance(value, Tensor):
-                value = value.detach()
-            values.append(value)
-        return qt_type(*values)
+    def __init__(self, value, *args, **kwargs):
+        # Subclasses should NOT call super().__init__() with args;
+        # metadata is set by subclass __init__ methods.
+        pass
 
-    def contiguous(self):
-        qt_type = type(self)
-        values = []
+    @property
+    def value(self):
+        # The tensor itself IS the value.
+        # Return a plain Tensor view to avoid infinite recursion in operations.
+        # Use as_subclass to preserve grad_fn and requires_grad.
+        return Tensor.as_subclass(self, Tensor)
+
+    # Mapping from _fields names to constructor parameter names.
+    # Override in subclasses where they differ (e.g. groupwise: scale_ -> scale).
+    _field_to_constructor_param = {}
+
+    def _get_constructor_kwargs(self):
+        """Return a dict of constructor_param_name -> value for all metadata fields."""
+        result = {}
         for field in self._fields:
-            value = getattr(self, field)
-            if isinstance(value, Tensor):
-                value = value.contiguous()
-            values.append(value)
-        return qt_type(*values)
+            param_name = self._field_to_constructor_param.get(field, field)
+            result[param_name] = getattr(self, field)
+        return result
 
     def set(self, **kwargs):
-        return self._replace(**kwargs)
+        """Create a new QuantTensor with some fields replaced.
+        Equivalent to NamedTuple._replace()."""
+        value = kwargs.pop('value', None)
+        value_ = kwargs.pop('value_', None)
+        ctor_kwargs = self._get_constructor_kwargs()
+        # Map any field-name kwargs to constructor param names
+        mapped_kwargs = {}
+        for k, v in kwargs.items():
+            param_name = self._field_to_constructor_param.get(k, k)
+            mapped_kwargs[param_name] = v
+        ctor_kwargs.update(mapped_kwargs)
+        # Remove value/value_ from kwargs dict (they're positional)
+        ctor_kwargs.pop('value', None)
+        ctor_kwargs.pop('value_', None)
+        if value is not None:
+            new_value = value
+        elif value_ is not None:
+            new_value = value_
+        else:
+            if hasattr(self, '_is_groupwise') and self._is_groupwise:
+                new_value = self._value_
+            else:
+                new_value = self.value
+        return type(self)(new_value, **ctor_kwargs)
+
+    def detach_(self):
+        super().detach_()
+        for field in self._fields:
+            val = getattr(self, field)
+            if isinstance(val, Tensor):
+                val.detach_()
+
+    def detach(self):
+        ctor_kwargs = self._get_constructor_kwargs()
+        for k, v in ctor_kwargs.items():
+            if isinstance(v, Tensor):
+                ctor_kwargs[k] = v.detach()
+        new_value = self.value.detach() if not (
+            hasattr(self, '_is_groupwise') and self._is_groupwise) else self._value_.detach()
+        ctor_kwargs.pop('value', None)
+        ctor_kwargs.pop('value_', None)
+        return type(self)(new_value, **ctor_kwargs)
+
+    def contiguous(self):
+        ctor_kwargs = self._get_constructor_kwargs()
+        for k, v in ctor_kwargs.items():
+            if isinstance(v, Tensor):
+                ctor_kwargs[k] = v.contiguous()
+        new_value = self.value.contiguous() if not (
+            hasattr(self, '_is_groupwise') and self._is_groupwise) else self._value_.contiguous()
+        ctor_kwargs.pop('value', None)
+        ctor_kwargs.pop('value_', None)
+        return type(self)(new_value, **ctor_kwargs)
+
+    def __getitem__(self, index):
+        """Index the leading dimension while preserving aligned quantization metadata."""
+        if isinstance(index, Tensor):
+            if index.dim() != 0 or index.dtype not in (
+                    torch.int8, torch.int16, torch.int32, torch.int64, torch.uint8):
+                raise TypeError('QuantTensor indices must be integer scalars.')
+            index = int(index.item())
+        if not isinstance(index, (int, slice)):
+            raise TypeError('QuantTensor indexing supports an integer or slice.')
+
+        is_groupwise = getattr(self, '_is_groupwise', False)
+        source_value = self._value_ if is_groupwise else self.value
+        original_shape = self.value.shape
+        ctor_kwargs = self._get_constructor_kwargs()
+        for name, metadata in tuple(ctor_kwargs.items()):
+            if isinstance(metadata,
+                          Tensor) and metadata.dim() > 0 and metadata.shape[0] == original_shape[0]:
+                ctor_kwargs[name] = metadata[index]
+
+        if is_groupwise:
+            if isinstance(index, int):
+                group_dim = self.group_dim
+                normalized_group_dim = group_dim if group_dim >= 0 else group_dim + len(
+                    original_shape)
+                if normalized_group_dim == 0:
+                    raise RuntimeError('Cannot remove the grouped dimension through indexing.')
+                ctor_kwargs['group_dim'] = group_dim - 1 if group_dim > 0 else group_dim
+                if self.dequant_shape is not None:
+                    ctor_kwargs['dequant_shape'] = tuple(self.dequant_shape[1:])
+            elif self.dequant_shape is not None:
+                ctor_kwargs['dequant_shape'] = tuple(self.value[index].shape)
+        return type(self)(source_value[index], **ctor_kwargs)
 
     @property
     def shape(self):
@@ -59,34 +150,40 @@ class QuantTensor:
         return self + other
 
     def to(self, *args, **kwargs):
-        qt_type = type(self)
-        values = []
-        for field in self._fields:
-            value = getattr(self, field)
-            if isinstance(value, Tensor):
-                value = value.to(*args, **kwargs)
-            values.append(value)
-        return qt_type(*values)
+        ctor_kwargs = self._get_constructor_kwargs()
+        for k, v in ctor_kwargs.items():
+            if isinstance(v, Tensor):
+                ctor_kwargs[k] = v.to(*args, **kwargs)
+        new_value = self.value.to(
+            *args, **kwargs) if not (hasattr(self, '_is_groupwise') and
+                                     self._is_groupwise) else self._value_.to(*args, **kwargs)
+        ctor_kwargs.pop('value', None)
+        ctor_kwargs.pop('value_', None)
+        return type(self)(new_value, **ctor_kwargs)
 
     def cuda(self, *args, **kwargs):
-        qt_type = type(self)
-        values = []
-        for field in self._fields:
-            value = getattr(self, field)
-            if isinstance(value, Tensor):
-                value = value.cuda(*args, **kwargs)
-            values.append(value)
-        return qt_type(*values)
+        ctor_kwargs = self._get_constructor_kwargs()
+        for k, v in ctor_kwargs.items():
+            if isinstance(v, Tensor):
+                ctor_kwargs[k] = v.cuda(*args, **kwargs)
+        new_value = self.value.cuda(
+            *args, **kwargs) if not (hasattr(self, '_is_groupwise') and
+                                     self._is_groupwise) else self._value_.cuda(*args, **kwargs)
+        ctor_kwargs.pop('value', None)
+        ctor_kwargs.pop('value_', None)
+        return type(self)(new_value, **ctor_kwargs)
 
     def cpu(self, *args, **kwargs):
-        qt_type = type(self)
-        values = []
-        for field in self._fields:
-            value = getattr(self, field)
-            if isinstance(value, Tensor):
-                value = value.cpu(*args, **kwargs)
-            values.append(value)
-        return qt_type(*values)
+        ctor_kwargs = self._get_constructor_kwargs()
+        for k, v in ctor_kwargs.items():
+            if isinstance(v, Tensor):
+                ctor_kwargs[k] = v.cpu(*args, **kwargs)
+        new_value = self.value.cpu(
+            *args, **kwargs) if not (hasattr(self, '_is_groupwise') and
+                                     self._is_groupwise) else self._value_.cpu(*args, **kwargs)
+        ctor_kwargs.pop('value', None)
+        ctor_kwargs.pop('value_', None)
+        return type(self)(new_value, **ctor_kwargs)
 
     def __radd__(self, other):
         return self.__add__(other)
@@ -97,6 +194,15 @@ class QuantTensor:
     def __sub__(self, other):
         return self.__add__(-other)
 
+    def __iadd__(self, other):
+        return self.__add__(other)
+
+    def __imul__(self, other):
+        return self.__mul__(other)
+
+    def __isub__(self, other):
+        return self.__sub__(other)
+
     def __pos__(self):
         return self
 
@@ -106,58 +212,6 @@ class QuantTensor:
     @staticmethod
     def is_zero_zero_point(tensor):
         return (tensor.zero_point == 0.).all()
-
-
-class IntQuantTensorBase(NamedTuple):
-    value: Tensor
-    scale: Tensor
-    zero_point: Tensor
-    bit_width: Tensor
-    signed_t: Tensor
-    training_t: Tensor
-
-
-class FloatQuantTensorBase(NamedTuple):
-    value: Tensor
-    scale: Tensor
-    zero_point: Tensor
-    exponent_bit_width: Tensor
-    mantissa_bit_width: Tensor
-    exponent_bias: Tensor
-    saturating_t: Tensor
-    inf_values: List[str]
-    nan_values: List[str]
-    signed_t: Tensor
-    training_t: Tensor
-
-
-class GroupwiseFloatQuantTensorBase(NamedTuple):
-    value_: Tensor
-    scale_: Tensor
-    zero_point_: Tensor
-    group_size: Tensor
-    group_dim: Tensor
-    exponent_bit_width: Tensor
-    mantissa_bit_width: Tensor
-    exponent_bias: Tensor
-    saturating_t: Tensor
-    inf_values: List[str]
-    nan_values: List[str]
-    signed_t: Tensor
-    training_t: Tensor
-    dequant_shape: Optional[Tuple] = None
-
-
-class GroupwisIntQuantTensorBase(NamedTuple):
-    value_: Tensor
-    scale_: Tensor
-    zero_point_: Tensor
-    group_size: Tensor
-    group_dim: Tensor
-    bit_width: Tensor
-    signed_t: Tensor
-    training_t: Tensor
-    dequant_shape: Optional[Tuple] = None
 
 
 class IntMixin:
@@ -373,7 +427,7 @@ class FloatMixin:
 
     @property
     def device(self):
-        value_device = self.value_.device
+        value_device = self.value.device
         is_same_device = True
         for t in [self.scale,
                   self.zero_point,
