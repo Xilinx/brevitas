@@ -149,12 +149,12 @@ def float_internal_scale(
 @brevitas.jit.ignore
 def padding_to_multiple(x: torch.Tensor, dim_to_expand: int, dim_multiple: int) -> torch.Tensor:
     # Given a tensor X, compute the padding along dim_multiple so that new dimension is a multiple of dim_multiple
-    padding = [0, 0] * len(x.shape)
-    size = x.shape
-    padding[2 * dim_to_expand] = (-size[dim_to_expand]) % dim_multiple
-    padding = list(reversed(padding))
-    x = torch.nn.functional.pad(x, padding, mode='constant', value=0.)
-    return x
+    dim_to_expand = dim_to_expand % x.dim()
+    padding_size = (-x.shape[dim_to_expand]) % dim_multiple
+    padding_shape = [
+        padding_size if dim == dim_to_expand else size for dim, size in enumerate(x.shape)]
+    padding = x.new_zeros(padding_shape)
+    return torch.cat((x, padding), dim=dim_to_expand)
 
 
 def pad_to_dim(tensor: torch.Tensor, dim_to_expand: int, new_dim: int) -> torch.Tensor:
