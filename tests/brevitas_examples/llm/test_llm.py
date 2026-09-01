@@ -548,15 +548,8 @@ def test_small_models_rotation_optimization_layer_count(caplog, args_layer_count
     "kwargs",
     [
         {
-            "yaml_file_path":
-                "./tests/brevitas_examples/llm/test_template.yml",
-            "expected_extra_args": [
-                "--learning_rate",
-                "1.5",
-                "--lr_scheduler_type",
-                "cosine",
-                "--save_safetensors",
-                "False"],},],
+            "yaml_file_path": "./tests/brevitas_examples/llm/test_template.yml",
+            "expected_extra_args": ["--learning_rate", "1.5", "--lr_scheduler_type", "cosine"],},],
     ids=lambda kwargs: kwargs["yaml_file_path"])
 def test_parse_yaml_trainer_arguments(caplog, kwargs):
     caplog.set_level(logging.INFO)
@@ -566,8 +559,9 @@ def test_parse_yaml_trainer_arguments(caplog, kwargs):
 
     def quantize_llm_assert_args(args, extra_args=None):
         for key in extra_args_keys:
-            assert key not in args, f"Key {key} should not be known by the parser"
+            assert key not in vars(args), f"Key {key} should not be known by the parser"
         assert extra_args == expected_extra_args, f"Expected extra arguments {expected_extra_args} but got {extra_args}"
+        parse_rotation_optimization_args(extra_args=extra_args, trainer_cls=GeneralizedTrainer)
 
     # Run the argument parsing logic of the LLM entrypoint
     with patch("brevitas_examples.llm.main.quantize_llm", quantize_llm_assert_args):

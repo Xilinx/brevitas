@@ -133,8 +133,6 @@ expansion_step:
 - 3
 - 5
 - 7
-save_safetensors:
-- false
 scaling_min_val:
 - 0.0001
 seed:

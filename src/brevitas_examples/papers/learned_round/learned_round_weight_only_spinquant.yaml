@@ -125,8 +125,6 @@ per_device_train_batch_size:
 - 1
 rotation_sdpa_regions:
 - true
-save_safetensors:
-- false
 torch_empty_cache_steps:
 - 1
 weight_decay:
