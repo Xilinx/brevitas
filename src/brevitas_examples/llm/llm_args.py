@@ -551,7 +551,7 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
         except ImportError as e:
             raise ImportError(
                 "ONNX QCDQ export of LLMs requires `optimum`, which is an optional "
-                "dependency. Install it with `pip install \"brevitas[llm,export]\"`.") from e
+                "dependency. Install it with `pip install \"brevitas[llm,export,llm_onnx_export]\"`.") from e
         del onnx_export_from_model
     if args.rotation == 'fx':
         assert args.ln_affine_merge, 'Graph rotation requires to merge LN/RMS norm affine parameters'
