@@ -32,11 +32,8 @@ def dynamo_export_ctx():
     # transformers 5.x checks `arg_name in func.__code__.co_varnames` inside model
     # forward wrappers. torch._dynamo < 2.7 cannot trace __contains__ on a code
     # object descriptor, raising Unsupported. Fail early with a clear message.
-    try:
-        import transformers as _transformers
-        _tr_ver = version.parse(_transformers.__version__)
-    except ImportError:
-        _tr_ver = version.parse("0")
+    import transformers as _transformers
+    _tr_ver = version.parse(_transformers.__version__)
 
     if torch_version < version.parse("2.7") and _tr_ver >= version.parse("5.0"):
         raise RuntimeError(
