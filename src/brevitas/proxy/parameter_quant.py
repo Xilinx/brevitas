@@ -126,7 +126,8 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
 
     @cache_inference_quant_weight.setter
     def cache_inference_quant_weight(self, value):
-        self._cached_weight = None
+        if not value:
+            self._cached_weight = None
         self._cache_inference_quant_weight = value
 
     @property
@@ -181,20 +182,10 @@ class BiasQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector, BiasQuantP
     def __init__(self, quant_layer: nn.Module, quant_injector: Injector) -> None:
         super().__init__(quant_layer, quant_injector)
         self._cached_bias = None
-        self._cache_inference_quant_bias = False
+        self.cache_inference_quant_bias = False
         self.cache_inference_quant_bias_metadata_only = False
         self.requires_input_scale = self.quant_injector.requires_input_scale
         self.skip_create_quant_tensor = False
-
-    @property
-    def cache_inference_quant_bias(self):
-        return self._cache_inference_quant_bias
-
-    @cache_inference_quant_bias.setter
-    def cache_inference_quant_bias(self, value):
-        if value:
-            self._cached_bias = None
-        self._cache_inference_quant_bias = value
 
     @property
     def tracked_parameter_list(self):
@@ -266,18 +257,8 @@ class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFr
         super().__init__(quant_layer, quant_injector)
         # Necessary for export
         self._cached_act = None
-        self._cache_inference_quant_act = False
+        self.cache_inference_quant_act = False
         self.cache_quant_io_metadata_only = True
-
-    @property
-    def cache_inference_quant_act(self):
-        return self._cache_inference_quant_act
-
-    @cache_inference_quant_act.setter
-    def cache_inference_quant_act(self, value):
-        if value:
-            self._cached_act = None
-        self._cache_inference_quant_act = value
 
     @property
     def requires_quant_input(self):

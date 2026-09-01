@@ -98,20 +98,10 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         ActQuantProxyProtocol.__init__(self)
         self.is_passthrough_act = _is_passthrough_act(quant_injector)
         self._cached_act = None
-        self._cache_inference_quant_act = False
+        self.cache_inference_quant_act = False
         self.cache_quant_io_metadata_only = True
         self.cache_class = None
         self.skip_create_quant_tensor = False
-
-    @property
-    def cache_inference_quant_act(self):
-        return self._cache_inference_quant_act
-
-    @cache_inference_quant_act.setter
-    def cache_inference_quant_act(self, value):
-        if value:
-            self._cached_act = None
-        self._cache_inference_quant_act = value
 
     def compile_quant(self, compile_export=False):
         fullgraph = not self.is_groupwise
@@ -289,20 +279,10 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._cached_act = None
-        self._cache_inference_quant_act = True
+        self.cache_inference_quant_act = True
         self.cache_quant_io_metadata_only = True
         self.cache_class = _CachedIO
         self.skip_create_quant_tensor = False
-
-    @property
-    def cache_inference_quant_act(self):
-        return self._cache_inference_quant_act
-
-    @cache_inference_quant_act.setter
-    def cache_inference_quant_act(self, value):
-        if value:
-            self._cached_act = None
-        self._cache_inference_quant_act = value
 
     def retrieve_attribute(self, attribute):
         if self._cached_act is not None:

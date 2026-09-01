@@ -51,19 +51,9 @@ class TruncAvgPool2d(TruncMixin, QuantLayerMixin, AvgPool2d):
             divisor_override=divisor_override)
         QuantLayerMixin.__init__(self, return_quant_tensor)
         TruncMixin.__init__(self, trunc_quant=trunc_quant, **kwargs)
-        self._cache_inference_quant_act = False
+        self.cache_inference_quant_act = False
         self.cache_quant_io_metadata_only = True
         self.cache_class = None
-
-    @property
-    def cache_inference_quant_act(self):
-        return self._cache_inference_quant_act
-
-    @cache_inference_quant_act.setter
-    def cache_inference_quant_act(self, value):
-        if value:
-            self.cache_class = None
-        self._cache_inference_quant_act = value
 
     @property
     def channelwise_separable(self) -> bool:
@@ -116,19 +106,9 @@ class TruncAdaptiveAvgPool2d(TruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
         AdaptiveAvgPool2d.__init__(self, output_size=output_size)
         QuantLayerMixin.__init__(self, return_quant_tensor)
         TruncMixin.__init__(self, trunc_quant=trunc_quant, **kwargs)
-        self._cache_inference_quant_act = False
+        self.cache_inference_quant_act = False
         self.cache_quant_io_metadata_only = True
         self.cache_class = None
-
-    @property
-    def cache_inference_quant_act(self):
-        return self._cache_inference_quant_act
-
-    @cache_inference_quant_act.setter
-    def cache_inference_quant_act(self, value):
-        if value:
-            self.cache_class = None
-        self._cache_inference_quant_act = value
 
     @property
     def channelwise_separable(self) -> bool:
