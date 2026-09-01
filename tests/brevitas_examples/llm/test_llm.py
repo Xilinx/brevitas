@@ -30,12 +30,14 @@ from brevitas.utils.python_utils import Registry
 from brevitas_examples.common.generative.quantizers import BaseQuantizer
 from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
 from brevitas_examples.llm.llm_args import create_args_parser
+from brevitas_examples.llm.llm_args import validate
 from brevitas_examples.llm.llm_quant.ln_affine_merge import rmsnorm_patch
 from brevitas_examples.llm.llm_quant.parse_utils import parse_custom_trainer
 from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
 from brevitas_examples.llm.llm_quant.trainer_utils import _build_optimizers_from_configs
 from brevitas_examples.llm.llm_quant.trainer_utils import GeneralizedTrainer
 from brevitas_examples.llm.llm_quant.trainer_utils import TRAINER_REGISTRY
+from brevitas_examples.llm.main import _functional_quant_map
 from brevitas_examples.llm.main import fx_required
 from brevitas_examples.llm.main import main as llm_main
 from brevitas_examples.llm.main import quantize_llm
@@ -61,6 +63,113 @@ RTOL_PPL = 1e-04
 
 ATOL_ACC = 5e-1
 RTOL_ACC = 1e-5
+
+
+@pytest.mark.parametrize(
+    'functional_mode, quant_sdpa, expected_functions',
+    [
+        (None, None, set()),
+        (
+            'input',
+            None,
+            {
+                torch.nn.functional.linear,
+                torch.matmul,
+                torch.Tensor.matmul,
+                torch.Tensor.__matmul__,
+                torch.bmm}),
+        (
+            'weight',
+            None,
+            {
+                torch.nn.functional.linear,
+                torch.matmul,
+                torch.Tensor.matmul,
+                torch.Tensor.__matmul__,
+                torch.bmm}),
+        (
+            'all',
+            None,
+            {
+                torch.nn.functional.linear,
+                torch.matmul,
+                torch.Tensor.matmul,
+                torch.Tensor.__matmul__,
+                torch.bmm}),
+        (None, 'functional', {torch.nn.functional.scaled_dot_product_attention}),
+        (
+            'all',
+            'functional',
+            {
+                torch.nn.functional.linear,
+                torch.matmul,
+                torch.Tensor.matmul,
+                torch.Tensor.__matmul__,
+                torch.bmm,
+                torch.nn.functional.scaled_dot_product_attention}),])
+def test_functional_quant_map_modes(functional_mode, quant_sdpa, expected_functions):
+    """Functional operand modes and functional SDPA are independently selectable."""
+    input_quant = object()
+    weight_quant = object()
+    quant_map = _functional_quant_map({
+        'linear_input_quant': input_quant,
+        'weight_quant': weight_quant,
+        'q_scaled_quant': 'q',
+        'k_transposed_quant': 'k',
+        'v_quant': 'v'},
+                                      functional_mode,
+                                      quant_sdpa)
+    assert set(quant_map) == expected_functions
+    if functional_mode == 'input':
+        assert quant_map[torch.nn.functional.linear] is input_quant
+        assert quant_map[torch.matmul] is input_quant
+    elif functional_mode == 'weight':
+        assert quant_map[torch.matmul] == (None, None, weight_quant)
+    elif functional_mode == 'all':
+        assert quant_map[torch.matmul] == (input_quant, input_quant, weight_quant)
+
+
+def test_functional_sdpa_map_does_not_require_linear_quantizers():
+    """SDPA-only map construction is independent from functional linear quantizers."""
+    quant_map = _functional_quant_map({
+        'q_scaled_quant': 'q', 'k_transposed_quant': 'k', 'v_quant': 'v'},
+                                      quant_sdpa='functional')
+    assert quant_map == {torch.nn.functional.scaled_dot_product_attention: ('q', 'k', 'v')}
+
+
+def test_custom_quantizer_can_override_functional_map():
+    """Custom quantizers can specialize functional specs independently of layer maps."""
+
+    class FunctionalMapAdjuster(BaseQuantizer):
+
+        @classmethod
+        def override_functional_quant_map(cls, quant_map, quantizers_dict):
+            quant_map = dict(quant_map)
+            quant_map['custom'] = quantizers_dict['weight_quant']
+            return quant_map
+
+    weight_quant = object()
+    quant_map = FunctionalMapAdjuster.override_functional_quant_map({},
+                                                                    {'weight_quant': weight_quant})
+    assert quant_map == {'custom': weight_quant}
+
+
+def test_functional_weight_mode_does_not_require_input_quantization():
+    """Weight-only functional quantization is valid without an input quantizer."""
+    args = get_default_args(create_args_parser())
+    args.functional_quantization = 'weight'
+    args.input_bit_width = None
+    validate(args)
+
+
+@pytest.mark.parametrize('mode', ['input', 'all'])
+def test_functional_input_modes_require_input_quantization(mode):
+    """Functional input modes fail clearly when no input quantizer is configured."""
+    args = get_default_args(create_args_parser())
+    args.functional_quantization = mode
+    args.input_bit_width = None
+    with pytest.raises(AssertionError, match='requires input quantization'):
+        validate(args)
 
 
 def mock_load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
@@ -401,6 +510,7 @@ def layer_args_hyperparam(default_run_args, request):
 @pytest.mark.llm
 @jit_disabled_for_dynamic_quant_act()
 def test_small_models_quant_layer_hyperparam(caplog, layer_args_hyperparam, main):
+    from brevitas.nn import QuantIdentity
     from brevitas.nn import QuantScaledDotProductAttention as QuantSDPA
     from brevitas.proxy.groupwise_int_runtime_quant import GroupwiseActQuantProxyFromInjector
     caplog.set_level(logging.INFO)
@@ -412,29 +522,30 @@ def test_small_models_quant_layer_hyperparam(caplog, layer_args_hyperparam, main
         pytest.skip("Skipping dynamo + Windows")
 
     _, model = main(args)
-    quant_sdpa = []
-    for m in model.modules():
-        if isinstance(m, QuantSDPA):
-            quant_sdpa.append(m)
-
-    first_sdpa = quant_sdpa[0]
-
-    # Check that Q/Softmax quantization is disabled
-    assert first_sdpa.q_scaled_quant.act_quant.fused_activation_quant_proxy is None
-    assert first_sdpa.attn_output_weights_quant.act_quant.fused_activation_quant_proxy is None
-    # NOTE: We assume that asym == unsigned. This might change in the future.
-    assert not first_sdpa.v_quant.act_quant.is_signed
-    assert not first_sdpa.k_transposed_quant.act_quant.is_signed
-    # Check for groupwise activation quantization
-    assert isinstance(first_sdpa.v_quant.act_quant, GroupwiseActQuantProxyFromInjector)
-    assert isinstance(first_sdpa.k_transposed_quant.act_quant, GroupwiseActQuantProxyFromInjector)
-    assert first_sdpa.v_quant.act_quant.group_size == args.input_group_size
-    assert first_sdpa.k_transposed_quant.act_quant.group_size == args.input_group_size
-    # Functional quantization uses one shared quant block for everything
-    if args.quant_sdpa == "fx" or args.quant_sdpa == "eager":
-        assert len(quant_sdpa) == 2
-    elif args.quant_sdpa == "functional":
-        assert len(quant_sdpa) == 1
+    if args.quant_sdpa == "functional":
+        assert hasattr(model, '_functional_quantizers')
+        fq_quantizers = list(model._functional_quantizers.items())
+        assert len(fq_quantizers) > 0, "Expected functional QuantIdentity quantizers"
+        for name, quant_id in fq_quantizers:
+            if '_arg1' in name or '_arg2' in name:
+                assert isinstance(quant_id, QuantIdentity)
+                assert not quant_id.act_quant.is_signed
+                assert isinstance(quant_id.act_quant, GroupwiseActQuantProxyFromInjector)
+                assert quant_id.act_quant.group_size == args.input_group_size
+    else:
+        quant_sdpa = [m for m in model.modules() if isinstance(m, QuantSDPA)]
+        first_sdpa = quant_sdpa[0]
+        assert first_sdpa.q_scaled_quant.act_quant.fused_activation_quant_proxy is None
+        assert first_sdpa.attn_output_weights_quant.act_quant.fused_activation_quant_proxy is None
+        assert not first_sdpa.v_quant.act_quant.is_signed
+        assert not first_sdpa.k_transposed_quant.act_quant.is_signed
+        assert isinstance(first_sdpa.v_quant.act_quant, GroupwiseActQuantProxyFromInjector)
+        assert isinstance(
+            first_sdpa.k_transposed_quant.act_quant, GroupwiseActQuantProxyFromInjector)
+        assert first_sdpa.v_quant.act_quant.group_size == args.input_group_size
+        assert first_sdpa.k_transposed_quant.act_quant.group_size == args.input_group_size
+        if args.quant_sdpa == "fx" or args.quant_sdpa == "eager":
+            assert len(quant_sdpa) == 2
 
 
 @pytest_cases.fixture(

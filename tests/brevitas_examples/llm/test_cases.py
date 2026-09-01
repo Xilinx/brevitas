@@ -49,9 +49,15 @@ class LLMRunCases:
             {"rotation": "layerwise", "act_equalization": "layerwise", "convert_layernorm_to_rmsnorm": True},
             {"act_equalization": "fx", "gptq": True},
             {"quant_sdpa": "fx", "input_scale_type": "dynamic", "input_quant_granularity": "per_row"},
-            {"quant_sdpa": "functional", "input_scale_type": "dynamic", "input_quant_granularity": "per_row"},
             {
                 "quant_sdpa": "functional",
+                "attn_quant_config": "qkv",
+                "input_scale_type": "dynamic",
+                "input_quant_granularity": "per_row",
+            },
+            {
+                "quant_sdpa": "functional",
+                "attn_quant_config": "qkv",
                 "rotation": "fused_no_fx",
                 "rotation_sdpa_regions": True,
                 "input_scale_type": "dynamic",
