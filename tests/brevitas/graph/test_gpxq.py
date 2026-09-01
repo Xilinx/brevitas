@@ -10,6 +10,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.utils.data import TensorDataset
 
+from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gptq import gptq_mode
@@ -18,10 +19,17 @@ from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.magr import magr_mode
 from brevitas.graph.qronos import Qronos
 import brevitas.nn as qnn
+from brevitas.nn.mixin import WeightRegion
+from brevitas.quant.mx_quant_ocp import MXFloat8e4m3Weight
+from brevitas.quant.mx_quant_ocp import MXInt8Weight
+from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
+from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightGroupQuantFloat
 from brevitas_examples.common.axe import a2gpfq_mode
 from brevitas_examples.common.axe import a2gptq_mode
 from brevitas_examples.common.axe import AXEMixin
+from brevitas_examples.common.generative.quantizers import Fp8e4m3WeightSymmetricGroupQuant
+from brevitas_examples.common.generative.quantizers import IntWeightSymmetricGroupQuant
 
 from .equalization_fixtures import *
 
@@ -291,6 +299,51 @@ class TestQronosUpdateBatch:
                         torch.testing.assert_close(data, data_before)
 
 
+@torch.no_grad()
+@pytest.mark.parametrize("act_order", [True, False])
+def test_qronos_single_column_update_cleans_buffers_and_offloads(monkeypatch, act_order):
+    torch.manual_seed(SEED)
+    model = nn.Sequential(qnn.QuantLinear(1, 3, bias=False, weight_quant=MXInt8Weight))
+    inp = torch.randn(8, 1)
+    model.eval()
+    model(inp)  # Initialize the weight quantizer.
+
+    layer = model[0]
+    weight_before = layer.weight.detach().clone()
+    offload_calls = []
+    monkeypatch.setattr(
+        layer, 'offload_params', lambda module: offload_calls.append(module), raising=False)
+
+    cholesky = torch.linalg.cholesky
+    cholesky_inverse = torch.cholesky_inverse
+    factorized_shapes = []
+
+    def record_cholesky(matrix, *args, **kwargs):
+        factorized_shapes.append(matrix.shape[-2:])
+        assert matrix.shape[-1] > 0
+        return cholesky(matrix, *args, **kwargs)
+
+    def record_cholesky_inverse(matrix, *args, **kwargs):
+        assert matrix.shape[-1] > 0
+        return cholesky_inverse(matrix, *args, **kwargs)
+
+    monkeypatch.setattr(torch.linalg, 'cholesky', record_cholesky)
+    monkeypatch.setattr(torch, 'cholesky_inverse', record_cholesky_inverse)
+
+    with gpfq_mode(model, act_order=act_order, algorithm_impl=Qronos) as algo:
+        algo.model(inp)
+        qronos = algo.gpxq_layers['0']
+        assert qronos.columns == 1
+        algo.update()
+
+    assert factorized_shapes == [torch.Size([1, 1])]
+    assert offload_calls == [layer]
+    for buffer_name in ('B', 'G', 'H', 'iH', 'L'):
+        assert not hasattr(qronos, buffer_name)
+    torch.testing.assert_close(layer.weight, weight_before)
+    assert torch.isfinite(model(inp)).all()
+
+
 @pytest.mark.parametrize("act_order", [True, False])
 @pytest.mark.parametrize("use_quant_activations", [True, False])
 @pytest.mark.parametrize(
@@ -446,6 +499,269 @@ def test_gpxq_quant_mha(quant_mha_gpxq_model, gpxq_key):
     with torch.no_grad():
         out = model(inp[:MHA_BATCH_SIZE])
     assert torch.isfinite(out).all()
+
+
+@torch.no_grad()
+@pytest.mark.parametrize("act_order", [True, False])
+@pytest.mark.parametrize(
+    "weight_quant",
+    [
+        MXInt8Weight,
+        MXFloat8e4m3Weight,
+        IntWeightSymmetricGroupQuant,
+        Fp8e4m3WeightSymmetricGroupQuant])
+def test_gptq_groupwise_linear_single_column_slicing(monkeypatch, act_order, weight_quant):
+    # The final input feature belongs to a padded group, while the first input feature belongs to
+    # a full group. Both slices must use the scale calculated from their complete group.
+    torch.manual_seed(SEED)
+    model = nn.Sequential(
+        qnn.QuantLinear(33, 4, bias=False, weight_quant=weight_quant.let(group_size=32)))
+    inp = torch.randn(8, 33)
+    model.eval()
+    model(inp)  # Initialize groupwise quantizer state.
+
+    layer = model[0]
+    assert layer.weight_quant.supports_quant_weight_region
+    full_quant_weight = layer.quant_weight().value
+    for index in (0, 32):
+        quant_column = layer.quant_weight_region(WeightRegion((None, (index, index + 1))))
+        assert quant_column.shape == (4, 1)
+        torch.testing.assert_close(quant_column, full_quant_weight[:, index:index + 1])
+    quant_block = layer.quant_weight_region(WeightRegion(((1, 3), (32, 33))))
+    torch.testing.assert_close(quant_block, full_quant_weight[1:3, 32:33])
+
+    group_calls = []
+    quantize_weight_group = layer.weight_quant.quantize_weight_group
+
+    def record_quantize_weight_group(*args, **kwargs):
+        out = quantize_weight_group(*args, **kwargs)
+        group_calls.append(out is not None)
+        return out
+
+    monkeypatch.setattr(layer.weight_quant, 'quantize_weight_group', record_quantize_weight_group)
+
+    region_calls = []
+    quant_weight_region = layer.quant_weight_region
+    quant_weight = layer.quant_weight
+
+    def record_quant_weight_region(*args, **kwargs):
+        region_calls.append(kwargs.get('region'))
+        return quant_weight_region(*args, **kwargs)
+
+    monkeypatch.setattr(layer, 'quant_weight_region', record_quant_weight_region)
+    with gptq_mode(model, act_order=act_order, num_blocks=4) as gptq:
+        gptq.model(inp)
+
+        def fail_full_quantization(*args, **kwargs):
+            raise AssertionError("GPTQ groupwise update used full-weight quantization")
+
+        monkeypatch.setattr(layer, 'quant_weight', fail_full_quantization)
+        gptq.update()
+
+    assert any(call is not None for call in region_calls)
+    assert group_calls and all(group_calls)
+    monkeypatch.setattr(layer, 'quant_weight', quant_weight)
+    assert torch.isfinite(model(inp)).all()
+
+
+@torch.no_grad()
+@pytest.mark.parametrize("weight_quant", [Int8WeightPerTensorFloat, Int8WeightPerChannelFloat])
+def test_gptq_linear_region_quantization_non_groupwise(monkeypatch, weight_quant):
+    torch.manual_seed(SEED)
+    model = nn.Sequential(qnn.QuantLinear(33, 4, bias=False, weight_quant=weight_quant))
+    inp = torch.randn(8, 33)
+    model.eval()
+    model(inp)
+
+    layer = model[0]
+    full_quant_weight = layer.quant_weight().value
+    quant_column = layer.quant_weight_region(WeightRegion((None, (7, 8))))
+    assert quant_column.shape == (4, 1)
+    torch.testing.assert_close(quant_column, full_quant_weight[:, 7:8])
+
+    region_calls = []
+    quant_weight_region = layer.quant_weight_region
+
+    def record_quant_weight_region(*args, **kwargs):
+        region_calls.append(kwargs.get('region'))
+        return quant_weight_region(*args, **kwargs)
+
+    monkeypatch.setattr(layer, 'quant_weight_region', record_quant_weight_region)
+    with gptq_mode(model, act_order=False, num_blocks=4) as gptq:
+        gptq.model(inp)
+        gptq.update()
+
+    assert any(call is not None for call in region_calls)
+    assert torch.isfinite(model(inp)).all()
+
+
+@torch.no_grad()
+def test_groupwise_parameter_from_stats_region_initializes_then_uses_fast_path(monkeypatch):
+    weight_quant = MXInt8Weight.let(scaling_impl_type='parameter_from_stats')
+    layer = qnn.QuantLinear(33, 4, bias=False, weight_quant=weight_quant)
+    layer.eval()
+    scaling_impl = layer.weight_quant.tensor_quant.scaling_impl
+    assert layer.weight_quant.supports_quant_weight_region
+    assert not scaling_impl.init_done
+
+    full_calls = 0
+    quant_weight = layer.quant_weight
+
+    def record_quant_weight(*args, **kwargs):
+        nonlocal full_calls
+        full_calls += 1
+        return quant_weight(*args, **kwargs)
+
+    monkeypatch.setattr(layer, 'quant_weight', record_quant_weight)
+    first = layer.quant_weight_region(WeightRegion((None, (7, 8))))
+
+    assert full_calls == 1
+    assert scaling_impl.init_done
+    expected = quant_weight().value[:, 7:8]
+    torch.testing.assert_close(first, expected)
+
+    def fail_full_quantization(*args, **kwargs):
+        raise AssertionError("Initialized parameter-from-stats region used full quantization")
+
+    monkeypatch.setattr(layer, 'quant_weight', fail_full_quantization)
+    actual = layer.quant_weight_region(WeightRegion((None, (7, 8))))
+    torch.testing.assert_close(actual, expected)
+
+
+@torch.no_grad()
+@pytest.mark.parametrize("quantize_zero_point", [True, False])
+def test_groupwise_asymmetric_weight_region(monkeypatch, quantize_zero_point):
+    weight_quant = ShiftedUint8WeightGroupQuantFloat.let(
+        group_size=32, quantize_zero_point=quantize_zero_point)
+    layer = qnn.QuantLinear(33, 4, bias=False, weight_quant=weight_quant)
+    with torch.no_grad():
+        layer.weight.copy_(torch.linspace(-2.0, 3.0, layer.weight.numel()).view_as(layer.weight))
+    layer.eval()
+    layer(torch.randn(2, 33))
+    assert layer.weight_quant.supports_quant_weight_region
+    full_quant_weight = layer.quant_weight().value
+    quant_weight = layer.quant_weight
+
+    def fail_full_quantization(*args, **kwargs):
+        raise AssertionError("Asymmetric region used full-weight quantization")
+
+    monkeypatch.setattr(layer, 'quant_weight', fail_full_quantization)
+    for index in (0, 31, 32):
+        actual = layer.quant_weight_region(WeightRegion((None, (index, index + 1))))
+        torch.testing.assert_close(actual, full_quant_weight[:, index:index + 1])
+    monkeypatch.setattr(layer, 'quant_weight', quant_weight)
+
+
+@torch.no_grad()
+def test_groupwise_asymmetric_parameter_from_stats_region(monkeypatch):
+    weight_quant = ShiftedUint8WeightGroupQuantFloat.let(
+        group_size=32,
+        scaling_impl_type='parameter_from_stats',
+        zero_point_impl=ParameterFromStatsFromParameterZeroPoint)
+    layer = qnn.QuantLinear(33, 4, bias=False, weight_quant=weight_quant)
+    layer.eval()
+    scaling_impl = layer.weight_quant.tensor_quant.scaling_impl
+    zero_point_impl = layer.weight_quant.tensor_quant.zero_point_impl
+    assert not scaling_impl.init_done
+    assert not zero_point_impl.init_done
+
+    full_calls = 0
+    quant_weight = layer.quant_weight
+
+    def record_quant_weight(*args, **kwargs):
+        nonlocal full_calls
+        full_calls += 1
+        return quant_weight(*args, **kwargs)
+
+    monkeypatch.setattr(layer, 'quant_weight', record_quant_weight)
+    first = layer.quant_weight_region(WeightRegion((None, (32, 33))))
+    assert full_calls == 1
+    assert scaling_impl.init_done
+    assert zero_point_impl.init_done
+    expected = quant_weight().value[:, 32:33]
+    torch.testing.assert_close(first, expected)
+
+    def fail_full_quantization(*args, **kwargs):
+        raise AssertionError("Initialized asymmetric stateful region used full quantization")
+
+    monkeypatch.setattr(layer, 'quant_weight', fail_full_quantization)
+    actual = layer.quant_weight_region(WeightRegion((None, (32, 33))))
+    torch.testing.assert_close(actual, expected)
+
+
+@torch.no_grad()
+@pytest.mark.parametrize("weight_quant", [MXInt8Weight, MXFloat8e4m3Weight])
+def test_groupwise_cross_group_region_falls_back(monkeypatch, weight_quant):
+    layer = qnn.QuantLinear(33, 4, bias=False, weight_quant=weight_quant)
+    layer.eval()
+    layer(torch.randn(2, 33))
+    expected = layer.quant_weight().value[1:3, 31:33]
+    full_calls = 0
+    quant_weight = layer.quant_weight
+
+    def record_quant_weight(*args, **kwargs):
+        nonlocal full_calls
+        full_calls += 1
+        return quant_weight(*args, **kwargs)
+
+    monkeypatch.setattr(layer, 'quant_weight', record_quant_weight)
+    actual = layer.quant_weight_region(WeightRegion(((1, 3), (31, 33))))
+
+    assert full_calls == 1
+    torch.testing.assert_close(actual, expected)
+
+
+@torch.no_grad()
+def test_groupwise_weight_region_training_falls_back(monkeypatch):
+    layer = qnn.QuantLinear(33, 4, bias=False, weight_quant=MXInt8Weight)
+    layer.eval()
+    layer(torch.randn(2, 33))
+    expected = layer.quant_weight().value[:, 7:8]
+    layer.train()
+    full_calls = 0
+    quant_weight = layer.quant_weight
+
+    def record_quant_weight(*args, **kwargs):
+        nonlocal full_calls
+        full_calls += 1
+        return quant_weight(*args, **kwargs)
+
+    monkeypatch.setattr(layer, 'quant_weight', record_quant_weight)
+    actual = layer.quant_weight_region(WeightRegion((None, (7, 8))))
+
+    assert full_calls == 1
+    torch.testing.assert_close(actual, expected)
+
+
+@torch.no_grad()
+@pytest.mark.parametrize(
+    "weight_quant",
+    [
+        IntWeightSymmetricGroupQuant,
+        Fp8e4m3WeightSymmetricGroupQuant,
+        ShiftedUint8WeightGroupQuantFloat])
+def test_qronos_groupwise_linear_uses_region_quantization(monkeypatch, weight_quant):
+    torch.manual_seed(SEED)
+    model = nn.Sequential(
+        qnn.QuantLinear(33, 4, bias=False, weight_quant=weight_quant.let(group_size=32)))
+    inp = torch.randn(8, 33)
+    model.eval()
+    model(inp)
+    layer = model[0]
+    group_calls = 0
+    quantize_weight_group = layer.weight_quant.quantize_weight_group
+
+    def record_quantize_weight_group(*args, **kwargs):
+        nonlocal group_calls
+        group_calls += 1
+        return quantize_weight_group(*args, **kwargs)
+
+    monkeypatch.setattr(layer.weight_quant, 'quantize_weight_group', record_quantize_weight_group)
+    loader = DataLoader(TensorDataset(inp, inp), batch_size=4)
+    apply_qronos(calib_loader=loader, model=model, act_order=False, use_quant_activations=False)
+
+    assert group_calls > 0
+    assert torch.isfinite(model(inp)).all()
 
 
 class _MockAXEMixin(AXEMixin):

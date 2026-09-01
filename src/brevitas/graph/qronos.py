@@ -103,6 +103,13 @@ class Qronos(GPFQ):
         if self.use_intermediate_buffer:
             del self.B  # free memory
 
+        def cleanup_and_offload(*buffer_names):
+            for buffer_name in buffer_names:
+                if hasattr(self, buffer_name):
+                    delattr(self, buffer_name)
+            if hasattr(self.layer, 'offload_params'):
+                self.layer.offload_params(self.layer)
+
         weight: Tensor = self.layer.weight.data
         weight_orig: Tensor = self.layer.weight_orig.data
         dev = weight.device
@@ -175,6 +182,7 @@ class Qronos(GPFQ):
                 f'Failed to compute the inverse of H for layer {self.name} '
                 f'Forward error correction will be a null operation. '
                 f'Increasing the number of samples might fix this issue.')
+            cleanup_and_offload('G', 'H', 'iH')
             return
 
         self.iH = self.iH.to(dev)
@@ -185,7 +193,7 @@ class Qronos(GPFQ):
         dtype_max = torch.finfo(dtype).max
 
         # Qronos - step 1
-        q_groups = self.get_quant_weights(0, 0, permutation_list, with_quant_history=True)
+        q_groups = self.get_quant_weight_history(0, permutation_list)
         for group_index in range(self.groups):
             perm = permutation_list[group_index]
             q: Tensor = q_groups[group_index].to(self.dtype)
@@ -197,6 +205,12 @@ class Qronos(GPFQ):
             assert (q_arg >= dtype_min).all() and (q_arg <= dtype_max).all()
             weight[group_index, :, perm[0]] = q_arg.to(dtype)
 
+        # The first-column update completes the algorithm when there are no remaining columns.
+        # Avoid constructing and factorizing an empty trailing inverse in that case.
+        if self.columns == 1:
+            cleanup_and_offload('G', 'H', 'iH')
+            return
+
         # Sherman-Morrison-Woodbury update rule
         A = self.iH[:, 1:, 1:]
         for group_index in range(self.groups):
@@ -205,7 +219,7 @@ class Qronos(GPFQ):
             A[group_index] -= (b.matmul(b.T)) / c
         self.iH = A
 
-        q_groups = self.get_quant_weights(0, 1, permutation_list, with_quant_history=True)
+        q_groups = self.get_quant_weight_history(1, permutation_list)
         for group_index in range(self.groups):
             perm = permutation_list[group_index]
             q: Tensor = q_groups[group_index].to(self.dtype)
@@ -229,6 +243,7 @@ class Qronos(GPFQ):
                 f'Failed to compute Cholesky decomposition for layer {self.name} '
                 f'Forward error correction will be a null operation. '
                 f'Increasing the number of samples might fix this issue.')
+            cleanup_and_offload('iH', 'L')
             return
         del self.iH  # memory management
 
@@ -243,7 +258,7 @@ class Qronos(GPFQ):
             # correct error within the block
             for i in range(count):
                 # error diffusion
-                q_groups = self.get_quant_weights(i, i1, permutation_list)  # [groups, OC/groups]
+                q_groups = self.get_quant_weight(i, i1, permutation_list)  # [groups, OC/groups]
                 for group_index in range(self.groups):
                     perm = permutation_list[group_index]
                     q = q_groups[group_index].to(self.dtype)  # [OC/groups]

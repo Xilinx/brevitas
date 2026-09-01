@@ -3,6 +3,7 @@
 
 from abc import ABCMeta
 from abc import abstractmethod
+from dataclasses import dataclass
 from typing import List
 from typing import Optional
 from typing import Tuple
@@ -21,6 +22,28 @@ from .base import QuantProxyMixin
 
 WeightQuantType = Union[WeightQuantProxyProtocol, Type[Injector], Type[ExtendedInjector]]
 BiasQuantType = Union[BiasQuantProxyProtocol, Type[Injector], Type[ExtendedInjector]]
+
+
+@dataclass(frozen=True)
+class WeightRegion:
+    bounds: Tuple[Optional[Tuple[Optional[int], Optional[int]]], ...]
+
+    def normalize(self, shape) -> List[Tuple[int, int]]:
+        if len(self.bounds) != len(shape):
+            raise ValueError(
+                f"Expected {len(shape)} weight-region dimensions, received {len(self.bounds)}")
+        normalized = []
+        for dim, bound in zip(shape, self.bounds):
+            if bound is None:
+                normalized.append((0, dim))
+            else:
+                if len(bound) != 2:
+                    raise ValueError("Weight-region bounds must be (start, end) pairs")
+                start, end, step = slice(bound[0], bound[1]).indices(dim)
+                if step != 1:
+                    raise ValueError("Weight regions do not support strided slices")
+                normalized.append((start, end))
+        return normalized
 
 
 class QuantWeightMixin(QuantProxyMixin):
@@ -64,22 +87,43 @@ class QuantWeightMixin(QuantProxyMixin):
                     if hasattr(m, 'subtensor_slice_list'):
                         self._cached_sub_tensor_slice_list_modules.append(m)
                         m.subtensor_slice_list = subtensor_slice_list
-            # generate slices for the weight tensor based on the list passed in
+
+            # Generate slices for the weight tensor based on the list passed in.
             weight_slice_tuple = tuple(
                 slice(*s) if s is not None else slice(s) for s in subtensor_slice_list)
         else:
             weight_slice_tuple = slice(None)
-        if self.weight_quant.requires_quant_input:
-            out = self.weight_quant(weights_to_quantize[weight_slice_tuple], quant_input)
-        else:
-            out = self.weight_quant(weights_to_quantize[weight_slice_tuple])
-        if subtensor_slice_list is not None:
-            # Restore the quantizer behaviour to full tensor quantization
-            # The modules to slice should have been cached already at this point
-            assert self._cached_sub_tensor_slice_list_modules is not None, "Missing cache of modules to slice."
-            for m in self._cached_sub_tensor_slice_list_modules:
-                m.subtensor_slice_list = [None]
+        try:
+            if self.weight_quant.requires_quant_input:
+                out = self.weight_quant(weights_to_quantize[weight_slice_tuple], quant_input)
+            else:
+                out = self.weight_quant(weights_to_quantize[weight_slice_tuple])
+        finally:
+            if subtensor_slice_list is not None:
+                # Restore the quantizer behaviour to full tensor quantization.
+                assert self._cached_sub_tensor_slice_list_modules is not None, \
+                    "Missing cache of modules to slice."
+                for m in self._cached_sub_tensor_slice_list_modules:
+                    m.subtensor_slice_list = [None]
         return out
+
+    def quant_weight_region(self, region: WeightRegion, quant_input: Optional[QuantTensor] = None):
+        """Return a dequantized region equivalent to full quantization followed by slicing."""
+        bounds = region.normalize(self.weight.shape)
+        weight = self.weight
+        if not self.weight_quant.is_quant_enabled and hasattr(self, 'weight_orig'):
+            weight = self.weight_orig.to(self.weight.device)
+        supports_region = getattr(self.weight_quant, 'supports_quant_weight_region', False)
+        quantize_region = getattr(self.weight_quant, 'quantize_weight_region', None)
+        out = quantize_region(
+            weight, bounds,
+            quant_input) if supports_region and quantize_region is not None else None
+        if out is not None:
+            return out
+        out = self.quant_weight(quant_input=quant_input)
+        out = out.value if isinstance(out, QuantTensor) else out
+        slices = tuple(slice(start, end) for start, end in bounds)
+        return out[slices]
 
     def register_parameter(self, name, value):
         super(QuantWeightMixin, self).register_parameter(name, value)

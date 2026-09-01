@@ -15,6 +15,7 @@ import brevitas
 import brevitas.config as config
 from brevitas.core.function_wrapper import OverBatchOverTensorView
 from brevitas.core.function_wrapper import TensorClamp
+from brevitas.core.function_wrapper.shape import select_groupwise_metadata
 from brevitas.core.restrict_val import _ClampValue
 from brevitas.core.restrict_val import _RestrictClampValue
 from brevitas.core.restrict_val import _RestrictValue
@@ -201,6 +202,19 @@ class ParameterScaling(brevitas.jit.ScriptModule):
         value = self.restrict_clamp_scale_threshold(value / threshold)
         return value
 
+    supports_groupwise_region = True
+
+    @brevitas.jit.ignore
+    def forward_group(
+            self, placeholder: Tensor, threshold: Optional[Tensor], group_index: Tensor,
+            group_dim: int) -> Tensor:
+        if threshold is None:
+            threshold = torch.ones(1).type_as(placeholder)
+        threshold = self.restrict_clamp_threshold(self.restrict_threshold_pre(threshold))
+        value = select_groupwise_metadata(self.value, group_dim, group_index)
+        value = self.restrict_clamp_scaling(value)
+        return self.restrict_clamp_scale_threshold(value / threshold)
+
     def _load_from_state_dict(
             self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
             error_msgs):
@@ -305,6 +319,8 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
 
         self.value = Parameter(torch.full(scaling_shape, 1.0, dtype=dtype, device=device))
 
+        self.supports_groupwise_region = True
+
     @brevitas.jit.script_method
     def forward(self, x: Tensor, threshold: Optional[Tensor] = None) -> Tensor:
         if threshold is None:
@@ -333,6 +349,20 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
             value = self.stats_scaling_impl.restrict_clamp_scale_threshold(value / threshold)
             self.init_done = True
             return value
+
+    @brevitas.jit.ignore
+    def forward_group(
+            self, x: Tensor, threshold: Optional[Tensor], group_index: Tensor,
+            group_dim: int) -> Tensor:
+        if not self.init_done:
+            raise RuntimeError("Parameter-from-stats scale is not ready for regional quantization")
+        if threshold is None:
+            threshold = torch.ones(1).type_as(x)
+        threshold = self.stats_scaling_impl.restrict_clamp_threshold(
+            self.restrict_threshold_pre(threshold))
+        value = select_groupwise_metadata(self.value, group_dim, group_index)
+        value = self.stats_scaling_impl.restrict_clamp_scaling(value)
+        return self.stats_scaling_impl.restrict_clamp_scale_threshold(value / threshold)
 
     def state_dict(self, destination=None, prefix='', keep_vars=False):
         output_dict = super(ParameterFromStatsFromParameterScaling, self).state_dict(
