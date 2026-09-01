@@ -11,6 +11,8 @@ import warnings
 
 import numpy as np
 import torch
+
+torch._dynamo.config.recompile_limit = 1000
 from torch.utils.data import DataLoader
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
@@ -22,6 +24,7 @@ from brevitas.graph.equalize import apply_rewriters
 from brevitas.graph.equalize import fuse_parametrizations
 from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.equalize import LayerwiseActivationRotation
+from brevitas.graph.functional_quant import grouped_mm_functions
 from brevitas.graph.permute import rotate_permute_mode
 from brevitas.graph.quantize import functional_quantization_mode
 from brevitas.graph.quantize import layerwise_quantize
@@ -107,17 +110,42 @@ def _functional_quant_map(quantizers_dict, functional_quantization=None, quant_s
     input_quant = quantizers_dict.get('linear_input_quant')
     weight_quant = quantizers_dict.get('weight_quant')
 
+    def functional_weight(module, module_name, call_index):
+        """Select owner axes for standard stacked eager MoE expert projections."""
+        if hasattr(module, 'gate_up_proj') and hasattr(module, 'down_proj') and all(
+                getattr(projection, 'dim', lambda: 0)() == 3
+                for projection in (module.gate_up_proj, module.down_proj)):
+            return weight_quant, {'output_channel_dim': 1, 'group_dim': 2}
+        return weight_quant
+
+    def functional_matmul_weight(module, module_name, call_index):
+        """Select GPT-OSS [expert, input, output] owner axes."""
+        if hasattr(module, 'gate_up_proj') and getattr(module.gate_up_proj, 'dim',
+                                                       lambda: 0)() == 3:
+            return weight_quant, {'output_channel_dim': 2, 'group_dim': 1}
+        return weight_quant
+
+    def functional_grouped_weight(module, module_name, call_index):
+        resolved = functional_weight(module, module_name, call_index)
+        quantizer, kwargs = resolved if isinstance(resolved, tuple) else (resolved, {})
+        kwargs = {} if kwargs is None else dict(kwargs)
+        kwargs['return_quant_tensor'] = False
+        return quantizer, kwargs
+
     if functional_quantization == 'input':
         linear_spec = input_quant
         matmul_spec = input_quant
+        grouped_spec = input_quant
     elif functional_quantization == 'weight':
-        linear_spec = (None, None, weight_quant)
-        matmul_spec = (None, None, weight_quant)
+        linear_spec = (None, None, functional_weight)
+        matmul_spec = (None, None, functional_matmul_weight)
+        grouped_spec = (None, None, functional_grouped_weight)
     elif functional_quantization == 'all':
-        linear_spec = (input_quant, input_quant, weight_quant)
-        matmul_spec = (input_quant, input_quant, weight_quant)
+        linear_spec = (input_quant, input_quant, functional_weight)
+        matmul_spec = (input_quant, input_quant, functional_matmul_weight)
+        grouped_spec = (input_quant, input_quant, functional_grouped_weight)
     else:
-        linear_spec = matmul_spec = None
+        linear_spec = matmul_spec = grouped_spec = None
 
     if linear_spec is not None:
         quant_map[torch.nn.functional.linear] = linear_spec
@@ -126,6 +154,9 @@ def _functional_quant_map(quantizers_dict, functional_quantization=None, quant_s
         quant_map[torch.Tensor.matmul] = matmul_spec
         quant_map[torch.Tensor.__matmul__] = matmul_spec
         quant_map[torch.bmm] = matmul_spec
+    if grouped_spec is not None:
+        for grouped_mm in grouped_mm_functions():
+            quant_map[grouped_mm] = grouped_spec
     if quant_sdpa == 'functional':
         quant_map[torch.nn.functional.scaled_dot_product_attention] = (
             quantizers_dict.get('q_scaled_quant'),
@@ -449,7 +480,7 @@ def quantize_llm(args, extra_args=None):
         print("Act equalization applied.")
         remove_hooks(model)
 
-    if args.magr and not args.load_checkpoint:
+    if args.magr and not args.load_checkpoint and args.functional_quantization is None:
         print("Applying MagR...")
         model = offload_model(model)
         apply_magr(
@@ -600,8 +631,7 @@ def quantize_llm(args, extra_args=None):
     if functional_quant_map:
         fq_state = prepare_functional_quantization(
             model, functional_quant_map, example_kwargs=next(iter(calibration_loader)))
-        quantization_cm = functional_quantization_mode(
-            fq_state, remove_parametrizations_on_exit=True)
+        quantization_cm = functional_quantization_mode(fq_state)
     else:
         quantization_cm = nullcontext()
 
@@ -704,7 +734,11 @@ def quantize_llm(args, extra_args=None):
                 block_name=args.gpxq_block_name,
                 buffer_device=args.gpxq_buffer_device,
                 max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
-                max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
+                max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size,
+                functional_state=fq_state,
+                min_samples=args.gpxq_min_samples,
+                insufficient_samples=args.gpxq_insufficient_samples,
+                expert_batch_size=args.gpxq_expert_batch_size)
             print("GPTQ applied.")
 
         if args.gpfq and not args.load_checkpoint:
@@ -716,7 +750,12 @@ def quantize_llm(args, extra_args=None):
                 block_name=args.gpxq_block_name,
                 buffer_device=args.gpxq_buffer_device,
                 max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
-                max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
+                max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size,
+                functional_state=fq_state,
+                min_samples=args.gpxq_min_samples,
+                insufficient_samples=args.gpxq_insufficient_samples,
+                expert_batch_size=args.gpxq_expert_batch_size,
+                monitor_routing=args.gpxq_monitor_routing)
             print("GPFQ applied.")
 
         if args.qronos and not args.load_checkpoint:
@@ -727,8 +766,27 @@ def quantize_llm(args, extra_args=None):
                 alpha=args.qronos_alpha,
                 act_order=args.gpxq_act_order,
                 block_name=args.gpxq_block_name,
-                buffer_device=args.gpxq_buffer_device)
+                buffer_device=args.gpxq_buffer_device,
+                functional_state=fq_state,
+                min_samples=args.gpxq_min_samples,
+                insufficient_samples=args.gpxq_insufficient_samples,
+                expert_batch_size=args.gpxq_expert_batch_size,
+                monitor_routing=args.gpxq_monitor_routing)
             print("Qronos applied.")
+
+        if args.magr and args.functional_quantization is not None and not args.load_checkpoint:
+            print("Applying MagR...")
+            apply_magr(
+                model,
+                calibration_loader,
+                create_weight_orig=not args.disable_create_weight_orig,
+                alpha=args.magr_alpha,
+                buffer_device=args.gpxq_buffer_device,
+                functional_state=fq_state,
+                min_samples=args.gpxq_min_samples,
+                insufficient_samples=args.gpxq_insufficient_samples,
+                expert_batch_size=args.gpxq_expert_batch_size)
+            print("MagR applied.")
 
         if args.bias_corr and not args.load_checkpoint:
             print("Applying bias correction...")
@@ -803,6 +861,9 @@ def quantize_llm(args, extra_args=None):
             # Currently we always export with a float32 container to avoid float16 CPU errors
             model = model.to(dtype=torch.float32)
             model_export(model, tokenizer, next(iter(calibration_loader)), args, config)
+
+    if fq_state is not None:
+        fq_state.cleanup()
 
     return {"float_ppl": float_ppl, "quant_ppl": quant_ppl, **few_shot_eval_results}, model
 

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from argparse import ArgumentParser
+from argparse import ArgumentTypeError
 from argparse import Namespace
 from typing import List
 from typing import Optional
@@ -10,6 +11,13 @@ from warnings import warn
 
 from brevitas_examples.common.parse_utils import create_entrypoint_args_parser
 from brevitas_examples.common.parse_utils import quant_format_validator
+
+
+def positive_int(value: str) -> int:
+    value = int(value)
+    if value < 1:
+        raise ArgumentTypeError('expected a positive integer')
+    return value
 
 
 def create_args_parser() -> ArgumentParser:
@@ -279,13 +287,34 @@ def create_args_parser() -> ArgumentParser:
     parser.add_argument(
         '--qronos-alpha', default=1e-6, type=float, help='Alpha for Qronos. Default: 1e-6')
     parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
+    parser.add_argument(
+        '--gpxq-expert-batch-size',
+        '--gptq-expert-batch-size',
+        dest='gpxq_expert_batch_size',
+        type=positive_int,
+        default=1,
+        help='Maximum number of compatible functional experts updated in one GPxQ tensor batch.')
     parser.add_argument('--gpfq', action='store_true', help='Apply GPFQ.')
+    parser.add_argument(
+        '--gpxq-min-samples',
+        type=int,
+        default=0,
+        help='Minimum samples required before a functional GPxQ target is optimized.')
+    parser.add_argument(
+        '--gpxq-insufficient-samples',
+        choices=('rtn', 'error', 'gpxq'),
+        default='rtn',
+        help='Policy for functional GPxQ targets below --gpxq-min-samples.')
     parser.add_argument(
         '--gpxq-act-order', action='store_true', help='Apply GPxQ activation ordering.')
     parser.add_argument(
         '--gpxq-use-quant-activations',
         action='store_true',
         help='Use quantized activations in GPxQ.')
+    parser.add_argument(
+        '--gpxq-monitor-routing',
+        action='store_true',
+        help='Report quantized-versus-float MoE expert assignment metrics for GPFQ/Qronos.')
     parser.add_argument(
         '--disable-create-weight-orig',
         action='store_true',
@@ -577,6 +606,8 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
         assert not args.convert_layernorm_to_rmsnorm, 'LayerNorm is automatically replaced with RMSNorm when running with --rotation=fused_no_fx. Remove the flag --convert-layernorm-to-rmsnorm'
         assert args.replace_rmsnorm, 'Graph rotation requires to replace HF RMSNorm with PyTorch ones (torch 2.4+ require)'
     if not args.no_quantize:
+        if args.gpxq_expert_batch_size < 1:
+            raise ValueError('GPxQ expert batch size must be positive.')
         if args.weight_quant_rescaling_init is not None:
             assert args.weight_quant_rescaling_init > 0, \
                 'Error: weight_quant_rescaling_init must be positive.'

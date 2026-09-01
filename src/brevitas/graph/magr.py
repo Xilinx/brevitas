@@ -1,20 +1,25 @@
 # Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from copy import deepcopy
+from typing import Callable
 from typing import List
 from typing import Optional
+from typing import Sequence
+import warnings
 
 import torch
 import torch.nn as nn
 from tqdm import tqdm
 
 from brevitas.graph.gptq import GPTQ
+from brevitas.graph.gpxq import FunctionalGPxQBatch
+from brevitas.graph.gpxq import FunctionalLinearTarget
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.utils import is_conv_transposed
 from brevitas.graph.utils import power_iteration
+from brevitas.utils.torch_utils import StopFwdException
 
 
 def _project_onto_l1_ball(x, eps=1.0):
@@ -102,6 +107,8 @@ class MagR(GPTQ):
         if hasattr(self.layer, 'allocate_params'):
             self.layer.allocate_params(self.layer)
         weight = self.layer.weight.data
+        functional_weight_before = (
+            weight.detach().clone() if isinstance(self.layer, FunctionalLinearTarget) else None)
         if self.create_weight_orig:
             weight_orig = self.layer.weight_orig.data
         else:
@@ -125,10 +132,18 @@ class MagR(GPTQ):
         weight_orig = weight_orig.view(
             self.groups, -1, weight_orig.shape[-1])  # [Groups, OC/Groups, IC]
         self.H = self.H.to(dev)
+        failed = False
         for group_index in range(self.groups):
             # approximate maximum singular value (ie, matrix L2 norm)
-            eta = 1. / power_iteration(self.H[group_index], steps=self.power_steps)
-            alpha = self.alpha / (eta * torch.linalg.norm(self.H[group_index], ord=1))
+            singular_value = power_iteration(self.H[group_index], steps=self.power_steps)
+            matrix_norm = torch.linalg.norm(self.H[group_index], ord=1)
+            if singular_value <= 0 or matrix_norm <= 0:
+                warnings.warn(
+                    f'MagR will not be applied to layer {self.name}: empty covariance matrix.')
+                failed = True
+                continue
+            eta = 1. / singular_value
+            alpha = self.alpha / (eta * matrix_norm)
             wk = weight[group_index].to(self.dtype)
             gk = weight_orig[group_index].to(self.dtype)  # ground
             for _ in tqdm(range(self.gradient_steps), leave=False):
@@ -136,10 +151,81 @@ class MagR(GPTQ):
                     self.H[group_index])  # argument of the proximal operator
                 wk = vk - alpha * _project_onto_l1_ball(vk / alpha)  # update via proximal operator
                 weight[group_index] = wk.to(dtype)  # downcast
-                assert torch.isfinite(weight[group_index]).all()
+                if not torch.isfinite(weight[group_index]).all():
+                    if functional_weight_before is not None:
+                        self.layer.writeback(functional_weight_before)
+                    warnings.warn(
+                        f'MagR update for layer {self.name} produced non-finite weights; '
+                        'restoring its pre-MagR weights.')
+                    del self.H
+                    if hasattr(self.layer, 'offload_params'):
+                        self.layer.offload_params(self.layer)
+                    return True
         del self.H  # free memory
         if hasattr(self.layer, 'offload_params'):
             self.layer.offload_params(self.layer)
+        return failed
+
+    @staticmethod
+    def batched_layer_update(optimizers):
+        """Apply MagR to a compatible batch of functional expert matrices."""
+        batch = FunctionalGPxQBatch(optimizers)
+        first = optimizers[0]
+        if any(optimizer.columns != first.columns or
+               optimizer.gradient_steps != first.gradient_steps or
+               optimizer.power_steps != first.power_steps or optimizer.alpha != first.alpha
+               for optimizer in optimizers):
+            raise ValueError('Batched functional MagR requires compatible expert optimizers.')
+        for optimizer in optimizers:
+            if optimizer.use_intermediate_buffer:
+                del optimizer.B
+
+        targets = batch.targets
+        weight = batch.weight
+        weight_orig = torch.stack([
+            target.weight_orig.to(weight.device)
+            if optimizer.create_weight_orig else target.weight.detach().clone() for target,
+            optimizer in zip(targets, optimizers)])
+        hessian = batch.pop_buffer('H', weight.device)
+
+        scale = hessian.amax(dim=(-2, -1)).abs()
+        valid = scale > 0
+        normalized = hessian / torch.where(valid, scale, torch.ones_like(scale))[:, None, None]
+        generator = torch.Generator(device=weight.device).manual_seed(42)
+        vector = torch.rand(
+            first.columns, device=weight.device, dtype=first.dtype,
+            generator=generator).expand(len(optimizers), -1).clone()
+        eps = torch.finfo(first.dtype).eps
+        for _ in range(first.power_steps):
+            next_vector = torch.bmm(normalized, vector.unsqueeze(2)).squeeze(2)
+            vector = next_vector / (
+                torch.linalg.vector_norm(next_vector, dim=1, keepdim=True).clamp_min(eps))
+        singular_value = torch.bmm(vector.unsqueeze(1), torch.bmm(
+            normalized, vector.unsqueeze(2))).flatten() * scale
+        matrix_norm = torch.linalg.matrix_norm(hessian, ord=1)
+        valid &= (singular_value > 0) & (
+            matrix_norm > 0) & torch.isfinite(singular_value) & torch.isfinite(matrix_norm)
+        failed = [targets[index] for index in torch.where(~valid)[0].tolist()]
+        if not valid.any():
+            return failed
+
+        indices = torch.where(valid)[0]
+        targets = [targets[index] for index in indices.tolist()]
+        weight = weight.index_select(0, indices)
+        weight_orig = weight_orig.index_select(0, indices)
+        hessian = hessian.index_select(0, indices)
+        eta = 1. / singular_value.index_select(0, indices)
+        alpha = first.alpha / (eta * matrix_norm.index_select(0, indices))
+        wk = weight.to(first.dtype)
+        gk = weight_orig.to(first.dtype)
+        rows = wk.shape[1]
+        for _ in range(first.gradient_steps):
+            vk = wk - eta[:, None, None] * torch.bmm(wk - gk, hessian)
+            projected = _project_onto_l1_ball((vk / alpha[:, None, None]).reshape(
+                -1, first.columns)).reshape(len(targets), rows, first.columns)
+            wk = vk - alpha[:, None, None] * projected
+        failed.extend(FunctionalGPxQBatch.writeback(targets, wk.to(weight.dtype)))
+        return failed
 
 
 class magr_mode(gpxq_mode):
@@ -172,18 +258,24 @@ class magr_mode(gpxq_mode):
     """
 
     def __init__(
-            self,
-            model,
-            alpha: float = 0.1,
-            num_steps: int = 10,
-            group_of_parallel_layers: Optional[List[str]] = None,
-            inplace: bool = True,
-            create_weight_orig: bool = True,
-            return_forward_output: bool = False,
-            device: str = 'cpu',
-            dtype: torch.dtype = torch.float32) -> None:
-        if not inplace:
-            model = deepcopy(model)
+        self,
+        model,
+        alpha: float = 0.1,
+        num_steps: int = 10,
+        group_of_parallel_layers: Optional[List[str]] = None,
+        inplace: bool = True,
+        create_weight_orig: bool = True,
+        return_forward_output: bool = False,
+        device: str = 'cpu',
+        dtype: torch.dtype = torch.float32,
+        functional_state=None,
+        min_samples: int = 0,
+        insufficient_samples: str = 'rtn',
+        expert_batch_size: int = 1,
+        functional_linear_functions: Sequence[Callable] = (),
+        functional_matmul_functions: Sequence[Callable] = (),
+        functional_grouped_mm_functions: Sequence[Callable] = ()
+    ) -> None:
         super().__init__(
             model=model,
             group_of_parallel_layers=group_of_parallel_layers,
@@ -191,28 +283,55 @@ class magr_mode(gpxq_mode):
             create_weight_orig=create_weight_orig,
             return_forward_output=return_forward_output,
             device=device,
-            dtype=dtype)
+            dtype=dtype,
+            functional_state=functional_state,
+            min_samples=min_samples,
+            insufficient_samples=insufficient_samples,
+            expert_batch_size=expert_batch_size,
+            functional_linear_functions=functional_linear_functions,
+            functional_matmul_functions=functional_matmul_functions,
+            functional_grouped_mm_functions=functional_grouped_mm_functions)
         self.num_steps = num_steps
         self.alpha = alpha
+
+    def _update_functional_targets(self, targets, progress) -> int:
+        if self.expert_batch_size == 1:
+            return super()._update_functional_targets(targets, progress)
+        failed = []
+        for start in range(0, len(targets), self.expert_batch_size):
+            batch_targets = targets[start:start + self.expert_batch_size]
+            optimizers = [self.gpxq_layers[target.name] for target in batch_targets]
+            failed.extend(MagR.batched_layer_update(optimizers))
+            progress.set_postfix(batch=len(batch_targets), failed=len(failed))
+            progress.update(len(batch_targets))
+        return len(failed)
 
     def _is_module_supported(self, module):
         return isinstance(module, (nn.Linear, *SUPPORTED_CONV_OP))
 
     def update(self):
-        for name in tqdm(self.current_layer.layer_names, desc='Updating weights...', leave=True):
-            self.gpxq_layers[name].single_layer_update()
-            self.hook_dict[name].remove()
-        self.current_layer.layer_names.clear()
+        super().update()
 
     def catch_stopfwd(self, *args, **kwargs):
-        self.orig_forward(*args, **kwargs)
+        try:
+            self.orig_forward(*args, **kwargs)
+        except StopFwdException:
+            pass
         if self.return_forward_output:
             # If we want to return the output of the network, we need to disable all hooks
             for name, gpxq_class in self.gpxq_layers.items():
                 gpxq_class.disable_pre_forward_hook = True
-            out = self.orig_forward(*args, **kwargs)
-            for name, gpxq_class in self.gpxq_layers.items():
-                gpxq_class.disable_pre_forward_hook = False
+            if self.functional_source is not None:
+                self.functional_source.restart_call_sequence()
+            if self.functional_session is not None:
+                self.functional_session.enabled = False
+            try:
+                out = self.orig_forward(*args, **kwargs)
+            finally:
+                if self.functional_session is not None:
+                    self.functional_session.enabled = True
+                for name, gpxq_class in self.gpxq_layers.items():
+                    gpxq_class.disable_pre_forward_hook = False
             return out
 
     def initialize_module_optimizer(self, layer, name, len_parallel_layers, create_weight_orig):

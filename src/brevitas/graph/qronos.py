@@ -14,6 +14,8 @@ except:
 import warnings
 
 from brevitas.graph.gpfq import GPFQ
+from brevitas.graph.gpxq import FunctionalGPxQBatch
+from brevitas.graph.gpxq import FunctionalLinearTarget
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.utils import is_conv_transposed
 from brevitas.graph.utils import power_iteration
@@ -41,6 +43,16 @@ class Qronos(GPFQ):
         self.blocksize = math.ceil(self.columns / num_blocks)
         self.alpha = alpha
 
+    @staticmethod
+    def stable_weight_mask(weight: Tensor, reference: Tensor, max_ratio: float = 100.) -> Tensor:
+        """Reject finite but explosive corrections that destabilize downstream layers."""
+        weight_float = weight.float().flatten(1)
+        reference_float = reference.float().flatten(1)
+        finite = torch.isfinite(weight_float).all(dim=1)
+        weight_max = weight_float.abs().amax(dim=1)
+        reference_max = reference_float.abs().amax(dim=1).clamp_min(1e-12)
+        return finite & (weight_max <= max_ratio * reference_max)
+
     def update_batch(self, module, input, current_layer):
         if self.disable_pre_forward_hook:
             return input
@@ -52,7 +64,8 @@ class Qronos(GPFQ):
         inp_processed = inp_processed.to(self.dtype)
         batch_size = inp_processed.shape[-1]
 
-        is_quant_enabled = module.weight_quant.is_quant_enabled
+        is_quant_enabled = not module.reference_pass if hasattr(
+            module, 'reference_pass') else module.weight_quant.is_quant_enabled
 
         # NOTE: in the gpfq_mode context manager (which we use for this), we first
         # collect quant inputs, then we collect float inputs for the same batch. We
@@ -91,7 +104,8 @@ class Qronos(GPFQ):
         current_layer.forward_count += 1
         if current_layer.forward_count == self.len_parallel_layers:
             current_layer.forward_count = 0
-            raise StopFwdException
+            if current_layer.stop_forward:
+                raise StopFwdException
 
     def single_layer_update(self, beta: int = 1e4):
         assert not self.layer.weight_quant.requires_quant_input, \
@@ -104,6 +118,8 @@ class Qronos(GPFQ):
             del self.B  # free memory
 
         weight: Tensor = self.layer.weight.data
+        functional_weight_before = (
+            weight.detach().clone() if isinstance(self.layer, FunctionalLinearTarget) else None)
         weight_orig: Tensor = self.layer.weight_orig.data
         dev = weight.device
         weight_orig = weight_orig.to(dev)
@@ -122,6 +138,7 @@ class Qronos(GPFQ):
         weight = weight.view(self.groups, -1, weight.shape[-1])  # [Groups, OC/Groups, IC]
         weight_orig = weight_orig.view(
             self.groups, -1, weight_orig.shape[-1])  # [Groups, OC/Groups, IC]
+        weight_before = weight.detach().clone()
 
         # Get the diagonals of the covariance matrices here
         permutation_list = []
@@ -145,8 +162,16 @@ class Qronos(GPFQ):
             perm = perm.to(weight.device)
             permutation_list.append(perm)
 
-        assert not torch.isnan(self.H).any(), f"Error in {self.name}"
-        assert not torch.isnan(self.G).any(), f"Error in {self.name}"
+        if not torch.isfinite(self.H).all() or not torch.isfinite(self.G).all():
+            if functional_weight_before is not None:
+                self.layer.writeback(functional_weight_before)
+            warnings.warn(
+                f'Qronos covariance for layer {self.name} contains non-finite values; '
+                'restoring its pre-Qronos weights.')
+            del self.G, self.H
+            if hasattr(self.layer, 'offload_params'):
+                self.layer.offload_params(self.layer)
+            return True
 
         Dh: Tensor = torch.zeros((self.groups, self.columns), device=self.device, dtype=self.dtype)
         for group_index in range(self.groups):
@@ -171,11 +196,16 @@ class Qronos(GPFQ):
                 self.iH[group_index] = torch.linalg.cholesky(self.iH[group_index])
                 self.iH[group_index] = torch.cholesky_inverse(self.iH[group_index])
         except LinAlgError:
+            if functional_weight_before is not None:
+                self.layer.writeback(functional_weight_before)
             warnings.warn(
                 f'Failed to compute the inverse of H for layer {self.name} '
                 f'Forward error correction will be a null operation. '
                 f'Increasing the number of samples might fix this issue.')
-            return
+            del self.iH, self.G, self.H
+            if hasattr(self.layer, 'offload_params'):
+                self.layer.offload_params(self.layer)
+            return True
 
         self.iH = self.iH.to(dev)
         self.G = self.G.to(dev)
@@ -194,7 +224,17 @@ class Qronos(GPFQ):
             Gw = w.matmul(self.G[group_index, :, 0] * Dhi[group_index, 0])
             Uv = v.matmul(Uh[group_index, 0, :] * Dhi[group_index, 0])
             q_arg = Gw - Uv
-            assert (q_arg >= dtype_min).all() and (q_arg <= dtype_max).all()
+            if not torch.isfinite(q_arg).all() or not ((q_arg >= dtype_min).all() and
+                                                       (q_arg <= dtype_max).all()):
+                if functional_weight_before is not None:
+                    self.layer.writeback(functional_weight_before)
+                warnings.warn(
+                    f'Qronos update for layer {self.name} exceeded its numerical range; '
+                    'restoring its pre-Qronos weights.')
+                del self.iH, self.G, self.H
+                if hasattr(self.layer, 'offload_params'):
+                    self.layer.offload_params(self.layer)
+                return True
             weight[group_index, :, perm[0]] = q_arg.to(dtype)
 
         # Sherman-Morrison-Woodbury update rule
@@ -225,11 +265,16 @@ class Qronos(GPFQ):
                 self.L[group_index] = torch.linalg.cholesky(
                     self.iH[group_index] * beta, upper=True) / math.sqrt(beta)
         except LinAlgError:
+            if functional_weight_before is not None:
+                self.layer.writeback(functional_weight_before)
             warnings.warn(
                 f'Failed to compute Cholesky decomposition for layer {self.name} '
                 f'Forward error correction will be a null operation. '
                 f'Increasing the number of samples might fix this issue.')
-            return
+            del self.L, self.iH
+            if hasattr(self.layer, 'offload_params'):
+                self.layer.offload_params(self.layer)
+            return True
         del self.iH  # memory management
 
         # Qronos - step 2+
@@ -262,6 +307,187 @@ class Qronos(GPFQ):
                     error_block[group_index].matmul(self.L[group_index, i1 - 1:i2 - 1,
                                                            i2 - 1:])).to(dtype)
         del self.L  # memory management
-
+        stable = self.stable_weight_mask(weight, weight_orig)
+        if not stable.all():
+            weight[~stable] = weight_before[~stable]
+            warnings.warn(
+                f'Qronos update for layer {self.name} was numerically unstable; '
+                'restoring its pre-Qronos weights.')
         if hasattr(self.layer, 'offload_params'):
             self.layer.offload_params(self.layer)
+        return not stable.all().item()
+
+    @staticmethod
+    def batched_layer_update(optimizers, beta: int = 1e4):
+        """Apply Qronos to a compatible batch of functional expert matrices."""
+        batch = FunctionalGPxQBatch(optimizers)
+        first = optimizers[0]
+        columns = first.columns
+        blocksize = first.blocksize
+        if any(optimizer.columns != columns or optimizer.blocksize != blocksize or
+               optimizer.act_order != first.act_order or optimizer.alpha != first.alpha
+               for optimizer in optimizers):
+            raise ValueError('Batched functional Qronos requires compatible expert optimizers.')
+        for optimizer in optimizers:
+            if optimizer.layer.weight_quant.requires_quant_input:
+                raise RuntimeError(
+                    'Qronos does not support weight quantizers that require input metadata.')
+            if optimizer.quant_input is not None:
+                raise RuntimeError('Qronos quantized and reference inputs are unbalanced.')
+            if optimizer.use_intermediate_buffer:
+                del optimizer.B
+
+        targets = batch.targets
+        weight = batch.weight
+        weight_orig = torch.stack([target.weight_orig.to(weight.device) for target in targets])
+        device = weight.device
+        dtype = weight.dtype
+        hessian = batch.pop_buffer('H')
+        cross_covariance = batch.pop_buffer('G')
+
+        diagonal_h = hessian.diagonal(dim1=-2, dim2=-1)
+        dead = diagonal_h == 0
+        weight.masked_fill_(dead.to(device).unsqueeze(1), 0)
+        if first.act_order:
+            permutation = torch.argsort(diagonal_h, dim=-1, descending=True)
+            hessian = torch.gather(hessian, 1, permutation.unsqueeze(-1).expand(-1, -1, columns))
+            hessian = torch.gather(hessian, 2, permutation.unsqueeze(1).expand(-1, columns, -1))
+            cross_covariance = torch.gather(
+                cross_covariance, 1, permutation.unsqueeze(-1).expand(-1, -1, columns))
+            cross_covariance = torch.gather(
+                cross_covariance, 2, permutation.unsqueeze(1).expand(-1, columns, -1))
+        else:
+            permutation = torch.arange(columns, device=hessian.device).expand(len(optimizers), -1)
+        covariance_finite = torch.isfinite(hessian).all(
+            dim=(-2, -1)) & torch.isfinite(cross_covariance).all(dim=(-2, -1))
+
+        diagonal_h = hessian.diagonal(dim1=-2, dim2=-1)
+        reciprocal_h = torch.where(diagonal_h != 0, 1. / diagonal_h, torch.zeros_like(diagonal_h))
+        upper_h = torch.triu(hessian, diagonal=1)
+
+        scale = hessian.amax(dim=(-2, -1)).abs()
+        valid_scale = scale > 0
+        normalized = hessian / torch.where(valid_scale, scale,
+                                           torch.ones_like(scale))[:, None, None]
+        generator = torch.Generator(device=hessian.device).manual_seed(42)
+        vector = torch.rand(
+            columns, device=hessian.device, dtype=first.dtype,
+            generator=generator).expand(len(optimizers), -1).clone()
+        eps = torch.finfo(first.dtype).eps
+        for _ in range(30):
+            next_vector = torch.bmm(normalized, vector.unsqueeze(2)).squeeze(2)
+            vector = next_vector / (
+                torch.linalg.vector_norm(next_vector, dim=1, keepdim=True).clamp_min(eps))
+        singular_value = torch.bmm(vector.unsqueeze(1), torch.bmm(
+            normalized, vector.unsqueeze(2))).flatten() * scale
+        damp = first.alpha * singular_value
+        inverse_input = hessian.clone()
+        diag_index = torch.arange(columns, device=hessian.device)
+        inverse_input[:, diag_index, diag_index] += damp.unsqueeze(1)
+        chol, info = torch.linalg.cholesky_ex(inverse_input, check_errors=False)
+        valid = (info == 0) & valid_scale & torch.isfinite(damp) & covariance_finite
+        failed = [targets[index] for index in torch.where(~valid)[0].tolist()]
+        if not valid.any():
+            return failed
+
+        valid_indices = torch.where(valid)[0]
+        targets = [targets[index] for index in valid_indices.tolist()]
+        weight = weight.index_select(0, valid_indices.to(device))
+        weight_orig = weight_orig.index_select(0, valid_indices.to(device))
+        hessian = hessian[valid]
+        cross_covariance = cross_covariance[valid]
+        reciprocal_h = reciprocal_h[valid]
+        upper_h = upper_h[valid]
+        permutation = permutation[valid]
+        damp = damp[valid]
+        inverse_h = torch.cholesky_inverse(chol[valid])
+
+        permutation_weight = permutation.to(device)
+
+        def gather_columns(value, indices):
+            return torch.gather(value, 2, indices.unsqueeze(1).expand(-1, value.shape[1], -1))
+
+        def scatter_columns(value, indices, update):
+            return value.scatter(2, indices.unsqueeze(1).expand(-1, value.shape[1], -1), update)
+
+        ordered_weight = gather_columns(weight, permutation_weight).to(first.dtype)
+        ordered_weight_orig = gather_columns(weight_orig, permutation_weight).to(first.dtype)
+        gw = torch.bmm(
+            ordered_weight_orig,
+            (cross_covariance[:, :, 0] *
+             reciprocal_h[:, 0].unsqueeze(1)).to(device).unsqueeze(2)).squeeze(2)
+        uv = torch.bmm(
+            ordered_weight, (upper_h[:, 0, :] *
+                             reciprocal_h[:, 0].unsqueeze(1)).to(device).unsqueeze(2)).squeeze(2)
+        ordered_weight[:, :, 0] = gw - uv
+
+        a_matrix = inverse_h[:, 1:, 1:]
+        b_vector = inverse_h[:, 1:, 0]
+        a_matrix = a_matrix - b_vector.unsqueeze(2) * b_vector.unsqueeze(
+            1) / inverse_h[:, 0, 0][:, None, None]
+        inverse_h = a_matrix
+
+        weight = scatter_columns(weight, permutation_weight, ordered_weight.to(dtype))
+        quant_weight = batch.quantize(targets, weight)
+        quant_history = gather_columns(quant_weight, permutation_weight[:, :1]).to(first.dtype)
+        identity = torch.diag_embed(damp[:, None].expand(-1, columns)).to(device)
+        gh = cross_covariance.to(device) + identity
+        gw = torch.bmm(ordered_weight_orig, torch.bmm(gh[:, :, 1:], inverse_h.to(device)))
+        hq = torch.bmm(
+            quant_history, torch.bmm(hessian[:, :1, 1:].to(device), inverse_h.to(device)))
+        ordered_weight[:, :, 1:] = gw - hq
+        weight = scatter_columns(weight, permutation_weight, ordered_weight.to(dtype))
+        del cross_covariance, hessian
+
+        upper, upper_info = torch.linalg.cholesky_ex(
+            inverse_h * beta, upper=True, check_errors=False)
+        second_valid = upper_info == 0
+        failed.extend([targets[index] for index in torch.where(~second_valid)[0].tolist()])
+        if not second_valid.any():
+            return failed
+        second_indices = torch.where(second_valid)[0]
+        targets = [targets[index] for index in second_indices.tolist()]
+        weight = weight.index_select(0, second_indices.to(device))
+        weight_orig = weight_orig.index_select(0, second_indices.to(device))
+        permutation_weight = permutation_weight.index_select(0, second_indices.to(device))
+        l_factor = upper[second_valid] / math.sqrt(beta)
+
+        def quantize(value):
+            return batch.quantize(targets, value)
+
+        for i1 in range(1, columns, blocksize):
+            i2 = min(i1 + blocksize, columns)
+            count = i2 - i1
+            block_indices = permutation_weight[:, i1:i2]
+            error_block = torch.zeros((len(targets), weight.shape[1], count),
+                                      dtype=first.dtype,
+                                      device=device)
+            inverse_block = l_factor[:, i1 - 1:i2 - 1, i1 - 1:i2 - 1]
+            for index in range(count):
+                quant_weight = quantize(weight)
+                column_indices = block_indices[:, index:index + 1]
+                q = gather_columns(quant_weight, column_indices).squeeze(2).to(first.dtype)
+                w = gather_columns(weight, column_indices).squeeze(2).to(first.dtype)
+                divisor = inverse_block[:, index, index].to(device).unsqueeze(1)
+                error = (w - q) / divisor
+                error_block[:, :, index] = error
+                remaining_indices = block_indices[:, index:]
+                remaining = gather_columns(weight, remaining_indices)
+                inverse_row = inverse_block[:, index, index:].to(device)
+                remaining -= (error.unsqueeze(2) * inverse_row.unsqueeze(1)).to(dtype)
+                weight = scatter_columns(weight, remaining_indices, remaining)
+            if i2 < columns:
+                tail_indices = permutation_weight[:, i2:]
+                tail = gather_columns(weight, tail_indices)
+                correction = torch.bmm(error_block, l_factor[:, i1 - 1:i2 - 1,
+                                                             i2 - 1:].to(device)).to(dtype)
+                weight = scatter_columns(weight, tail_indices, tail - correction)
+
+        stable = Qronos.stable_weight_mask(weight, weight_orig)
+        failed.extend([targets[index] for index in torch.where(~stable)[0].tolist()])
+        stable_indices = torch.where(stable)[0]
+        if stable_indices.numel():
+            stable_targets = [targets[index] for index in stable_indices.tolist()]
+            stable_weight = weight.index_select(0, stable_indices.to(device))
+            failed.extend(FunctionalGPxQBatch.writeback(stable_targets, stable_weight))
+        return failed

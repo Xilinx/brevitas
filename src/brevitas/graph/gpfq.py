@@ -1,17 +1,22 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from copy import deepcopy
+from functools import partial
 import math
+from typing import Callable
 from typing import List
 from typing import Optional
+from typing import Sequence
 import warnings
 
 import torch
 from torch import Tensor
 import torch.nn as nn
+from tqdm import tqdm
 
 from brevitas.graph.calibrate import quantization_status_manager
+from brevitas.graph.gpxq import FunctionalGPxQBatch
+from brevitas.graph.gpxq import FunctionalLinearTarget
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
@@ -65,7 +70,8 @@ class GPFQ(GPxQ):
 
         # Update reference to current layer
         current_layer.layer_names.add(self.name)
-        is_quant_enabled = module.weight_quant.is_quant_enabled
+        is_quant_enabled = not module.reference_pass if hasattr(
+            module, 'reference_pass') else module.weight_quant.is_quant_enabled
 
         # NOTE: batch_size = seqlen for language models here
         inp_processed = self.process_input(input)  # [groups, in_features, batch_size]
@@ -90,6 +96,7 @@ class GPFQ(GPxQ):
             self.quant_input = None  # NOTE: set back to None now that we've used it
         else:
             # Compute the normalized H matrix
+            self.nsamples += batch_size
             if self.use_intermediate_buffer:
                 self.B.copy_(inp_processed.bmm(inp_processed.transpose(2, 1)))
                 self.H += self.B
@@ -105,7 +112,8 @@ class GPFQ(GPxQ):
         current_layer.forward_count += 1
         if current_layer.forward_count == self.len_parallel_layers:
             current_layer.forward_count = 0
-            raise StopFwdException
+            if current_layer.stop_forward:
+                raise StopFwdException
 
     def single_layer_update(self):
         assert not self.layer.weight_quant.requires_quant_input, \
@@ -118,6 +126,8 @@ class GPFQ(GPxQ):
             del self.B  # free memory
 
         weight = self.layer.weight.data
+        functional_weight_before = (
+            weight.detach().clone() if isinstance(self.layer, FunctionalLinearTarget) else None)
         weight_orig = self.layer.weight_orig.data
         dev = weight.device
         weight_orig = weight_orig.to(dev)
@@ -191,11 +201,97 @@ class GPFQ(GPxQ):
                 Lw = w.matmul(Lg[group_index, t, :t])
                 Lq = q.matmul(Lh[group_index, t, :t])
                 q_arg = Ds[group_index, t] * weight[group_index, :, i].to(self.dtype) + Lw - Lq
-                assert not torch.isnan(q_arg).any()
-                weight[group_index, :, i] = q_arg.to(dtype)
+                updated_weight = q_arg.to(dtype)
+                if not torch.isfinite(updated_weight).all():
+                    if functional_weight_before is not None:
+                        self.layer.writeback(functional_weight_before)
+                    warnings.warn(
+                        f'GPFQ update for layer {self.name} produced non-finite weights; '
+                        'restoring its pre-GPFQ weights.')
+                    if hasattr(self.layer, 'offload_params'):
+                        self.layer.offload_params(self.layer)
+                    return True
+                weight[group_index, :, i] = updated_weight
 
         if hasattr(self.layer, 'offload_params'):
             self.layer.offload_params(self.layer)
+        return False
+
+    @staticmethod
+    def batched_layer_update(optimizers):
+        """Apply GPFQ to a compatible batch of functional expert matrices."""
+        batch = FunctionalGPxQBatch(optimizers)
+        first = optimizers[0]
+        columns = first.columns
+        if any(optimizer.columns != columns or optimizer.act_order != first.act_order
+               for optimizer in optimizers):
+            raise ValueError('Batched functional GPFQ requires compatible expert optimizers.')
+        for optimizer in optimizers:
+            if optimizer.layer.weight_quant.requires_quant_input:
+                raise RuntimeError(
+                    'GPFQ does not support weight quantizers that require input metadata.')
+            if optimizer.quant_input is not None:
+                raise RuntimeError('GPFQ quantized and reference inputs are unbalanced.')
+            if optimizer.use_intermediate_buffer:
+                del optimizer.B
+
+        targets = batch.targets
+        weight = batch.weight
+        weight_orig = torch.stack([target.weight_orig.to(weight.device) for target in targets])
+        device = weight.device
+        dtype = weight.dtype
+        hessian = batch.pop_buffer('H')
+        cross_covariance = batch.pop_buffer('G')
+
+        diagonal_h = hessian.diagonal(dim1=-2, dim2=-1)
+        dead = diagonal_h == 0
+        weight.masked_fill_(dead.to(device).unsqueeze(1), 0)
+        if first.act_order:
+            permutation = torch.argsort(diagonal_h, dim=-1, descending=True)
+            hessian = torch.gather(hessian, 1, permutation.unsqueeze(-1).expand(-1, -1, columns))
+            hessian = torch.gather(hessian, 2, permutation.unsqueeze(1).expand(-1, columns, -1))
+            cross_covariance = torch.gather(
+                cross_covariance, 1, permutation.unsqueeze(-1).expand(-1, -1, columns))
+            cross_covariance = torch.gather(
+                cross_covariance, 2, permutation.unsqueeze(1).expand(-1, columns, -1))
+        else:
+            permutation = torch.arange(columns, device=hessian.device).expand(len(optimizers), -1)
+
+        diagonal_g = cross_covariance.diagonal(dim1=-2, dim2=-1)
+        diagonal_h = hessian.diagonal(dim1=-2, dim2=-1)
+        ds = torch.where(
+            diagonal_g * diagonal_h != 0, diagonal_g / diagonal_h, torch.zeros_like(diagonal_g))
+        reciprocal_h = torch.where(diagonal_h != 0, 1. / diagonal_h, torch.zeros_like(diagonal_h))
+        lg = reciprocal_h.unsqueeze(2) * torch.tril(cross_covariance, diagonal=-1)
+        lh = reciprocal_h.unsqueeze(2) * torch.tril(hessian, diagonal=-1)
+        del hessian, cross_covariance
+
+        permutation_weight = permutation.to(device)
+
+        def quantize(value):
+            return batch.quantize(targets, value)
+
+        def gather_columns(value, indices):
+            return torch.gather(value, 2, indices.unsqueeze(1).expand(-1, value.shape[1], -1))
+
+        def scatter_column(value, indices, update):
+            return value.scatter(
+                2, indices[:, None, None].expand(-1, value.shape[1], 1), update.unsqueeze(2))
+
+        for step in range(columns):
+            quant_weight = quantize(weight)
+            history_indices = permutation_weight[:, :step]
+            weight_history = gather_columns(weight_orig, history_indices).to(first.dtype)
+            quant_history = gather_columns(quant_weight, history_indices).to(first.dtype)
+            lw = torch.bmm(weight_history, lg[:, step, :step].to(device).unsqueeze(2)).squeeze(2)
+            lq = torch.bmm(quant_history, lh[:, step, :step].to(device).unsqueeze(2)).squeeze(2)
+            current_indices = permutation_weight[:, step]
+            current_weight = gather_columns(weight,
+                                            current_indices[:, None]).squeeze(2).to(first.dtype)
+            q_arg = ds[:, step].to(device).unsqueeze(1) * current_weight + lw - lq
+            weight = scatter_column(weight, current_indices, q_arg.to(dtype))
+
+        return FunctionalGPxQBatch.writeback(targets, weight)
 
 
 class gpfq_mode(gpxq_mode):
@@ -234,19 +330,26 @@ class gpfq_mode(gpxq_mode):
     """
 
     def __init__(
-            self,
-            model: nn.Module,
-            group_of_parallel_layers: Optional[List[str]] = None,
-            inplace: bool = True,
-            create_weight_orig: bool = True,
-            use_quant_activations: bool = True,
-            return_forward_output: bool = False,
-            act_order: bool = False,
-            algorithm_impl: GPFQ = GPFQ,
-            device: str = 'cpu',
-            dtype: torch.dtype = torch.float32) -> None:
-        if not inplace:
-            model = deepcopy(model)
+        self,
+        model: nn.Module,
+        group_of_parallel_layers: Optional[List[str]] = None,
+        inplace: bool = True,
+        create_weight_orig: bool = True,
+        use_quant_activations: bool = True,
+        return_forward_output: bool = False,
+        act_order: bool = False,
+        algorithm_impl: GPFQ = GPFQ,
+        device: str = 'cpu',
+        dtype: torch.dtype = torch.float32,
+        functional_state=None,
+        min_samples: int = 0,
+        insufficient_samples: str = 'rtn',
+        expert_batch_size: int = 1,
+        monitor_routing: bool = False,
+        functional_linear_functions: Sequence[Callable] = (),
+        functional_matmul_functions: Sequence[Callable] = (),
+        functional_grouped_mm_functions: Sequence[Callable] = ()
+    ) -> None:
         super().__init__(
             model,
             group_of_parallel_layers,
@@ -256,12 +359,188 @@ class gpfq_mode(gpxq_mode):
             act_order,
             return_forward_output,
             device,
-            dtype)
+            dtype,
+            functional_state,
+            min_samples,
+            insufficient_samples,
+            expert_batch_size,
+            functional_linear_functions,
+            functional_matmul_functions,
+            functional_grouped_mm_functions)
 
         self.algorithm_impl = algorithm_impl
+        self._routing_phase = None
+        self._routing_cache = {}
+        self._routing_replay_index = {}
+        self._routing_hook_handles = []
+        self.monitor_routing = monitor_routing
+        self.routing_metrics = {}
+        self._routing_stats = {}
+
+    def __enter__(self):
+        mode = super().__enter__()
+        if self.functional_source is not None:
+            owner_modules = {target.owner.module for target in self.functional_targets}
+            for module in owner_modules:
+                self._routing_hook_handles.append(
+                    module.register_forward_pre_hook(self._routing_hook, with_kwargs=True))
+        return mode
+
+    def __exit__(self, type, value, traceback):
+        for handle in self._routing_hook_handles:
+            handle.remove()
+        self._routing_hook_handles.clear()
+        self._routing_phase = None
+        self._routing_cache.clear()
+        self._routing_replay_index.clear()
+        self._routing_stats.clear()
+        return super().__exit__(type, value, traceback)
+
+    def update(self):
+        owner_id = self.active_functional_target.owner_id if self.active_functional_target is not None else None
+        super().update()
+        if self.monitor_routing and owner_id is not None:
+            self._report_routing_metrics(owner_id)
+
+    def _accumulate_routing_metrics(self, quant_route: Tensor, float_route: Tensor) -> None:
+        if self.active_functional_group is None:
+            return
+        owner_id = self.active_functional_group[0].owner_id
+        num_experts = len(self.active_functional_group)
+        quant_route = quant_route.reshape(quant_route.shape[0], -1).to(torch.long)
+        float_route = float_route.reshape(float_route.shape[0], -1).to(torch.long)
+        membership = (float_route.unsqueeze(2) == quant_route.unsqueeze(1)).any(dim=2)
+        token_matches = membership.all(dim=1)
+        quant_hist = torch.bincount(quant_route.flatten(), minlength=num_experts).cpu()
+        float_hist = torch.bincount(float_route.flatten(), minlength=num_experts).cpu()
+        stats = self._routing_stats.setdefault(
+            owner_id,
+            {
+                'slots': 0,
+                'exact_slots': 0,
+                'membership_matches': 0,
+                'tokens': 0,
+                'changed_tokens': 0,
+                'quant_hist': torch.zeros(num_experts, dtype=torch.long),
+                'float_hist': torch.zeros(num_experts, dtype=torch.long)})
+        stats['slots'] += quant_route.numel()
+        stats['exact_slots'] += (quant_route == float_route).sum().item()
+        stats['membership_matches'] += membership.sum().item()
+        stats['tokens'] += quant_route.shape[0]
+        stats['changed_tokens'] += (~token_matches).sum().item()
+        stats['quant_hist'] += quant_hist[:num_experts]
+        stats['float_hist'] += float_hist[:num_experts]
+
+    def _report_routing_metrics(self, owner_id: str) -> None:
+        stats = self._routing_stats.pop(owner_id, None)
+        if stats is None or stats['slots'] == 0:
+            return
+        quant_hist = stats['quant_hist']
+        float_hist = stats['float_hist']
+        quant_distribution = quant_hist.float() / quant_hist.sum().clamp_min(1)
+        float_distribution = float_hist.float() / float_hist.sum().clamp_min(1)
+        metrics = {
+            'membership_disagreement': 1. - stats['membership_matches'] / stats['slots'],
+            'slot_disagreement': 1. - stats['exact_slots'] / stats['slots'],
+            'changed_token_fraction': stats['changed_tokens'] / max(1, stats['tokens']),
+            'load_tvd': .5 * torch.abs(quant_distribution - float_distribution).sum().item(),
+            'quant_zero_experts': int((quant_hist == 0).sum().item()),
+            'float_zero_experts': int((float_hist == 0).sum().item()),
+            'quant_only_experts': int(((quant_hist > 0) & (float_hist == 0)).sum().item()),
+            'float_only_experts': int(((float_hist > 0) & (quant_hist == 0)).sum().item()),
+            'quant_load_min': int(quant_hist.min().item()),
+            'quant_load_median': int(quant_hist.median().item()),
+            'quant_load_max': int(quant_hist.max().item()),
+            'float_load_min': int(float_hist.min().item()),
+            'float_load_median': int(float_hist.median().item()),
+            'float_load_max': int(float_hist.max().item())}
+        self.routing_metrics[owner_id] = metrics
+        tqdm.write(
+            f'Functional GPxQ routing {owner_id}: '
+            f"membership disagreement {metrics['membership_disagreement']:.1%}, "
+            f"changed tokens {metrics['changed_token_fraction']:.1%}, "
+            f"slot disagreement {metrics['slot_disagreement']:.1%}, "
+            f"load TVD {metrics['load_tvd']:.1%}, "
+            f"quant/float zero experts {metrics['quant_zero_experts']}/{metrics['float_zero_experts']}, "
+            f"quant-only/float-only experts {metrics['quant_only_experts']}/{metrics['float_only_experts']}, "
+            f"quant load min/median/max {metrics['quant_load_min']}/{metrics['quant_load_median']}/{metrics['quant_load_max']}, "
+            f"float load min/median/max {metrics['float_load_min']}/{metrics['float_load_median']}/{metrics['float_load_max']}."
+        )
+
+    def _routing_hook(self, module, args, kwargs):
+        """Replay quantized-pass expert assignments during the paired reference pass.
+
+        Supported MoE modules expose routes by a known keyword or positional argument 1.
+        """
+        route_location = None
+        route = None
+        for name in ('selected_experts', 'top_k_index', 'expert_index'):
+            candidate = kwargs.get(name)
+            if isinstance(candidate, Tensor):
+                route_location = name
+                route = candidate
+                break
+        if route is None and len(args) > 1 and isinstance(args[1], Tensor):
+            route_location = 1
+            route = args[1]
+        if route is None or route.dim() == 0 or route.dtype not in (
+                torch.int8, torch.int16, torch.int32, torch.int64, torch.uint8):
+            return args, kwargs
+        token_input = args[0] if args and isinstance(args[0], Tensor) else None
+        if token_input is None or token_input.dim() < 2 or token_input.shape[-1] == 0:
+            return args, kwargs
+        token_count = token_input.numel() // token_input.shape[-1]
+        if route.shape[0] != token_count:
+            return args, kwargs
+
+        key = id(module)
+        if self._routing_phase == 'capture':
+            self._routing_cache.setdefault(key, []).append(route.detach().clone())
+        elif self._routing_phase == 'replay':
+            index = self._routing_replay_index.get(key, 0)
+            cached_routes = self._routing_cache.get(key, ())
+            if index >= len(cached_routes):
+                raise RuntimeError('Functional GPxQ reference pass has no matching expert route.')
+            replay_route = cached_routes[index].to(route.device)
+            if replay_route.shape != route.shape:
+                raise RuntimeError(
+                    'Functional GPxQ expert routing shape changed between paired passes.')
+            if self.monitor_routing:
+                self._accumulate_routing_metrics(replay_route, route)
+            self._routing_replay_index[key] = index + 1
+            if isinstance(route_location, str):
+                kwargs = dict(kwargs)
+                kwargs[route_location] = replay_route
+            else:
+                args = list(args)
+                args[route_location] = replay_route
+                args = tuple(args)
+        return args, kwargs
+
+    def _update_functional_targets(self, targets, progress) -> int:
+        algorithm_class = self.algorithm_impl.func if isinstance(
+            self.algorithm_impl, partial) else self.algorithm_impl
+        batch_impl = getattr(
+            algorithm_class,
+            'batched_layer_update') if 'batched_layer_update' in algorithm_class.__dict__ else None
+        if self.expert_batch_size == 1 or batch_impl is None:
+            return super()._update_functional_targets(targets, progress)
+        failed = []
+        for start in range(0, len(targets), self.expert_batch_size):
+            batch_targets = targets[start:start + self.expert_batch_size]
+            optimizers = [self.gpxq_layers[target.name] for target in batch_targets]
+            failed.extend(batch_impl(optimizers))
+            progress.set_postfix(batch=len(batch_targets), failed=len(failed))
+            progress.update(len(batch_targets))
+        return len(failed)
 
     def catch_stopfwd(self, *args, **kwargs):
         # Collect quant input
+        if self.functional_session is not None:
+            self.functional_session.begin_quantized_pass()
+        self._routing_cache.clear()
+        self._routing_replay_index.clear()
+        self._routing_phase = 'capture'
         try:
             self.orig_forward(*args, **kwargs)
         except StopFwdException:
@@ -270,25 +549,41 @@ class gpfq_mode(gpxq_mode):
         # Disable quantization
         # TODO: Ensure that removing is_training=False does not cause any regression and remove,
         # if that is the case
-        with quantization_status_manager(
-                self.model,
-                disable_act_quant=True,
-                disable_weight_quant=True,
-                disable_bias_quant=True,
-                is_training=False,
-        ):
-            try:
-                self.orig_forward(*args, **kwargs)
-            except StopFwdException:
-                pass
+        if self.functional_source is not None:
+            self.functional_source.restart_call_sequence()
+        if self.functional_session is not None:
+            self.functional_session.begin_reference_pass()
+        self._routing_phase = 'replay'
+        try:
+            with quantization_status_manager(
+                    self.model,
+                    disable_act_quant=True,
+                    disable_weight_quant=True,
+                    disable_bias_quant=True,
+                    is_training=False,
+            ):
+                try:
+                    self.orig_forward(*args, **kwargs)
+                except StopFwdException:
+                    pass
+        finally:
+            self._routing_phase = None
 
         if self.return_forward_output:
             # If we want to return the output of the network, we need to disable all hooks
             for name, gpxq_class in self.gpxq_layers.items():
                 gpxq_class.disable_pre_forward_hook = True
-            out = self.orig_forward(*args, **kwargs)
-            for name, gpxq_class in self.gpxq_layers.items():
-                gpxq_class.disable_pre_forward_hook = False
+            if self.functional_source is not None:
+                self.functional_source.restart_call_sequence()
+            if self.functional_session is not None:
+                self.functional_session.enabled = False
+            try:
+                out = self.orig_forward(*args, **kwargs)
+            finally:
+                if self.functional_session is not None:
+                    self.functional_session.enabled = True
+                for name, gpxq_class in self.gpxq_layers.items():
+                    gpxq_class.disable_pre_forward_hook = False
             return out
 
     def initialize_module_optimizer(self, layer, name, len_parallel_layers, create_weight_orig):

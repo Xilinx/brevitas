@@ -10,6 +10,8 @@ from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
+from typing import Protocol
+from typing import Sequence
 from typing import Tuple
 from typing import Type
 from typing import Union
@@ -28,12 +30,21 @@ from torch.utils.hooks import RemovableHandle
 
 from brevitas import torch_version
 from brevitas.nn import QuantIdentity
+from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
 from brevitas.quant_tensor import QuantTensor
 
 # Runtime quantization for calls to torch functional operators.
 
 __all__ = [
+    'DEFAULT_FUNCTIONAL_OPERATION_REGISTRY',
+    'DEFAULT_FUNCTIONAL_QUANTIZER_FACTORY',
+    'FunctionalInterceptor',
+    'FunctionalOperation',
+    'FunctionalOperationRegistry',
     'FunctionalQuantState',
+    'FunctionalQuantizerFactory',
+    'FunctionalWeightSource',
+    'FunctionalWeightOwner',
     'functional_quantization_mode',
     'grouped_mm_functions',
     'prepare_functional_quantization',
@@ -44,6 +55,41 @@ QuantResolver = Callable[[nn.Module, str, int], QuantResolverResult]
 QuantResolvable = Optional[Union[Type, QuantResolver]]
 QuantSpecElement = Union[QuantResolvable, Tuple[QuantResolvable, Dict[str, Any]]]
 QuantSpecType = Union[QuantSpecElement, Tuple[QuantSpecElement, ...]]
+
+
+class FunctionalQuantizerFactory(Protocol):
+    """Factory interface for modules attached during functional preparation.
+
+    Custom quantizers must not invoke operations present in the active functional
+    quantization map.
+    """
+
+    def create_activation(
+            self, model: nn.Module, quant_class: Type, di_kwargs: Dict[str, Any],
+            device: torch.device) -> nn.Module:
+        ...
+
+    def create_weight(
+            self, quant_class: Type, di_kwargs: Dict[str, Any],
+            value: nn.Parameter) -> WeightQuantProxyFromInjectorBase:
+        ...
+
+
+class FunctionalWeightSource(Protocol):
+    """Read-only interface to prepared functional weight owners."""
+
+    operation_registry: 'FunctionalOperationRegistry'
+
+    def iter_weight_owners(self,
+                           module_scope: Optional[nn.Module] = None
+                          ) -> Sequence['FunctionalWeightOwner']:
+        ...
+
+    def suspend_quantization(self):
+        ...
+
+    def restart_call_sequence(self) -> None:
+        ...
 
 
 def _grouped_mm_key(*args, **kwargs):
@@ -71,41 +117,134 @@ def grouped_mm_functions() -> Tuple[Callable, ...]:
     return tuple(dict.fromkeys(functions))
 
 
-def _canonical_function(func: Callable) -> Callable:
-    return _grouped_mm_key if any(
-        func is candidate for candidate in grouped_mm_functions()) else func
+@dataclass(frozen=True)
+class FunctionalOperation:
+    """Describe one functional operation and its logical arguments.
+
+    Parameter dispatch is defined only for the first two logical arguments.
+    """
+
+    canonical: Callable
+    aliases: Tuple[Callable, ...] = ()
+    argument_names: Tuple[Any, ...] = ()
+    parameter_dispatch: bool = False
+
+    def argument(self, args: Tuple[Any, ...], kwargs: Dict[str, Any], index: int) -> Any:
+        """Return one logical argument from positional or registered keyword aliases."""
+        if index < len(args):
+            return args[index]
+        if index >= len(self.argument_names):
+            return None
+        names = self.argument_names[index]
+        aliases = names if isinstance(names, tuple) else (names,)
+        return next((kwargs[name] for name in aliases if name in kwargs), None)
+
+
+class FunctionalOperationRegistry:
+    """Registry of functional aliases and metadata shared by functional integrations."""
+
+    def __init__(self) -> None:
+        self._operations: Dict[Callable, FunctionalOperation] = {}
+        self._aliases: Dict[Callable, FunctionalOperation] = {}
+
+    def register(
+            self,
+            canonical: Callable,
+            *,
+            aliases: Tuple[Callable, ...] = (),
+            argument_names: Tuple[Any, ...] = (),
+            parameter_dispatch: bool = False) -> FunctionalOperation:
+        """Register an operation, replacing metadata for the same canonical callable."""
+        operation = FunctionalOperation(
+            canonical=canonical,
+            aliases=tuple(dict.fromkeys((canonical, *aliases))),
+            argument_names=argument_names,
+            parameter_dispatch=parameter_dispatch)
+        previous = self._operations.get(canonical)
+        for alias in operation.aliases:
+            registered = self._aliases.get(alias)
+            if registered is not None and registered is not previous:
+                raise ValueError(f'Functional operation alias {alias!r} is already registered.')
+        if previous is not None:
+            for alias in previous.aliases:
+                if self._aliases.get(alias) is previous:
+                    del self._aliases[alias]
+        self._operations[canonical] = operation
+        for alias in operation.aliases:
+            self._aliases[alias] = operation
+        return operation
+
+    def resolve(self, func: Callable) -> FunctionalOperation:
+        """Resolve a callable while retaining support for arbitrary positional functions."""
+        operation = self._aliases.get(func)
+        if operation is not None:
+            return operation
+        # Optional grouped-MM aliases can appear after this module is imported.
+        grouped = self._operations.get(_grouped_mm_key)
+        if grouped is not None and any(func is candidate for candidate in grouped_mm_functions()):
+            return grouped
+        return FunctionalOperation(canonical=func, aliases=(func,))
+
+    def copy(self) -> 'FunctionalOperationRegistry':
+        """Return an independent registry suitable for user customization."""
+        registry = FunctionalOperationRegistry()
+        for operation in self._operations.values():
+            registry.register(
+                operation.canonical,
+                aliases=tuple(
+                    alias for alias in operation.aliases if alias is not operation.canonical),
+                argument_names=operation.argument_names,
+                parameter_dispatch=operation.parameter_dispatch)
+        return registry
+
+
+def _default_functional_operation_registry() -> FunctionalOperationRegistry:
+    registry = FunctionalOperationRegistry()
+    registry.register(
+        _grouped_mm_key,
+        aliases=grouped_mm_functions(),
+        argument_names=(('input', 'self', 'mat_a'), ('weight', 'mat2', 'mat_b'),
+                        'offs',
+                        'bias',
+                        'out_dtype'),
+        parameter_dispatch=True)
+    registry.register(
+        torch.nn.functional.linear,
+        argument_names=('input', 'weight', 'bias'),
+        parameter_dispatch=True)
+    registry.register(torch.bmm, argument_names=('input', 'mat2'), parameter_dispatch=True)
+    registry.register(torch.matmul, argument_names=('input', 'other'), parameter_dispatch=True)
+    registry.register(
+        torch.Tensor.matmul, argument_names=('input', 'other'), parameter_dispatch=True)
+    registry.register(
+        torch.Tensor.__matmul__, argument_names=('input', 'other'), parameter_dispatch=True)
+    for func in (torch.nn.functional.conv1d,
+                 torch.nn.functional.conv2d,
+                 torch.nn.functional.conv3d,
+                 torch.nn.functional.conv_transpose1d,
+                 torch.nn.functional.conv_transpose2d,
+                 torch.nn.functional.conv_transpose3d):
+        registry.register(func, argument_names=('input', 'weight', 'bias'))
+    if hasattr(torch.nn.functional, 'scaled_dot_product_attention'):
+        registry.register(
+            torch.nn.functional.scaled_dot_product_attention,
+            argument_names=('query', 'key', 'value'))
+    return registry
+
+
+DEFAULT_FUNCTIONAL_OPERATION_REGISTRY = _default_functional_operation_registry()
+
+
+def _canonical_function(
+    func: Callable,
+    operation_registry: FunctionalOperationRegistry = DEFAULT_FUNCTIONAL_OPERATION_REGISTRY
+) -> Callable:
+    return operation_registry.resolve(func).canonical
 
 
 _CONTAINER_NAME = '_functional_quantizers'
 _STATE_NAME = '_functional_quantization_state'
 _MISSING = object()
-_PARAMETER_DISPATCH_FUNCTIONS = {
-    _grouped_mm_key,
-    torch.nn.functional.linear,
-    torch.bmm,
-    torch.matmul,
-    torch.Tensor.matmul,
-    torch.Tensor.__matmul__}
-_FUNCTION_ARGUMENT_NAMES = {
-    torch.nn.functional.linear: ('input', 'weight', 'bias'),
-    torch.bmm: ('input', 'mat2'),
-    torch.matmul: ('input', 'other'),
-    torch.nn.functional.conv1d: ('input', 'weight', 'bias'),
-    torch.nn.functional.conv2d: ('input', 'weight', 'bias'),
-    torch.nn.functional.conv3d: ('input', 'weight', 'bias'),
-    torch.nn.functional.conv_transpose1d: ('input', 'weight', 'bias'),
-    torch.nn.functional.conv_transpose2d: ('input', 'weight', 'bias'),
-    torch.nn.functional.conv_transpose3d: ('input', 'weight', 'bias'),}
-_FUNCTION_ARGUMENT_NAMES[torch.Tensor.__matmul__] = ('input', 'other')
-_FUNCTION_ARGUMENT_NAMES[torch.Tensor.matmul] = ('input', 'other')
-if hasattr(torch.nn.functional, 'scaled_dot_product_attention'):
-    _FUNCTION_ARGUMENT_NAMES[torch.nn.functional.scaled_dot_product_attention] = (
-        'query', 'key', 'value')
-_FUNCTION_ARGUMENT_NAMES[_grouped_mm_key] = (('input', 'self', 'mat_a'),
-                                             ('weight', 'mat2', 'mat_b'),
-                                             'offs',
-                                             'bias',
-                                             'out_dtype')
 
 
 def _is_di_kwargs_pair(element: Any) -> bool:
@@ -113,11 +252,13 @@ def _is_di_kwargs_pair(element: Any) -> bool:
     return isinstance(element, tuple) and len(element) == 2 and isinstance(element[1], dict)
 
 
-def _parse_quant_map(quant_map: Dict[Callable, QuantSpecType]) -> Dict[Callable, List[Any]]:
+def _parse_quant_map(
+        quant_map: Dict[Callable, QuantSpecType],
+        operation_registry: FunctionalOperationRegistry) -> Dict[Callable, List[Any]]:
     """Normalize each function specification to a positional list."""
     parsed = {}
     for func, spec in quant_map.items():
-        func = _canonical_function(func)
+        func = _canonical_function(func, operation_registry)
         normalized = list(spec) if isinstance(spec, tuple) and not _is_di_kwargs_pair(spec) else [
             spec]
         if func in parsed and parsed[func] != normalized:
@@ -170,12 +311,15 @@ def _module_key(
 
 
 def _logical_arguments(
-        func: Callable, args: Tuple[Any, ...],
-        kwargs: Dict[str, Any]) -> Tuple[List[Tuple[int, Any, Callable[[Any], None]]], List[Any]]:
+    func: Callable,
+    args: Tuple[Any, ...],
+    kwargs: Dict[str, Any],
+    operation_registry: FunctionalOperationRegistry = DEFAULT_FUNCTIONAL_OPERATION_REGISTRY
+) -> Tuple[List[Tuple[int, Any, Callable[[Any], None]]], List[Any]]:
     """Return positional and known keyword tensor slots with write-back callbacks."""
     values = list(args)
     slots = []
-    names = _FUNCTION_ARGUMENT_NAMES.get(func, ())
+    names = operation_registry.resolve(func).argument_names
     for index, value in enumerate(values):
         slots.append(
             (index, value, lambda replacement, index=index: values.__setitem__(index, replacement)))
@@ -203,6 +347,29 @@ class _WeightQuantHolder(nn.Module):
         self.out_channels = weight.shape[output_channel_dim]
 
 
+class _DefaultFunctionalQuantizerFactory:
+    """Construct the standard Brevitas activation and weight quantizer modules."""
+
+    def create_activation(
+            self, model: nn.Module, quant_class: Type, di_kwargs: Dict[str, Any],
+            device: torch.device) -> nn.Module:
+        quant_injector = quant_class.let(**di_kwargs) if di_kwargs else quant_class
+        quantizer = QuantIdentity(act_quant=quant_injector, return_quant_tensor=True)
+        quantizer.train(model.training)
+        return quantizer.to(device)
+
+    def create_weight(
+            self, quant_class: Type, di_kwargs: Dict[str, Any],
+            value: nn.Parameter) -> WeightQuantProxyFromInjectorBase:
+        output_channel_dim = di_kwargs.get('output_channel_dim', 0)
+        holder = _WeightQuantHolder(value, output_channel_dim)
+        quant_injector = quant_class.let(**di_kwargs) if di_kwargs else quant_class.let()
+        return quant_injector.proxy_class(holder, quant_injector).to(value.device)
+
+
+DEFAULT_FUNCTIONAL_QUANTIZER_FACTORY = _DefaultFunctionalQuantizerFactory()
+
+
 class _QuantParametrization(nn.Module):
 
     def __init__(self, state: 'FunctionalQuantState', proxy: nn.Module) -> None:
@@ -214,6 +381,8 @@ class _QuantParametrization(nn.Module):
     def forward(self, value: Tensor) -> Tensor:
         """Return the original parameter or its quantized proxy output."""
         if not self._state.enabled:
+            return value
+        if getattr(self.proxy, 'disable_quant', False):
             return value
         return self.proxy(value)
 
@@ -236,6 +405,8 @@ class _DiscoveredArgument:
     fallback_quant_class: Optional[Type] = None
     fallback_di_kwargs: Dict[str, Any] = field(default_factory=dict)
     example_device: Optional[torch.device] = None
+    view_indices: Tuple[int, ...] = ()
+    operand_transposed: bool = False
 
 
 @dataclass
@@ -246,6 +417,27 @@ class _OwnerPlan:
     error: Optional[str] = None
 
 
+@dataclass(frozen=True)
+class FunctionalWeightOwner:
+    """Read-only description of a parameter quantized through functional operations."""
+
+    module: nn.Module
+    module_name: str
+    parameter_name: str
+    proxy: WeightQuantProxyFromInjectorBase
+    parametrization: nn.Module
+    # (canonical function, logical argument index, final-two-axis transpose)
+    parameter_uses: Tuple[Tuple[Callable, int, bool], ...] = ()
+
+    @property
+    def id(self) -> str:
+        return f'{self.module_name + ":" if self.module_name else ""}{self.parameter_name}'
+
+    @property
+    def original_parameter(self) -> nn.Parameter:
+        return getattr(self.module.parametrizations, self.parameter_name).original
+
+
 class FunctionalQuantState:
     """Prepared functional quantization state.
 
@@ -253,16 +445,27 @@ class FunctionalQuantState:
     :meth:`cleanup` or :func:`remove_functional_quantization` to remove them.
     """
 
-    def __init__(self, model: nn.Module, quant_map: Dict[Callable, QuantSpecType]) -> None:
+    def __init__(
+        self,
+        model: nn.Module,
+        quant_map: Dict[Callable, QuantSpecType],
+        operation_registry: FunctionalOperationRegistry = DEFAULT_FUNCTIONAL_OPERATION_REGISTRY,
+        quantizer_factory: FunctionalQuantizerFactory = DEFAULT_FUNCTIONAL_QUANTIZER_FACTORY
+    ) -> None:
         """Attach the retained quantizer container and initialize prepared state."""
         self.model = model
         self.quant_map = quant_map
-        self.specs = _parse_quant_map(quant_map)
+        self.operation_registry = operation_registry
+        self.quantizer_factory = quantizer_factory
+        self.specs = _parse_quant_map(quant_map, operation_registry)
         self.function_indices = {func: index for index, func in enumerate(self.specs)}
         self.calls: Dict[Tuple[str, Callable, int], _PreparedCall] = {}
+        self._weight_owners: Dict[str, FunctionalWeightOwner] = {}
+        self._call_sequence_resetters: List[Callable[[], None]] = []
         self.registered_parametrizations: List[Tuple[nn.Module, str]] = []
         self.parametrizations_removed = False
         self.enabled = False
+        self._mode_active = False
         self._closed = False
         if hasattr(model, _CONTAINER_NAME):
             raise RuntimeError(
@@ -276,7 +479,10 @@ class FunctionalQuantState:
         return getattr(self.model, _CONTAINER_NAME)
 
     def remove_parametrizations(self) -> None:
-        """Remove functional weight parametrizations and restore original parameters."""
+        """Remove functional weight parametrizations and restore original parameters.
+
+        The prepared state exclusively owns these parametrization stacks until cleanup.
+        """
         had_parametrizations = bool(self.registered_parametrizations)
         for owner, name in reversed(self.registered_parametrizations):
             if is_parametrized(owner, name):
@@ -287,7 +493,7 @@ class FunctionalQuantState:
         self.parametrizations_removed |= had_parametrizations
 
     def cleanup(self) -> None:
-        """Remove all functional quantization mutations from the model."""
+        """Remove all functional quantization mutations after its mode has exited."""
         if self._closed:
             return
         self.enabled = False
@@ -297,7 +503,34 @@ class FunctionalQuantState:
         if getattr(self.model, _STATE_NAME, None) is self:
             delattr(self.model, _STATE_NAME)
         self.calls.clear()
+        self._weight_owners.clear()
+        self._call_sequence_resetters.clear()
         self._closed = True
+
+    def restart_call_sequence(self) -> None:
+        """Restart prepared call-site ordinals for a nested functional forward."""
+        for reset in tuple(self._call_sequence_resetters):
+            reset()
+
+    @contextlib.contextmanager
+    def suspend_quantization(self):
+        """Temporarily disable functional parametrizations with nested restoration."""
+        previous_enabled = self.enabled
+        self.enabled = False
+        try:
+            yield
+        finally:
+            self.enabled = previous_enabled
+
+    def iter_weight_owners(self,
+                           module_scope: Optional[nn.Module] = None) -> List[FunctionalWeightOwner]:
+        """Return prepared functional weight owners, optionally restricted to a subtree."""
+        self._assert_open()
+        owners = list(self._weight_owners.values())
+        if module_scope is None:
+            return owners
+        modules = set(module_scope.modules())
+        return [owner for owner in owners if owner.module in modules]
 
     def _assert_open(self) -> None:
         """Raise if this state was already cleaned up."""
@@ -308,16 +541,91 @@ class FunctionalQuantState:
                 'Functional weight parametrizations have been removed; prepare a new state.')
 
 
-class _HookedMode(TorchFunctionMode):
+class FunctionalInterceptor(TorchFunctionMode):
+    """Base mode for composable functional interception.
+
+    Subclasses own domain-specific hooks and implement :meth:`_intercept`. The
+    base owns mode dispatch, hook cleanup, and scoped recursion suppression.
+    """
+
+    def __init__(
+            self,
+            operation_registry: FunctionalOperationRegistry = DEFAULT_FUNCTIONAL_OPERATION_REGISTRY,
+            callback: Optional[Callable] = None) -> None:
+        super().__init__()
+        self.operation_registry = operation_registry
+        self.callback = callback
+        self.hooks: List[RemovableHandle] = []
+        self._suspend_depth = 0
+
+    @contextlib.contextmanager
+    def suspend(self):
+        """Temporarily bypass this interceptor while preserving outer modes."""
+        self._suspend_depth += 1
+        try:
+            yield
+        finally:
+            self._suspend_depth -= 1
+
+    @property
+    def interception_suspended(self) -> bool:
+        return self._suspend_depth > 0
+
+    def _attach_hooks(self) -> None:
+        """Attach domain-specific hooks, if any."""
+
+    def _clear_interception_state(self) -> None:
+        """Clear transient domain-specific state after hook removal."""
+
+    def _remove_hooks(self) -> None:
+        for hook in reversed(self.hooks):
+            hook.remove()
+        self.hooks.clear()
+        self._clear_interception_state()
+
+    def _intercept(
+            self,
+            operation: FunctionalOperation,
+            func: Callable,
+            types: Tuple[Type, ...],
+            args: Tuple[Any, ...],
+            kwargs: Dict[str, Any]) -> Any:
+        if self.callback is not None:
+            return self.callback(operation, func, types, args, kwargs)
+        return func(*args, **kwargs)
+
+    def __enter__(self) -> 'FunctionalInterceptor':
+        try:
+            self._attach_hooks()
+            return super().__enter__()
+        except Exception:
+            self._remove_hooks()
+            raise
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
+        try:
+            return super().__exit__(exc_type, exc_val, exc_tb)
+        finally:
+            self._remove_hooks()
+
+    def __torch_function__(
+            self, func: Callable, types: Tuple[Type, ...], args=(), kwargs=None) -> Any:
+        kwargs = {} if kwargs is None else dict(kwargs)
+        if self.interception_suspended:
+            return func(*args, **kwargs)
+        operation = self.operation_registry.resolve(func)
+        return self._intercept(operation, func, types, args, kwargs)
+
+
+class _HookedMode(FunctionalInterceptor):
 
     def __init__(self, state: FunctionalQuantState) -> None:
         """Initialize interception state shared by preparation and application."""
-        super().__init__()
+        super().__init__(operation_registry=state.operation_registry)
         self.state = state
         self.model = state.model
         self.module_stack: List[Tuple[str, nn.Module]] = []
         self.counters = defaultdict(lambda: defaultdict(int))
-        self.hooks: List[RemovableHandle] = []
 
     def _attach_hooks(self) -> None:
         """Attach hooks that maintain the active module stack and counters."""
@@ -325,15 +633,21 @@ class _HookedMode(TorchFunctionMode):
         for name, module in self.model.named_modules():
             if module in excluded or isinstance(module, _QuantParametrization):
                 continue
-            self.hooks.append(module.register_forward_pre_hook(self._pre_hook(name)))
-            self.hooks.append(module.register_forward_hook(self._post_hook(name), always_call=True))
-        self.hooks.append(self.model.register_forward_hook(self._reset_hook, always_call=True))
+            pre_hook = self._pre_hook(name)
+            post_hook = self._post_hook(name)
+            pre_hook._brevitas_functional_quantization_hook = True
+            post_hook._brevitas_functional_quantization_hook = True
+            self.hooks.append(module.register_forward_pre_hook(pre_hook))
+            self.hooks.append(module.register_forward_hook(post_hook, always_call=True))
 
-    def _remove_hooks(self) -> None:
-        """Remove managed hooks and discard transient forward state."""
-        for hook in self.hooks:
-            hook.remove()
-        self.hooks.clear()
+        def reset_hook(module: nn.Module, args: Tuple[Any, ...], output: Any) -> None:
+            self._reset_hook(module, args, output)
+
+        reset_hook._brevitas_functional_quantization_hook = True
+        self.hooks.append(self.model.register_forward_hook(reset_hook, always_call=True))
+
+    def _clear_interception_state(self) -> None:
+        """Discard transient module and call-sequence state."""
         self.module_stack.clear()
         self.counters.clear()
 
@@ -429,7 +743,7 @@ class _HookedMode(TorchFunctionMode):
     def _spec_for(self, func: Callable, arg_idx: int, is_parameter: bool) -> Any:
         """Select the effective specification for an argument at a call site."""
         specs = self.state.specs[func]
-        if func in _PARAMETER_DISPATCH_FUNCTIONS and len(specs) == 3:
+        if self.operation_registry.resolve(func).parameter_dispatch and len(specs) == 3:
             if arg_idx == 0:
                 return specs[2] if is_parameter else specs[0]
             if arg_idx == 1:
@@ -451,21 +765,21 @@ class _HookedMode(TorchFunctionMode):
     def _create_activation(
             self, quant_class: Type, di_kwargs: Dict[str, Any], device: torch.device) -> nn.Module:
         """Create an activation quantizer on the observed tensor device."""
-        quant_injector = quant_class.let(**di_kwargs) if di_kwargs else quant_class
-        quantizer = QuantIdentity(act_quant=quant_injector, return_quant_tensor=True)
+        quantizer = self.state.quantizer_factory.create_activation(
+            self.model, quant_class, di_kwargs, device)
         quantizer.train(self.model.training)
-        return quantizer.to(device)
+        return quantizer
 
     def _create_weight(
-            self, quant_class: Type, di_kwargs: Dict[str, Any], value: nn.Parameter) -> nn.Module:
+            self, quant_class: Type, di_kwargs: Dict[str, Any],
+            value: nn.Parameter) -> WeightQuantProxyFromInjectorBase:
         # Per-channel/groupwise operations must override this explicitly. A scalar
         # weight quantizer keeps the standard linear-layout default.
 
         """Create a weight proxy using explicit functional-operation metadata."""
-        output_channel_dim = di_kwargs.get('output_channel_dim', 0)
-        holder = _WeightQuantHolder(value, output_channel_dim)
-        quant_injector = quant_class.let(**di_kwargs) if di_kwargs else quant_class.let()
-        return quant_injector.proxy_class(holder, quant_injector).to(value.device)
+        quantizer = self.state.quantizer_factory.create_weight(quant_class, di_kwargs, value)
+        quantizer.train(self.model.training)
+        return quantizer
 
 
 class _FunctionalQuantBuilder(_HookedMode):
@@ -477,6 +791,49 @@ class _FunctionalQuantBuilder(_HookedMode):
         self.owner_plans: Dict[Tuple[nn.Module, str], _OwnerPlan] = {}
         self.parameter_owners: Dict[int, Tuple[nn.Module, str]] = {}
         self.aliased_parameters = set()
+        self.module_names: Dict[int, str] = {}
+
+    def _build_parameter_owners(self) -> None:
+        """Map parameters to owners and retain stable qualified names."""
+        super()._build_parameter_owners()
+        self.module_names = {id(module): name for name, module in self.model.named_modules()}
+
+    @staticmethod
+    def _view_is_transposed(owner: Tuple[nn.Module, str], value: Tensor) -> bool:
+        owner_value = getattr(owner[0], owner[1])
+        rank_delta = owner_value.dim() - value.dim()
+        return rank_delta >= 0 and value.dim() >= 2 and tuple(value.shape) == (
+            *owner_value.shape[rank_delta:-2], owner_value.shape[-1],
+            owner_value.shape[-2]) and tuple(value.stride()) == (
+                *owner_value.stride()[rank_delta:-2],
+                owner_value.stride()[-1],
+                owner_value.stride()[-2])
+
+    @staticmethod
+    def _view_indices(owner: Tuple[nn.Module, str], value: Tensor,
+                      is_direct_parameter: bool) -> Optional[Tuple[int, ...]]:
+        """Resolve direct or leading-index parameter views to stable owner indices."""
+        if is_direct_parameter:
+            return ()
+        owner_value = getattr(owner[0], owner[1])
+        rank_delta = owner_value.dim() - value.dim()
+        is_leading_index = rank_delta >= 0 and tuple(value.shape) == tuple(
+            owner_value.shape[rank_delta:]) and tuple(value.stride()) == tuple(
+                owner_value.stride()[rank_delta:])
+        if not is_leading_index and not _FunctionalQuantBuilder._view_is_transposed(owner, value):
+            return None
+        offset = value.storage_offset() - owner_value.storage_offset()
+        indices = []
+        for axis in range(rank_delta):
+            stride = owner_value.stride()[axis]
+            if stride == 0 or offset % stride:
+                return None
+            index = offset // stride
+            if not 0 <= index < owner_value.shape[axis]:
+                return None
+            indices.append(index)
+            offset -= index * stride
+        return tuple(indices) if offset == 0 else None
 
     def _owner_quant_kwargs(
             self,
@@ -493,19 +850,10 @@ class _FunctionalQuantBuilder(_HookedMode):
         required = ('output_channel_dim', 'group_dim')
         if not is_direct_parameter:
             rank_delta = owner_value.dim() - value.dim()
-            is_leading_index = rank_delta > 0 and tuple(value.shape) == tuple(
+            is_leading_index = rank_delta >= 0 and tuple(value.shape) == tuple(
                 owner_value.shape[rank_delta:]) and tuple(value.stride()) == tuple(
                     owner_value.stride()[rank_delta:])
-            is_last_two_transpose = False
-            if owner_value.dim() >= 2:
-                transposed_shape = (
-                    *owner_value.shape[:-2], owner_value.shape[-1], owner_value.shape[-2])
-                transposed_stride = (
-                    *owner_value.stride()[:-2], owner_value.stride()[-1], owner_value.stride()[-2])
-                is_last_two_transpose = (
-                    value.dim() == owner_value.dim() and tuple(value.shape) == transposed_shape and
-                    tuple(value.stride()) == transposed_stride and
-                    value.storage_offset() == owner_value.storage_offset())
+            is_last_two_transpose = self._view_is_transposed(owner, value)
             if not is_leading_index and not is_last_two_transpose:
                 return owner_di_kwargs, (
                     'only leading-index views and final-two-axis transpose views are supported')
@@ -535,7 +883,8 @@ class _FunctionalQuantBuilder(_HookedMode):
     def _fallback_spec_for(self, func: Callable, arg_idx: int) -> Any:
         """Select an unambiguous runtime spec for failed owner quantization."""
         specs = self.state.specs[func]
-        if func in _PARAMETER_DISPATCH_FUNCTIONS and len(specs) == 3 and arg_idx < 2:
+        if self.operation_registry.resolve(func).parameter_dispatch and len(
+                specs) == 3 and arg_idx < 2:
             return specs[arg_idx]
         return _MISSING
 
@@ -551,6 +900,7 @@ class _FunctionalQuantBuilder(_HookedMode):
         if owner is None:
             return _DiscoveredArgument(quant_class, di_kwargs)
 
+        view_indices = self._view_indices(owner, value, is_direct_parameter)
         fallback_spec = self._fallback_spec_for(func, arg_idx)
         fallback_quant_class, fallback_di_kwargs = _resolve_spec(fallback_spec, module, name, index)
         owner_di_kwargs, error = self._owner_quant_kwargs(
@@ -560,6 +910,9 @@ class _FunctionalQuantBuilder(_HookedMode):
             error = 'tied parameters do not have a unique owner attribute'
         if is_parametrized(owner[0], owner[1]):
             error = 'the owner is already parametrized'
+        if view_indices is None:
+            view_indices = ()
+        operand_transposed = self._view_is_transposed(owner, value)
 
         quantizer_key = _module_key(
             name, func, self.state.function_indices[func], index, arg_idx, weight=True)
@@ -574,14 +927,16 @@ class _FunctionalQuantBuilder(_HookedMode):
             if error is not None:
                 plan.error = error
             elif plan.quant_class is not quant_class or plan.di_kwargs != owner_di_kwargs:
-                plan.error = 'the owner is used with incompatible quantizers or matrix layouts'
+                plan.error = 'the owner is used with incompatible quantizers'
         return _DiscoveredArgument(
             quant_class,
             owner_di_kwargs,
             owner,
             fallback_quant_class,
             fallback_di_kwargs,
-            value.device)
+            value.device,
+            view_indices,
+            operand_transposed)
 
     def _discover_call(
             self,
@@ -593,7 +948,7 @@ class _FunctionalQuantBuilder(_HookedMode):
             args: Tuple[Any, ...],
             kwargs: Dict[str, Any]) -> Any:
         """Record operand provenance and requirements without mutating the model."""
-        slots, values = _logical_arguments(func, args, kwargs)
+        slots, values = _logical_arguments(func, args, kwargs, self.operation_registry)
         call_key = (name, func, index)
         discovered = self.discovered_calls.setdefault(call_key, {})
         call = self.state.calls.setdefault(call_key, _PreparedCall())
@@ -626,9 +981,25 @@ class _FunctionalQuantBuilder(_HookedMode):
             parameter = getattr(owner_module, owner_name)
             proxy = self._create_weight(plan.quant_class, plan.di_kwargs, parameter)
             self._add_quantizer(plan.quantizer_key, proxy)
+            owner_name_qualified = self.module_names[id(owner_module)]
+            owner_id = f'{owner_name_qualified + ":" if owner_name_qualified else ""}{owner_name}'
             register_parametrization(
                 owner_module, owner_name, _QuantParametrization(self.state, proxy))
             self.state.registered_parametrizations.append(owner)
+            parameter_uses = []
+            for call_key, argument_map in self.discovered_calls.items():
+                for arg_idx, argument in argument_map.items():
+                    if argument.parameter_owner != owner:
+                        continue
+                    parameter_uses.append((call_key[1], arg_idx, argument.operand_transposed))
+            owner_record = FunctionalWeightOwner(
+                owner_module,
+                owner_name_qualified,
+                owner_name,
+                proxy,
+                getattr(owner_module.parametrizations, owner_name)[-1],
+                tuple(dict.fromkeys(parameter_uses)))
+            self.state._weight_owners[owner_id] = owner_record
 
         for call_key, arguments in self.discovered_calls.items():
             name, func, index = call_key
@@ -650,12 +1021,8 @@ class _FunctionalQuantBuilder(_HookedMode):
             self, example_inputs: Optional[Tuple[Any, ...]],
             example_kwargs: Optional[Dict[str, Any]]) -> None:
         """Run one hooked preparation forward and reset transient counters."""
-        self._attach_hooks()
-        try:
-            with self, torch.no_grad():
-                self.model(*(example_inputs or ()), **(example_kwargs or {}))
-        finally:
-            self._remove_hooks()
+        with self, torch.no_grad():
+            self.model(*(example_inputs or ()), **(example_kwargs or {}))
 
     def build(
             self, example_inputs: Optional[Tuple[Any, ...]],
@@ -670,11 +1037,15 @@ class _FunctionalQuantBuilder(_HookedMode):
             raise
         return self.state
 
-    def __torch_function__(
-            self, func: Callable, types: Tuple[Type, ...], args=(), kwargs=None) -> Any:
+    def _intercept(
+            self,
+            operation: FunctionalOperation,
+            func: Callable,
+            types: Tuple[Type, ...],
+            args: Tuple[Any, ...],
+            kwargs: Dict[str, Any]) -> Any:
         """Create and apply quantizers while discovering each configured call."""
-        kwargs = {} if kwargs is None else dict(kwargs)
-        canonical_func = _canonical_function(func)
+        canonical_func = operation.canonical
         if canonical_func not in self.state.specs or not self.module_stack:
             return func(*args, **kwargs)
         name, module = self.module_stack[-1]
@@ -686,85 +1057,60 @@ class _FunctionalQuantBuilder(_HookedMode):
 class functional_quantization_mode(_HookedMode):
     """Apply a :class:`FunctionalQuantState` during a model forward/backward."""
 
-    def __init__(
-            self,
-            state: FunctionalQuantState,
-            enabled: bool = True,
-            remove_parametrizations_on_exit: bool = False) -> None:
+    def __init__(self, state: FunctionalQuantState, enabled: bool = True) -> None:
         """Configure application of a prepared state for one context lifetime."""
         state._assert_open()
         super().__init__(state)
         self.enabled = enabled
-        self.remove_parametrizations_on_exit = remove_parametrizations_on_exit
-        self._previous_enabled = False
+        self._call_sequence_resetter = None
 
     def __enter__(self) -> 'functional_quantization_mode':
         """Enable parametrizations, hooks, and torch-function interception."""
-        self._attach_hooks()
-        self._previous_enabled = self.state.enabled
+        if self.state._mode_active:
+            raise RuntimeError('Overlapping functional quantization contexts are unsupported.')
+        self.state._mode_active = True
         self.state.enabled = self.enabled
-        return super().__enter__()
+        self._call_sequence_resetter = self.counters.clear
+        self.state._call_sequence_resetters.append(self._call_sequence_resetter)
+        try:
+            return super().__enter__()
+        except Exception:
+            self.state._mode_active = False
+            self.state.enabled = False
+            if self._call_sequence_resetter in self.state._call_sequence_resetters:
+                self.state._call_sequence_resetters.remove(self._call_sequence_resetter)
+            raise
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
         """Restore mode state and remove hooks after the managed block exits."""
         try:
             return super().__exit__(exc_type, exc_val, exc_tb)
         finally:
-            self.state.enabled = self._previous_enabled
-            self._remove_hooks()
-            if self.remove_parametrizations_on_exit:
-                self.state.remove_parametrizations()
+            self.state._mode_active = False
+            self.state.enabled = False
+            if self._call_sequence_resetter in self.state._call_sequence_resetters:
+                self.state._call_sequence_resetters.remove(self._call_sequence_resetter)
 
-    def _unprepared_call_is_passthrough(
+    def _intercept(
             self,
+            operation: FunctionalOperation,
             func: Callable,
-            module: nn.Module,
-            name: str,
-            index: int,
+            types: Tuple[Type, ...],
             args: Tuple[Any, ...],
-            kwargs: Dict[str, Any]) -> bool:
-        """Return whether an unseen call has no functional quantization enabled."""
-        slots, _ = _logical_arguments(func, args, kwargs)
-        for arg_idx, value, _ in slots:
-            if not isinstance(value, Tensor) or isinstance(value, QuantTensor):
-                continue
-            runtime_spec = self._spec_for(func, arg_idx, False)
-            runtime_quant, _ = _resolve_spec(runtime_spec, module, name, index)
-            if runtime_quant is not None:
-                return False
-            base = value
-            while getattr(base, '_base', None) is not None:
-                base = base._base
-            if isinstance(base, nn.Parameter):
-                parameter_spec = self._spec_for(func, arg_idx, True)
-                parameter_quant, _ = _resolve_spec(parameter_spec, module, name, index)
-                if parameter_quant is not None:
-                    return False
-        return True
-
-    def __torch_function__(
-            self, func: Callable, types: Tuple[Type, ...], args=(), kwargs=None) -> Any:
+            kwargs: Dict[str, Any]) -> Any:
         """Route an intercepted call through its prepared argument quantizers."""
-        kwargs = {} if kwargs is None else dict(kwargs)
-        canonical_func = _canonical_function(func)
+        canonical_func = operation.canonical
         if not self.enabled or not self.state.enabled or canonical_func not in self.state.specs or not self.module_stack:
             return func(*args, **kwargs)
-        name, _ = self.module_stack[-1]
+        name, module = self.module_stack[-1]
         index = self.counters[name][canonical_func]
         self.counters[name][canonical_func] += 1
         call = self.state.calls.get((name, canonical_func, index))
         if call is None:
-            if self._unprepared_call_is_passthrough(canonical_func,
-                                                    self.module_stack[-1][1],
-                                                    name,
-                                                    index,
-                                                    args,
-                                                    kwargs):
-                return func(*args, **kwargs)
             raise RuntimeError(
                 'No prepared quantizer found for this functional call site; ensure example inputs exercise it.'
             )
-        slots, values = _logical_arguments(canonical_func, args, kwargs)
+        slots, values = _logical_arguments(canonical_func, args, kwargs, self.operation_registry)
         for arg_idx, value, replace in slots:
             prepared = call.arguments.get(arg_idx)
             if prepared is None or isinstance(value, QuantTensor) or not isinstance(value, Tensor):
@@ -778,50 +1124,37 @@ class functional_quantization_mode(_HookedMode):
             raise RuntimeError(
                 'Functional checkpointing requires PyTorch >= 2.1 and use_reentrant=False.')
 
-        def context_fn() -> Tuple[Any, '_FunctionalQuantInterceptor']:
+        def context_fn() -> Tuple[Any, FunctionalInterceptor]:
             """Return no-op forward and functional recompute contexts."""
-            return contextlib.nullcontext(), _FunctionalQuantInterceptor(self)
+
+            def recompute_callback(operation, func, types, args, kwargs):
+                # A still-active parent mode must not process the delegated call twice.
+                with self.suspend():
+                    return self._intercept(operation, func, types, args, kwargs)
+
+            return contextlib.nullcontext(), FunctionalInterceptor(
+                operation_registry=self.operation_registry, callback=recompute_callback)
 
         return context_fn
 
 
-class _FunctionalQuantInterceptor(TorchFunctionMode):
-
-    def __init__(self, parent: functional_quantization_mode) -> None:
-        """Reuse a parent application's prepared state during recomputation."""
-        super().__init__()
-        self.parent = parent
-
-    def __torch_function__(
-            self, func: Callable, types: Tuple[Type, ...], args=(), kwargs=None) -> Any:
-        """Delegate recompute interception to the active parent mode."""
-        return functional_quantization_mode.__torch_function__(
-            self.parent, func, types, args, kwargs)
-
-
 def prepare_functional_quantization(
-        model: nn.Module,
-        quant_map: Dict[Callable, QuantSpecType],
-        example_inputs: Optional[Tuple[Any, ...]] = None,
-        example_kwargs: Optional[Dict[str, Any]] = None) -> FunctionalQuantState:
+    model: nn.Module,
+    quant_map: Dict[Callable, QuantSpecType],
+    example_inputs: Optional[Tuple[Any, ...]] = None,
+    example_kwargs: Optional[Dict[str, Any]] = None,
+    *,
+    operation_registry: FunctionalOperationRegistry = DEFAULT_FUNCTIONAL_OPERATION_REGISTRY,
+    quantizer_factory: FunctionalQuantizerFactory = DEFAULT_FUNCTIONAL_QUANTIZER_FACTORY
+) -> FunctionalQuantState:
     """Discover functional call sites and instantiate their quantizers."""
     if example_inputs is None and example_kwargs is None:
         raise ValueError(
             'prepare_functional_quantization requires example_inputs and/or example_kwargs.')
-    state = FunctionalQuantState(model, quant_map)
+    state = FunctionalQuantState(model, quant_map, operation_registry, quantizer_factory)
     return _FunctionalQuantBuilder(state).build(example_inputs, example_kwargs)
 
 
 def remove_functional_quantization(model: nn.Module) -> None:
-    """Remove functional quantization from *model* when its state is unavailable."""
-    state = getattr(model, _STATE_NAME, None)
-    if isinstance(state, FunctionalQuantState):
-        state.cleanup()
-        return
-    if hasattr(model, _CONTAINER_NAME):
-        delattr(model, _CONTAINER_NAME)
-    for module in model.modules():
-        for name in list(getattr(module, 'parametrizations', {}).keys()):
-            items = getattr(module.parametrizations, name)
-            if any(isinstance(item, _QuantParametrization) for item in items):
-                remove_parametrizations(module, name, leave_parametrized=False)
+    """Remove the functional quantization state attached to *model*."""
+    getattr(model, _STATE_NAME).cleanup()
