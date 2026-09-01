@@ -220,11 +220,6 @@ def model_export(model, tokenizer, ref_input, args, config=None):
     elif args.export_target == 'vllm':
         from brevitas.export.inference.vLLM.manager import vLLMExportManager
 
-        export_device = torch.device('cpu')
-        model = model.to(export_device)
-        ref_input = tree_map(
-            lambda value: value.to(export_device) if isinstance(value, torch.Tensor) else value,
-            ref_input)
         model = offload_model(model)
         with quant_inference_mode(model, export_manager=vLLMExportManager) as export_mode:
             model(**ref_input)
