@@ -318,14 +318,6 @@ class InputScaleComponent(ScaleComponent):
     by :class:`InputZeroPointComponent` / the asymmetric mixin.
     """
 
-    def validate(self, config: QuantizerConfig) -> None:
-        super().validate(config)
-        # Groupwise activations are recomputed per-forward from the tensor's
-        # per-group stats; brevitas has no static / no_scale groupwise activation
-        # quantizer, so groupwise requires a dynamic scale.
-        if config.is_groupwise and not config.is_dynamic:
-            raise ValueError("Groupwise activation quantization requires a dynamic scale.")
-
     def build(self, config: QuantizerConfig) -> Contribution:
         # Base: scaling_impl_type = config.scaling_impl_type (act solver resolves it).
         contribution = super().build(config)
@@ -383,6 +375,11 @@ class InputZeroPointComponent(ZeroPointComponent):
     activations reuse the base asymmetric mixin and add the static (runtime
     percentile) or dynamic (per-forward) zero-point tuning.
     """
+
+    def validate(self, config: QuantizerConfig) -> None:
+        super().validate(config)
+        if config.is_asym and config.scaling_impl_type == ScalingImplType.STATS:
+            raise ValueError("Asymmetric activations require a static or dynamic scale (not STATS).")
 
     def build_solver(self, config: QuantizerConfig) -> Contribution:
         return Contribution(bases=(SolveActZeroPointImplFromEnum,))
