@@ -61,8 +61,7 @@ def rm_onnx(path):
     try:
         os.remove(path)
     except OSError:
-        pass  # An export that raised may never have written the file; cleanup is best-effort
-        # and must not mask the underlying error.
+        pass  # best-effort: a failed export may never have written the file
     try:
         os.remove(f"{path}.data")
     except OSError:

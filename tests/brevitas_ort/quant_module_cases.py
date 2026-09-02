@@ -15,10 +15,7 @@ from brevitas.quant.scaled_int import Int32Bias
 
 from .common import *
 
-# Number of Hypothesis examples drawn for the (very large) WBIOL configuration space. Drawing
-# per-axis keeps rare quantizers/export types well represented without any explicit handling.
-# Each example is a full ONNX export + ORT inference, so this constant directly drives the
-# runtime of test_ort_wbiol (a single, serially-run @given node).
+# Hypothesis examples for the WBIOL space; each is a full ONNX export + ORT inference.
 WBIOL_MAX_EXAMPLES = 10000
 
 
@@ -53,31 +50,15 @@ def wbiol_config_st(draw):
     is_fp8 = weight_quant == Fp8e4m3OCPWeightPerTensorFloat
     is_dynamic = io_quant == ShiftedUint8DynamicActPerTensorFloat
 
-    # QuantLinear + asymmetric is intentionally NOT excluded. It was disabled as 'ORT execution is
-    # unreliable and fails randomly on a subset of cases' (97337ec3, Jan 2023); its sibling from the
-    # previous day (per-channel asymmetric, 35f330c1) proved stale and was re-enabled in #1576.
-    # Running it unfiltered exercised ~34 such configs per job across the CI matrix with no
-    # failures, so the exclusion looks obsolete on current ORT. Being a flakiness claim rather than
-    # a hard limit, re-add the QuantLinear exclusion here if intermittent failures reappear.
+    # QuantLinear + asymmetric was historically excluded as flaky in ORT; re-add the exclusion
+    # here if intermittent failures reappear.
     impl = draw(st.sampled_from(QUANT_WBIOL_IMPL))
 
     rounding_type = draw(st.sampled_from(['round', 'floor']))
 
-    # fp8 requires all-8 bit-widths: OCP e4m3 is a fixed 1+4+3 split, so overriding bit_width
-    # breaks is_ocp_e4m3 (mantissa==3 and exponent==4, src/brevitas/proxy/float_parameter_quant.py)
-    # and the exporter rejects it with 'Only OCP/FNUZ Standard are supported for FP8 export'
-    # (src/brevitas/export/onnx/standard/qcdq/handler.py). Confirmed matrix-wide by CI run
-    # 33414112132.
-    #
-    # Dynamic act quant requires 8-bit input/output: the QCDQ exporter validates it via
-    # validate_8b_bit_width (src/brevitas/export/onnx/standard/qcdq/handler.py), which raised
-    # 'Bit width 2 is not supported, should be 8b.' on every matrix cell of CI run 33403653736
-    # once this was left unconstrained. Weight bit-width is not validated, so it stays free.
-    #
-    # floor rounding is intentionally NOT restricted to 8-bit. It used to be lumped into the fp8
-    # all-8 branch (commit 004479ef) without independent justification; running it unconstrained
-    # across the CI matrix showed it exports and matches ORT at every bit-width (including the
-    # integer-initializer fallback path), so the old restriction was over-broad.
+    # fp8 (fixed 1+4+3 split) and dynamic act quant (ONNX DynamicQuantizeLinear) are rejected by
+    # the QCDQ exporter at any non-8 bit-width; dynamic only pins i/o, weight stays free. floor is
+    # unrestricted.
     if is_fp8:
         o = w = i = 8
     elif is_dynamic:

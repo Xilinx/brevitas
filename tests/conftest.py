@@ -13,12 +13,9 @@ MIN_QONNX_VERSION = '0.5.0'
 
 
 def get_hypothesis_seed():
-    """Global seed for all Hypothesis-driven randomisation (single source of truth).
+    """Global seed for all Hypothesis randomisation, derived from the environment.
 
-    Derived intrinsically from the environment (Python/torch/platform) rather than an
-    external variable, so a given machine / CI matrix job is reproducible while different
-    jobs still explore different examples. ``zlib.crc32`` (not builtin ``hash()``, which is
-    per-process randomised) keeps xdist workers in agreement.
+    Uses zlib.crc32 (not builtin hash(), which is per-process randomised) so xdist workers agree.
     """
     fingerprint = '|'.join([
         platform.python_version(), torch.__version__, platform.system(), platform.machine()])
@@ -26,8 +23,7 @@ def get_hypothesis_seed():
 
 
 def pytest_configure(config):
-    # Apply the global Hypothesis seed unless the user passed --hypothesis-seed. This is the
-    # same mechanism the Hypothesis pytest plugin uses for that flag.
+    # Apply the global seed unless the user passed --hypothesis-seed (mirrors the plugin).
     from hypothesis import core
     if config.getoption('--hypothesis-seed',
                         default=None) is None and core.global_force_seed is None:

@@ -25,9 +25,7 @@ from .quant_module_cases import QuantRecurrentCases
 from .quant_module_cases import wbiol_config_st
 from .quant_module_cases import WBIOL_MAX_EXAMPLES
 
-# Skip Hypothesis' shrinking phase: each example is a full ONNX export + ORT inference, so
-# shrinking a failure could take many minutes. The failing example is still reported and is
-# reproducible from the global seed (see tests/conftest.py).
+# Skip Hypothesis' shrinking phase: each example is a full export + ORT run (too slow to shrink).
 _PHASES = (Phase.explicit, Phase.reuse, Phase.generate)
 
 
@@ -77,9 +75,7 @@ def test_ort_wbiol(config):
             onnx_opset=onnx_opset,
             export_q_weight=export_q_weight)
     except pytest.skip.Exception:
-        # is_brevitas_ort_close skips when both outputs are all-zero; under @given a skip would
-        # abort every remaining example, so reject just this one instead.
-        assume(False)
+        assume(False)  # all-zero outputs: reject this example rather than skip the whole node
     finally:
         rm_onnx(export_name)
     assert close
