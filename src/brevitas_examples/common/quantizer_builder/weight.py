@@ -9,7 +9,7 @@ its ordered component list. Instantiate it via the shared
 from typing import List
 
 from brevitas_examples.common.quantizer_builder.builder import QuantizerBuilder
-from brevitas_examples.common.quantizer_builder.components import CommonComponent
+from brevitas_examples.common.quantizer_builder.components import BaseComponent
 from brevitas_examples.common.quantizer_builder.components import FormatComponent
 from brevitas_examples.common.quantizer_builder.components import ScaleComponent
 from brevitas_examples.common.quantizer_builder.components import ScaleRestrictComponent
@@ -33,5 +33,5 @@ class WeightQuantizerBuilder(QuantizerBuilder):
             ZeroPointComponent(),
             FormatComponent(),
             ScaleRestrictComponent(),
-            CommonComponent(),
+            BaseComponent(),
             WeightSolverComponent(),]

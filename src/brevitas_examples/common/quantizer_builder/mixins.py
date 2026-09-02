@@ -34,6 +34,7 @@ from brevitas.core.stats.stats_op import MSEUniformStepBase
 from brevitas.core.zero_point import ParameterFromRuntimeZeroPoint
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.core.zero_point import ParameterZeroPoint
+from brevitas.core.zero_point import RuntimeDynamicGroupZeroPoint
 from brevitas.core.zero_point import StatsFromParameterZeroPoint
 from brevitas.core.zero_point import ZeroZeroPoint
 from brevitas.inject import ExtendedInjector
@@ -46,6 +47,7 @@ from brevitas.quant.float_quant_ocp import FpOCPMixin
 from brevitas.quant.solver.common import solve_stats_impl
 from brevitas.utils.float_quant_utils import get_midmax_mantissa_bit_bias
 from brevitas.utils.python_utils import AutoName
+from brevitas_examples.common.generative.quant_blocks import RuntimeDynamicStatsZeroPoint
 
 EnumTypeVar = TypeVar('EnumTypeVar')
 EnumType = Optional[Union[str, EnumTypeVar]]
@@ -97,6 +99,8 @@ class ZeroPointImplType(AutoName):
     PARAMETER = auto()  # ParameterZeroPoint
     PARAMETER_FROM_STATS = auto()  # ParameterFromStatsFromParameterZeroPoint
     PARAMETER_FROM_RUNTIME = auto()  # ParameterFromRuntimeZeroPoint  (optional, activations)
+    # Activation-only: a runtime zero-point recomputed per-forward
+    DYNAMIC = auto()
 
 
 class AsymmetricZeroPointMixin(ExtendedInjector):
@@ -109,38 +113,81 @@ class AsymmetricZeroPointMixin(ExtendedInjector):
     def zero_point_stats_impl(zero_point_stats_op=None):
         return solve_stats_impl(zero_point_stats_op)
 
-    # The zero-point implementation is driven by the *zero-point* param method
-    # (zero_point_impl_type) when one is selected (MSE / HQO). Otherwise
-    # (zero_point_impl_type is None) the default asymmetric zero-point mirrors the
-    # *scale* storage strategy (scaling_impl_type), so e.g. a parameter-from-stats
-    # scale folds the zero-point into a standalone parameter as well.
+
+class SolveParameterZeroPointImplFromEnum(ExtendedInjector):
+    """Resolve a parameter (weight) zero-point implementation from
+    ``zero_point_impl_type`` (mirrors :class:`SolveParameterScalingImplFromEnum`).
+
+    When no zero-point param method is selected (``zero_point_impl_type is None``)
+    the zero-point falls back to mirroring the scale storage strategy
+    (``scaling_impl_type``): a parameter-from-stats scale folds the zero-point into
+    a standalone parameter as well, etc.
+    """
+
     @value
     def zero_point_impl(
-            zero_point_impl_type: EnumType[ZeroPointImplType] = None,
-            scaling_impl_type: EnumType[ScalingImplType] = None) -> Optional[Type[nn.Module]]:
+            zero_point_impl_type=None,
+            scaling_impl_type=None) -> Optional[Type[nn.Module]]:
+        # Fallback: derive zero_point_impl_type from the scale storage strategy.
         if zero_point_impl_type is None:
             if scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS:
                 zero_point_impl_type = ZeroPointImplType.PARAMETER_FROM_STATS
             elif scaling_impl_type == ScalingImplType.PARAMETER:
                 zero_point_impl_type = ZeroPointImplType.PARAMETER
             else:
-                # STATS / AFFINE_STATS / DYNAMIC / ... -> plain stats-from-parameter zp.
+                # STATS / AFFINE_STATS / ... -> plain stats-from-parameter zp.
                 zero_point_impl_type = ZeroPointImplType.STATS
-        if zero_point_impl_type == ZeroPointImplType.STATS:
+
+        if zero_point_impl_type == ZeroPointImplType.ZERO:
+            return ZeroZeroPoint
+        elif zero_point_impl_type == ZeroPointImplType.STATS:
             return StatsFromParameterZeroPoint
         elif zero_point_impl_type == ZeroPointImplType.PARAMETER:
             return ParameterZeroPoint
         elif zero_point_impl_type == ZeroPointImplType.PARAMETER_FROM_STATS:
             return ParameterFromStatsFromParameterZeroPoint
+        else:
+            raise RuntimeError(f"{zero_point_impl_type} not recognized.")
+
+
+class SolveActZeroPointImplFromEnum(ExtendedInjector):
+    """Resolve an activation zero-point implementation from ``zero_point_impl_type``
+    (mirrors :class:`SolveActScalingImplFromEnum`).
+
+    When no zero-point param method is selected (``zero_point_impl_type is None``)
+    the zero-point falls back to mirroring the scale storage strategy
+    (``scaling_impl_type``): a dynamic scale gives a runtime-dynamic zero-point, a
+    parameter-from-stats (static) scale gives a runtime-parameter zero-point, etc.
+    """
+
+    @value
+    def zero_point_impl(
+            zero_point_impl_type=None,
+            scaling_impl_type=None,
+            scaling_per_output_type=None) -> Optional[Type[nn.Module]]:
+        # Fallback: derive zero_point_impl_type from the scale storage strategy.
+        if zero_point_impl_type is None:
+            if scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS:
+                zero_point_impl_type = ZeroPointImplType.PARAMETER_FROM_RUNTIME
+            elif scaling_impl_type == ScalingImplType.DYNAMIC:
+                zero_point_impl_type = ZeroPointImplType.DYNAMIC
+            else:
+                # STATS / AFFINE_STATS / ... -> plain stats-from-parameter zp.
+                zero_point_impl_type = ZeroPointImplType.STATS
+
+        if zero_point_impl_type == ZeroPointImplType.ZERO:
+            return ZeroZeroPoint
+        elif zero_point_impl_type == ZeroPointImplType.STATS:
+            return StatsFromParameterZeroPoint
         elif zero_point_impl_type == ZeroPointImplType.PARAMETER_FROM_RUNTIME:
             return ParameterFromRuntimeZeroPoint
-        elif zero_point_impl_type == ZeroPointImplType.ZERO:
-            return ZeroZeroPoint
+        elif zero_point_impl_type == ZeroPointImplType.DYNAMIC:
+            # Runtime zero-point recomputed per-forward.
+            if scaling_per_output_type == ScalingPerOutputType.GROUP:
+                return RuntimeDynamicGroupZeroPoint
+            return RuntimeDynamicStatsZeroPoint
         else:
-            warnings.warn(
-                f"Defaulting to ZeroZeroPoint for unrecognized zero_point_impl_type {zero_point_impl_type}."
-            )
-            return ZeroZeroPoint
+            raise RuntimeError(f"{zero_point_impl_type} not recognized.")
 
 
 class RestrictThresholdMixin(ExtendedInjector):

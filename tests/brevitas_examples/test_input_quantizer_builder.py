@@ -59,8 +59,6 @@ IN_FEATURES = 32
 OUT_FEATURES = 16
 GROUP_SIZE = 8
 BIT_WIDTH = 8
-# Matches the scaling_min_val carried by the reference activation quantizers.
-SCALING_MIN_VAL = 1e-10
 
 # Each spec reproduces an INPUT_QUANT_MAP['...']['static'] leaf through the
 # generic InputQuantizerBuilder.
@@ -74,7 +72,6 @@ BUILDER_SPECS = {
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},},
     "int_static_per_tensor_asym": {
         "ref": ShiftedUint8ActPerTensorFloat,
@@ -85,7 +82,6 @@ BUILDER_SPECS = {
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},},
     "int_static_per_tensor_sym_mse": {
         "ref": Int8ActPerTensorFloatMSE,
@@ -97,7 +93,6 @@ BUILDER_SPECS = {
             "scaling_param_method": ParamMethod.MSE,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             # The static-scaling mixin sets scaling_stats_op=PERCENTILE; the
             # builder's MSE scale init op would derive AbsPercentile from it,
             # while the reference MSESymmetricScale hardcodes AbsMax. Override
@@ -124,7 +119,6 @@ BUILDER_SPECS = {
             "zero_point_param_method": ParamMethod.MSE,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             # The reference (MSEAsymmetricScale + MSEActZeroPoint) hardcodes the
             # scale init op to AbsMinMax and the zero-point init op to
             # NegativeMinOrZero; override the builder's derived ops to match.
@@ -143,7 +137,6 @@ BUILDER_SPECS = {
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},},
     "int_static_per_tensor_sym_po2_mse": {
         "ref": Int8ActPerTensorFixedPointMSE,
@@ -155,7 +148,6 @@ BUILDER_SPECS = {
             "scaling_param_method": ParamMethod.MSE,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "scaling_min_val": SCALING_MIN_VAL,
             # Same percentile-vs-AbsMax scale init op mismatch as the non-po2
             # symmetric MSE case; override to match the reference.
             "kwargs": {
@@ -174,7 +166,6 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},},
     "float_ocp_static_per_tensor_sym": {
         "ref": Fp8e4m3OCPActPerTensorFloat,
@@ -186,7 +177,6 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},},
     "float_fnuz_static_per_tensor_sym": {
         "ref": Fp8e4m3FNUZActPerTensorFloat,
@@ -198,7 +188,6 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},},
     # ----------------------------------------------------------------------
     # dynamic (per_tensor): INPUT_QUANT_MAP['...']['dynamic']. Scale (and, for
@@ -215,7 +204,6 @@ BUILDER_SPECS = {
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},},
     "int_dynamic_per_tensor_asym": {
         "ref": ShiftedUint8DynamicActPerTensorFloat,
@@ -226,7 +214,6 @@ BUILDER_SPECS = {
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},},
     "float_fnuz_dynamic_per_tensor_sym": {
         "ref": Fp8e4m3FNUZDynamicActPerTensorFloat,
@@ -238,7 +225,6 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},},
     # ----------------------------------------------------------------------
     # dynamic (per_row / per_group): INPUT_QUANT_MAP['...']['dynamic'] with
@@ -258,7 +244,6 @@ BUILDER_SPECS = {
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},},
     "int_dynamic_per_row_asym": {
         "ref": ShiftedUint8DynamicActPerRowFloat,
@@ -270,7 +255,6 @@ BUILDER_SPECS = {
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},},
     # dynamic po2 (per_row): fixed-point scale floors the exponent (FloorSte),
     # unlike static po2 activations which ceil it.
@@ -284,7 +268,6 @@ BUILDER_SPECS = {
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},},
     "float_ocp_dynamic_per_row_sym_po2": {
         "ref": FP8e4m3OCPDynamicActPerRowFixedPoint,
@@ -297,7 +280,6 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},},
     "float_ocp_dynamic_per_row_sym": {
         "ref": FP8e4m3OCPDynamicActPerRowFloat,
@@ -310,7 +292,6 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},},
     "float_fnuz_dynamic_per_row_sym": {
         "ref": FP8e4m3FNUZDynamicActPerRowFloat,
@@ -323,7 +304,6 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},},
     "int_dynamic_per_group_sym": {
         "ref": Int8DynamicActPerGroupFloat,
@@ -335,7 +315,6 @@ BUILDER_SPECS = {
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},},
     "int_dynamic_per_group_asym": {
         "ref": ShiftedUint8DynamicActPerGroupFloat,
@@ -347,7 +326,6 @@ BUILDER_SPECS = {
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},
         # The reference ShiftedUint8DynamicActPerGroupFloat crashes in its own
         # forward: the group zero-point (RuntimeDynamicGroupZeroPoint +
@@ -368,7 +346,6 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},},
     "float_ocp_dynamic_per_group_sym": {
         "ref": Fp8e4m3OCPDynamicActPerGroupFloat,
@@ -381,7 +358,6 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},},
     # ----------------------------------------------------------------------
     # no_scale (float, sym): INPUT_QUANT_MAP['float']['no_scale']. Float-only,
@@ -398,7 +374,6 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},},
     # ----------------------------------------------------------------------
     # MX (dynamic po2 per_group): INPUT_QUANT_MAP['int'/'float_ocp']['dynamic']
@@ -415,7 +390,6 @@ BUILDER_SPECS = {
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},},
     "float_ocp_dynamic_per_group_sym_po2": {
         "ref": MXFloat8e4m3Act,
@@ -428,7 +402,6 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},},}
 
 
@@ -499,11 +472,6 @@ def test_builder_input_quant_matches_reference(spec_name):
     # per_group builders need the group_size directly in the injector namespace.
     if granularity == "per_group":
         builder_kwargs["group_size"] = GROUP_SIZE
-    # scaling_min_val / narrow_range are not explicit build_quantizer args; route
-    # them through the injector kwargs (config.extra).
-    for _key in ("scaling_min_val", "narrow_range"):
-        if _key in builder_args:
-            builder_kwargs[_key] = builder_args.pop(_key)
     builder_quant = build_quantizer(
         InputQuantizerBuilder, **builder_args, kwargs=builder_kwargs).build_quant_injector()
 
