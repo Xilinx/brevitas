@@ -131,3 +131,54 @@ class TestCaileySGD:
                 assert closure().item() > initial_value
             else:
                 assert closure().item() < initial_value
+
+    @device_dtype_parametrize
+    def test_per_group_dtype_master_weights(self, device, dtype):
+        # A per-group dtype (the path used by optimizer_scheduler_args) must be
+        # honoured: when it differs from the parameter dtype, a higher-precision
+        # master copy is kept while the parameter stays in its original dtype.
+        if torch_version < version.parse('2.3.1') and dtype in ["float16", "bfloat16"]:
+            pytest.skip("Half/BFloat16 unsupported for some ops before torch 2.3.1.")
+        torch.manual_seed(SEED)
+        param_dtype = getattr(torch, dtype)
+        N, P = 5, 3
+        weight_orthogonal = ortho_group(dim=N, seed=SEED).rvs()
+        weight_orthonormal = weight_orthogonal / np.linalg.norm(weight_orthogonal, ord=2, axis=0)
+        weight = Parameter(
+            torch.from_numpy(weight_orthonormal[:, :P].T).to(device=device, dtype=param_dtype))
+        # Build the optimizer via a param-group dict, mirroring how
+        # _build_optimizers_from_configs assembles optimizer_scheduler_args.
+        optimizer = CaileySGD([{"params": [weight], "stiefel": True, "dtype": "float32"}])
+
+        def closure():
+            optimizer.zero_grad()
+            loss = (weight - torch.eye(N, P, device=device, dtype=param_dtype).t()).pow(2).sum()
+            loss.backward()
+            return loss
+
+        closure()
+        optimizer.step()
+        # The parameter keeps its original storage dtype ...
+        assert weight.dtype == param_dtype
+        # ... while an FP32 master copy is maintained in the optimizer state
+        # whenever the compute dtype differs from the parameter dtype.
+        buffer = optimizer.state[weight].get("weight_buffer")
+        if param_dtype == torch.float32:
+            assert buffer is None
+        else:
+            assert buffer is not None and buffer.dtype == torch.float32
+
+    def test_invalid_dtype_raises(self):
+        weight = Parameter(torch.eye(3, 5))
+        with pytest.raises(ValueError):
+            CaileySGD([weight], stiefel=True, dtype="not_a_dtype")
+        with pytest.raises(ValueError):
+            CaileySGD([weight], stiefel=True, dtype="int32")
+
+    def test_non_stiefel_dtype_rejected(self):
+        # Master-weight (dtype) support is only defined for Stiefel updates.
+        weight = Parameter(torch.randn(3, 5, dtype=torch.bfloat16))
+        optimizer = CaileySGD([weight], stiefel=False, dtype="float32")
+        weight.grad = torch.randn_like(weight)
+        with pytest.raises(ValueError):
+            optimizer.step()

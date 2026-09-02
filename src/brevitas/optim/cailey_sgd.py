@@ -13,6 +13,8 @@ import random
 import torch
 from torch.optim.optimizer import Optimizer
 
+from brevitas.utils.torch_utils import resolve_torch_dtype
+
 
 def unit(v, dim: int = 1, eps: float = 1e-8):
     vnorm = norm(v, dim)
@@ -106,16 +108,24 @@ class CaileySGD(Optimizer):
             omega=0,
             iters=iters,
             grad_clip=grad_clip,
+            dtype=resolve_torch_dtype(dtype, option="CaileySGD dtype", require_floating_point=True),
         )
         if nesterov and (momentum <= 0 or dampening != 0):
             raise ValueError("Nesterov momentum requires a momentum and zero dampening")
         super(CaileySGD, self).__init__(params, defaults)
-        self.dtype = getattr(torch, dtype) if dtype is not None else dtype
+        # Normalize any per-parameter-group dtype override. This is the path used
+        # when the optimizer is built from ``optimizer_scheduler_args``, where the
+        # dtype is provided as a per-group kwarg rather than a constructor argument.
+        for group in self.param_groups:
+            group["dtype"] = resolve_torch_dtype(
+                group.get("dtype"), option="CaileySGD dtype", require_floating_point=True)
 
     def __setstate__(self, state) -> None:
         super(CaileySGD, self).__setstate__(state)
         for group in self.param_groups:
             group.setdefault("nesterov", False)
+            group["dtype"] = resolve_torch_dtype(
+                group.get("dtype"), option="CaileySGD dtype", require_floating_point=True)
 
     def step(self, closure=None):
         """Performs a single optimization step.
@@ -132,6 +142,11 @@ class CaileySGD(Optimizer):
             momentum = group["momentum"]
             stiefel = group["stiefel"]
             iters = group["iters"]
+            # Optional per-group compute dtype. When it differs from the stored
+            # parameter dtype, the Stiefel update is carried out on a persistent
+            # higher-precision master copy ("weight_buffer") and only the final
+            # result is cast back into the (possibly lower-precision) parameter.
+            dtype = group.get("dtype")
 
             for p in group["params"]:
                 if p.grad is None:
@@ -140,9 +155,9 @@ class CaileySGD(Optimizer):
                 param = p.data
                 param_state = self.state[p]
                 # Store a copy of weights in desired dtype if it is different from param dtype
-                if self.dtype is not None and self.dtype != param.dtype:
+                if dtype is not None and dtype != param.dtype:
                     if "weight_buffer" not in param_state:
-                        param_state["weight_buffer"] = param.clone().to(self.dtype)
+                        param_state["weight_buffer"] = param.clone().to(dtype)
                     param = param_state["weight_buffer"]
 
                 unity = param.view(p.size()[0], -1)
@@ -154,8 +169,8 @@ class CaileySGD(Optimizer):
                         unity = qr_retraction(unity)
 
                     g = p.grad.data.view(p.size()[0], -1)
-                    if self.dtype is not None:
-                        g = g.to(self.dtype)
+                    if dtype is not None:
+                        g = g.to(dtype)
 
                     lr = group["lr"]
 
@@ -183,6 +198,12 @@ class CaileySGD(Optimizer):
                         V.copy_(torch.mm(W, unity.t()))  # n-by-p
 
                 else:
+
+                    if dtype is not None and dtype != p.data.dtype:
+                        raise ValueError(
+                            "CaileySGD per-group `dtype` (higher-precision master weights) is "
+                            "only supported for Stiefel updates. Set stiefel=True or remove the "
+                            "dtype override for this parameter group.")
 
                     weight_decay = group["weight_decay"]
                     dampening = group["dampening"]
