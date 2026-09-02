@@ -98,7 +98,6 @@ class ZeroPointImplType(AutoName):
     STATS = auto()  # StatsFromParameterZeroPoint
     PARAMETER = auto()  # ParameterZeroPoint
     PARAMETER_FROM_STATS = auto()  # ParameterFromStatsFromParameterZeroPoint
-    PARAMETER_FROM_RUNTIME = auto()  # ParameterFromRuntimeZeroPoint  (optional, activations)
     # Activation-only: a runtime zero-point recomputed per-forward
     DYNAMIC = auto()
 
@@ -167,19 +166,21 @@ class SolveActZeroPointImplFromEnum(ExtendedInjector):
             scaling_per_output_type=None) -> Optional[Type[nn.Module]]:
         # Fallback: derive zero_point_impl_type from the scale storage strategy.
         if zero_point_impl_type is None:
-            if scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS:
-                zero_point_impl_type = ZeroPointImplType.PARAMETER_FROM_RUNTIME
+            if scaling_impl_type == ScalingImplType.PARAMETER:
+                zero_point_impl_type = ZeroPointImplType.PARAMETER
+            elif scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS:
+                zero_point_impl_type = ZeroPointImplType.PARAMETER_FROM_STATS
             elif scaling_impl_type == ScalingImplType.DYNAMIC:
                 zero_point_impl_type = ZeroPointImplType.DYNAMIC
             else:
                 # STATS / AFFINE_STATS / ... -> plain stats-from-parameter zp.
-                zero_point_impl_type = ZeroPointImplType.STATS
+                zero_point_impl_type = ZeroPointImplType.PARAMETER_FROM_STATS
 
         if zero_point_impl_type == ZeroPointImplType.ZERO:
             return ZeroZeroPoint
-        elif zero_point_impl_type == ZeroPointImplType.STATS:
-            return StatsFromParameterZeroPoint
-        elif zero_point_impl_type == ZeroPointImplType.PARAMETER_FROM_RUNTIME:
+        elif zero_point_impl_type == ZeroPointImplType.PARAMETER:
+            return ParameterZeroPoint
+        elif zero_point_impl_type == ZeroPointImplType.PARAMETER_FROM_STATS:
             return ParameterFromRuntimeZeroPoint
         elif zero_point_impl_type == ZeroPointImplType.DYNAMIC:
             # Runtime zero-point recomputed per-forward.

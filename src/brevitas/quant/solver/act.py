@@ -63,8 +63,6 @@ class SolveActScalingImplFromEnum(SolveAffineRescalingFromEnum):
             if scaling_per_output_type == ScalingPerOutputType.GROUP:
                 return RuntimeDynamicGroupStatsScaling
             return RuntimeDynamicStatsScaling
-        elif scaling_impl_type == ScalingImplType.HE:
-            raise RuntimeError(f"{scaling_impl_type} not supported.")
         else:
             raise RuntimeError(f"{scaling_impl_type} not recognized.")
 
