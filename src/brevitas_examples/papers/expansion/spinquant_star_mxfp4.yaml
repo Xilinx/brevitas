@@ -131,8 +131,6 @@ rotation_layers_to_expand:
 expansion_step:
 - 0
 - 7
-save_safetensors:
-- false
 scaling_min_val:
 - 0.0001
 seed:

@@ -74,4 +74,3 @@ weight_scale_precision: float_scale
 # TrainingArguments for HF Trainer (see https://huggingface.co/docs/transformers/en/main_classes/trainer#transformers.TrainingArguments)
 learning_rate: 1.5
 lr_scheduler_type: cosine
-save_safetensors: false
