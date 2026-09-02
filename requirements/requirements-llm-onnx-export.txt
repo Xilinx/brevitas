@@ -1,0 +1,5 @@
+# Optional ONNX QCDQ export dependencies for brevitas_examples/llm.
+# optimum-onnx (pulled in by optimum[onnxruntime]) pins transformers < 4.58, so we
+# declare that bound explicitly to get a deterministic resolution.
+optimum[onnxruntime]
+transformers<4.58

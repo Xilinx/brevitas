@@ -1,0 +1,208 @@
+# Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
+from typing import Dict
+from typing import List
+from typing import Optional
+from unittest.mock import patch
+
+from datasets import Dataset
+import numpy as np
+import pytest
+import pytest_cases
+import torch
+
+from brevitas_examples.llm.llm_quant.data import get_wikitext2
+from brevitas_examples.llm.llm_quant.data import tokenize_and_group_texts
+from brevitas_examples.llm.llm_quant.data_utils import llm_collate
+
+pytestmark = pytest.mark.llm
+
+# Identifiers for the special tokens of DummyTokenizer
+BOS_TOKEN_ID = 0
+EOS_TOKEN_ID = 1
+
+
+# Mimics a part of the functionality of the class BatchEncoding in transformers.tokenization_utils_base,
+# since an instance of it is returned by the __call__of PreTrainedTokenizerBase
+class DummyBatchEncoding:
+
+    def __init__(self, input_ids: torch.Tensor) -> None:
+        self.input_ids = input_ids
+
+    def __getitem__(self, item) -> torch.Tensor:
+        assert item == "input_ids"
+        return self.input_ids
+
+
+def flatten_list(v):
+    return [item for sublist in v for item in sublist]
+
+
+# Sample tokenizer which maps to each character in a string to its integer representation
+class DummyTokenizer:
+
+    def __init__(
+        self,
+        bos_token_id: Optional[int] = None,
+        eos_token_id: Optional[int] = None,
+    ) -> None:
+        self.bos_token_id = bos_token_id
+        self.eos_token_id = eos_token_id
+
+    def batch_encode_plus(self, texts: List[str], add_special_tokens: bool,
+                          **kwargs) -> Dict[str, list]:
+        # Per-character tokenizer
+        return {
+            "input_ids": [([self.bos_token_id] if
+                           (self.bos_token_id is not None and add_special_tokens) else []) +
+                          list(map(ord, text)) for text in texts]}
+
+    def __call__(self, text, add_special_tokens: bool = False, **kwargs):
+        # Mirrors PreTrainedTokenizerBase.__call__ (replaces batch_encode_plus in 5.x):
+        # batched output for list input, flattened output for a single string.
+        if isinstance(text, (list, tuple)):
+            return self.batch_encode_plus(list(text), add_special_tokens=add_special_tokens)
+        output = self.batch_encode_plus([text], add_special_tokens=add_special_tokens)
+        return {k: flatten_list(v) for k, v in output.items()}
+
+
+# Expected results for test_clm_tokenization. The nesting order corresponds to bos_preprocessing,
+# fuse_documents, add_eos_token
+EXPECTED_CLM_TOKENIZED_TEXTS = {
+    "none": {
+        False: {
+            False: [np.array([98, 98])],
+            True: [np.array([97, EOS_TOKEN_ID]), np.array([98, 98]), np.array([98, EOS_TOKEN_ID])],
+        },
+        True: {
+            False: [np.array([97, 98]), np.array([98, 98])],
+            True: [np.array([97, EOS_TOKEN_ID]), np.array([98, 98]), np.array([98, EOS_TOKEN_ID])],
+        },},
+    "sequence": {
+        False: {
+            False: [
+                np.array([BOS_TOKEN_ID, 97]),
+                np.array([BOS_TOKEN_ID, 98]),
+                np.array([BOS_TOKEN_ID, 98]),
+                np.array([BOS_TOKEN_ID, 98])],
+            True: [
+                np.array([BOS_TOKEN_ID, 97]),
+                np.array([BOS_TOKEN_ID, EOS_TOKEN_ID]),
+                np.array([BOS_TOKEN_ID, 98]),
+                np.array([BOS_TOKEN_ID, 98]),
+                np.array([BOS_TOKEN_ID, 98]),
+                np.array([BOS_TOKEN_ID, EOS_TOKEN_ID])],},
+        True: {
+            False: [
+                np.array([BOS_TOKEN_ID, 97]),
+                np.array([BOS_TOKEN_ID, 98]),
+                np.array([BOS_TOKEN_ID, 98]),
+                np.array([BOS_TOKEN_ID, 98])],
+            True: [
+                np.array([BOS_TOKEN_ID, 97]),
+                np.array([BOS_TOKEN_ID, EOS_TOKEN_ID]),
+                np.array([BOS_TOKEN_ID, 98]),
+                np.array([BOS_TOKEN_ID, 98]),
+                np.array([BOS_TOKEN_ID, 98]),
+                np.array([BOS_TOKEN_ID, EOS_TOKEN_ID])],}},
+    "document": {
+        False: {
+            False: [np.array([BOS_TOKEN_ID, 97]), np.array([BOS_TOKEN_ID, 98]), np.array([98, 98])],
+            True: [np.array([BOS_TOKEN_ID, 97]), np.array([BOS_TOKEN_ID, 98]), np.array([98, 98])],
+        },
+        True: {
+            False: [np.array([BOS_TOKEN_ID, 97]), np.array([BOS_TOKEN_ID, 98]), np.array([98, 98])],
+            True: [
+                np.array([BOS_TOKEN_ID, 97]),
+                np.array([EOS_TOKEN_ID, BOS_TOKEN_ID]),
+                np.array([98, 98]),
+                np.array([98, EOS_TOKEN_ID])],}}}
+
+
+@pytest_cases.parametrize("bos_token_id", [None, BOS_TOKEN_ID], ids=lambda x: f"bos={x}")
+@pytest_cases.parametrize("eos_token_id", [None, EOS_TOKEN_ID], ids=lambda x: f"eos={x}")
+@pytest_cases.parametrize(
+    "bos_preprocessing", [None, "document", "sequence"], ids=lambda x: f"preprocessing={x}")
+@pytest_cases.parametrize("add_eos_token", [False, True], ids=lambda x: f"add_eos={x}")
+@pytest_cases.parametrize("fuse_documents", [False, True], ids=lambda x: f"fuse={x}")
+def test_clm_tokenization(
+        bos_token_id: Optional[int],
+        eos_token_id: Optional[int],
+        bos_preprocessing: bool,
+        fuse_documents: bool,
+        add_eos_token: bool):
+    texts = ["", "a", "", "bbb"]
+    tokenizer = DummyTokenizer(bos_token_id=bos_token_id, eos_token_id=eos_token_id)
+    expected_tokenized_text = EXPECTED_CLM_TOKENIZED_TEXTS[
+        "none" if bos_token_id is None or bos_preprocessing is None else bos_preprocessing][
+            fuse_documents][add_eos_token and eos_token_id is not None]
+    tokenized_text = tokenize_and_group_texts(
+        texts=texts,
+        tokenizer=tokenizer,
+        sequence_length=2,
+        bos_preprocessing=bos_preprocessing,
+        fuse_documents=fuse_documents,
+        add_eos_token=add_eos_token)["input_ids"]
+    assert all(map(lambda x: np.array_equal(*x), zip(expected_tokenized_text, tokenized_text)))
+
+
+@pytest_cases.parametrize("add_bos_token", [False, True], ids=lambda x: f"add_bos={x}")
+@pytest_cases.parametrize("split", ["train", "validation"], ids=lambda x: f"split={x}")
+def test_wikitext2_tokenization(add_bos_token: bool, split: str):
+    # Texts following Wikitext2 format
+    texts = ["=a=", "", "bb"]
+    raw_dataset = Dataset.from_dict({
+        "text": texts,})
+    # Instantiate test tokenizer
+    tokenizer = DummyTokenizer(bos_token_id=BOS_TOKEN_ID,)
+    expected_tokenized_texts = {
+        "train": {
+            False: [[[61, 97, 61, 10, 10]], [[10, 10, 10, 98, 98]]],
+            True: [[[BOS_TOKEN_ID, 61, 97, 61, 10]], [[BOS_TOKEN_ID, 10, 10, 10, 98]]]},
+        "validation": {
+            False: [[[61, 97, 61, 10, 10]]],
+            True: [[[BOS_TOKEN_ID, 61, 97, 61, 10]], [[BOS_TOKEN_ID, 10, 10, 10,
+                                                       98]]]}}[split][add_bos_token]
+    with patch('brevitas_examples.llm.llm_quant.data.random.randint', side_effect=[0, 4]):
+        tokenized_texts = get_wikitext2(
+            raw_dataset=raw_dataset,
+            tokenizer=tokenizer,
+            seqlen=5,
+            nsamples=2,
+            split=split,
+            add_bos_token=add_bos_token)
+    for tokenized_text, expected_tokenized_text in zip(tokenized_texts, expected_tokenized_texts):
+        assert np.equal(tokenized_text["input_ids"], expected_tokenized_text).all()
+
+
+def test_llm_dataloader():
+    data = [{
+        'input_ids': torch.tensor([[1, 2, 3, 4]], dtype=torch.int64)}, {
+            'input_ids': torch.tensor([[5, 6, 7, 8]], dtype=torch.int64)}]
+    expected_attention_mask = [{
+        'attention_mask': torch.tensor([[1, 1, 1, 1]], dtype=torch.int64)}, {
+            'attention_mask': torch.tensor([[1, 1, 1, 1]], dtype=torch.int64)}]
+    dataset2device = Dataset.from_list(data)
+
+    # create dataloader with batch size 1 (default)
+    collate_fn = llm_collate(model_name_or_path='', require_fx=False)
+    data_loader = torch.utils.data.DataLoader(dataset=dataset2device, collate_fn=collate_fn)
+    assert len(data_loader) == 2, 'data loader has length != num_samples/batch_size'
+    for idx, batch in enumerate(data_loader):
+        assert torch.allclose(batch['input_ids'], data[idx]['input_ids']), 'input_ids mismatch'
+        assert torch.allclose(batch['attention_mask'], expected_attention_mask[idx]['attention_mask']), 'attention_mask mismatch'
+        assert set(batch.keys()) == set(['input_ids', 'labels', 'attention_mask']), 'unexpected keys in dataloader'
+
+    # create dataloader with batch size 2
+    data_loader = data_loader = torch.utils.data.DataLoader(
+        dataset=dataset2device, collate_fn=collate_fn, batch_size=2)
+    assert len(data_loader) == 1, 'data loader has length != num_samples/batch_size'
+    for batch in data_loader:
+        assert torch.allclose(batch['input_ids'][0], data[0]['input_ids']), 'input_ids mismatch'
+        assert torch.allclose(batch['input_ids'][1], data[1]['input_ids']), 'input_ids mismatch'
+        assert batch['input_ids'].shape[0] == 2, 'wrong number of input_ids'
+
+        assert torch.allclose(batch['attention_mask'][0], expected_attention_mask[0]['attention_mask']), 'attention_mask mismatch'
+        assert torch.allclose(batch['attention_mask'][1], expected_attention_mask[1]['attention_mask']), 'attention_mask mismatch'
+        assert batch['attention_mask'].shape[0] == 2, 'wrong number of attention_mask'

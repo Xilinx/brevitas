@@ -7,13 +7,9 @@ from brevitas import torch_version
 
 
 def patch_dynamo_export():
-    # torch._dynamo.export in torch 2.10 and 2.11 can crash with
-    # "'NoneType' object has no attribute 'is_tensor'" when a raw None is left on
-    # Dynamo's symbolic stack: OutputGraph.compile_subgraph calls x.is_tensor()
-    # over those stack values. Upstream fixed this in 2.12 by replacing raw None
-    # on the stack with ConstantVariable(None) (pytorch/pytorch#169325). We
-    # backport that behaviour out-of-source for 2.10/2.11 only by coercing raw
-    # None to a ConstantVariable when the stack values are gathered.
+    # torch 2.10/2.11 crash with "'NoneType' has no attribute 'is_tensor'" when a
+    # raw None is left on the dynamo stack (fixed in 2.12 via pytorch#169325).
+    # Backport: coerce raw None to ConstantVariable(None) when gathering stack values.
     if not (version.parse('2.10') <= torch_version < version.parse('2.12')):
         return
     from torch._dynamo.output_graph import OutputGraph
@@ -33,11 +29,20 @@ def patch_dynamo_export():
 
 
 def dynamo_export_ctx():
-    # From torch 2.10 onwards, torch._dynamo.export inlines built-in nn modules
-    # (install_free_tensors_for_export=True) instead of emitting call_module
-    # nodes. Setting install_free_tensors_for_export=False routes them back
-    # through the specialized NNModuleVariable path, restoring the pre-2.10 graph
-    # structure. The flag does not exist before torch 2.10.
+    # transformers 5.x checks `arg_name in func.__code__.co_varnames` inside model
+    # forward wrappers. torch._dynamo < 2.7 cannot trace __contains__ on a code
+    # object descriptor, raising Unsupported. Fail early with a clear message.
+    import transformers as _transformers
+    _tr_ver = version.parse(_transformers.__version__)
+
+    if torch_version < version.parse("2.7") and _tr_ver >= version.parse("5.0"):
+        raise RuntimeError(
+            f"FX-based quantization (dynamo export) is not supported with "
+            f"torch < 2.7 and transformers >= 5.0. "
+            f"Found torch {torch_version}, transformers {_transformers.__version__}. "
+            f"Please upgrade torch to >= 2.7.")
+
+    # torch >= 2.10 inlines nn modules by default; restore call_module behaviour.
     if torch_version >= version.parse('2.10'):
         import torch._dynamo.config as dynamo_config
         return dynamo_config.patch(install_free_tensors_for_export=False)

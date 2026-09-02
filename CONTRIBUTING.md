@@ -4,7 +4,7 @@ Please follow the steps below and be sure that your contribution complies with o
 
 1. If you are looking for some issues to get started with, we have a list of <a href="https://github.com/Xilinx/brevitas/labels/good%20first%20issue">good first issues</a> in the issue tracker.
 
-2. If you have some suggestion for features or have encoutered any bugs, don't hesitate to reach out through <a href="https://github.com/Xilinx/brevitas/issues">Brevitas Issue</a>
+2. If you have some suggestion for features or have encountered any bugs, don't hesitate to reach out through <a href="https://github.com/Xilinx/brevitas/issues">Brevitas Issue</a>
 
 	We welcome submissions for:
 

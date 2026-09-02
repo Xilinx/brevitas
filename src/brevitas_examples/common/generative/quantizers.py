@@ -35,7 +35,9 @@ from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantPro
 from brevitas.proxy.groupwise_int_runtime_quant import GroupwiseActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import DynamicActQuantProxyFromInjector
 from brevitas.quant.base import HQOWeightZeroPoint
+from brevitas.quant.base import MSEAsymmetricScale
 from brevitas.quant.base import MSESymmetricScale
+from brevitas.quant.base import MSEWeightZeroPoint
 from brevitas.quant.base import PerChannelPoTScaling8bit
 from brevitas.quant.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.float import Fp8e4m3WeightPerChannelFloat
@@ -128,7 +130,9 @@ class Int8DynamicActPerTensorFloat(DynamicActProxyMixin, Int8ActPerTensorFloat):
     dynamic_scaling_broadcastable_fn = lambda x, shape: x.view(SCALAR_SHAPE)
 
 
-class ShiftedUint8WeightGroupQuantFloatMSE(MSESymmetricScale, ShiftedUint8WeightGroupQuantFloat):
+class ShiftedUint8WeightGroupQuantFloatMSE(MSEAsymmetricScale,
+                                           MSEWeightZeroPoint,
+                                           ShiftedUint8WeightGroupQuantFloat):
     pass
 
 
@@ -223,7 +227,6 @@ class Fp8e4m3DynamicActPerGroupFloat(Fp8e4m3ActPerTensorFloat):
     scaling_impl = RuntimeDynamicGroupStatsScaling
     scaling_per_output_type = ScalingPerOutputType.GROUP
     scaling_stats_op = StatsOp.MAX
-    proxy_class = DynamicActFloatQuantProxyFromInjector
 
 
 class FP8e4m3OCPDynamicActPerRowFixedPoint(Fp8e4m3OCPActPerTensorFloat):
@@ -255,7 +258,6 @@ class Fp8e4m3OCPDynamicActPerGroupFloat(Fp8e4m3OCPActPerTensorFloat):
     scaling_impl = RuntimeDynamicGroupStatsScaling
     scaling_per_output_type = ScalingPerOutputType.GROUP
     scaling_stats_op = StatsOp.MAX
-    proxy_class = DynamicActFloatQuantProxyFromInjector
 
 
 class Fp8e4m3OCPWeightSymmetricGroupQuant(Fp8e4m3OCPWeightPerChannelFloat):

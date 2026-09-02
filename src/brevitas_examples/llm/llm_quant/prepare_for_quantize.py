@@ -67,10 +67,14 @@ class make_dynamo_compatible:
             self.model_cache_implementation = self.model.generation_config.cache_implementation
         else:
             self.model_cache_implementation = None
+        self.model_generation_use_cache = getattr(self.model.generation_config, 'use_cache', None)
 
     def __enter__(self):
         # We set cache_implementation to `static` for compatibility with dynamo
         self.model.generation_config.cache_implementation = "static"
+        # transformers 5.x asserts use_cache=True before constructing
+        # TorchExportableModuleForDecoderOnlyLM; disable it on the unwrapped model.
+        self.model.generation_config.use_cache = True
         # Because getattr does not fall back to default with `config` class, we need to manually fill
         # `head_dim` if it is None
         # https://github.com/huggingface/transformers/blob/47b0e478f324b54f177ea7998a0791870fdd0324/src/transformers/integrations/executorch.py#L538
@@ -93,3 +97,6 @@ class make_dynamo_compatible:
         # (which then triggers torch.compile + StaticCache recompiles in lighteval).
         self.model.config = self.model_config
         self.model.generation_config.cache_implementation = self.model_cache_implementation
+        # Restore use_cache to avoid leaking the value forced for tracing.
+        if self.model_generation_use_cache is not None:
+            self.model.generation_config.use_cache = self.model_generation_use_cache
