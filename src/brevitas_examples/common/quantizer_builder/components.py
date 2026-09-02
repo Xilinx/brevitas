@@ -69,19 +69,17 @@ SCALING_MIN_VAL = 1e-10
 class SolverComponent(Component):
     """Template: assemble the solver / proxy Contribution (the solver / float base
     goes in ``bases``, the proxy class in ``attrs``). Subclasses supply only the
-    kind-specific base class (:meth:`_base`) and proxy class (:meth:`_proxy`)."""
+    kind-specific base (:meth:`build_base`) and proxy (:meth:`build_proxy`)."""
 
     def build(self, config: QuantizerConfig) -> Contribution:
-        return Contribution(
-            attrs={"proxy_class": self._proxy(config)},
-            bases=(self._base(config),)) + self.build_extra(config)
+        return self.build_base(config) + self.build_proxy(config) + self.build_extra(config)
 
     @abstractmethod
-    def _base(self, config: QuantizerConfig) -> Type:
+    def build_base(self, config: QuantizerConfig) -> Contribution:
         ...
 
     @abstractmethod
-    def _proxy(self, config: QuantizerConfig) -> Type:
+    def build_proxy(self, config: QuantizerConfig) -> Contribution:
         ...
 
     def build_extra(self, config: QuantizerConfig) -> Contribution:
@@ -279,11 +277,13 @@ class WeightSolverComponent(SolverComponent):
         if config.scaling_impl_type in (ScalingImplType.DYNAMIC, None):
             raise ValueError("Weight quantizers require a static scale (not DYNAMIC / no_scale).")
 
-    def _base(self, config: QuantizerConfig) -> Type:
-        return WeightQuantSolver if config.is_int else ScaledFloatWeightBase
+    def build_base(self, config: QuantizerConfig) -> Contribution:
+        base = WeightQuantSolver if config.is_int else ScaledFloatWeightBase
+        return Contribution(bases=(base,))
 
-    def _proxy(self, config: QuantizerConfig) -> Type:
-        return self._int_proxy(config) if config.is_int else self._float_proxy(config)
+    def build_proxy(self, config: QuantizerConfig) -> Contribution:
+        proxy = self._int_proxy(config) if config.is_int else self._float_proxy(config)
+        return Contribution(attrs={"proxy_class": proxy})
 
     def _int_proxy(self, config: QuantizerConfig) -> Type:
         return GroupwiseWeightQuantProxyFromInjector if config.is_groupwise \
@@ -408,15 +408,18 @@ class InputSolverComponent(SolverComponent):
     :class:`WeightSolverComponent`). Contributed last so the solver / float base
     sits at the bottom of the MRO, matching the reference activation quantizers."""
 
-    def _base(self, config: QuantizerConfig) -> Type:
+    def build_base(self, config: QuantizerConfig) -> Contribution:
         if config.is_int:
-            return ActQuantSolver
-        # NO_SCALE uses FloatActBase (no scale), otherwise ScaledFloatActBase
-        # (which brings the act solver and a stats scale).
-        return FloatActBase if config.is_no_scale else ScaledFloatActBase
+            base = ActQuantSolver
+        else:
+            # NO_SCALE uses FloatActBase (no scale), otherwise ScaledFloatActBase
+            # (which brings the act solver and a stats scale).
+            base = FloatActBase if config.is_no_scale else ScaledFloatActBase
+        return Contribution(bases=(base,))
 
-    def _proxy(self, config: QuantizerConfig) -> Type:
-        return self._int_proxy(config) if config.is_int else self._float_proxy(config)
+    def build_proxy(self, config: QuantizerConfig) -> Contribution:
+        proxy = self._int_proxy(config) if config.is_int else self._float_proxy(config)
+        return Contribution(attrs={"proxy_class": proxy})
 
     def _int_proxy(self, config: QuantizerConfig) -> Type:
         # Static / no_scale use the plain proxy; groupwise requires dynamic, which is
