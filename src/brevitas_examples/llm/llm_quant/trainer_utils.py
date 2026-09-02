@@ -61,9 +61,8 @@ class MultiOptimizer(torch.optim.Optimizer):
     Allows attaching different optimizer/scheduler pairs to different parameter
     groups (e.g. CaileySGD for rotation matrices and AdamW for other params).
 
-    Inherits from :class:`torch.optim.Optimizer` (without calling
-    ``super().__init__()``) so that ``isinstance`` checks in ``accelerate``
-    and the HuggingFace ``Trainer`` recognise this object as an optimizer.
+    Inherits from :class:`torch.optim.Optimizer` so Accelerate can remap its
+    parameter groups to FSDP2 DTensors and preserve optimizer hook semantics.
 
     .. note::
         The HuggingFace ``Trainer`` calls ``model.zero_grad()`` rather than
@@ -74,9 +73,10 @@ class MultiOptimizer(torch.optim.Optimizer):
     """
 
     def __init__(self, optimizers: List[torch.optim.Optimizer]) -> None:
-        # Intentionally skip super().__init__() — this is a thin wrapper
-        # that delegates all real work to the sub-optimizers.
         self.optimizers = optimizers
+        param_groups = [
+            param_group for optimizer in optimizers for param_group in optimizer.param_groups]
+        super().__init__(param_groups, defaults={})
 
     def zero_grad(self, set_to_none: bool = False) -> None:
         for optimizer in self.optimizers:
@@ -93,38 +93,6 @@ class MultiOptimizer(torch.optim.Optimizer):
         for optimizer in self.optimizers:
             optimizer.step()
         return loss
-
-    @property
-    def state(self) -> Dict[torch.nn.Parameter, Any]:
-        # Returns a **snapshot** (shallow copy) of the merged optimizer
-        # states.  Mutations to this dict do not propagate back to the
-        # sub-optimizers.  Keys are parameter objects; if two sub-optimizers
-        # manage the same parameter (a misconfiguration), the later entry
-        # silently wins — detect and raise to prevent silent corruption.
-        merged: Dict[str, Any] = {}
-        for optimizer in self.optimizers:
-            for k, v in optimizer.state.items():
-                if k in merged:
-                    raise RuntimeError(
-                        f"MultiOptimizer.state: parameter {k} appears in "
-                        "multiple sub-optimizers.  Each parameter must belong "
-                        "to exactly one optimizer.")
-                merged[k] = v
-        return merged
-
-    @property
-    def param_groups(self) -> List[Dict[str, Any]]:
-        return [
-            param_group for optimizer in self.optimizers for param_group in optimizer.param_groups]
-
-    @property
-    def defaults(self) -> Dict[str, Any]:
-        # Return the defaults of the first sub-optimizer as a best-effort
-        # approximation.  This is accessed by accelerate's
-        # AcceleratedOptimizer property delegation.
-        if self.optimizers:
-            return self.optimizers[0].defaults
-        return {}
 
     def state_dict(self) -> Dict[str, Any]:
         """Return a serialisation-safe state dict for all sub-optimizers."""
@@ -362,7 +330,9 @@ class GeneralizedTrainer(Trainer):
         self.gamma = args.gamma
         self.temperature = args.temperature
         self.kl_loss_reduction = args.kl_loss_reduction
-        self.teacher_model = None if teacher_model is None else offload_model(teacher_model)
+        self.teacher_model = (
+            None if teacher_model is None else
+            teacher_model if self.is_fsdp_enabled else offload_model(teacher_model))
 
     def _default_scheduler(self, optimizer, num_training_steps):
         """Build the HuggingFace default LR scheduler for a single optimizer.
@@ -393,17 +363,44 @@ class GeneralizedTrainer(Trainer):
         (a :class:`MultiScheduler` with ``None`` entries).
         """
         # Multi-optimizer case: fill in any None sub-schedulers in place.
-        if isinstance(self.lr_scheduler, MultiScheduler) and isinstance(self.optimizer,
+        base_optimizer = getattr(self.optimizer, "optimizer", self.optimizer)
+        if isinstance(self.lr_scheduler, MultiScheduler) and isinstance(base_optimizer,
                                                                         MultiOptimizer):
-            for idx, (sub_optimizer, sub_scheduler) in enumerate(zip(self.optimizer.optimizers,
+            scheduler_created = False
+            for idx, (sub_optimizer, sub_scheduler) in enumerate(zip(base_optimizer.optimizers,
                                                                      self.lr_scheduler.schedulers)):
                 if sub_scheduler is None:
                     self.lr_scheduler.schedulers[idx] = self._default_scheduler(
                         sub_optimizer, num_training_steps)
+                    scheduler_created = True
+            if scheduler_created:
+                self._created_lr_scheduler = True
             return self.lr_scheduler
         # Single-optimizer case: the base implementation already builds the
         # HuggingFace default scheduler when self.lr_scheduler is None.
         return super().create_scheduler(num_training_steps, optimizer)
+
+    def create_optimizer(self, model=None) -> torch.optim.Optimizer:
+        if self.optimizer is not None:
+            return self.optimizer
+        if self.args.optimizer_scheduler_args is None:
+            self.optimizer = (
+                super().create_optimizer() if model is None else super().create_optimizer(
+                    model=model))
+        else:
+            optimizer_model = self.model if model is None else model
+            self.optimizer, self.lr_scheduler = _build_optimizers_from_configs(
+                optimizer_model, self.args)
+        return self.optimizer
+
+    def _wrap_model(self, model, training=True, dataloader=None):
+        wrapped = super()._wrap_model(model, training, dataloader)
+        if self.teacher_model is not None and self.is_fsdp_enabled:
+            if not self.accelerator.is_fsdp2:
+                raise RuntimeError("LLM distributed fine-tuning supports FSDP2 only.")
+            from accelerate.utils import fsdp2_prepare_model
+            self.teacher_model = fsdp2_prepare_model(self.accelerator, self.teacher_model)
+        return wrapped
 
     @staticmethod
     def forward_kl_loss(

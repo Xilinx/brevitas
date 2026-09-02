@@ -4,12 +4,14 @@
 from abc import ABC
 from abc import ABCMeta
 from abc import abstractmethod
+from collections.abc import Sequence
 from typing import Any
 from typing import List
 from typing import Optional
 from typing import Tuple
 from typing import Union
 from warnings import warn
+import weakref
 
 import torch
 from torch import Tensor
@@ -55,6 +57,26 @@ class BiasQuantProxyProtocol(QuantProxyProtocol, Protocol):
             self, x: Tensor, input_scale: Optional[Tensor],
             input_bit_width: Optional[Tensor]) -> QuantTensor:
         ...
+
+
+class _TrackedParameterList(Sequence):
+
+    def __init__(self, modules, parameter_name):
+        self.module_refs = tuple(weakref.ref(module) for module in modules)
+        self.parameter_name = parameter_name
+
+    def _parameters(self):
+        return [
+            getattr(module, self.parameter_name)
+            for module_ref in self.module_refs
+            if (module := module_ref()) is not None and
+            getattr(module, self.parameter_name) is not None]
+
+    def __getitem__(self, index):
+        return self._parameters()[index]
+
+    def __len__(self):
+        return len(self._parameters())
 
 
 class ParameterQuantProxyFromInjector(QuantProxyFromInjector):
@@ -132,7 +154,7 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
 
     @property
     def tracked_parameter_list(self):
-        return [m.weight for m in self.tracked_module_list if m.weight is not None]
+        return _TrackedParameterList(self.tracked_module_list, 'weight')
 
     def retrieve_attribute(self, attribute: str):
         if not self.is_quant_enabled:
@@ -189,7 +211,7 @@ class BiasQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector, BiasQuantP
 
     @property
     def tracked_parameter_list(self):
-        return [m.bias for m in self.tracked_module_list if m.bias is not None]
+        return _TrackedParameterList(self.tracked_module_list, 'bias')
 
     def get_cached(self, attr):
         if self._cached_bias is None:
@@ -211,7 +233,7 @@ class WeightQuantProxyFromInjector(WeightQuantProxyFromInjectorBase):
 
     @property
     def tracked_parameter_list(self):
-        return [m.weight for m in self.tracked_module_list if m.weight is not None]
+        return _TrackedParameterList(self.tracked_module_list, 'weight')
 
     @property
     def requires_quant_input(self):

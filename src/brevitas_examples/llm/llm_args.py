@@ -528,6 +528,14 @@ def create_args_parser() -> ArgumentParser:
         default=1,
         help='Batch size for calibration data loader. (default: %(default)s).')
 
+    parser.add_argument(
+        '--job-folder',
+        type=str,
+        default=None,
+        help='If set, write results.json to this folder after quantization '
+        'completes. Used by the benchmark framework to collect results '
+        'from accelerate launch subprocesses. Default: %(default)s.')
+
     return parser
 
 
