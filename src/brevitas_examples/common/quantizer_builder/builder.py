@@ -65,20 +65,35 @@ class QuantizerBuilder(ABC):
         :attr:`extra_components` (last, lowest MRO priority / final attribute
         writers).
         """
+        merged = self._merged_contribution()
+        return type("QuantInjector", merged.bases, self._assembled_attrs(merged))
+
+    def _merged_contribution(self) -> Contribution:
         components = self.base_components() + self.extra_components
         for component in components:
             component.validate(self.config)
-        merged = Contribution.merge(component.build(self.config) for component in components)
-        return self._assemble(merged)
+        return Contribution.merge(component.build(self.config) for component in components)
 
-    def _assemble(self, merged: Contribution) -> Type:
+    def _assembled_attrs(self, merged: Contribution) -> Dict[str, Any]:
         attrs: Dict[str, Any] = dict(merged.attrs)
         attrs.update(self.config.extra)
         # Drops are applied last so a component can remove an attribute regardless
         # of whether the component that set it ran before or after it.
         for key in merged.drop:
             attrs.pop(key, None)
-        return type("QuantInjector", merged.bases, attrs)
+        return attrs
+
+    def format_build(self) -> str:
+        """Return the merged component output -- the base classes and the assembled
+        namespace attributes (after ``config.extra`` and ``drop``) -- as a string,
+        without resolving any injector dependency."""
+        from brevitas_examples.common.quantizer_builder.injector_utils import format_contribution
+        merged = self._merged_contribution()
+        return format_contribution(merged.bases, self._assembled_attrs(merged))
+
+    def describe_build(self) -> None:
+        """Print :meth:`format_build`."""
+        print(self.format_build())
 
     def describe_quantizer(self, resolve: bool = True) -> None:
         """Build the quant injector and print its attributes, dependency kinds,
