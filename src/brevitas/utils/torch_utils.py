@@ -80,6 +80,25 @@ def torch_partial_deepcopy(model):
     return model_copy
 
 
+def resolve_torch_dtype(dtype, option: str = "dtype", require_floating_point: bool = False):
+    """Resolve a dtype name or ``torch.dtype`` into a ``torch.dtype``.
+
+    ``None`` is returned unchanged. A descriptive ``ValueError`` is raised for
+    unknown names or, when requested, non-floating-point dtypes.
+    """
+    if dtype is None or isinstance(dtype, torch.dtype):
+        resolved = dtype
+    elif isinstance(dtype, str):
+        resolved = getattr(torch, dtype, None)
+        if not isinstance(resolved, torch.dtype):
+            raise ValueError(f"{option} must name a torch dtype, got {dtype!r}.")
+    else:
+        raise ValueError(f"{option} must be None, a str, or a torch.dtype, got {dtype!r}.")
+    if require_floating_point and resolved is not None and not resolved.is_floating_point:
+        raise ValueError(f"{option} must be a floating-point dtype, got {resolved}.")
+    return resolved
+
+
 def kthvalue(
     x: torch.Tensor,
     k: int,
