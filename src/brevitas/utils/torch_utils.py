@@ -152,9 +152,11 @@ def padding_to_multiple(x: torch.Tensor, dim_to_expand: int, dim_multiple: int) 
     dim_to_expand = dim_to_expand % x.dim()
     padding_size = (-x.shape[dim_to_expand]) % dim_multiple
     padding_shape = [
-        padding_size if dim == dim_to_expand else size for dim, size in enumerate(x.shape)]
+        dim_multiple if dim == dim_to_expand else size for dim, size in enumerate(x.shape)]
     padding = x.new_zeros(padding_shape)
-    return torch.cat((x, padding), dim=dim_to_expand)
+    padded = torch.cat((x, padding), dim=dim_to_expand)
+    output_size = x.shape[dim_to_expand] + padding_size
+    return torch.narrow(padded, dim_to_expand, 0, output_size)
 
 
 def pad_to_dim(tensor: torch.Tensor, dim_to_expand: int, new_dim: int) -> torch.Tensor:
