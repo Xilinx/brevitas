@@ -13,7 +13,6 @@ from torch.nn import Sequential
 
 import brevitas
 from brevitas import torch_version
-import brevitas.compiler as brevitas_compiler
 from brevitas.function.ops_ste import floor_ste
 
 # Named tensors (Tensor.rename/rename_/names) were removed in PyTorch 2.13
@@ -148,16 +147,24 @@ def float_internal_scale(
 
 
 @brevitas.jit.ignore
-@brevitas_compiler.disable
 def padding_to_multiple(x: torch.Tensor, dim_to_expand: int, dim_multiple: int) -> torch.Tensor:
     # Given a tensor X, compute the padding along dim_multiple so that new dimension is a multiple of dim_multiple
-    padding = [0, 0] * len(x.shape)
-    size = x.shape
-    if size[dim_to_expand] % dim_multiple != 0:
-        padding[2 * dim_to_expand] = dim_multiple - size[dim_to_expand] % dim_multiple
-    padding = list(reversed(padding))
-    x = torch.nn.functional.pad(x, padding, mode='constant', value=0.)
-    return x
+    dim_to_expand = dim_to_expand % x.dim()
+    padding_size = (-x.shape[dim_to_expand]) % dim_multiple
+    # Eager execution can allocate exactly padding_size elements. That path cannot be
+    # traced by PyTorch 2.4 when shapes are symbolic: new_zeros internally branches on
+    # whether the modulo-derived dimension is zero. During Dynamo tracing, allocate a
+    # fixed positive block and narrow it instead; this avoids the symbolic boolean guard.
+    compiling = brevitas.is_dynamo_compiling()
+    padding_dim = dim_multiple if compiling else padding_size
+    padding_shape = [
+        padding_dim if dim == dim_to_expand else size for dim, size in enumerate(x.shape)]
+    padding = x.new_zeros(padding_shape)
+    padded = torch.cat((x, padding), dim=dim_to_expand)
+    if compiling:
+        output_size = x.shape[dim_to_expand] + padding_size
+        padded = torch.narrow(padded, dim_to_expand, 0, output_size)
+    return padded
 
 
 def pad_to_dim(tensor: torch.Tensor, dim_to_expand: int, new_dim: int) -> torch.Tensor:

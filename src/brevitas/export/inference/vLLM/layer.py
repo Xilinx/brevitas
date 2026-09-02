@@ -22,11 +22,15 @@ from ..handler import IntInferenceHandler
 from ..handler import IntWeightInferencetHandler
 from .handler import vLLMDynamicPerRowFloatInferenceHandler
 from .handler import vLLMGroupwiseFloatInferenceHandler
+from .handler import vLLMGroupwiseFloatWeightInferenceHandler
 from .handler import vLLMGroupwiseIntInferenceHandler
+from .handler import vLLMGroupwiseIntWeightInferenceHandler
 
 class_mapping = {
     'vLLMGroupwiseFloatInferenceHandler': vLLMGroupwiseFloatInferenceHandler,
     'vLLMGroupwiseIntInferenceHandler': vLLMGroupwiseIntInferenceHandler,
+    'vLLMGroupwiseIntWeightInferenceHandler': vLLMGroupwiseIntWeightInferenceHandler,
+    'vLLMGroupwiseFloatWeightInferenceHandler': vLLMGroupwiseFloatWeightInferenceHandler,
     'GroupwiseIntWeightInferenceHandler': GroupwiseIntWeightInferenceHandler,
     'GroupwiseFloatWeightInferenceHandler': GroupwiseFloatWeightInferenceHandler,
     'FloatInferencetHandler': FloatInferencetHandler,

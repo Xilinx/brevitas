@@ -8,6 +8,7 @@ from typing import Optional
 from typing import Tuple
 from typing import Union
 
+from packaging import version
 import torch
 from torch import nn
 from torch import Tensor
@@ -17,6 +18,7 @@ from typing_extensions import runtime_checkable
 
 import brevitas
 from brevitas import is_dynamo_compiling
+from brevitas import torch_version
 from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIO
@@ -104,13 +106,12 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         self.skip_create_quant_tensor = False
 
     def compile_quant(self, compile_export=False):
-        fullgraph = not self.is_groupwise
+        fullgraph = not self.is_groupwise or torch_version >= version.parse('2.4')
         if compile_export and hasattr(self, 'export_handler') and self.export_handler is not None:
-            self.export_handler = torch.compile(
-                self.export_handler, dynamic=True, fullgraph=fullgraph)
+            self.export_handler = torch.compile(self.export_handler, fullgraph=fullgraph)
         elif self.fused_activation_quant_proxy is not None:
             self.fused_activation_quant_proxy.tensor_quant = torch.compile(
-                self.fused_activation_quant_proxy.tensor_quant, dynamic=True, fullgraph=fullgraph)
+                self.fused_activation_quant_proxy.tensor_quant, fullgraph=fullgraph)
 
     @property
     def is_proxy_compiled(self):
