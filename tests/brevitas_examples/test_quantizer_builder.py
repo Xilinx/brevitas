@@ -63,9 +63,6 @@ IN_FEATURES = 32
 OUT_FEATURES = 16
 GROUP_SIZE = 8
 BIT_WIDTH = 8
-# Matches the ``scaling_min_val`` carried by the reference weight quantizers
-# through MaxStatsScaling / MinMaxStatsScaling (brevitas.quant.base).
-SCALING_MIN_VAL = 1e-10
 
 # A builder spec describes how to reproduce a given reference quantizer class
 # from WEIGHT_QUANT_MAP['int']['float_scale']['stats'] through the generic
@@ -95,7 +92,6 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.STATS,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},
         "layer_kwargs": {},},
     "int_per_tensor_asym": {
@@ -107,7 +103,6 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.STATS,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},
         "layer_kwargs": {},},
     "int_per_channel_sym": {
@@ -119,7 +114,6 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.STATS,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},
         "layer_kwargs": {},},
     "int_per_channel_asym": {
@@ -131,7 +125,6 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.STATS,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},
         "layer_kwargs": {},},
     "int_per_group_sym": {
@@ -143,7 +136,6 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.STATS,
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {
                 "group_size": GROUP_SIZE,},},
         "layer_kwargs": {
@@ -157,7 +149,6 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.STATS,
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {
                 "group_size": GROUP_SIZE,},},
         "layer_kwargs": {
@@ -179,7 +170,6 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},
         "layer_kwargs": {},},
     "int_per_channel_sym_mse": {
@@ -192,7 +182,6 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},
         "layer_kwargs": {},},
     "int_per_tensor_asym_mse": {
@@ -206,7 +195,6 @@ BUILDER_SPECS = {
             "zero_point_param_method": ParamMethod.MSE,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},
         "layer_kwargs": {},},
     "int_per_channel_asym_mse": {
@@ -220,7 +208,6 @@ BUILDER_SPECS = {
             "zero_point_param_method": ParamMethod.MSE,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},
         "layer_kwargs": {},},
     # Per-group asymmetric int MSE. NOTE: the reference
@@ -242,7 +229,6 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {
                 "group_size": GROUP_SIZE,
                 # Symmetric MSE scale init (AbsMax) on an asymmetric quantizer.
@@ -279,7 +265,6 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},
         "layer_kwargs": {},},
     "int_per_channel_sym_hqo": {
@@ -292,7 +277,6 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},
         "layer_kwargs": {},},
     "int_per_tensor_asym_hqo": {
@@ -304,7 +288,6 @@ BUILDER_SPECS = {
             "zero_point_param_method": ParamMethod.HQO,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             # asym+HQO keeps a plain STATS scale, so the zero-point storage cannot
             # be mirrored from scaling_impl_type; request it explicitly.
             "kwargs": {
@@ -320,7 +303,6 @@ BUILDER_SPECS = {
             "zero_point_param_method": ParamMethod.HQO,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             # asym+HQO keeps a plain STATS scale, so the zero-point storage cannot
             # be mirrored from scaling_impl_type; request it explicitly.
             "kwargs": {
@@ -336,7 +318,6 @@ BUILDER_SPECS = {
             "zero_point_param_method": ParamMethod.HQO,
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             # asym+HQO keeps a plain STATS scale, so the zero-point storage cannot
             # be mirrored from scaling_impl_type; request it explicitly.
             "kwargs": {
@@ -360,7 +341,6 @@ BUILDER_SPECS = {
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},
         "layer_kwargs": {},},
     "int_po2_per_channel_sym": {
@@ -371,7 +351,6 @@ BUILDER_SPECS = {
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},
         "layer_kwargs": {},},
     "int_po2_per_tensor_sym_mse": {
@@ -384,7 +363,6 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},
         "layer_kwargs": {},},
     "int_po2_per_channel_sym_mse": {
@@ -397,7 +375,6 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},
         "layer_kwargs": {},},  # MX (groupwise po2) quantizers:
     # WEIGHT_QUANT_MAP['int']['po2_scale'][...]['per_group'].
@@ -409,7 +386,6 @@ BUILDER_SPECS = {
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {
                 # MX int uses IntQuant (narrow_range=False), unlike the
                 # NarrowIntQuant-based per_tensor/per_channel sym quantizers.
@@ -425,7 +401,6 @@ BUILDER_SPECS = {
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {
                 "group_size": GROUP_SIZE,},},
         "layer_kwargs": {
@@ -440,7 +415,6 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {
                 # MX int uses IntQuant (narrow_range=False).
                 "narrow_range": False,
@@ -459,7 +433,6 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {
                 "group_size": GROUP_SIZE,},},
         "layer_kwargs": {
@@ -489,7 +462,6 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},
         "layer_kwargs": {},},
     "float_per_channel_sym": {
@@ -501,7 +473,6 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},
         "layer_kwargs": {},},
     "float_per_group_sym": {
@@ -513,7 +484,6 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {
                 "group_size": GROUP_SIZE,},},
         "layer_kwargs": {
@@ -529,7 +499,6 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},
         "layer_kwargs": {},},
     # ----------------------------------------------------------------------
@@ -544,7 +513,6 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},
         "layer_kwargs": {},},
     "float_ocp_per_channel_sym": {
@@ -556,7 +524,6 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},
         "layer_kwargs": {},},
     "float_ocp_per_group_sym": {
@@ -568,7 +535,6 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {
                 "group_size": GROUP_SIZE,},},
         "layer_kwargs": {
@@ -584,7 +550,6 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},
         "layer_kwargs": {},},
     # ----------------------------------------------------------------------
@@ -602,7 +567,6 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {
                 "group_size": GROUP_SIZE,},},
         "layer_kwargs": {
@@ -618,7 +582,6 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {
                 "group_size": GROUP_SIZE,},},
         "layer_kwargs": {
@@ -634,7 +597,6 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "scaling_min_val": SCALING_MIN_VAL,
             # Per-channel power-of-two scaled float: the reference uses the int
             # PerChannelPoTScaling8bit mixin layered on a float quant. The
             # generic builder path reproduces it; any attribute that resolves
@@ -653,7 +615,6 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},
         "layer_kwargs": {},},
     "float_fnuz_per_channel_sym": {
@@ -665,7 +626,6 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
-            "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {},},
         "layer_kwargs": {},},}
 
@@ -724,15 +684,8 @@ def test_builder_weight_quant_matches_reference(spec_name):
     # Reference layer built directly from the WEIGHT_QUANT_MAP leaf class.
     ref_linear = _make_quant_linear(ref_quant, **layer_kwargs)
 
-    # Builder layer built from the generic QuantizerBuilder. scaling_min_val /
-    # narrow_range are not explicit build_quantizer args; route them through the
-    # injector kwargs (config.extra).
-    builder_args = dict(spec["builder_args"])
-    builder_kwargs = dict(builder_args.pop("kwargs", None) or {})
-    for _key in ("scaling_min_val", "narrow_range"):
-        if _key in builder_args:
-            builder_kwargs[_key] = builder_args.pop(_key)
-    builder = build_quantizer(WeightQuantizerBuilder, **builder_args, kwargs=builder_kwargs)
+    # Builder layer built from the generic QuantizerBuilder.
+    builder = build_quantizer(WeightQuantizerBuilder, **spec["builder_args"])
     builder_quant = builder.build_quant_injector()
     builder_linear = _make_quant_linear(builder_quant, **layer_kwargs)
 
