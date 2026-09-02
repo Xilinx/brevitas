@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from typing import Callable
+from typing import Dict
+from typing import Hashable
 from typing import List
 from typing import Optional
 from typing import Tuple
@@ -28,6 +30,8 @@ class RotationWeightParametrization(torch.nn.Module):
         K (int, optional): if rot_mat is an Hadamard matrix, K is the highest
             divisor of the dimensionality of the matrix, such that K, itself,
             is not divisible by 2
+        rotation_group_id (hashable, optional): model-instance-local identity
+            shared by parametrizations that logically use the same rotation matrix
     """
 
     def __init__(
@@ -37,6 +41,7 @@ class RotationWeightParametrization(torch.nn.Module):
         axis: int,
         K: Optional[int] = None,
         hidden_dim: Optional[int] = None,
+        rotation_group_id: Optional[Hashable] = None,
     ) -> None:
         super().__init__()
         self.rot_mat = rot_mat
@@ -44,6 +49,10 @@ class RotationWeightParametrization(torch.nn.Module):
         self.axis = axis
         self.K = K
         self.hidden_dim = hidden_dim
+        # Unlike the identity of rot_mat, this remains meaningful when a wrapper such as
+        # FSDP replaces one occurrence of a shared Parameter. It is deliberately plain
+        # metadata rather than a buffer so that it does not affect state dicts.
+        self.rotation_group_id = rotation_group_id
 
     def forward(self, tensor: torch.Tensor) -> torch.Tensor:
         if self.axis == 0:
@@ -141,3 +150,47 @@ def extract_trainable_rotation_matrices(model: nn.Module) -> List[nn.Parameter]:
                 ids_rot.add(id(module.rot_mat))
                 trainable_rotations.append(module.rot_mat)
     return trainable_rotations
+
+
+def extract_trainable_rotation_matrix_owners(model: nn.Module) -> List[nn.Parameter]:
+    """Return one optimizer-owned parameter for each logical rotation group.
+
+    FSDP rotation replication marks one physical copy in each logical group as the
+    optimizer owner. Models without replicated rotations retain the existing identity-
+    based extraction behavior.
+    """
+    owners = []
+    ids_rot = set()
+    for group in get_rotation_groups(model).values():
+        marked_owners = {
+            module.rot_mat for module in group if getattr(module, 'rotation_is_owner', False)}
+        if len(marked_owners) > 1:
+            raise RuntimeError("A logical rotation group has multiple optimizer owners.")
+        parameters = marked_owners or [module.rot_mat for module in group]
+        for parameter in parameters:
+            if id(parameter) not in ids_rot:
+                ids_rot.add(id(parameter))
+                owners.append(parameter)
+    return owners
+
+
+def get_rotation_groups(model: nn.Module) -> Dict[Hashable, List[RotationWeightParametrization]]:
+    """Return rotation parametrizations grouped by their logical rotation.
+
+    Parametrizations carrying ``rotation_group_id`` are grouped by that model-instance-local
+    metadata.
+    For parametrizations created by older or external code, the rotation parameter itself
+    is used as the key. The latter preserves the usual shared-parameter semantics.
+
+    The occurrence lists follow ``model.modules()`` traversal order.
+    """
+    groups = {}
+    for module in model.modules():
+        if isinstance(module, RotationWeightParametrization):
+            # getattr keeps discovery compatible with parametrizations deserialized from
+            # checkpoints created before rotation_group_id was introduced.
+            key = getattr(module, 'rotation_group_id', None)
+            if key is None:
+                key = module.rot_mat
+            groups.setdefault(key, []).append(module)
+    return groups

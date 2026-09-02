@@ -66,11 +66,15 @@ class _TrackedParameterList(Sequence):
         self.parameter_name = parameter_name
 
     def _parameters(self):
-        return [
-            getattr(module, self.parameter_name)
-            for module_ref in self.module_refs
-            if (module := module_ref()) is not None and
-            getattr(module, self.parameter_name) is not None]
+        parameters = []
+        for module_ref in self.module_refs:
+            module = module_ref()
+            if module is None:
+                continue
+            parameter = getattr(module, self.parameter_name)
+            if parameter is not None:
+                parameters.append(parameter)
+        return parameters
 
     def __getitem__(self, index):
         return self._parameters()[index]
@@ -170,10 +174,12 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
         return False
 
     @abstractmethod
-    def create_quant_tensor(self, qt_args: Tuple[Any]) -> Union[Tensor, QuantTensor]:
+    def create_quant_tensor(self, qt_args: Tuple[Any],
+                            input_shape: Tuple[int, ...]) -> Union[Tensor, QuantTensor]:
         raise NotImplementedError
 
     def forward(self, x: torch.Tensor) -> Union[Tensor, QuantTensor]:
+        input_shape = tuple(x.shape)
         if self.is_quant_enabled:
             # If quant is enabled the priority is:
             # - export mode
@@ -183,13 +189,13 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
                 if self.skip_create_quant_tensor:
                     out = out[0]
                 else:
-                    out = self.create_quant_tensor(out)
+                    out = self.create_quant_tensor(out, input_shape)
             else:
                 out = self.tensor_quant(x)
                 if self.skip_create_quant_tensor:
                     out = out[0]
                 else:
-                    out = self.create_quant_tensor(out)
+                    out = self.create_quant_tensor(out, input_shape)
                     if not self.training and self.cache_inference_quant_weight and self._cached_weight is None:
                         self._cached_weight = self.cache_class(
                             out.detach(),
@@ -248,7 +254,8 @@ class WeightQuantProxyFromInjector(WeightQuantProxyFromInjectorBase):
     def bit_width(self):
         return self.retrieve_attribute('bit_width')
 
-    def create_quant_tensor(self, qt_args: Tuple[Any]) -> IntQuantTensor:
+    def create_quant_tensor(
+            self, qt_args: Tuple[Any], input_shape: Tuple[int, ...]) -> IntQuantTensor:
         return IntQuantTensor(*qt_args, self.is_signed, self.training)
 
 
@@ -268,7 +275,8 @@ class DecoupledWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
         out, scale, zero_point, bit_width, pre_scale, pre_zero_point = output_tuple
         return pre_zero_point
 
-    def create_quant_tensor(self, qt_args: Tuple[Any]) -> IntQuantTensor:
+    def create_quant_tensor(
+            self, qt_args: Tuple[Any], input_shape: Tuple[int, ...]) -> IntQuantTensor:
         out, scale, zero_point, bit_width, pre_scale, pre_zero_point = qt_args
         return IntQuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
 

@@ -25,6 +25,7 @@ except:
     from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
 from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
+from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrix_owners
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.llm.llm_quant.trainer_utils import GeneralizedTrainer
 from brevitas_examples.llm.llm_quant.trainer_utils import TrainingArguments
@@ -57,7 +58,7 @@ def _select_rotation_params(
         model: torch.nn.Module,
         training_args: transformers.TrainingArguments) -> List[torch.nn.Parameter]:
     """Return the model's trainable rotation matrices (one parameter group)."""
-    return extract_trainable_rotation_matrices(model)
+    return extract_trainable_rotation_matrix_owners(model)
 
 
 def _is_fsdp_enabled(training_args: transformers.TrainingArguments) -> bool:
@@ -66,11 +67,11 @@ def _is_fsdp_enabled(training_args: transformers.TrainingArguments) -> bool:
         os.environ.get("ACCELERATE_USE_FSDP", "false").lower() == "true")
 
 
-def _validate_fsdp_dependencies() -> None:
+def _validate_fsdp_dependencies(rotation_optimization: bool) -> None:
     import accelerate
 
     requirements = {
-        "PyTorch": (torch.__version__, "2.6", None),
+        "PyTorch": (torch.__version__, "2.7" if rotation_optimization else "2.6", None),
         "Accelerate": (accelerate.__version__, "1.14.0", "2"),
         "Transformers": (transformers.__version__, "5.15.1", "6"),}
     unsupported = [
@@ -141,6 +142,17 @@ def _prepare_model(model: torch.nn.Module) -> torch.nn.Module:
     return model
 
 
+def resolve_trainer_cls(model: torch.nn.Module,
+                        trainer_cls: Optional[Type[Trainer]]) -> Type[Trainer]:
+    if trainer_cls is not None:
+        return trainer_cls
+    if len(extract_trainable_rotation_matrices(model)) == 0:
+        raise RuntimeError(
+            "No Custom Trainer has been defined and no optimizable rotations are present "
+            "in the model.")
+    return RotationTrainer
+
+
 def apply_fine_tuning(
         model: torch.nn.Module,
         tokenizer: PreTrainedTokenizerBase,
@@ -148,6 +160,7 @@ def apply_fine_tuning(
         collate_fn: Callable,
         trainer_cls: Optional[Type[Trainer]] = None,
         extra_args: Optional[List[str]] = None,
+        training_args: Optional[transformers.TrainingArguments] = None,
         skip_training: bool = False,
         return_state_dict: bool = True) -> Optional[Dict[str, torch.Tensor]]:
     """Fine-tune model weights and/or rotation matrices.
@@ -160,8 +173,7 @@ def apply_fine_tuning(
 
     * If trainable rotation matrices are found, :class:`RotationTrainer` is used
       by default (CaileySGD on the rotations, via ``optimizer_scheduler_args``).
-    * Otherwise, ``(None, None)`` is passed to the Trainer so that it uses its
-      built-in optimizer (AdamW by default).
+    * Without rotations, callers must provide a custom trainer.
 
     Parameters
     ----------
@@ -178,15 +190,18 @@ def apply_fine_tuning(
         Its ``training_args_cls`` class attribute customises the training
         arguments (including the optimizer/scheduler setup through
         ``optimizer_scheduler_args``). When ``None`` (the default),
-        ``GeneralizedTrainer`` (or the built-in ``Trainer``) is used.
+        :class:`RotationTrainer` is used if trainable rotations are present.
     extra_args : list of str, optional
         Raw CLI-style extra arguments parsed into the training-arguments
         dataclass (see :func:`parse_rotation_optimization_args`).
+    training_args : TrainingArguments, optional
+        Pre-parsed arguments. This avoids initializing distributed state twice when
+        the caller needs to inspect the FSDP configuration before training.
     skip_training : bool
         Skip Trainer execution, used when loading an existing quantized checkpoint.
     return_state_dict : bool
-        Collect and return a full CPU state dictionary after FSDP training. Non-FSDP training
-        updates the supplied model in place and always returns ``None``.
+        Return a full CPU state dictionary after FSDP training. Non-FSDP training
+        updates ``model`` in place and returns ``None``.
     """
 
     # Resolve the trainer class up front so that its ``training_args_cls`` (which
@@ -194,24 +209,20 @@ def apply_fine_tuning(
     # training arguments. When no custom trainer is given but the model has
     # trainable rotation matrices, default to RotationTrainer (CaileySGD on the
     # rotations, expressed through the standard optimizer_scheduler_args mechanism).
-    if trainer_cls is None:
-        if len(extract_trainable_rotation_matrices(model)) == 0:
-            raise RuntimeError(
-                "No Custom Trainer has been defined and no optimizable rotations are present in the model."
-            )
-        trainer_cls = RotationTrainer
-    else:
-        trainer_cls = trainer_cls
+    trainer_cls = resolve_trainer_cls(model, trainer_cls)
 
     # Parse the training arguments, resolving the training-args class from the
     # (possibly defaulted) trainer.
-    training_args = parse_rotation_optimization_args(extra_args=extra_args, trainer_cls=trainer_cls)
+    if training_args is None:
+        training_args = parse_rotation_optimization_args(
+            extra_args=extra_args, trainer_cls=trainer_cls)
 
     # Prepare model for training
     model = _prepare_model(model)
     fsdp_enabled = _is_fsdp_enabled(training_args)
     if fsdp_enabled:
-        _validate_fsdp_dependencies()
+        _validate_fsdp_dependencies(
+            rotation_optimization=len(extract_trainable_rotation_matrices(model)) > 0)
     if skip_training:
         if fsdp_enabled:
             training_args.distributed_state.destroy_process_group()

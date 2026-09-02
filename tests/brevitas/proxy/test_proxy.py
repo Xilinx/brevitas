@@ -10,6 +10,7 @@ import torch
 from brevitas.core.scaling import ParameterFromStatsFromParameterScaling
 from brevitas.nn import QuantLinear
 from brevitas.nn.quant_activation import QuantReLU
+from brevitas.proxy.parameter_quant import _TrackedParameterList
 from brevitas.quant.scaled_int import Int8AccumulatorAwareWeightQuant
 from brevitas.quant.scaled_int import Int8BiasPerTensorFloatInternalScaling
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloatDecoupled
@@ -62,6 +63,25 @@ class TestProxy:
 
         assert tracked_parameters[0] is new_weight
         assert old_weight_ref() is None
+
+    def test_tracked_parameter_list_reads_parameter_once(self):
+
+        class TrackedModule:
+
+            def __init__(self):
+                self.access_count = 0
+                self.parameter = torch.nn.Parameter(torch.ones(1))
+
+            @property
+            def weight(self):
+                self.access_count += 1
+                return self.parameter
+
+        module = TrackedModule()
+        tracked_parameters = _TrackedParameterList([module], "weight")
+
+        assert tracked_parameters[0] is module.parameter
+        assert module.access_count == 1
 
     def test_weight_decoupled_proxy(self):
         model = QuantLinear(10, 5, weight_quant=Int8WeightPerChannelFloatDecoupled)

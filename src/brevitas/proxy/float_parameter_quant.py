@@ -100,7 +100,8 @@ class WeightFloatQuantProxyFromInjector(WeightFloatQuantProxyFromInjectorBase):
         super().__init__(quant_layer, quant_injector)
         self.cache_class = _CachedIOFloat
 
-    def create_quant_tensor(self, qt_args: Tuple[Any]) -> FloatQuantTensor:
+    def create_quant_tensor(
+            self, qt_args: Tuple[Any], input_shape: Tuple[int, ...]) -> FloatQuantTensor:
         out, scale, zero_point, exponent_bit_width, mantissa_bit_width, exponent_bias, saturating, inf_values, nan_values = qt_args
         return FloatQuantTensor(
             out,

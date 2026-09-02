@@ -38,6 +38,8 @@ from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation
 from brevitas_examples.llm.llm_quant.trainer_utils import _build_optimizers_from_configs
 from brevitas_examples.llm.llm_quant.trainer_utils import GeneralizedTrainer
 from brevitas_examples.llm.llm_quant.trainer_utils import TRAINER_REGISTRY
+from brevitas_examples.llm.main import calibration_forward_kwargs
+from brevitas_examples.llm.main import calibration_layer_sync
 from brevitas_examples.llm.main import main as llm_main
 from brevitas_examples.llm.main import quantize_llm
 from tests.brevitas_examples.common import assert_layer_types
@@ -567,6 +569,84 @@ def test_parse_yaml_trainer_arguments(caplog, kwargs):
     with patch("brevitas_examples.llm.main.quantize_llm", quantize_llm_assert_args):
         with patch("brevitas_examples.llm.main.sys.argv", ["main.py", "--config", yaml_file_path]):
             llm_main()
+
+
+def test_parse_fsdp_pre_backward_sync_training_argument():
+    training_args = parse_rotation_optimization_args(
+        extra_args=[
+            "--fsdp_sync_pre_backward_unshard", "true", "--fsdp_sync_forward_unshard", "true"],
+        trainer_cls=GeneralizedTrainer)
+
+    assert training_args.fsdp_sync_pre_backward_unshard
+    assert training_args.fsdp_sync_forward_unshard
+
+
+def test_dynamic_input_initialization_disable_is_opt_in():
+    parser = create_args_parser()
+
+    default_args = parser.parse_args([])
+    disabled_args = parser.parse_args(["--disable-dynamic-input-during-initialization"])
+
+    assert not default_args.disable_dynamic_input_during_initialization
+    assert disabled_args.disable_dynamic_input_during_initialization
+
+
+def test_calibration_forward_skips_loss_and_limits_logits():
+
+    class Model:
+
+        def forward(self, input_ids, labels=None, logits_to_keep=0):
+            pass
+
+    batch = {"input_ids": torch.ones(1, 4), "labels": torch.ones(1, 4)}
+
+    inputs = calibration_forward_kwargs(Model(), batch)
+
+    assert set(inputs) == {"input_ids", "logits_to_keep"}
+    assert inputs["input_ids"] is batch["input_ids"]
+    assert inputs["logits_to_keep"] == 1
+    assert "labels" in batch
+
+
+def test_calibration_forward_supports_opaque_forward():
+    batch = {"input_ids": torch.ones(1, 4), "labels": torch.ones(1, 4)}
+
+    with patch("brevitas_examples.llm.main.inspect.signature", side_effect=ValueError):
+        inputs = calibration_forward_kwargs(nn.Module(), batch)
+
+    assert set(inputs) == {"input_ids"}
+
+
+def test_calibration_layer_sync_is_scoped(monkeypatch):
+
+    class DecoderLayer(nn.Module):
+
+        def forward(self, value):
+            return value
+
+    class Model(nn.Module):
+        _no_split_modules = ["DecoderLayer"]
+
+        def __init__(self):
+            super().__init__()
+            self.layer = DecoderLayer()
+
+    synchronize_count = 0
+
+    def synchronize():
+        nonlocal synchronize_count
+        synchronize_count += 1
+
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "synchronize", synchronize)
+    model = Model()
+
+    with calibration_layer_sync(model, enabled=True):
+        model.layer(torch.ones(1))
+    assert synchronize_count == 1
+
+    model.layer(torch.ones(1))
+    assert synchronize_count == 1
 
 
 @pytest_cases.fixture(

@@ -71,6 +71,7 @@ qronos_alpha: 1.0e-06
 quant_sdpa: null
 quantize_input_zero_point: false
 quantize_last_layer: false
+disable_dynamic_input_during_initialization: false
 quantize_weight_zero_point: false
 replace_rmsnorm: false
 rotation: null
@@ -85,6 +86,7 @@ seqlen: 2048
 svd_quant: false
 svd_quant_iters: 1
 svd_quant_rank: 32
+synchronize_calibration_layers: false
 weight_bit_width: 8
 weight_equalization: false
 weight_group_dim: null

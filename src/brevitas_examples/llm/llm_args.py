@@ -527,6 +527,17 @@ def create_args_parser() -> ArgumentParser:
         type=int,
         default=1,
         help='Batch size for calibration data loader. (default: %(default)s).')
+    parser.add_argument(
+        '--synchronize-calibration-layers',
+        action='store_true',
+        help='Synchronize the current CUDA/ROCm device after each transformer layer during '
+        'the one-time quantizer initialization forward. Default: False.')
+    parser.add_argument(
+        '--disable-dynamic-input-during-initialization',
+        action='store_true',
+        help='Disable dynamic input quantization during the one-time weight-quantizer '
+        'initialization forward. Dynamic input quantization is restored before training. '
+        'Default: False.')
 
     parser.add_argument(
         '--job-folder',
