@@ -7,7 +7,6 @@ import os
 
 from hypothesis import assume
 from hypothesis import given
-from hypothesis import Phase
 from hypothesis import settings
 from packaging.version import parse
 import pytest
@@ -25,11 +24,8 @@ from .quant_module_cases import QuantRecurrentCases
 from .quant_module_cases import wbiol_config_st
 from .quant_module_cases import WBIOL_MAX_EXAMPLES
 
-# Skip Hypothesis' shrinking phase: each example is a full export + ORT run (too slow to shrink).
-_PHASES = (Phase.explicit, Phase.reuse, Phase.generate)
 
-
-@settings(max_examples=WBIOL_MAX_EXAMPLES, phases=_PHASES, deadline=None)
+@settings(max_examples=WBIOL_MAX_EXAMPLES, deadline=None)
 @given(config=wbiol_config_st())
 def test_ort_wbiol(config):
     model = build_wbiol_model(config)
