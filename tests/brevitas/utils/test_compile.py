@@ -29,6 +29,7 @@ def test_compile_padding_to_multiple(shape, dim, multiple, expected_shape):
 
     assert actual.shape == expected_shape
     assert torch.equal(actual, expected)
+    assert expected.is_contiguous()
     assert torch.equal(torch.narrow(actual, dim, 0, shape[dim]), x)
 
     padding = expected_shape[dim] - shape[dim]
