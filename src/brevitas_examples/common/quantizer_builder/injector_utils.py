@@ -5,6 +5,8 @@ Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
 from enum import Enum
 import inspect
 from typing import Any
+from typing import Dict
+from typing import Tuple
 
 from _dependencies.exceptions import DependencyError
 
@@ -52,6 +54,17 @@ def _format_args(args: list, have_defaults: int) -> str:
     if optional:
         rendered.append("[" + ", ".join(optional) + "]")
     return "(" + ", ".join(rendered) + ")"
+
+
+def format_contribution(bases: Tuple[type, ...], attrs: Dict[str, Any]) -> str:
+    """Render the merged component output of a builder: the ``bases`` (MRO order)
+    and the assembled namespace ``attrs`` (compact, sorted)."""
+    lines = ["Base classes:"]
+    lines.extend(f"  - {base.__name__}" for base in bases)
+    lines.append("Attributes:")
+    width = max((len(name) for name in attrs), default=0)
+    lines.extend(f"  {name:<{width}} = {_short(attrs[name])}" for name in sorted(attrs))
+    return "\n".join(lines)
 
 
 def describe_injector(injector: type, resolve: bool = True, depth: int = 0) -> None:
