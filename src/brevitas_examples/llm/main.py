@@ -54,7 +54,8 @@ from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
 from brevitas_examples.llm.llm_quant.data_utils import llm_collate
 from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
 from brevitas_examples.llm.llm_quant.equalize import apply_weight_equalization
-from brevitas_examples.llm.llm_quant.eval import compute_evaluation_metrics
+from brevitas_examples.llm.llm_quant.eval import compute_float_evaluation_metrics
+from brevitas_examples.llm.llm_quant.eval import compute_quantized_evaluation_metrics
 from brevitas_examples.llm.llm_quant.export import _get_dataset_props
 from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.export import convert_hf_hparams_to_gguf
@@ -339,13 +340,12 @@ def quantize_llm(args, extra_args=None):
     if args.eval:
         print("Float model eval...")
         model = offload_model(model)
-        float_metrics = compute_evaluation_metrics(
+        float_metrics = compute_float_evaluation_metrics(
             model=model,
             data=validation_loader,
             context_length=args.seqlen // 2,
             tokenizer=tokenizer,
-            compute_perplexity=True,
-            build_reference_probabilities=True)
+            seed=args.seed)
         float_ppl = float_metrics.perplexity
         reference_probabilities = float_metrics.reference_probabilities
         remove_hooks(model)
@@ -734,13 +734,13 @@ def quantize_llm(args, extra_args=None):
             print("Model eval...")
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
                 model(**next(iter(calibration_loader)))
-                quant_metrics = compute_evaluation_metrics(
+                quant_metrics = compute_quantized_evaluation_metrics(
                     model=model,
                     data=validation_loader,
                     context_length=args.seqlen // 2,
                     tokenizer=tokenizer,
-                    compute_perplexity=True,
-                    reference_probabilities=reference_probabilities)
+                    reference_probabilities=reference_probabilities,
+                    seed=args.seed)
             quant_ppl = quant_metrics.perplexity
             quant_ear = quant_metrics.expected_acceptance_rate
             quant_kld = quant_metrics.kld
