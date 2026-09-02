@@ -10,7 +10,7 @@ the shared ``build_quantizer(InputQuantizerBuilder, ...)`` factory (see
 from typing import List
 
 from brevitas_examples.common.quantizer_builder.builder import QuantizerBuilder
-from brevitas_examples.common.quantizer_builder.components import CommonComponent
+from brevitas_examples.common.quantizer_builder.components import BaseComponent
 from brevitas_examples.common.quantizer_builder.components import FormatComponent
 from brevitas_examples.common.quantizer_builder.components import InputScaleComponent
 from brevitas_examples.common.quantizer_builder.components import InputSolverComponent
@@ -36,5 +36,5 @@ class InputQuantizerBuilder(QuantizerBuilder):
             ScaleRestrictComponent(),
             InputZeroPointComponent(),
             FormatComponent(),
-            CommonComponent(),
+            BaseComponent(),
             InputSolverComponent(),]
