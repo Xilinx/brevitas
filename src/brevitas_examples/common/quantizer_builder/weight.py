@@ -7,7 +7,6 @@ its ordered component list. Instantiate it via the shared
 ``build_quantizer(WeightQuantizerBuilder, ...)`` factory (see :mod:`.builder`).
 """
 from typing import List
-from typing import Optional
 
 from dependencies import this
 
@@ -80,26 +79,19 @@ def default_scale_quantizer_config() -> QuantizerConfig:
 class QuantScaleWeightQuantizerBuilder(WeightQuantizerBuilder):
     """Weight builder whose scale is itself quantized.
 
-    Substitutes :class:`ScaleRestrictComponent` with
-    :class:`QuantScaleRestrictComponent`, which wires the scale through a nested
-    quantizer (built by :func:`default_scale_quantizer_config` unless overridden).
-    Reproduces the reference ``QuantScaleMXFloat8e4m3Weight`` when the outer config
-    is a groupwise (MX) OCP float quantizer.
+    Substitutes :class:`ScaleRestrictComponent` with the stateless
+    :class:`QuantScaleRestrictComponent`, which reads the nested scale config from
+    the (:class:`~.core.QuantScaleQuantizerConfig`) ``config`` passed to
+    ``build``. Reproduces the reference ``QuantScaleMXFloat8e4m3Weight`` when the
+    outer config is a groupwise (MX) OCP float quantizer with
+    ``restrict_scaling_type == RestrictValueType.QUANT``.
     """
-
-    def __init__(
-            self,
-            config: QuantizerConfig,
-            extra_components: Optional[List[Component]] = None,
-            scale_config: Optional[QuantizerConfig] = None) -> None:
-        super().__init__(config, extra_components=extra_components)
-        self.scale_config = scale_config or default_scale_quantizer_config()
 
     def base_components(self) -> List[Component]:
         return [
             ScaleComponent(),
             ZeroPointComponent(),
             FormatComponent(),
-            QuantScaleRestrictComponent(self.scale_config),
+            QuantScaleRestrictComponent(),
             BaseComponent(),
             WeightSolverComponent(),]

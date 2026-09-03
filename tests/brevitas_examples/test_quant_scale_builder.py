@@ -20,17 +20,18 @@ import pytest
 import torch
 
 from brevitas import config
-from brevitas.inject.enum import QuantType
 from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.nn import QuantLinear
 from brevitas_examples.common.generative.quantizers import QuantScaleMXFloat8e4m3Weight
 from brevitas_examples.common.generative.quantizers import QuantScaleMXFloat8e4m3WeightMSE
-from brevitas_examples.common.quantizer_builder import build_quantizer
+from brevitas_examples.common.quantizer_builder import default_scale_quantizer_config
 from brevitas_examples.common.quantizer_builder import FloatFormat
+from brevitas_examples.common.quantizer_builder import FloatFormatConfig
 from brevitas_examples.common.quantizer_builder import ParamMethod
 from brevitas_examples.common.quantizer_builder import QuantParamType
+from brevitas_examples.common.quantizer_builder import QuantScaleQuantizerConfig
 from brevitas_examples.common.quantizer_builder import QuantScaleWeightQuantizerBuilder
 
 torch.manual_seed(0)
@@ -48,30 +49,27 @@ GROUP_DIM = 1
 BUILDER_SPECS = {
     "quant_scale_mx_float_per_group_sym": {
         "ref": QuantScaleMXFloat8e4m3Weight,
-        "builder_args": {
-            "quant_type": QuantType.FP,
-            "quant_param_type": QuantParamType.SYM,
-            "float_format": FloatFormat.OCP,
-            "float_quant_format": "e4m3",
-            "scaling_per_output_type": ScalingPerOutputType.GROUP,
-            "restrict_scaling_type": RestrictValueType.QUANT,
-            "kwargs": {
-                "group_size": GROUP_SIZE,
-                "group_dim": GROUP_DIM,},},},
+        "scaling_impl_type": ScalingImplType.STATS,
+        "scaling_param_method": ParamMethod.STATS,},
     "quant_scale_mx_float_per_group_sym_mse": {
         "ref": QuantScaleMXFloat8e4m3WeightMSE,
-        "builder_args": {
-            "quant_type": QuantType.FP,
-            "quant_param_type": QuantParamType.SYM,
-            "float_format": FloatFormat.OCP,
-            "float_quant_format": "e4m3",
-            "scaling_param_method": ParamMethod.MSE,
-            "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
-            "scaling_per_output_type": ScalingPerOutputType.GROUP,
-            "restrict_scaling_type": RestrictValueType.QUANT,
-            "kwargs": {
-                "group_size": GROUP_SIZE,
-                "group_dim": GROUP_DIM,},},},}
+        "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
+        "scaling_param_method": ParamMethod.MSE,},}
+
+
+def _make_outer_config(spec) -> QuantScaleQuantizerConfig:
+    """Groupwise MX OCP-float weight config whose scale is itself quantized (the
+    nested scale config is passed via ``scale_config``, i.e. through ``build``)."""
+    return QuantScaleQuantizerConfig(
+        format=FloatFormatConfig(float_quant_format="e4m3", float_format=FloatFormat.OCP),
+        quant_param_type=QuantParamType.SYM,
+        scaling_granularity=ScalingPerOutputType.GROUP,
+        scaling_impl_type=spec["scaling_impl_type"],
+        restrict_scaling_type=RestrictValueType.QUANT,
+        scaling_param_method=spec["scaling_param_method"],
+        extra={
+            "group_size": GROUP_SIZE, "group_dim": GROUP_DIM},
+        scale_config=default_scale_quantizer_config())
 
 
 def _make_quant_linear(weight_quant):
@@ -93,12 +91,12 @@ def _module_hierarchy(model):
 def test_builder_quant_scale_weight_matches_reference(spec_name):
     spec = BUILDER_SPECS[spec_name]
 
-    if config.JIT_ENABLED and spec["builder_args"].get("scaling_param_method") == ParamMethod.MSE:
+    if config.JIT_ENABLED and spec["scaling_param_method"] == ParamMethod.MSE:
         pytest.skip(reason="Local loss param methods (MSE) require JIT to be disabled")
 
     ref_linear = _make_quant_linear(spec["ref"])
 
-    builder = build_quantizer(QuantScaleWeightQuantizerBuilder, **spec["builder_args"])
+    builder = QuantScaleWeightQuantizerBuilder(_make_outer_config(spec))
     builder_linear = _make_quant_linear(builder.build_quant_injector())
 
     # 1) Module hierarchy must match 1-to-1 (structural parity of the injector,
