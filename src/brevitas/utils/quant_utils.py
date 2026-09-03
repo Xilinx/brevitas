@@ -22,12 +22,12 @@ class _CachedIO:
         self.scale = quant_tensor.scale
         self.zero_point = quant_tensor.zero_point
         self.bit_width = quant_tensor.bit_width
-        self._signed_t = quant_tensor.signed_t
-        self._training_t = quant_tensor.training_t
+        self._signed = quant_tensor._signed
+        self._training = quant_tensor._training
 
     @property
     def signed(self):
-        return self._signed_t.item()
+        return self._signed.item()
 
     @property
     def quant_tensor(self):
@@ -39,8 +39,8 @@ class _CachedIO:
             self.scale,
             self.zero_point,
             self.bit_width,
-            self._signed_t,
-            self._training_t)
+            self._signed,
+            self._training)
         return self._quant_tensor
 
 
@@ -57,17 +57,17 @@ class _CachedIOFloat:
         self.exponent_bias = quant_tensor.exponent_bias
         self.inf_values = quant_tensor.inf_values
         self.nan_values = quant_tensor.nan_values
-        self._saturating_t = quant_tensor.saturating_t
-        self._signed_t = quant_tensor.signed_t
-        self._training_t = quant_tensor.training_t
+        self._saturating = quant_tensor._saturating
+        self._signed = quant_tensor._signed
+        self._training = quant_tensor._training
 
     @property
     def saturating(self):
-        return self._saturating_t.item()
+        return self._saturating.item()
 
     @property
     def signed(self):
-        return self._signed_t.item()
+        return self._signed.item()
 
     @property
     def quant_tensor(self):
@@ -81,11 +81,11 @@ class _CachedIOFloat:
             self.exponent_bit_width,
             self.mantissa_bit_width,
             self.exponent_bias,
-            self._saturating_t,
+            self._saturating,
             self.inf_values,
             self.nan_values,
-            self._signed_t,
-            self._training_t)
+            self._signed,
+            self._training)
         return self._quant_tensor
 
 
@@ -96,8 +96,8 @@ class _CachedIOGroupwiseFloat:
         self.value = None if metadata_only else quant_tensor.value
         self._value = None if metadata_only else quant_tensor._value
         self._quant_tensor = None if metadata_only else quant_tensor
-        self.scale_ = quant_tensor.scale_
-        self.zero_point_ = quant_tensor.zero_point_
+        self._scale = quant_tensor._scale
+        self._zero_point = quant_tensor._zero_point
         self.exponent_bit_width = quant_tensor.exponent_bit_width
         self.mantissa_bit_width = quant_tensor.mantissa_bit_width
         self.exponent_bias = quant_tensor.exponent_bias
@@ -106,37 +106,37 @@ class _CachedIOGroupwiseFloat:
         self.group_size = quant_tensor.group_size
         self.group_dim = quant_tensor.group_dim
         self.dequant_shape = quant_tensor.dequant_shape
-        self._saturating_t = quant_tensor.saturating_t
-        self._signed_t = quant_tensor.signed_t
-        self._training_t = quant_tensor.training_t
+        self._saturating = quant_tensor._saturating
+        self._signed = quant_tensor._signed
+        self._training = quant_tensor._training
 
     @property
     def saturating(self):
-        return self._saturating_t.item()
+        return self._saturating.item()
 
     @property
     def signed(self):
-        return self._signed_t.item()
+        return self._signed.item()
 
     @property
     def quant_tensor(self):
         if self._quant_tensor is not None:
             return self._quant_tensor
-        value = self._value if self._value is not None else self.scale_.new_empty(0)
+        value = self._value if self._value is not None else self._scale.new_empty(0)
         self._quant_tensor = GroupwiseFloatQuantTensor(
             value,
-            self.scale_,
-            self.zero_point_,
+            self._scale,
+            self._zero_point,
             self.group_size,
             self.group_dim,
             self.exponent_bit_width,
             self.mantissa_bit_width,
             self.exponent_bias,
-            self._saturating_t,
+            self._saturating,
             self.inf_values,
             self.nan_values,
-            self._signed_t,
-            self._training_t,
+            self._signed,
+            self._training,
             self.dequant_shape)
         return self._quant_tensor
 
@@ -148,33 +148,33 @@ class _CachedIOGroupwiseInt:
         self.value = None if metadata_only else quant_tensor.value
         self._value = None if metadata_only else quant_tensor._value
         self._quant_tensor = None if metadata_only else quant_tensor
-        self.scale_ = quant_tensor.scale_
-        self.zero_point_ = quant_tensor.zero_point_
+        self._scale = quant_tensor._scale
+        self._zero_point = quant_tensor._zero_point
         self.bit_width = quant_tensor.bit_width
         self.group_size = quant_tensor.group_size
         self.group_dim = quant_tensor.group_dim
         self.dequant_shape = quant_tensor.dequant_shape
-        self._signed_t = quant_tensor.signed_t
-        self._training_t = quant_tensor.training_t
+        self._signed = quant_tensor._signed
+        self._training = quant_tensor._training
 
     @property
     def signed(self):
-        return self._signed_t.item()
+        return self._signed.item()
 
     @property
     def quant_tensor(self):
         if self._quant_tensor is not None:
             return self._quant_tensor
-        value = self._value if self._value is not None else self.scale_.new_empty(0)
+        value = self._value if self._value is not None else self._scale.new_empty(0)
         self._quant_tensor = GroupwiseIntQuantTensor(
             value,
-            self.scale_,
-            self.zero_point_,
+            self._scale,
+            self._zero_point,
             self.group_size,
             self.group_dim,
             self.bit_width,
-            self._signed_t,
-            self._training_t,
+            self._signed,
+            self._training,
             self.dequant_shape)
         return self._quant_tensor
 
