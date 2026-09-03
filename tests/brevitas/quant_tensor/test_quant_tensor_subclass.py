@@ -62,6 +62,31 @@ def _make_mx_qt(shape=(1, 32)):
     return mod(torch.randn(shape))
 
 
+def _make_groupwise_qt(quant_tensor_class, value=None):
+    if value is None:
+        value = torch.arange(8, dtype=torch.float).reshape(2, 2, 2)
+    kwargs = dict(
+        value=value,
+        scale=torch.ones(2, 2, 1),
+        zero_point=torch.zeros(2, 2, 1),
+        group_size=2,
+        group_dim=1,
+        signed=True,
+        training=False,
+        dequant_shape=(2, 4))
+    if quant_tensor_class is GroupwiseIntQuantTensor:
+        kwargs['bit_width'] = torch.tensor(8.)
+    else:
+        kwargs.update(
+            exponent_bit_width=torch.tensor(4.),
+            mantissa_bit_width=torch.tensor(3.),
+            exponent_bias=torch.tensor(7.),
+            saturating=True,
+            inf_values=[],
+            nan_values=[])
+    return quant_tensor_class(**kwargs)
+
+
 # ---------------------------------------------------------------------------
 # 1. isinstance relationships
 # ---------------------------------------------------------------------------
@@ -128,6 +153,12 @@ class TestValueProperty:
     def test_value_is_not_subclass(self):
         qt = _make_int_qt()
         assert type(qt.value) is torch.Tensor
+
+    @pytest.mark.parametrize('quant_tensor_factory', [_make_int_qt, _make_float_qt])
+    def test_raw_value_matches_value_for_non_groupwise_tensors(self, quant_tensor_factory):
+        qt = quant_tensor_factory()
+        assert type(qt._value) is torch.Tensor
+        assert torch.equal(qt._value, qt.value)
 
     def test_float_qt_value_is_plain_tensor(self):
         qt = _make_float_qt()
@@ -208,6 +239,15 @@ class TestGetItem:
         assert isinstance(result, GroupwiseFloatQuantTensor)
         assert result.shape == (32,)
         assert result.dequant_shape == (32,)
+        assert result.group_dim == 0
+
+    @pytest.mark.parametrize(
+        'quant_tensor_class', [GroupwiseIntQuantTensor, GroupwiseFloatQuantTensor])
+    def test_groupwise_index_preserves_raw_storage(self, quant_tensor_class):
+        qt = _make_groupwise_qt(quant_tensor_class)
+        result = qt[0]
+        assert torch.equal(result._value, qt._value[0])
+        assert result.dequant_shape == (4,)
         assert result.group_dim == 0
 
     def test_groupwise_negative_dimension_remains_relative(self):
@@ -369,6 +409,66 @@ class TestTensorOps:
         assert isinstance(d, FloatQuantTensor)
         assert d.grad_fn is None
         assert torch.equal(d.scale, qt.scale)
+
+    @pytest.mark.parametrize(
+        'quant_tensor_class', [GroupwiseIntQuantTensor, GroupwiseFloatQuantTensor])
+    def test_groupwise_set_preserves_raw_value(self, quant_tensor_class):
+        qt = _make_groupwise_qt(quant_tensor_class)
+        result = qt.set()
+        assert type(result) is quant_tensor_class
+        assert type(result._value) is torch.Tensor
+        assert torch.equal(result._value, qt._value)
+        assert torch.equal(result.value, qt.value)
+        assert result.group_dim == qt.group_dim
+        assert result.dequant_shape == qt.dequant_shape
+
+    @pytest.mark.parametrize(
+        'quant_tensor_class', [GroupwiseIntQuantTensor, GroupwiseFloatQuantTensor])
+    def test_groupwise_detach_preserves_raw_value_and_metadata(self, quant_tensor_class):
+        value = torch.randn(2, 2, 2, requires_grad=True) * 2
+        qt = _make_groupwise_qt(quant_tensor_class, value)
+        result = qt.detach()
+        assert type(result) is quant_tensor_class
+        assert result._value.grad_fn is None
+        assert torch.equal(result._value, qt._value)
+        assert torch.equal(result.scale_, qt.scale_)
+        assert torch.equal(result.zero_point_, qt.zero_point_)
+        assert torch.equal(result.value, qt.value)
+
+    @pytest.mark.parametrize(
+        'quant_tensor_class', [GroupwiseIntQuantTensor, GroupwiseFloatQuantTensor])
+    def test_groupwise_contiguous_preserves_raw_layout(self, quant_tensor_class):
+        qt = _make_groupwise_qt(quant_tensor_class, torch.randn(2, 2, 2).transpose(1, 2))
+        result = qt.contiguous()
+        assert type(result) is quant_tensor_class
+        assert result._value.is_contiguous()
+        assert torch.equal(result._value, qt._value)
+        assert torch.equal(result.value, qt.value)
+
+    @pytest.mark.parametrize(
+        'quant_tensor_class', [GroupwiseIntQuantTensor, GroupwiseFloatQuantTensor])
+    def test_groupwise_to_preserves_raw_value_and_metadata(self, quant_tensor_class):
+        qt = _make_groupwise_qt(quant_tensor_class)
+        result = qt.to(torch.float16)
+        assert type(result) is quant_tensor_class
+        assert result._value.dtype == torch.float16
+        assert result.scale_.dtype == torch.float16
+        assert result.zero_point_.dtype == torch.float16
+        assert result.value.dtype == torch.float16
+        assert result.group_size == qt.group_size
+        assert result.group_dim == qt.group_dim
+        assert result.dequant_shape == qt.dequant_shape
+
+    @pytest.mark.parametrize(
+        'quant_tensor_class', [GroupwiseIntQuantTensor, GroupwiseFloatQuantTensor])
+    def test_groupwise_cpu_preserves_raw_value_and_metadata(self, quant_tensor_class):
+        qt = _make_groupwise_qt(quant_tensor_class)
+        result = qt.cpu()
+        assert type(result) is quant_tensor_class
+        assert result._value.device.type == 'cpu'
+        assert result.scale_.device.type == 'cpu'
+        assert result.zero_point_.device.type == 'cpu'
+        assert torch.equal(result.value, qt.value)
 
 
 # ---------------------------------------------------------------------------
