@@ -5,7 +5,6 @@ from functools import reduce
 from operator import mul
 import os
 
-from hypothesis import assume
 from hypothesis import given
 from hypothesis import settings
 from packaging.version import parse
@@ -70,8 +69,6 @@ def test_ort_wbiol(config):
             first_output_only=True,
             onnx_opset=onnx_opset,
             export_q_weight=export_q_weight)
-    except pytest.skip.Exception:
-        assume(False)  # all-zero outputs: reject this example rather than skip the whole node
     finally:
         rm_onnx(export_name)
     assert close
