@@ -81,8 +81,12 @@ def test_qt_structure():
     assert isinstance(qt, IntQuantTensor)
     assert isinstance(qt, QuantTensor)
     assert isinstance(qt, torch.Tensor)
-    assert hasattr(qt, '_fields')
-    assert len(qt._fields) == 5
+    assert qt._constructor_metadata == {
+        'scale': '_scale',
+        'zero_point': '_zero_point',
+        'bit_width': '_bit_width',
+        'signed': '_signed',
+        'training': '_training'}
 
 
 def test_quant_tensor_init():
@@ -205,7 +209,7 @@ def test_int_quant_tensor(metadata_only, bit_width=8):
     assert torch.equal(cache.quant_tensor.zero_point, q.zero_point)
     assert torch.equal(cache.bit_width, q.bit_width)
     assert cache.signed == q.signed
-    assert torch.equal(cache._training_t, q.training_t)
+    assert torch.equal(cache._training, q._training)
 
 
 @pytest.mark.parametrize("metadata_only", [True, False])
@@ -242,7 +246,7 @@ def test_float_quant_tensor(metadata_only, bit_width=8, exponent_bit_width=4, ma
     assert cache.inf_values == q.inf_values
     assert cache.nan_values == q.nan_values
     assert cache.signed == q.signed
-    assert torch.equal(cache._training_t, q.training_t)
+    assert torch.equal(cache._training, q._training)
 
 
 @pytest.mark.parametrize("metadata_only", [True, False])
@@ -276,15 +280,15 @@ def test_mx_quant_tensor(metadata_only, bit_width=8, exponent_bit_width=4, manti
     else:
         assert torch.equal(cache.value, q.value)
         assert cache.quant_tensor is q
-    assert torch.equal(cache.quant_tensor.scale_, q.scale_)
-    assert torch.equal(cache.quant_tensor.zero_point_, q.zero_point_)
+    assert torch.equal(cache.quant_tensor._scale, q._scale)
+    assert torch.equal(cache.quant_tensor._zero_point, q._zero_point)
     assert torch.equal(cache.exponent_bias, q.exponent_bias)
     assert cache.saturating == q.saturating
     assert cache.inf_values == q.inf_values
     assert cache.nan_values == q.nan_values
     assert cache.signed == q.signed
     assert cache.dequant_shape == q.dequant_shape
-    assert torch.equal(cache._training_t, q.training_t)
+    assert torch.equal(cache._training, q._training)
     reconstructed = cache.quant_tensor.set(value=q._value)
     assert torch.equal(reconstructed.value, q.value)
     assert torch.equal(reconstructed.scale, q.scale)
@@ -316,14 +320,14 @@ def test_groupwise_int_quant_tensor_cache(metadata_only):
     else:
         assert torch.equal(cache.value, q.value)
         assert cache.quant_tensor is q
-    assert torch.equal(cache.quant_tensor.scale_, q.scale_)
-    assert torch.equal(cache.quant_tensor.zero_point_, q.zero_point_)
+    assert torch.equal(cache.quant_tensor._scale, q._scale)
+    assert torch.equal(cache.quant_tensor._zero_point, q._zero_point)
     assert torch.equal(cache.quant_tensor.bit_width, q.bit_width)
     assert cache.quant_tensor.group_size == q.group_size
     assert cache.quant_tensor.group_dim == q.group_dim
     assert cache.signed == q.signed
     assert cache.dequant_shape == q.dequant_shape
-    assert torch.equal(cache._training_t, q.training_t)
+    assert torch.equal(cache._training, q._training)
     reconstructed = cache.quant_tensor.set(value=q._value)
     assert torch.equal(reconstructed.value, q.value)
     assert torch.equal(reconstructed.scale, q.scale)
