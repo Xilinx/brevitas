@@ -160,6 +160,14 @@ class TestValueProperty:
         assert type(qt._value) is torch.Tensor
         assert torch.equal(qt._value, qt.value)
 
+    @pytest.mark.parametrize(
+        'quant_tensor_class', [GroupwiseIntQuantTensor, GroupwiseFloatQuantTensor])
+    def test_groupwise_tensor_inherits_raw_value_construction(self, quant_tensor_class):
+        value = [[[0., 1.], [2., 3.]], [[4., 5.], [6., 7.]]]
+        qt = _make_groupwise_qt(quant_tensor_class, value)
+        assert isinstance(qt, quant_tensor_class)
+        assert qt._value.shape == (2, 2, 2)
+
     def test_float_qt_value_is_plain_tensor(self):
         qt = _make_float_qt()
         v = qt.value
@@ -402,6 +410,8 @@ class TestTensorOps:
         assert qt16.value.dtype == torch.float16
         # Metadata should also be converted
         assert qt16.scale.dtype == torch.float16
+        assert qt16._signed.dtype == torch.bool
+        assert qt16._training.dtype == torch.bool
 
     def test_float_qt_detach(self):
         qt = _make_float_qt()
@@ -431,8 +441,8 @@ class TestTensorOps:
         assert type(result) is quant_tensor_class
         assert result._value.grad_fn is None
         assert torch.equal(result._value, qt._value)
-        assert torch.equal(result.scale_, qt.scale_)
-        assert torch.equal(result.zero_point_, qt.zero_point_)
+        assert torch.equal(result._scale, qt._scale)
+        assert torch.equal(result._zero_point, qt._zero_point)
         assert torch.equal(result.value, qt.value)
 
     @pytest.mark.parametrize(
@@ -452,9 +462,13 @@ class TestTensorOps:
         result = qt.to(torch.float16)
         assert type(result) is quant_tensor_class
         assert result._value.dtype == torch.float16
-        assert result.scale_.dtype == torch.float16
-        assert result.zero_point_.dtype == torch.float16
+        assert result._scale.dtype == torch.float16
+        assert result._zero_point.dtype == torch.float16
         assert result.value.dtype == torch.float16
+        assert result._signed.dtype == torch.bool
+        assert result._training.dtype == torch.bool
+        if quant_tensor_class is GroupwiseFloatQuantTensor:
+            assert result._saturating.dtype == torch.bool
         assert result.group_size == qt.group_size
         assert result.group_dim == qt.group_dim
         assert result.dequant_shape == qt.dequant_shape
@@ -466,9 +480,27 @@ class TestTensorOps:
         result = qt.cpu()
         assert type(result) is quant_tensor_class
         assert result._value.device.type == 'cpu'
-        assert result.scale_.device.type == 'cpu'
-        assert result.zero_point_.device.type == 'cpu'
+        assert result._scale.device.type == 'cpu'
+        assert result._zero_point.device.type == 'cpu'
         assert torch.equal(result.value, qt.value)
+
+    @pytest.mark.parametrize(
+        'quant_tensor_class', [GroupwiseIntQuantTensor, GroupwiseFloatQuantTensor])
+    def test_groupwise_shape_operations_return_expanded_tensor(self, quant_tensor_class):
+        qt = _make_groupwise_qt(quant_tensor_class)
+        assert type(qt.view(4, 2)) is torch.Tensor
+        assert type(qt.reshape(4, 2)) is torch.Tensor
+        assert type(qt.flatten()) is torch.Tensor
+        assert type(qt.transpose(0, 1)) is torch.Tensor
+        assert type(qt.permute(1, 0)) is torch.Tensor
+
+    @pytest.mark.parametrize(
+        'quant_tensor_class', [GroupwiseIntQuantTensor, GroupwiseFloatQuantTensor])
+    def test_groupwise_arithmetic_returns_expanded_tensor(self, quant_tensor_class):
+        qt = _make_groupwise_qt(quant_tensor_class)
+        assert type(qt + 1) is torch.Tensor
+        assert type(qt * 2) is torch.Tensor
+        assert type(qt / 2) is torch.Tensor
 
 
 # ---------------------------------------------------------------------------
@@ -540,39 +572,41 @@ class TestRightHandOperators:
 
 
 # ---------------------------------------------------------------------------
-# 9. _fields attribute
+# 9. Constructor metadata
 # ---------------------------------------------------------------------------
 
 
-class TestFields:
+class TestConstructorMetadata:
 
-    def test_int_qt_fields(self):
+    def test_int_qt_constructor_metadata(self):
         qt = _make_int_qt()
-        assert hasattr(qt, '_fields')
-        assert set(qt._fields) == {'scale', 'zero_point', 'bit_width', 'signed', 'training'}
+        assert qt._constructor_metadata == {
+            'scale': '_scale',
+            'zero_point': '_zero_point',
+            'bit_width': '_bit_width',
+            'signed': '_signed',
+            'training': '_training'}
 
-    def test_float_qt_fields(self):
+    def test_float_qt_constructor_metadata(self):
         qt = _make_float_qt()
-        assert hasattr(qt, '_fields')
         expected = {
-            'scale',
-            'zero_point',
-            'exponent_bit_width',
-            'mantissa_bit_width',
-            'exponent_bias',
-            'saturating',
-            'inf_values',
-            'nan_values',
-            'signed',
-            'training'}
-        assert set(qt._fields) == expected
+            'scale': '_scale',
+            'zero_point': '_zero_point',
+            'exponent_bit_width': '_exponent_bit_width',
+            'mantissa_bit_width': '_mantissa_bit_width',
+            'exponent_bias': '_exponent_bias',
+            'saturating': '_saturating',
+            'inf_values': '_inf_values',
+            'nan_values': '_nan_values',
+            'signed': '_signed',
+            'training': '_training'}
+        assert qt._constructor_metadata == expected
 
-    def test_groupwise_float_qt_fields(self):
+    def test_groupwise_float_qt_constructor_metadata(self):
         qt = _make_mx_qt()
-        assert hasattr(qt, '_fields')
-        assert 'scale_' in qt._fields
-        assert 'group_size' in qt._fields
-        assert 'group_dim' in qt._fields
+        assert qt._constructor_metadata['scale'] == '_scale'
+        assert qt._constructor_metadata['group_size'] == '_group_size'
+        assert qt._constructor_metadata['group_dim'] == '_group_dim'
 
 
 # ---------------------------------------------------------------------------

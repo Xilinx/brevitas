@@ -13,17 +13,17 @@ from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
 class FloatQuantTensor(FloatMixin, QuantTensor):
 
-    _fields = (
-        'scale',
-        'zero_point',
-        'exponent_bit_width',
-        'mantissa_bit_width',
-        'exponent_bias',
-        'saturating',
-        'inf_values',
-        'nan_values',
-        'signed',
-        'training')
+    _constructor_metadata = {
+        'scale': '_scale',
+        'zero_point': '_zero_point',
+        'exponent_bit_width': '_exponent_bit_width',
+        'mantissa_bit_width': '_mantissa_bit_width',
+        'exponent_bias': '_exponent_bias',
+        'saturating': '_saturating',
+        'inf_values': '_inf_values',
+        'nan_values': '_nan_values',
+        'signed': '_signed',
+        'training': '_training'}
 
     def __new__(
             cls,
@@ -77,11 +77,11 @@ class FloatQuantTensor(FloatMixin, QuantTensor):
         self._exponent_bit_width = exponent_bit_width
         self._mantissa_bit_width = mantissa_bit_width
         self._exponent_bias = exponent_bias
-        self.saturating_t = saturating
+        self._saturating = saturating
         self._inf_values = inf_values
         self._nan_values = nan_values
-        self.signed_t = signed
-        self.training_t = training
+        self._signed = signed
+        self._training = training
 
     @property
     def scale(self):
@@ -141,15 +141,15 @@ class FloatQuantTensor(FloatMixin, QuantTensor):
 
     @property
     def signed(self):
-        return self.signed_t.item()
+        return self._signed.item()
 
     @property
     def training(self):
-        return self.training_t.item()
+        return self._training.item()
 
     @property
     def saturating(self):
-        return self.saturating_t.item()
+        return self._saturating.item()
 
     @property
     def eps(self):
@@ -269,7 +269,7 @@ class FloatQuantTensor(FloatMixin, QuantTensor):
             raise NotImplementedError
 
     def __str__(self):
-        return f"FloatQuantTensor(value={self.value}, scale={self.scale}, zero_point={self.zero_point}, exponent_bit_width={self.exponent_bit_width}, mantissa_bit_width={self.mantissa_bit_width}, exponent_bias={self.exponent_bias}, inf_values={self.inf_values}, nan_values={self.nan_values}, signed_t={self.signed_t}, training_t={self.training_t})"
+        return f"FloatQuantTensor(value={self.value}, scale={self.scale}, zero_point={self.zero_point}, exponent_bit_width={self.exponent_bit_width}, mantissa_bit_width={self.mantissa_bit_width}, exponent_bias={self.exponent_bias}, inf_values={self.inf_values}, nan_values={self.nan_values}, signed={self._signed}, training={self._training})"
 
     def __abs__(self):
         if self.signed:
