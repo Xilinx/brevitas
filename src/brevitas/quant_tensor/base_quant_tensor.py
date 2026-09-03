@@ -81,23 +81,10 @@ class QuantTensor(Tensor):
 
     def _apply_and_reconstruct(self, tensor_op, *args, **kwargs):
         """Apply a Tensor operation to the constructor value and tensor metadata."""
-
-        def transform_metadata(parameter, metadata):
-            if tensor_op is Tensor.to and parameter in {'signed', 'training', 'saturating'}:
-                device = kwargs.get('device')
-                if device is None and args:
-                    target = args[0]
-                    if isinstance(target, Tensor):
-                        device = target.device
-                    elif isinstance(target, (str, torch.device)):
-                        device = target
-                if device is not None:
-                    return metadata.to(device=device)
-                return metadata
-            return tensor_op(metadata, *args, **kwargs)
-
         return self._reconstruct(
-            tensor_op(self._value, *args, **kwargs), metadata_transform=transform_metadata)
+            tensor_op(self._value, *args, **kwargs),
+            metadata_transform=lambda _,
+            metadata: tensor_op(metadata, *args, **kwargs))
 
     def _metadata_on_device(self, device):
         """Return whether every tensor-backed metadata field is on ``device``."""
@@ -167,7 +154,14 @@ class QuantTensor(Tensor):
         return self + other
 
     def to(self, *args, **kwargs):
-        return self._apply_and_reconstruct(Tensor.to, *args, **kwargs)
+        new_value = Tensor.to(self._value, *args, **kwargs)
+
+        def transform_metadata(_, metadata):
+            if metadata.dtype == torch.bool:
+                return metadata.to(device=new_value.device)
+            return metadata.to(*args, **kwargs)
+
+        return self._reconstruct(new_value, metadata_transform=transform_metadata)
 
     def cuda(self, *args, **kwargs):
         return self._apply_and_reconstruct(Tensor.cuda, *args, **kwargs)
