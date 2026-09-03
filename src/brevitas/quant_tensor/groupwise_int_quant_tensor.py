@@ -32,11 +32,12 @@ class GroupwiseIntQuantTensor(GroupwiseQuantTensorMixin, IntMixin, QuantTensor):
             signed,
             training,
             dequant_shape=None):
-        scale = self._as_tensor(scale, torch.float)
-        zero_point = self._as_tensor(zero_point, torch.float)
-        bit_width = self._as_tensor(bit_width, torch.float)
-        signed = self._as_tensor(signed, torch.bool)
-        training = self._as_tensor(training, torch.bool)
+        device = self._value.device
+        scale = self._as_tensor(scale, torch.float, device)
+        zero_point = self._as_tensor(zero_point, torch.float, device)
+        bit_width = self._as_tensor(bit_width, torch.float, device)
+        signed = self._as_tensor(signed, torch.bool, device)
+        training = self._as_tensor(training, torch.bool, device)
         self._bit_width = bit_width
         self._set_groupwise_metadata(
             scale, zero_point, group_size, group_dim, signed, training, dequant_shape)
