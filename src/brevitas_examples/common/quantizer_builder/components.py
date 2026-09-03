@@ -24,6 +24,7 @@ from brevitas.core.zero_point import ZeroZeroPoint
 from brevitas.inject.enum import BitWidthImplType
 from brevitas.inject.enum import FloatToIntImplType
 from brevitas.inject.enum import QuantType
+from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.inject.enum import StatsOp
@@ -57,6 +58,7 @@ from brevitas_examples.common.quantizer_builder.mixins import MSEScaleInjectorMi
 from brevitas_examples.common.quantizer_builder.mixins import MSEZeroPointInjectorMixin
 from brevitas_examples.common.quantizer_builder.mixins import ParamMethod
 from brevitas_examples.common.quantizer_builder.mixins import parse_float_quant_format
+from brevitas_examples.common.quantizer_builder.mixins import QuantScaleMixin
 from brevitas_examples.common.quantizer_builder.mixins import SolveActZeroPointImplFromEnum
 from brevitas_examples.common.quantizer_builder.mixins import SolveParameterZeroPointImplFromEnum
 from brevitas_examples.common.quantizer_builder.mixins import Target
@@ -230,6 +232,46 @@ class ScaleRestrictComponent(Component):
                 "restrict_value_float_to_int_impl": solve_float_to_int_impl_from_enum(rounding),
             },
             bases=bases)
+
+class QuantScaleRestrictComponent(ScaleRestrictComponent):
+    """Quantized-scale *scale* handling: substitutes :class:`ScaleRestrictComponent`.
+
+    When the config opts into ``RestrictValueType.QUANT``, the scale is itself
+    quantized by a *nested* quantizer (``scaling_float_quant``) instead of being
+    rounded to a power of two. The nested quantizer is built with the same builder
+    framework (a nested :class:`QuantizerBuilder` over ``scale_config``); the
+    restrict wiring comes from :class:`QuantScaleMixin`. Mirrors the reference
+    ``QuantScaleMXFloat8e4m3Weight``. Any other ``restrict_scaling_type`` falls
+    back to the plain :class:`ScaleRestrictComponent` behaviour.
+    """
+
+    def __init__(
+            self,
+            scale_config: QuantizerConfig,
+            scale_builder_cls: Optional[Type] = None,) -> None:
+        self._scale_config = scale_config
+        self._scale_builder_cls = scale_builder_cls
+
+    def build(self, config: QuantizerConfig) -> Contribution:
+        if config.restrict_scaling_type != RestrictValueType.QUANT:
+            return super().build(config)
+        return Contribution(
+            attrs={
+                "restrict_scaling_type": config.restrict_scaling_type,
+                "scaling_float_quant": self._build_inner_scale_injector(),},
+            bases=(QuantScaleMixin,))
+
+    def _build_inner_scale_injector(self) -> Type:
+        builder_cls = self._scale_builder_cls
+        if builder_cls is None:
+            # Lazy import avoids a components <-> weight circular import.
+            from brevitas_examples.common.quantizer_builder.weight import WeightQuantizerBuilder
+            builder_cls = WeightQuantizerBuilder
+        # The nested builder produces the complete scale injector: the ``this << 1``
+        # upstream references and the quant-scale shape mixin (last in the MRO) are
+        # carried by the scale config's ``extra`` / ``extra_bases``.
+        return builder_cls(self._scale_config).build_quant_injector()
+
 
 class ZeroPointComponent(Component):
     """Generic zero-point wiring, used by the weight builder. Symmetric quantizers
