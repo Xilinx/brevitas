@@ -33,11 +33,16 @@ class QuantTensor(Tensor):
         pass
 
     @property
+    def _value(self):
+        """Return the raw Tensor representation stored by this Tensor subclass."""
+        return Tensor.as_subclass(self, Tensor)
+
+    @property
     def value(self):
         # The tensor itself IS the value.
         # Return a plain Tensor view to avoid infinite recursion in operations.
         # Use as_subclass to preserve grad_fn and requires_grad.
-        return Tensor.as_subclass(self, Tensor)
+        return self._value
 
     # Mapping from _fields names to constructor parameter names.
     # Override in subclasses where they differ (e.g. groupwise: scale_ -> scale).
@@ -51,11 +56,38 @@ class QuantTensor(Tensor):
             result[param_name] = getattr(self, field)
         return result
 
+    def _reconstruct(self, value, ctor_kwargs=None, metadata_transform=None):
+        """
+        Rebuild this type from constructor-form value and metadata.
+
+        ``value`` must use the representation expected by the concrete
+        constructor: dequantized for regular QuantTensors and grouped for
+        groupwise QuantTensors.
+        """
+        if ctor_kwargs is None:
+            ctor_kwargs = self._get_constructor_kwargs()
+        else:
+            ctor_kwargs = dict(ctor_kwargs)
+        if metadata_transform is not None:
+            for key, metadata in ctor_kwargs.items():
+                if isinstance(metadata, Tensor):
+                    ctor_kwargs[key] = metadata_transform(metadata)
+        ctor_kwargs.pop('value', None)
+        return type(self)(value, **ctor_kwargs)
+
+    def _apply_and_reconstruct(self, tensor_op, *args, **kwargs):
+        """Apply a Tensor operation to the constructor value and tensor metadata."""
+        return self._reconstruct(
+            tensor_op(self._value, *args, **kwargs),
+            metadata_transform=lambda metadata: tensor_op(metadata, *args, **kwargs))
+
     def set(self, **kwargs):
-        """Create a new QuantTensor with some fields replaced.
-        Equivalent to NamedTuple._replace()."""
+        """
+        Create a new QuantTensor with some fields replaced.
+
+        ``value`` replaces the raw constructor value.
+        """
         value = kwargs.pop('value', None)
-        value_ = kwargs.pop('value_', None)
         ctor_kwargs = self._get_constructor_kwargs()
         # Map any field-name kwargs to constructor param names
         mapped_kwargs = {}
@@ -63,19 +95,13 @@ class QuantTensor(Tensor):
             param_name = self._field_to_constructor_param.get(k, k)
             mapped_kwargs[param_name] = v
         ctor_kwargs.update(mapped_kwargs)
-        # Remove value/value_ from kwargs dict (they're positional)
+        # Remove value from kwargs dict because it is positional.
         ctor_kwargs.pop('value', None)
-        ctor_kwargs.pop('value_', None)
         if value is not None:
             new_value = value
-        elif value_ is not None:
-            new_value = value_
         else:
-            if hasattr(self, '_is_groupwise') and self._is_groupwise:
-                new_value = self._value_
-            else:
-                new_value = self.value
-        return type(self)(new_value, **ctor_kwargs)
+            new_value = self._value
+        return self._reconstruct(new_value, ctor_kwargs)
 
     def detach_(self):
         super().detach_()
@@ -85,26 +111,20 @@ class QuantTensor(Tensor):
                 val.detach_()
 
     def detach(self):
-        ctor_kwargs = self._get_constructor_kwargs()
-        for k, v in ctor_kwargs.items():
-            if isinstance(v, Tensor):
-                ctor_kwargs[k] = v.detach()
-        new_value = self.value.detach() if not (
-            hasattr(self, '_is_groupwise') and self._is_groupwise) else self._value_.detach()
-        ctor_kwargs.pop('value', None)
-        ctor_kwargs.pop('value_', None)
-        return type(self)(new_value, **ctor_kwargs)
+        return self._apply_and_reconstruct(Tensor.detach)
 
     def contiguous(self):
+        return self._apply_and_reconstruct(Tensor.contiguous)
+
+    def _slice_constructor_kwargs(self, index):
+        """Slice tensor metadata that is aligned with the leading value dimension."""
+        original_shape = self.value.shape
         ctor_kwargs = self._get_constructor_kwargs()
-        for k, v in ctor_kwargs.items():
-            if isinstance(v, Tensor):
-                ctor_kwargs[k] = v.contiguous()
-        new_value = self.value.contiguous() if not (
-            hasattr(self, '_is_groupwise') and self._is_groupwise) else self._value_.contiguous()
-        ctor_kwargs.pop('value', None)
-        ctor_kwargs.pop('value_', None)
-        return type(self)(new_value, **ctor_kwargs)
+        for name, metadata in tuple(ctor_kwargs.items()):
+            if (isinstance(metadata, Tensor) and metadata.dim() > 0 and
+                    metadata.shape[0] == original_shape[0]):
+                ctor_kwargs[name] = metadata[index]
+        return ctor_kwargs
 
     def __getitem__(self, index):
         """Index the leading dimension while preserving aligned quantization metadata."""
@@ -116,28 +136,7 @@ class QuantTensor(Tensor):
         if not isinstance(index, (int, slice)):
             raise TypeError('QuantTensor indexing supports an integer or slice.')
 
-        is_groupwise = getattr(self, '_is_groupwise', False)
-        source_value = self._value_ if is_groupwise else self.value
-        original_shape = self.value.shape
-        ctor_kwargs = self._get_constructor_kwargs()
-        for name, metadata in tuple(ctor_kwargs.items()):
-            if isinstance(metadata,
-                          Tensor) and metadata.dim() > 0 and metadata.shape[0] == original_shape[0]:
-                ctor_kwargs[name] = metadata[index]
-
-        if is_groupwise:
-            if isinstance(index, int):
-                group_dim = self.group_dim
-                normalized_group_dim = group_dim if group_dim >= 0 else group_dim + len(
-                    original_shape)
-                if normalized_group_dim == 0:
-                    raise RuntimeError('Cannot remove the grouped dimension through indexing.')
-                ctor_kwargs['group_dim'] = group_dim - 1 if group_dim > 0 else group_dim
-                if self.dequant_shape is not None:
-                    ctor_kwargs['dequant_shape'] = tuple(self.dequant_shape[1:])
-            elif self.dequant_shape is not None:
-                ctor_kwargs['dequant_shape'] = tuple(self.value[index].shape)
-        return type(self)(source_value[index], **ctor_kwargs)
+        return self._reconstruct(self._value[index], self._slice_constructor_kwargs(index))
 
     @property
     def shape(self):
@@ -150,40 +149,13 @@ class QuantTensor(Tensor):
         return self + other
 
     def to(self, *args, **kwargs):
-        ctor_kwargs = self._get_constructor_kwargs()
-        for k, v in ctor_kwargs.items():
-            if isinstance(v, Tensor):
-                ctor_kwargs[k] = v.to(*args, **kwargs)
-        new_value = self.value.to(
-            *args, **kwargs) if not (hasattr(self, '_is_groupwise') and
-                                     self._is_groupwise) else self._value_.to(*args, **kwargs)
-        ctor_kwargs.pop('value', None)
-        ctor_kwargs.pop('value_', None)
-        return type(self)(new_value, **ctor_kwargs)
+        return self._apply_and_reconstruct(Tensor.to, *args, **kwargs)
 
     def cuda(self, *args, **kwargs):
-        ctor_kwargs = self._get_constructor_kwargs()
-        for k, v in ctor_kwargs.items():
-            if isinstance(v, Tensor):
-                ctor_kwargs[k] = v.cuda(*args, **kwargs)
-        new_value = self.value.cuda(
-            *args, **kwargs) if not (hasattr(self, '_is_groupwise') and
-                                     self._is_groupwise) else self._value_.cuda(*args, **kwargs)
-        ctor_kwargs.pop('value', None)
-        ctor_kwargs.pop('value_', None)
-        return type(self)(new_value, **ctor_kwargs)
+        return self._apply_and_reconstruct(Tensor.cuda, *args, **kwargs)
 
     def cpu(self, *args, **kwargs):
-        ctor_kwargs = self._get_constructor_kwargs()
-        for k, v in ctor_kwargs.items():
-            if isinstance(v, Tensor):
-                ctor_kwargs[k] = v.cpu(*args, **kwargs)
-        new_value = self.value.cpu(
-            *args, **kwargs) if not (hasattr(self, '_is_groupwise') and
-                                     self._is_groupwise) else self._value_.cpu(*args, **kwargs)
-        ctor_kwargs.pop('value', None)
-        ctor_kwargs.pop('value_', None)
-        return type(self)(new_value, **ctor_kwargs)
+        return self._apply_and_reconstruct(Tensor.cpu, *args, **kwargs)
 
     def __radd__(self, other):
         return self.__add__(other)
@@ -212,6 +184,26 @@ class QuantTensor(Tensor):
     @staticmethod
     def is_zero_zero_point(tensor):
         return (tensor.zero_point == 0.).all()
+
+
+class GroupwiseQuantTensorMixin:
+    """Adapt leading-dimension indexing for compressed groupwise storage."""
+
+    def _slice_constructor_kwargs(self, index):
+        """Update group geometry after indexing the dequantized leading dimension."""
+        ctor_kwargs = super()._slice_constructor_kwargs(index)
+        if isinstance(index, int):
+            group_dim = self.group_dim
+            original_shape = self.value.shape
+            normalized_group_dim = group_dim if group_dim >= 0 else group_dim + len(original_shape)
+            if normalized_group_dim == 0:
+                raise RuntimeError('Cannot remove the grouped dimension through indexing.')
+            ctor_kwargs['group_dim'] = group_dim - 1 if group_dim > 0 else group_dim
+            if self.dequant_shape is not None:
+                ctor_kwargs['dequant_shape'] = tuple(self.dequant_shape[1:])
+        elif self.dequant_shape is not None:
+            ctor_kwargs['dequant_shape'] = tuple(self.value[index].shape)
+        return ctor_kwargs
 
 
 class IntMixin:
