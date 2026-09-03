@@ -253,6 +253,15 @@ class TestGetItem:
         assert result.dequant_shape == (32,)
         assert result.group_dim == 0
 
+    @pytest.mark.parametrize(
+        'quant_tensor_class', [GroupwiseIntQuantTensor, GroupwiseFloatQuantTensor])
+    def test_groupwise_index_preserves_raw_storage(self, quant_tensor_class):
+        qt = _make_groupwise_qt(quant_tensor_class)
+        result = qt[0]
+        assert torch.equal(result._value, qt._value[0])
+        assert result.dequant_shape == (4,)
+        assert result.group_dim == 0
+
     def test_groupwise_negative_dimension_remains_relative(self):
         mod = QuantIdentity(
             group_size=32,
