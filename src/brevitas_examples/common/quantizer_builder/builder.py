@@ -13,6 +13,7 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
+from typing import Tuple
 from typing import Type
 from typing import Union
 
@@ -66,13 +67,18 @@ class QuantizerBuilder(ABC):
         writers).
         """
         merged = self._merged_contribution()
-        return type("QuantInjector", merged.bases, self._assembled_attrs(merged))
+        return type("QuantInjector", self._assembled_bases(merged), self._assembled_attrs(merged))
 
     def _merged_contribution(self) -> Contribution:
         components = self.base_components() + self.extra_components
         for component in components:
             component.validate(self.config)
         return Contribution.merge(component.build(self.config) for component in components)
+
+    def _assembled_bases(self, merged: Contribution) -> Tuple[Type, ...]:
+        # ``config.extra_bases`` are appended after every component's bases, so they
+        # sit last in the MRO (lowest priority).
+        return merged.bases + tuple(self.config.extra_bases)
 
     def _assembled_attrs(self, merged: Contribution) -> Dict[str, Any]:
         attrs: Dict[str, Any] = dict(merged.attrs)
@@ -89,7 +95,7 @@ class QuantizerBuilder(ABC):
         without resolving any injector dependency."""
         from brevitas_examples.common.quantizer_builder.injector_utils import format_contribution
         merged = self._merged_contribution()
-        return format_contribution(merged.bases, self._assembled_attrs(merged))
+        return format_contribution(self._assembled_bases(merged), self._assembled_attrs(merged))
 
     def describe_build(self) -> None:
         """Print :meth:`format_build`."""

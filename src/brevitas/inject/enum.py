@@ -34,6 +34,7 @@ class RestrictValueType(AutoName):
     LOG_FP = auto()
     INT = auto()
     POWER_OF_TWO = auto()
+    QUANT = auto()
 
 
 class FloatToIntImplType(AutoName):
