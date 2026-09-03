@@ -56,22 +56,15 @@ class FloatQuantTensor(FloatMixin, QuantTensor):
             nan_values,
             signed,
             training):
-        if not isinstance(scale, torch.Tensor):
-            scale = torch.tensor(scale, dtype=torch.float)
-        if not isinstance(zero_point, torch.Tensor):
-            zero_point = torch.tensor(zero_point, dtype=torch.float)
-        if not isinstance(exponent_bit_width, torch.Tensor):
-            exponent_bit_width = torch.tensor(exponent_bit_width, dtype=torch.float)
-        if not isinstance(mantissa_bit_width, torch.Tensor):
-            mantissa_bit_width = torch.tensor(mantissa_bit_width, dtype=torch.float)
-        if not isinstance(exponent_bias, torch.Tensor):
-            exponent_bias = torch.tensor(exponent_bias, dtype=torch.float)
-        if not isinstance(saturating, torch.Tensor):
-            saturating = torch.tensor(saturating, dtype=torch.bool)
-        if not isinstance(signed, torch.Tensor):
-            signed = torch.tensor(signed, dtype=torch.bool)
-        if not isinstance(training, torch.Tensor):
-            training = torch.tensor(training, dtype=torch.bool)
+        device = self._value.device
+        scale = self._as_tensor(scale, torch.float, device)
+        zero_point = self._as_tensor(zero_point, torch.float, device)
+        exponent_bit_width = self._as_tensor(exponent_bit_width, torch.float, device)
+        mantissa_bit_width = self._as_tensor(mantissa_bit_width, torch.float, device)
+        exponent_bias = self._as_tensor(exponent_bias, torch.float, device)
+        saturating = self._as_tensor(saturating, torch.bool, device)
+        signed = self._as_tensor(signed, torch.bool, device)
+        training = self._as_tensor(training, torch.bool, device)
         self._scale = scale
         self._zero_point = zero_point
         self._exponent_bit_width = exponent_bit_width

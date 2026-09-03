@@ -31,16 +31,12 @@ class IntQuantTensor(IntMixin, QuantTensor):
         return value.as_subclass(cls)
 
     def __init__(self, value, scale, zero_point, bit_width, signed, training):
-        if not isinstance(scale, torch.Tensor):
-            scale = torch.tensor(scale, dtype=torch.float)
-        if not isinstance(zero_point, torch.Tensor):
-            zero_point = torch.tensor(zero_point, dtype=torch.float)
-        if not isinstance(bit_width, torch.Tensor):
-            bit_width = torch.tensor(bit_width, dtype=torch.float)
-        if not isinstance(signed, torch.Tensor):
-            signed = torch.tensor(signed, dtype=torch.bool)
-        if not isinstance(training, torch.Tensor):
-            training = torch.tensor(training, dtype=torch.bool)
+        device = self._value.device
+        scale = self._as_tensor(scale, torch.float, device)
+        zero_point = self._as_tensor(zero_point, torch.float, device)
+        bit_width = self._as_tensor(bit_width, torch.float, device)
+        signed = self._as_tensor(signed, torch.bool, device)
+        training = self._as_tensor(training, torch.bool, device)
         self._scale = scale
         self._zero_point = zero_point
         self._bit_width = bit_width
