@@ -58,10 +58,13 @@ QuantSpecType = Union[QuantSpecElement, Tuple[QuantSpecElement, ...]]
 
 
 class FunctionalQuantizerFactory(Protocol):
-    """Factory interface for modules attached during functional preparation.
+    """Create quantizer modules used by prepared functional operations.
 
-    Custom quantizers must not invoke operations present in the active functional
-    quantization map.
+    Returned modules are registered under the prepared model so device moves,
+    training state, and state-dict handling follow normal ``nn.Module`` behavior.
+    Weight factories must return a Brevitas-compatible weight proxy. Custom
+    quantizers must not invoke operations present in the active functional map,
+    since those calls would be attributed to the surrounding model call site.
     """
 
     def create_activation(
@@ -76,7 +79,13 @@ class FunctionalQuantizerFactory(Protocol):
 
 
 class FunctionalWeightSource(Protocol):
-    """Read-only interface to prepared functional weight owners."""
+    """Expose prepared functional weights to an external optimization mode.
+
+    Consumers can enumerate owners within a module scope, suspend functional
+    quantization while doing their own tensor work, and restart prepared call
+    ordinals before a repeated logical forward. The protocol intentionally hides
+    the concrete ``FunctionalQuantState`` implementation.
+    """
 
     operation_registry: 'FunctionalOperationRegistry'
 
@@ -97,7 +106,12 @@ def _grouped_mm_key(*args, **kwargs):
 
 
 def grouped_mm_functions() -> Tuple[Callable, ...]:
-    """Return grouped-MM callables available in the current Torch/Transformers runtime."""
+    """Return grouped-MM aliases available in the current runtime.
+
+    Torch and Transformers expose grouped matrix multiplication through different
+    Python and dispatcher names across versions. Missing dispatcher packets are
+    ignored and aliases are returned in discovery order without duplicates.
+    """
     functions = []
     for owner, name in ((torch, '_grouped_mm'), (torch.nn.functional, 'grouped_mm')):
         func = getattr(owner, name, None)
@@ -121,7 +135,12 @@ def grouped_mm_functions() -> Tuple[Callable, ...]:
 class FunctionalOperation:
     """Describe one functional operation and its logical arguments.
 
-    Parameter dispatch is defined only for the first two logical arguments.
+    ``canonical`` is the stable key used by prepared call plans, while ``aliases``
+    are equivalent callables accepted at runtime. ``argument_names`` maps keyword
+    spellings to logical positional arguments. When ``parameter_dispatch`` is
+    enabled, a three-entry quantizer specification means
+    ``(runtime_arg0_quant, runtime_arg1_quant, parameter_quant)`` for the first two
+    logical arguments.
     """
 
     canonical: Callable
@@ -141,7 +160,12 @@ class FunctionalOperation:
 
 
 class FunctionalOperationRegistry:
-    """Registry of functional aliases and metadata shared by functional integrations."""
+    """Resolve functional callables to shared operation descriptions.
+
+    Registries decouple interception from a fixed list of Torch functions and can
+    be copied before adding project-specific operations or aliases. Re-registering
+    a canonical callable replaces its metadata only in that registry instance.
+    """
 
     def __init__(self) -> None:
         self._operations: Dict[Callable, FunctionalOperation] = {}
@@ -154,7 +178,7 @@ class FunctionalOperationRegistry:
             aliases: Tuple[Callable, ...] = (),
             argument_names: Tuple[Any, ...] = (),
             parameter_dispatch: bool = False) -> FunctionalOperation:
-        """Register an operation, replacing metadata for the same canonical callable."""
+        """Register a canonical callable, its aliases, and logical argument names."""
         operation = FunctionalOperation(
             canonical=canonical,
             aliases=tuple(dict.fromkeys((canonical, *aliases))),
@@ -175,7 +199,7 @@ class FunctionalOperationRegistry:
         return operation
 
     def resolve(self, func: Callable) -> FunctionalOperation:
-        """Resolve a callable while retaining support for arbitrary positional functions."""
+        """Return registered metadata or a positional-only description for ``func``."""
         operation = self._aliases.get(func)
         if operation is not None:
             return operation
@@ -348,7 +372,12 @@ class _WeightQuantHolder(nn.Module):
 
 
 class _DefaultFunctionalQuantizerFactory:
-    """Construct the standard Brevitas activation and weight quantizer modules."""
+    """Construct the standard Brevitas activation and weight quantizer modules.
+
+    Activation classes are wrapped by ``QuantIdentity``. Weight classes create
+    their configured proxy around a small holder that exposes parameter shape and
+    output-channel metadata expected by Brevitas injectors.
+    """
 
     def create_activation(
             self, model: nn.Module, quant_class: Type, di_kwargs: Dict[str, Any],
@@ -371,6 +400,12 @@ DEFAULT_FUNCTIONAL_QUANTIZER_FACTORY = _DefaultFunctionalQuantizerFactory()
 
 
 class _QuantParametrization(nn.Module):
+    """Quantize an owned parameter lazily while functional mode is enabled.
+
+    Returning the original value when the state or proxy is disabled allows the
+    same parametrized model to execute floating reference passes without removing
+    and re-registering the parametrization.
+    """
 
     def __init__(self, state: 'FunctionalQuantState', proxy: nn.Module) -> None:
         """Store the mode state and proxy that quantize a parameter on demand."""
@@ -419,7 +454,14 @@ class _OwnerPlan:
 
 @dataclass(frozen=True)
 class FunctionalWeightOwner:
-    """Read-only description of a parameter quantized through functional operations."""
+    """Describe one parameter owned by prepared functional quantization.
+
+    The descriptor exposes the original writable parameter, its Brevitas weight
+    proxy, and the parametrization that materializes the runtime weight. Each
+    ``parameter_uses`` entry records ``(operation, argument index, transposed)``;
+    consumers can use this generic metadata without depending on the concrete
+    preparation state.
+    """
 
     module: nn.Module
     module_name: str
@@ -431,18 +473,25 @@ class FunctionalWeightOwner:
 
     @property
     def id(self) -> str:
+        """Return the stable qualified identifier used by external consumers."""
         return f'{self.module_name + ":" if self.module_name else ""}{self.parameter_name}'
 
     @property
     def original_parameter(self) -> nn.Parameter:
+        """Return the writable parameter stored behind the registered parametrization."""
         return getattr(self.module.parametrizations, self.parameter_name).original
 
 
 class FunctionalQuantState:
     """Prepared functional quantization state.
 
-    Quantizer modules remain registered on the model after a mode exits. Call
-    :meth:`cleanup` or :func:`remove_functional_quantization` to remove them.
+    Preparation discovers functional call sites, registers quantizer modules on
+    the model, and parametrizes supported parameter operands. Applying the state
+    later requires the same enabled call sites and per-module ordinals for each
+    canonical function used during the example forward. Quantizers and
+    parametrizations remain registered after a
+    mode exits; call :meth:`cleanup` or :func:`remove_functional_quantization` once
+    the functional mode is no longer active.
     """
 
     def __init__(
@@ -508,13 +557,23 @@ class FunctionalQuantState:
         self._closed = True
 
     def restart_call_sequence(self) -> None:
-        """Restart prepared call-site ordinals for a nested functional forward."""
+        """Restart call-site ordinals before another logical forward.
+
+        This is used when a consumer directly invokes the saved model ``forward``
+        more than once inside one outer module call, such as paired quantized and
+        floating reference passes.
+        """
         for reset in tuple(self._call_sequence_resetters):
             reset()
 
     @contextlib.contextmanager
     def suspend_quantization(self):
-        """Temporarily disable functional parametrizations with nested restoration."""
+        """Temporarily suspend all prepared functional quantization.
+
+        Interception remains installed, but prepared activation quantizers and
+        parameter proxies are bypassed. This lets an external optimizer perform
+        tensor operations without recursively applying functional quantization.
+        """
         previous_enabled = self.enabled
         self.enabled = False
         try:
@@ -544,8 +603,11 @@ class FunctionalQuantState:
 class FunctionalInterceptor(TorchFunctionMode):
     """Base mode for composable functional interception.
 
-    Subclasses own domain-specific hooks and implement :meth:`_intercept`. The
-    base owns mode dispatch, hook cleanup, and scoped recursion suppression.
+    The mode resolves every Torch callable through a shared operation registry and
+    delegates to :meth:`_intercept`. Subclasses own domain-specific hooks and
+    transient state; the base owns dispatch, exception-safe hook cleanup, and
+    scoped recursion suppression. A callback can be supplied for lightweight
+    composition without defining another subclass.
     """
 
     def __init__(
@@ -590,6 +652,7 @@ class FunctionalInterceptor(TorchFunctionMode):
             types: Tuple[Type, ...],
             args: Tuple[Any, ...],
             kwargs: Dict[str, Any]) -> Any:
+        """Handle one resolved operation or delegate to its original callable."""
         if self.callback is not None:
             return self.callback(operation, func, types, args, kwargs)
         return func(*args, **kwargs)
@@ -610,6 +673,7 @@ class FunctionalInterceptor(TorchFunctionMode):
 
     def __torch_function__(
             self, func: Callable, types: Tuple[Type, ...], args=(), kwargs=None) -> Any:
+        """Resolve ``func`` and dispatch it unless interception is suspended."""
         kwargs = {} if kwargs is None else dict(kwargs)
         if self.interception_suspended:
             return func(*args, **kwargs)
@@ -1055,7 +1119,14 @@ class _FunctionalQuantBuilder(_HookedMode):
 
 
 class functional_quantization_mode(_HookedMode):
-    """Apply a :class:`FunctionalQuantState` during a model forward/backward."""
+    """Apply a prepared :class:`FunctionalQuantState` to model execution.
+
+    The context enables functional weight parametrizations, tracks the currently
+    executing module, and replaces arguments at prepared functional call sites.
+    Enabled call sites not exercised during preparation raise at runtime. Only one
+    context may use a state at a time; parametrizations persist until explicit
+    state cleanup.
+    """
 
     def __init__(self, state: FunctionalQuantState, enabled: bool = True) -> None:
         """Configure application of a prepared state for one context lifetime."""
@@ -1119,7 +1190,13 @@ class functional_quantization_mode(_HookedMode):
         return func(*tuple(values), **kwargs)
 
     def checkpoint_context_fn(self) -> Callable[[], Tuple[Any, Any]]:
-        """Return a non-reentrant checkpoint ``context_fn`` for recomputation."""
+        """Return a checkpoint context that reapplies interception on recompute.
+
+        Pass the returned callable to non-reentrant ``torch.utils.checkpoint`` while
+        this mode remains active. The original forward uses the owning mode, while
+        backward recomputation receives a lightweight interceptor that delegates
+        back to it.
+        """
         if torch_version < version.parse('2.1'):
             raise RuntimeError(
                 'Functional checkpointing requires PyTorch >= 2.1 and use_reentrant=False.')
@@ -1147,7 +1224,24 @@ def prepare_functional_quantization(
     operation_registry: FunctionalOperationRegistry = DEFAULT_FUNCTIONAL_OPERATION_REGISTRY,
     quantizer_factory: FunctionalQuantizerFactory = DEFAULT_FUNCTIONAL_QUANTIZER_FACTORY
 ) -> FunctionalQuantState:
-    """Discover functional call sites and instantiate their quantizers."""
+    """Discover functional call sites and attach their quantizers to ``model``.
+
+    Exactly one representative forward is executed from ``example_inputs`` and
+    ``example_kwargs``. Every call site that will have quantization enabled later
+    must be exercised by that forward. A map value can be one quantizer spec or a
+    tuple of positional specs. Each spec accepts a quantizer class, ``None``, a
+    ``(quantizer, dependency-injection kwargs)`` pair, or a resolver called as
+    ``resolver(module, module_name, call_index)``. For parameter-dispatched binary
+    operations, a three-entry tuple assigns runtime argument 0, runtime argument 1,
+    and parameter quantization respectively. Otherwise a missing runtime argument
+    1 specification reuses argument 0. ``operation_registry`` controls
+    callable aliases and argument binding, while ``quantizer_factory`` constructs
+    the registered activation and Brevitas-compatible weight modules.
+
+    Returns:
+        A prepared state that can be applied with
+        :class:`functional_quantization_mode` and must eventually be cleaned up.
+    """
     if example_inputs is None and example_kwargs is None:
         raise ValueError(
             'prepare_functional_quantization requires example_inputs and/or example_kwargs.')
@@ -1156,5 +1250,10 @@ def prepare_functional_quantization(
 
 
 def remove_functional_quantization(model: nn.Module) -> None:
-    """Remove the functional quantization state attached to *model*."""
+    """Clean up the functional quantization state attached to ``model``.
+
+    The model is expected to have been prepared and no functional mode may still
+    be active. This removes retained quantizers, parameter parametrizations, and
+    the state attribute itself.
+    """
     getattr(model, _STATE_NAME).cleanup()

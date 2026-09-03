@@ -51,7 +51,7 @@ class LayerHandler:
 
 
 class _FunctionalTargetQuantHolder(nn.Module):
-    """Expose one target matrix and its output axis to a weight proxy."""
+    """Present one two-dimensional target matrix to a Brevitas weight proxy."""
 
     def __init__(self, weight: torch.Tensor, output_channel_dim: int) -> None:
         super().__init__()
@@ -62,7 +62,14 @@ class _FunctionalTargetQuantHolder(nn.Module):
 
 
 class FunctionalLinearTarget:
-    """Adapt one functional owner view to the layer contract used by GPxQ."""
+    """Adapt one matrix view of a functional weight owner to GPxQ.
+
+    Functional models can store many logical linear weights in one parameter, for
+    example ``[experts, out_features, in_features]``. A target selects one leading
+    index tuple, presents its matrix in canonical ``[out, in]`` orientation, owns a
+    view-local quantizer, caches the floating reference weight, and writes updates
+    back to the corresponding slice of the shared owner parameter.
+    """
 
     def __init__(
             self,
@@ -160,13 +167,19 @@ class FunctionalLinearTarget:
         return self.reference_weight
 
     def writeback(self, value: torch.Tensor) -> None:
+        """Copy a canonical updated matrix into this target's owner slice."""
         native_value = value.t() if self.transpose_weight else value
         with torch.no_grad():
             self._owner_view(self.owner.original_parameter).copy_(native_value)
 
 
 class FunctionalLinearTargetBatch:
-    """Temporary compatible expert batch used by functional GPxQ kernels."""
+    """Quantize a temporary batch of compatible functional targets.
+
+    The scheduler supplies targets from one owner with matching matrix layout.
+    Their canonical weights are flattened into a row-separable proxy invocation
+    and reshaped back to one matrix per target.
+    """
 
     def __init__(
             self, targets: List[FunctionalLinearTarget], canonical_weight: torch.Tensor) -> None:
@@ -192,13 +205,22 @@ class FunctionalLinearTargetBatch:
 
 
 def _storage_tensor(value: torch.Tensor) -> torch.Tensor:
+    """Return the tensor storage used when indexing a plain or quantized weight."""
     if isinstance(value, QuantTensor):
         return value._value_ if getattr(value, '_is_groupwise', False) else value.value
     return value
 
 
 class _FunctionalGPxQSession(FunctionalInterceptor):
-    """Observe functional matrix calls without adding runtime state to functional quantization."""
+    """Collect functional GPxQ inputs while a scoped model forward executes.
+
+    Parametrization hooks capture each owner's latest materialized weight. The
+    interceptor then identifies indexed runtime views from storage layout and
+    dispatches their activation tensors to the matching GPxQ target. Linear-style
+    operations use argument 0 as activation and argument 1 as weight; grouped-MM
+    additionally uses argument 2 as cumulative expert offsets. Quantized and
+    floating reference passes share the session but carry distinct phase state.
+    """
 
     def __init__(
             self,
@@ -224,14 +246,17 @@ class _FunctionalGPxQSession(FunctionalInterceptor):
         self.reference_pass = False
 
     def clear_runtime_weights(self) -> None:
+        """Discard materialized roots captured during the current pass."""
         for owner_id in self.runtime_weights:
             self.runtime_weights[owner_id] = None
 
     def begin_quantized_pass(self) -> None:
+        """Start a pass whose observations represent quantized execution."""
         self.reference_pass = False
         self.clear_runtime_weights()
 
     def begin_reference_pass(self) -> None:
+        """Start a pass whose observations represent floating reference execution."""
         self.reference_pass = True
         self.clear_runtime_weights()
 
@@ -270,6 +295,7 @@ class _FunctionalGPxQSession(FunctionalInterceptor):
 
     @staticmethod
     def _view_indices(root: torch.Tensor, value: torch.Tensor) -> Optional[Tuple[int, ...]]:
+        """Recover leading integer indices for a supported storage-sharing view."""
         if root.device != value.device:
             return None
         try:
@@ -305,6 +331,7 @@ class _FunctionalGPxQSession(FunctionalInterceptor):
         return tuple(indices) if offset == 0 else None
 
     def _owner_view(self, value) -> Optional[Tuple[FunctionalWeightOwner, Tuple[int, ...]]]:
+        """Resolve a runtime weight operand to one prepared owner and index tuple."""
         if not isinstance(value, torch.Tensor):
             return None
         value = _storage_tensor(value)
@@ -319,6 +346,7 @@ class _FunctionalGPxQSession(FunctionalInterceptor):
         return None
 
     def _observe_linear(self, operation, args, kwargs) -> None:
+        """Dispatch the activation for one indexed linear or right-matmul weight."""
         inp = operation.argument(args, kwargs, 0)
         weight = operation.argument(args, kwargs, 1)
         owner_view = self._owner_view(weight)
@@ -326,10 +354,12 @@ class _FunctionalGPxQSession(FunctionalInterceptor):
             self._dispatch(owner_view[0].id, owner_view[1], inp)
 
     def _dispatch(self, owner_id, indices, inp) -> None:
+        """Send one observation while both functional interceptors are suspended."""
         with self.functional_source.suspend_quantization(), self.suspend():
             self.callback(owner_id, indices, inp, self.reference_pass)
 
     def _observe_grouped(self, operation, args, kwargs) -> None:
+        """Split a grouped-MM activation into non-empty per-target observations."""
         inp = operation.argument(args, kwargs, 0)
         weight = operation.argument(args, kwargs, 1)
         offsets = operation.argument(args, kwargs, 2)
@@ -366,7 +396,12 @@ class _FunctionalGPxQSession(FunctionalInterceptor):
 
 
 class FunctionalGPxQBatch:
-    """Shared invariants and quantization for one compatible functional expert batch."""
+    """Stack per-target GPxQ buffers and weights for a batched update.
+
+    Targets are grouped by the scheduler, so this helper assumes compatible shape,
+    dtype, device, owner, and canonical orientation. It centralizes quantization,
+    buffer release, and finite-result writeback used by batched GPxQ algorithms.
+    """
 
     def __init__(self, optimizers) -> None:
         self.optimizers = list(optimizers)
@@ -409,27 +444,45 @@ class FunctionalGPxQBatch:
 
 
 class gpxq_mode(quantization_status_manager):
-    """
-    Apply GPxQ algorithm.
+    """Coordinate layerwise GPxQ calibration and weight updates.
+
+    Ordinary quantized modules are collected through forward hooks. When a
+    ``FunctionalWeightSource`` is provided, matrix owners are converted into one
+    target per leading-index combination and observed through a scoped functional
+    session. Ordinary modules are scheduled first, followed by functional owners
+    in discovery order.
 
     Args:
-        model (Module): The model to quantize with GPxQ
-        group_of_parallel_layers (Optional, List[str]): .List of lists where each inner list is a group
-            of layer names that can be optimized in parallel. Default: None
-        inplace (bool): Wheter to apply GPFQ inplace or perform a deepcopy. Default: True
-        create_weight_orig (bool): If True, store the original floating point weights before applying
-            gpxq. These weights will be used anytime quantization is disabled. Default: True
-        use_quant_activations (bool): Wheter to leave quantize activations enabled while performing
-            GPxQ. Default: False
-        act_order (bool): Whether to order greedy path following by Hessian approximation. Default: False
-        return_forward_output (bool): If True, returns the output of the forward pass. Otherwise the
-            forward call inside the context manager returns None. Default: False
-        device (str): Device the buffers are stored on. Default: cpu
-        dtype (torch.dtype): Datatype the buffers are stored in. Default: torch.float32
+        model: Model or model subtree optimized by the mode.
+        group_of_parallel_layers: Optional groups of module names calibrated and
+            updated together.
+        inplace: Apply updates to ``model``. Functional targets require ``True``.
+        create_weight_orig: Preserve floating module weights for algorithms that
+            require a reference copy.
+        use_quant_activations: Leave activation quantizers enabled during collection.
+        act_order: Process columns according to activation magnitude when supported.
+        return_forward_output: Run an additional forward with GPxQ collection
+            disabled and return its output.
+        device: Device used for calibration buffers, or ``"same"`` where supported.
+        dtype: Data type used for calibration buffers and update calculations.
+        functional_state: Optional ``FunctionalWeightSource`` providing prepared
+            functional owners and call-sequence control.
+        min_samples: Minimum observations required before optimizing a functional
+            target. At least one observation is always required.
+        insufficient_samples: Policy for under-observed targets: ``"rtn"``,
+            ``"error"``, or ``"gpxq"``.
+        expert_batch_size: Number of compatible functional targets updated together.
+        functional_linear_functions: Additional linear-style operations with
+            activation argument 0 and weight argument 1 in ``[out, in]`` layout.
+        functional_matmul_functions: Additional right-matrix operations with
+            activation argument 0 and weight argument 1.
+        functional_grouped_mm_functions: Additional grouped-MM operations using
+            activation, weight, and cumulative offsets at arguments 0, 1, and 2.
 
     Example:
+        >>> from brevitas.graph.gptq import gptq_mode
         >>> with torch.no_grad():
-        >>>     with gpxq_mode(model) as gpxq:
+        >>>     with gptq_mode(model) as gpxq:
         >>>         gpxq_mode = gpxq.model
         >>>         for i in tqdm(range(gpxq.num_layers)):
         >>>             for img, t in calib_loader:
@@ -556,6 +609,7 @@ class gpxq_mode(quantization_status_manager):
             for candidate in candidates)
 
     def _setup(self):
+        """Create module optimizers, functional targets, hooks, and observation state."""
         # The user can specify on which layers to apply gptq in parallel.
         # All the others will be executed sequentially
         dict_of_layers = {
@@ -655,6 +709,7 @@ class gpxq_mode(quantization_status_manager):
             self._advance_functional_target()
 
     def __enter__(self):
+        """Apply quantization status changes and install GPxQ runtime state."""
         status_entered = False
         try:
             # Disable quantization selectively
@@ -678,6 +733,7 @@ class gpxq_mode(quantization_status_manager):
         return self
 
     def __exit__(self, type, value, traceback):
+        """Remove sessions and hooks, restore ``forward``, and reset quantization status."""
         try:
             if self.functional_session is not None and self._functional_session_entered:
                 self.functional_session.__exit__(type, value, traceback)
@@ -691,6 +747,7 @@ class gpxq_mode(quantization_status_manager):
             self._restore_forward()
 
     def update(self):
+        """Update the currently scheduled module group or functional owner."""
         for name in tuple(self.current_layer.layer_names):
             self.gpxq_layers[name].single_layer_update()
             handle = self.hook_dict.pop(name, None)
@@ -831,6 +888,13 @@ class gpxq_mode(quantization_status_manager):
 
 
 class GPxQ(ABC):
+    """Base optimizer for one module or functional matrix target.
+
+    Subclasses allocate algorithm-specific calibration buffers, consume forward
+    observations through :meth:`update_batch`, and update the target weight in
+    :meth:`single_layer_update`. Returning ``True`` from the update signals that
+    numerical failure required the caller to retain the fallback quantization.
+    """
 
     def __init__(
             self,
@@ -957,12 +1021,14 @@ class GPxQ(ABC):
         return inp_processed
 
     @abstractmethod
-    def update_batch(self):
-        pass
+    def update_batch(self, *args, **kwargs):
+        """Accumulate calibration statistics from one observed forward input."""
+        raise NotImplementedError
 
     @abstractmethod
-    def single_layer_update(self):
-        pass
+    def single_layer_update(self, *args, **kwargs):
+        """Apply one algorithm update and report whether fallback was required."""
+        raise NotImplementedError
 
     def get_quant_weights(self, i, i1, permutation_list, with_quant_history=False):
 
