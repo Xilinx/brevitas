@@ -364,8 +364,9 @@ class TestTorchFunctionFallback:
         qa = _make_int_qt()
         qb = _make_int_qt()
         # torch.stack is not in any handler
-        result = torch.stack([qa.value, qb.value])
+        result = torch.stack([qa, qb])
         assert isinstance(result, torch.Tensor)
+        assert not isinstance(result, QuantTensor)
 
     def test_handled_function_relu(self):
         """F.relu IS in the handler map, should return QuantTensor."""

@@ -41,14 +41,15 @@ class GroupwiseFloatQuantTensor(GroupwiseQuantTensorMixin, FloatMixin, QuantTens
             signed,
             training,
             dequant_shape=None):
-        scale = self._as_tensor(scale, torch.float)
-        zero_point = self._as_tensor(zero_point, torch.float)
-        exponent_bit_width = self._as_tensor(exponent_bit_width, torch.float)
-        mantissa_bit_width = self._as_tensor(mantissa_bit_width, torch.float)
-        exponent_bias = self._as_tensor(exponent_bias, torch.float)
-        saturating = self._as_tensor(saturating, torch.bool)
-        signed = self._as_tensor(signed, torch.bool)
-        training = self._as_tensor(training, torch.bool)
+        device = self._value.device
+        scale = self._as_tensor(scale, torch.float, device)
+        zero_point = self._as_tensor(zero_point, torch.float, device)
+        exponent_bit_width = self._as_tensor(exponent_bit_width, torch.float, device)
+        mantissa_bit_width = self._as_tensor(mantissa_bit_width, torch.float, device)
+        exponent_bias = self._as_tensor(exponent_bias, torch.float, device)
+        saturating = self._as_tensor(saturating, torch.bool, device)
+        signed = self._as_tensor(signed, torch.bool, device)
+        training = self._as_tensor(training, torch.bool, device)
         self._exponent_bit_width = exponent_bit_width
         self._mantissa_bit_width = mantissa_bit_width
         self._exponent_bias = exponent_bias

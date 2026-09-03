@@ -12,6 +12,7 @@ from brevitas.function.ops_ste import round_ste
 from brevitas.utils.torch_utils import float_internal_scale
 
 TOLERANCE = {torch.float64: 1e-1, torch.float32: 2e-1, torch.float16: 0.5, torch.bfloat16: 0.5}
+_MISSING = object()
 
 
 # Base class for all QuantTensor types.
@@ -47,6 +48,12 @@ class QuantTensor(Tensor):
 
     # Constructor parameter names mapped to private metadata attributes.
     _constructor_metadata = {}
+
+    @staticmethod
+    def _as_tensor(value, dtype, device):
+        """Convert metadata literals without moving tensor-valued metadata."""
+        return value if isinstance(value, Tensor) else torch.tensor(
+            value, dtype=dtype, device=device)
 
     def _get_constructor_kwargs(self):
         """Return constructor metadata from its private backing attributes."""
@@ -105,13 +112,12 @@ class QuantTensor(Tensor):
 
         ``value`` replaces the raw constructor value.
         """
-        value = kwargs.pop('value', None)
+        value = kwargs.pop('value', _MISSING)
         ctor_kwargs = self._get_constructor_kwargs()
         ctor_kwargs.update(kwargs)
-        if value is not None:
-            new_value = value
-        else:
-            new_value = self._value
+        if value is None:
+            raise TypeError('QuantTensor value must be a Tensor, not None.')
+        new_value = self._value if value is _MISSING else value
         return self._reconstruct(new_value, ctor_kwargs)
 
     def detach_(self):
@@ -120,6 +126,7 @@ class QuantTensor(Tensor):
             val = getattr(self, attribute)
             if isinstance(val, Tensor):
                 val.detach_()
+        return self
 
     def detach(self):
         return self._apply_and_reconstruct(Tensor.detach)
@@ -199,11 +206,6 @@ class QuantTensor(Tensor):
 
 class GroupwiseQuantTensorMixin:
     """Implement behavior shared by QuantTensors with compressed groupwise storage."""
-
-    @staticmethod
-    def _as_tensor(value, dtype):
-        """Convert metadata literals to Tensors while preserving Tensor inputs."""
-        return value if isinstance(value, Tensor) else torch.tensor(value, dtype=dtype)
 
     def _set_groupwise_metadata(
             self, scale, zero_point, group_size, group_dim, signed, training, dequant_shape):
