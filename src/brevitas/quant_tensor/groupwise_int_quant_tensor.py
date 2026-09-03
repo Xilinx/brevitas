@@ -5,6 +5,7 @@ import torch
 
 from brevitas.function.ops_ste import round_ste
 from brevitas.quant_tensor import _unpack_quant_tensor
+from brevitas.quant_tensor.base_quant_tensor import GroupwiseQuantTensorMixin
 from brevitas.quant_tensor.base_quant_tensor import IntMixin
 from brevitas.quant_tensor.base_quant_tensor import QuantTensor
 from brevitas.utils.torch_utils import float_internal_scale
@@ -13,7 +14,7 @@ from .int_torch_handler import INT_QUANT_TENSOR_FN_HANDLER
 from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
 
-class GroupwiseIntQuantTensor(IntMixin, QuantTensor):
+class GroupwiseIntQuantTensor(GroupwiseQuantTensorMixin, IntMixin, QuantTensor):
 
     _fields = (
         'scale_',
@@ -25,7 +26,6 @@ class GroupwiseIntQuantTensor(IntMixin, QuantTensor):
         'training',
         'dequant_shape')
     _field_to_constructor_param = {'scale_': 'scale', 'zero_point_': 'zero_point'}
-    _is_groupwise = True
 
     def __new__(
             cls,
@@ -64,9 +64,6 @@ class GroupwiseIntQuantTensor(IntMixin, QuantTensor):
             signed = torch.tensor(signed, dtype=torch.bool)
         if not isinstance(training, torch.Tensor):
             training = torch.tensor(training, dtype=torch.bool)
-        # Store raw (grouped) versions with trailing underscore
-        self._value_ = value if isinstance(value, torch.Tensor) else torch.tensor(
-            value, dtype=torch.float)
         self.scale_ = scale
         self.zero_point_ = zero_point
         self._group_size = group_size
@@ -119,7 +116,7 @@ class GroupwiseIntQuantTensor(IntMixin, QuantTensor):
     def expand(self, expand_metadata=True):
         from brevitas.utils.quant_utils import groupwise_dequant_expand
         return groupwise_dequant_expand(
-            self._value_,
+            self._value,
             self.scale_,
             self.zero_point_,
             self.group_dim,
@@ -156,7 +153,7 @@ class GroupwiseIntQuantTensor(IntMixin, QuantTensor):
 
     @property
     def device(self):
-        value_device = self._value_.device
+        value_device = self._value.device
         is_same_device = True
         for t in [self.scale_, self.zero_point_, self._bit_width]:
             is_same_device &= value_device == t.device
