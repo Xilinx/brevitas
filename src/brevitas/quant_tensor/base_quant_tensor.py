@@ -147,6 +147,16 @@ class QuantTensor(Tensor):
     def contiguous(self):
         return self._apply_and_reconstruct(Tensor.contiguous)
 
+    def _slice_constructor_kwargs(self, index):
+        """Slice tensor metadata that is aligned with the leading value dimension."""
+        original_shape = self.value.shape
+        metadata_kwargs = self._get_metadata_kwargs()
+        for name, metadata in tuple(metadata_kwargs.items()):
+            if (isinstance(metadata, Tensor) and metadata.dim() > 0 and
+                    metadata.shape[0] == original_shape[0]):
+                metadata_kwargs[name] = metadata[index]
+        return metadata_kwargs
+
     def __getitem__(self, index):
         """Index the leading dimension while preserving aligned quantization metadata."""
         if isinstance(index, Tensor):
@@ -157,28 +167,7 @@ class QuantTensor(Tensor):
         if not isinstance(index, (int, slice)):
             raise TypeError('QuantTensor indexing supports an integer or slice.')
 
-        is_groupwise = getattr(self, '_is_groupwise', False)
-        source_value = self._value_ if is_groupwise else self.value
-        original_shape = self.value.shape
-        ctor_kwargs = self._get_constructor_kwargs()
-        for name, metadata in tuple(ctor_kwargs.items()):
-            if isinstance(metadata,
-                          Tensor) and metadata.dim() > 0 and metadata.shape[0] == original_shape[0]:
-                ctor_kwargs[name] = metadata[index]
-
-        if is_groupwise:
-            if isinstance(index, int):
-                group_dim = self.group_dim
-                normalized_group_dim = group_dim if group_dim >= 0 else group_dim + len(
-                    original_shape)
-                if normalized_group_dim == 0:
-                    raise RuntimeError('Cannot remove the grouped dimension through indexing.')
-                ctor_kwargs['group_dim'] = group_dim - 1 if group_dim > 0 else group_dim
-                if self.dequant_shape is not None:
-                    ctor_kwargs['dequant_shape'] = tuple(self.dequant_shape[1:])
-            elif self.dequant_shape is not None:
-                ctor_kwargs['dequant_shape'] = tuple(self.value[index].shape)
-        return type(self)(source_value[index], **ctor_kwargs)
+        return self._reconstruct(self._value[index], self._slice_constructor_kwargs(index))
 
     @property
     def shape(self):
@@ -338,6 +327,22 @@ class GroupwiseQuantTensorMixin:
 
     def permute(self, *args, **kwargs):
         return self.value.permute(*args, **kwargs)
+
+    def _slice_constructor_kwargs(self, index):
+        """Update group geometry after indexing the dequantized leading dimension."""
+        metadata_kwargs = super()._slice_constructor_kwargs(index)
+        if isinstance(index, int):
+            group_dim = self.group_dim
+            original_shape = self.value.shape
+            normalized_group_dim = group_dim if group_dim >= 0 else group_dim + len(original_shape)
+            if normalized_group_dim == 0:
+                raise RuntimeError('Cannot remove the grouped dimension through indexing.')
+            metadata_kwargs['group_dim'] = group_dim - 1 if group_dim > 0 else group_dim
+            if self.dequant_shape is not None:
+                metadata_kwargs['dequant_shape'] = tuple(self.dequant_shape[1:])
+        elif self.dequant_shape is not None:
+            metadata_kwargs['dequant_shape'] = tuple(self.value[index].shape)
+        return metadata_kwargs
 
 
 class IntMixin:
