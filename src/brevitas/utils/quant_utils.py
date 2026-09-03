@@ -100,8 +100,8 @@ class _CachedIOGroupwiseFloat:
             # torch.compile compatibility
             self.value = quant_tensor.value
         # torch.compile compatibility
-        self.scale_ = quant_tensor.scale_
-        self.zero_point_ = quant_tensor.zero_point_
+        self._scale = quant_tensor._scale
+        self._zero_point = quant_tensor._zero_point
 
     @property
     def exponent_bit_width(self):
@@ -152,8 +152,8 @@ class _CachedIOGroupwiseInt:
             # torch.compile compatibility
             self.value = quant_tensor.value
         # torch.compile compatibility
-        self.scale_ = quant_tensor.scale_
-        self.zero_point_ = quant_tensor.zero_point_
+        self._scale = quant_tensor._scale
+        self._zero_point = quant_tensor._zero_point
 
     @property
     def bit_width(self):
