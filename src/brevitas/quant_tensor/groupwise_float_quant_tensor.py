@@ -5,13 +5,14 @@ import torch
 
 from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor.base_quant_tensor import FloatMixin
+from brevitas.quant_tensor.base_quant_tensor import GroupwiseQuantTensorMixin
 from brevitas.quant_tensor.base_quant_tensor import QuantTensor
 
 from .float_torch_handler import FLOAT_QUANT_TENSOR_FN_HANDLER
 from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
 
-class GroupwiseFloatQuantTensor(FloatMixin, QuantTensor):
+class GroupwiseFloatQuantTensor(GroupwiseQuantTensorMixin, FloatMixin, QuantTensor):
 
     _fields = (
         'scale_',
@@ -28,7 +29,6 @@ class GroupwiseFloatQuantTensor(FloatMixin, QuantTensor):
         'training',
         'dequant_shape')
     _field_to_constructor_param = {'scale_': 'scale', 'zero_point_': 'zero_point'}
-    _is_groupwise = True
 
     def __new__(
             cls,
@@ -83,9 +83,6 @@ class GroupwiseFloatQuantTensor(FloatMixin, QuantTensor):
             signed = torch.tensor(signed, dtype=torch.bool)
         if not isinstance(training, torch.Tensor):
             training = torch.tensor(training, dtype=torch.bool)
-        # Store raw (grouped) versions with trailing underscore
-        self._value_ = value if isinstance(value, torch.Tensor) else torch.tensor(
-            value, dtype=torch.float)
         self.scale_ = scale
         self.zero_point_ = zero_point
         self._group_size = group_size
@@ -178,7 +175,7 @@ class GroupwiseFloatQuantTensor(FloatMixin, QuantTensor):
     def expand(self, expand_metadata=True):
         from brevitas.utils.quant_utils import groupwise_dequant_expand
         return groupwise_dequant_expand(
-            self._value_,
+            self._value,
             self.scale_,
             self.zero_point_,
             self.group_dim,
@@ -215,7 +212,7 @@ class GroupwiseFloatQuantTensor(FloatMixin, QuantTensor):
 
     @property
     def device(self):
-        value_device = self._value_.device
+        value_device = self._value.device
         is_same_device = True
         for t in [self.scale_,
                   self.zero_point_,

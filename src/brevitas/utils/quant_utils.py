@@ -94,7 +94,7 @@ class _CachedIOGroupwiseFloat:
     def __init__(self, quant_tensor: GroupwiseFloatQuantTensor, metadata_only: bool):
         self.shape = quant_tensor.value.shape
         self.value = None if metadata_only else quant_tensor.value
-        self._value = None if metadata_only else quant_tensor._value_
+        self._value = None if metadata_only else quant_tensor._value
         self._quant_tensor = None if metadata_only else quant_tensor
         self.scale_ = quant_tensor.scale_
         self.zero_point_ = quant_tensor.zero_point_
@@ -146,7 +146,7 @@ class _CachedIOGroupwiseInt:
     def __init__(self, quant_tensor: GroupwiseIntQuantTensor, metadata_only: bool):
         self.shape = quant_tensor.value.shape
         self.value = None if metadata_only else quant_tensor.value
-        self._value = None if metadata_only else quant_tensor._value_
+        self._value = None if metadata_only else quant_tensor._value
         self._quant_tensor = None if metadata_only else quant_tensor
         self.scale_ = quant_tensor.scale_
         self.zero_point_ = quant_tensor.zero_point_
