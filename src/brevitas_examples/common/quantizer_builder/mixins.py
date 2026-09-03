@@ -26,7 +26,9 @@ from torch import nn
 
 from brevitas.core.function_wrapper.ops_ste import FloorSte
 from brevitas.core.function_wrapper.shape import StatsInputViewShapeImpl
+from brevitas.core.restrict_val import FloatRestrictValue
 from brevitas.core.restrict_val import PowerOfTwoRestrictValue
+from brevitas.core.restrict_val import QuantRestrictValue
 from brevitas.core.stats import MSE
 from brevitas.core.stats.stats_op import HalfQuadraticOptimizerScale
 from brevitas.core.stats.stats_op import HalfQuadraticOptimizerZeroPoint
@@ -124,9 +126,8 @@ class SolveParameterZeroPointImplFromEnum(ExtendedInjector):
     """
 
     @value
-    def zero_point_impl(
-            zero_point_impl_type=None,
-            scaling_impl_type=None) -> Optional[Type[nn.Module]]:
+    def zero_point_impl(zero_point_impl_type=None,
+                        scaling_impl_type=None) -> Optional[Type[nn.Module]]:
         # Fallback: derive zero_point_impl_type from the scale storage strategy.
         if zero_point_impl_type is None:
             if scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS:
@@ -206,6 +207,32 @@ class GroupwisePoTMixin(ExtendedInjector):
     @value
     def midmax_mantissa_bit_bias(mantissa_bit_width, nan_values, inf_values):
         return get_midmax_mantissa_bit_bias(mantissa_bit_width, nan_values, inf_values)
+
+
+class QuantScaleMixin(ExtendedInjector):
+    """Restrict the scale through a *nested* quantizer (a quantized scale).
+
+    Replaces the power-of-two / float scale restriction: instead of rounding the
+    scale to a grid, it is quantized by ``scaling_float_quant`` (a nested quantizer
+    injector supplied by :class:`~.components.QuantScaleRestrictComponent`).
+    Mirrors the reference ``QuantScaleMXFloat8e4m3Weight``.
+    """
+    restrict_scaling_impl = QuantRestrictValue
+    restrict_threshold_impl = FloatRestrictValue
+    restrict_threshold_with_scale = True
+
+    @value
+    def restrict_value_float_to_int_impl():
+        # The scale is "rounded" by quantizing it through the nested scale quantizer.
+        return this.scaling_float_quant.tensor_quant
+
+    @value
+    def scale_dequantized_shape(scaling_per_output_type, scaling_shape):
+        # Only groupwise scales are reshaped back to their (expanded) scaling shape
+        # after de-quantization; per-tensor / per-channel keep None.
+        if scaling_per_output_type == ScalingPerOutputType.GROUP:
+            return scaling_shape
+        return None
 
 
 @value

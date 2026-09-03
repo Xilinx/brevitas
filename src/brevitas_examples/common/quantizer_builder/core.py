@@ -70,7 +70,11 @@ class QuantizerConfig:
     restrict_scaling_type: RestrictValueType = field(default_factory=lambda: RestrictValueType.FP)
     scaling_param_method: ParamMethod = field(default_factory=lambda: ParamMethod.STATS)
     zero_point_param_method: Optional[ParamMethod] = None
+    # Caller-supplied namespace overrides (highest precedence, applied over every
+    # component's attrs) and base classes (lowest MRO priority, appended after
+    # every component's bases).
     extra: Dict[str, Any] = field(default_factory=dict)
+    extra_bases: Tuple[Type, ...] = ()
 
     @property
     def is_int(self) -> bool:
@@ -137,15 +141,16 @@ class QuantizerConfig:
         # MSE/HQO SCALE incompatible with dynamic scale
         if self.is_dynamic and self.scaling_param_method != ParamMethod.STATS:
             raise ValueError(
-                "Dynamic scale quantization not supported with non-STATS scaling_param_method (MSE/HQO).")
+                "Dynamic scale quantization not supported with non-STATS scaling_param_method (MSE/HQO)."
+            )
         # MSE/HQO ZERO_POINT incompatible with dynamic scale
         if self.is_asym and self.is_dynamic and self.zero_point_param_method is not None:
             raise ValueError(
-                "Dynamic zero-point quantization not supported with non-None zero_point_param_method (MSE/HQO).")
+                "Dynamic zero-point quantization not supported with non-None zero_point_param_method (MSE/HQO)."
+            )
         # HQO is incomptible with non-integer quantization
         if self.scaling_param_method == ParamMethod.HQO and not self.is_int:
-            raise ValueError(
-                "HQO scaling_param_method is only supported for integer quantization.")
+            raise ValueError("HQO scaling_param_method is only supported for integer quantization.")
         # An MSE scale and an HQO zero-point mix incompatible input-view shapes
         # across the two local-loss optimizers (no reference quantizer pairs them,
         # and HalfQuadraticOptimizerZeroPoint crashes on the shape mismatch).
@@ -156,7 +161,8 @@ class QuantizerConfig:
         # For groupwise quantization, `group_dim` and `group_size` must be specified in `extra`
         if self.is_groupwise and ('group_dim' not in self.extra or 'group_size' not in self.extra):
             raise ValueError(
-                "For groupwise quantization, `group_dim` and `group_size` must be specified in `extra`.")
+                "For groupwise quantization, `group_dim` and `group_size` must be specified in `extra`."
+            )
 
 
 @dataclass(frozen=True)
