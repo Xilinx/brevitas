@@ -166,6 +166,25 @@ class QuantizerConfig:
 
 
 @dataclass(frozen=True)
+class QuantScaleQuantizerConfig(QuantizerConfig):
+    """A :class:`QuantizerConfig` whose scale is itself quantized by a *nested*
+    quantizer, described by ``scale_config``.
+
+    Used together with ``restrict_scaling_type == RestrictValueType.QUANT``. It is
+    passed to the builder like any other config, so the quant-scale component reads
+    the nested config from ``build(config)`` without holding any state.
+    """
+    scale_config: Optional[QuantizerConfig] = None
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.restrict_scaling_type == RestrictValueType.QUANT and self.scale_config is None:
+            raise ValueError(
+                "QuantScaleQuantizerConfig requires a `scale_config` when "
+                "`restrict_scaling_type == RestrictValueType.QUANT`.")
+
+
+@dataclass(frozen=True)
 class Contribution:
     """A component's delta to the injector: the only type that knows about the
     ``(namespace, base_classes)`` pair. Components return these and the builder
