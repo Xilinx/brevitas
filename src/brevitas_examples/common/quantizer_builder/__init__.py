@@ -24,6 +24,7 @@ from brevitas_examples.common.quantizer_builder.core import FloatFormatConfig
 from brevitas_examples.common.quantizer_builder.core import FormatConfig
 from brevitas_examples.common.quantizer_builder.core import IntFormatConfig
 from brevitas_examples.common.quantizer_builder.core import QuantizerConfig
+from brevitas_examples.common.quantizer_builder.core import QuantScaleQuantizerConfig
 from brevitas_examples.common.quantizer_builder.input import InputQuantizerBuilder
 from brevitas_examples.common.quantizer_builder.mixins import FloatFormat
 from brevitas_examples.common.quantizer_builder.mixins import ParamMethod
@@ -43,6 +44,7 @@ __all__ = [
     "build_quantizer",
     "config_from_flat_args",
     "QuantizerConfig",
+    "QuantScaleQuantizerConfig",
     "IntFormatConfig",
     "FloatFormatConfig",
     "FormatConfig",
