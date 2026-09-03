@@ -5,6 +5,8 @@ from functools import reduce
 from operator import mul
 import os
 
+from hypothesis import given
+from hypothesis import settings
 from packaging.version import parse
 import pytest
 from pytest_cases import get_case_id
@@ -15,25 +17,21 @@ from brevitas import torch_version
 
 from ..export_fixture import rm_onnx
 from .common import *
+from .quant_module_cases import build_wbiol_model
 from .quant_module_cases import QuantAvgPoolCases
 from .quant_module_cases import QuantRecurrentCases
-from .quant_module_cases import QuantWBIOLCases
+from .quant_module_cases import wbiol_config_st
+from .quant_module_cases import WBIOL_MAX_EXAMPLES
 
 
-@parametrize_with_cases('model', cases=QuantWBIOLCases)
-@pytest.mark.parametrize('export_type', ['qcdq', 'qcdq_dynamo', 'qonnx', 'qonnx_dynamo'])
-def test_ort_wbiol(model, export_type, current_cases):
-    cases_generator_func = current_cases['model'][1]
-    case_id = get_case_id(cases_generator_func)
-    # case_id has the form
-    # 'quant_wbiol-{quantizer}-o#-w#-i#-{impl}-rtype_{round|floor}-{export_type}', so the
-    # fields are indexed from the end: export_type=-1, rounding=-2, impl=-3, i_bit=-4,
-    # w_bit=-5, o_bit=-6, quantizer=-7.
-    rounding = case_id.split('-')[-2].replace('rtype_', '')
-    impl = case_id.split('-')[-3]
-    quantizer = case_id.split('-')[-7]
-    o_bit_width = case_id.split('-')[-6]
-    i_bit_width = case_id.split('-')[-4]
+@settings(max_examples=WBIOL_MAX_EXAMPLES, deadline=None)
+@given(config=wbiol_config_st())
+def test_ort_wbiol(config):
+    model = build_wbiol_model(config)
+    rounding = config.rounding_type
+    impl = config.impl.__name__
+    quantizer = config.quantizer_name
+    export_type = config.export_type
     onnx_opset = DEFAULT_ONNX_OPSET
     export_q_weight = False
 
@@ -41,32 +39,7 @@ def test_ort_wbiol(model, export_type, current_cases):
     # integer-initializer export instead, so they are excluded from Q-node export.
     if rounding == 'round' and 'a2q' not in quantizer:
         export_q_weight = True
-
-    if export_type == 'qcdq_dynamo':
-        # The dynamo (torch.export) QCDQ path only supports configs that don't rely on
-        # data_ptr()-keyed integer export (i.e. quantized bias / integer-initializer
-        # weights). In the WBIOL cases bias is quantized for everything except the fp8
-        # and dynamic-activation quantizers, so we limit dynamo coverage to those.
-        if torch_version < parse('2.8'):
-            pytest.skip('QCDQ dynamo export requires PyTorch >= 2.8')
-        if rounding != 'round':
-            pytest.skip(
-                'Dynamo QCDQ exports weights as a Q-node; QuantizeLinear supports only '
-                'round-to-nearest-even, so non-round weight rounding is unsupported.')
-        if 'fp8' not in quantizer and 'dynamic' not in quantizer:
-            pytest.skip('QCDQ dynamo export does not support quantized bias (data_ptr export).')
-
-    if export_type == 'qonnx_dynamo' and torch_version < parse('2.8'):
-        pytest.skip('QONNX dynamo export requires PyTorch >= 2.8')
-
-    if 'QuantLinear' in impl and 'asymmetric' in quantizer:
-        pytest.skip('ORT execution is unreliable and fails randomly on a subset of cases.')
-    if 'dynamic' in quantizer and ((o_bit_width != "o8" or i_bit_width != "i8") or
-                                   export_type not in ("qcdq", "qcdq_dynamo")):
-        pytest.skip('Dynamic Act Quant supported only for 8bit and QCDQ export')
-    if torch_version < parse('2.1') and 'fp8' in quantizer:
-        pytest.skip('FP8 requires PyTorch 2.1 or higher')
-    elif torch_version >= parse('2.1') and 'fp8' in quantizer:
+    if 'fp8' in quantizer:
         onnx_opset = 19
         export_q_weight = True
 
@@ -85,18 +58,20 @@ def test_ort_wbiol(model, export_type, current_cases):
 
     model(torch.from_numpy(inp))  # accumulate scale factors
     model.eval()
-    export_name = f'qcdq_qop_export_{case_id}.onnx'
-    assert is_brevitas_ort_close(
-        model,
-        inp,
-        export_name,
-        export_type,
-        tolerance=INT_TOLERANCE,
-        first_output_only=True,
-        onnx_opset=onnx_opset,
-        export_q_weight=export_q_weight)
-
-    rm_onnx(export_name)
+    export_name = f'qcdq_qop_export_{config.id}.onnx'
+    try:
+        close = is_brevitas_ort_close(
+            model,
+            inp,
+            export_name,
+            export_type,
+            tolerance=INT_TOLERANCE,
+            first_output_only=True,
+            onnx_opset=onnx_opset,
+            export_q_weight=export_q_weight)
+    finally:
+        rm_onnx(export_name)
+    assert close
 
 
 @parametrize_with_cases('model', cases=QuantAvgPoolCases)
