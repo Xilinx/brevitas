@@ -18,11 +18,11 @@ class GroupwiseWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
         super().__init__(quant_layer, quant_injector)
         self.cache_class = _CachedIOGroupwiseInt
 
-    def scale_(self):
-        return self.retrieve_attribute('scale_')
+    def _scale(self):
+        return self.retrieve_attribute('_scale')
 
-    def zero_point_(self):
-        return self.retrieve_attribute('zero_point_')
+    def _zero_point(self):
+        return self.retrieve_attribute('_zero_point')
 
     @property
     def group_dim(self):

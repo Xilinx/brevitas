@@ -424,9 +424,9 @@ class ModelBase:
         quant_weight = module.quant_weight()
         weight_quant = module.weight_quant
         quant_data = quant_weight.int()
-        scale = quant_weight.scale_ if hasattr(quant_weight, 'scale_') else quant_weight.scale
-        zp = quant_weight.zero_point_ if hasattr(
-            quant_weight, 'zero_point_') else quant_weight.zero_point
+        scale = quant_weight._scale if hasattr(quant_weight, '_scale') else quant_weight.scale
+        zp = quant_weight._zero_point if hasattr(
+            quant_weight, '_zero_point') else quant_weight.zero_point
         _, quant_data = self.modify_tensors(quant_data, name, bid)[0]
 
         # TODO: Generalize this to have a map between GGUF quant type
