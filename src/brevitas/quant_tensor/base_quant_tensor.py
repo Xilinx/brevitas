@@ -15,7 +15,8 @@ TOLERANCE = {torch.float64: 1e-1, torch.float32: 2e-1, torch.float16: 0.5, torch
 
 
 # Base class for all QuantTensor types.
-# Subclasses torch.Tensor, where the underlying tensor data represents the dequantized `value`.
+# Subclasses torch.Tensor, where the underlying data is raw storage: dequantized for regular
+# QuantTensors and grouped for groupwise QuantTensors.
 # Quantization metadata (scale, zero_point, bit_width, etc.) are stored as regular attributes.
 class QuantTensor(Tensor):
 
@@ -44,17 +45,14 @@ class QuantTensor(Tensor):
         # Use as_subclass to preserve grad_fn and requires_grad.
         return self._value
 
-    # Mapping from _fields names to constructor parameter names.
-    # Override in subclasses where they differ (e.g. groupwise: scale_ -> scale).
-    _field_to_constructor_param = {}
+    # Constructor parameter names mapped to private metadata attributes.
+    _constructor_metadata = {}
 
     def _get_constructor_kwargs(self):
-        """Return a dict of constructor_param_name -> value for all metadata fields."""
-        result = {}
-        for field in self._fields:
-            param_name = self._field_to_constructor_param.get(field, field)
-            result[param_name] = getattr(self, field)
-        return result
+        """Return constructor metadata from its private backing attributes."""
+        return {
+            parameter: getattr(self, attribute) for parameter,
+            attribute in self._constructor_metadata.items()}
 
     def _reconstruct(self, value, ctor_kwargs=None, metadata_transform=None):
         """
@@ -69,17 +67,37 @@ class QuantTensor(Tensor):
         else:
             ctor_kwargs = dict(ctor_kwargs)
         if metadata_transform is not None:
-            for key, metadata in ctor_kwargs.items():
+            for parameter, metadata in ctor_kwargs.items():
                 if isinstance(metadata, Tensor):
-                    ctor_kwargs[key] = metadata_transform(metadata)
-        ctor_kwargs.pop('value', None)
+                    ctor_kwargs[parameter] = metadata_transform(parameter, metadata)
         return type(self)(value, **ctor_kwargs)
 
     def _apply_and_reconstruct(self, tensor_op, *args, **kwargs):
         """Apply a Tensor operation to the constructor value and tensor metadata."""
+
+        def transform_metadata(parameter, metadata):
+            if tensor_op is Tensor.to and parameter in {'signed', 'training', 'saturating'}:
+                device = kwargs.get('device')
+                if device is None and args:
+                    target = args[0]
+                    if isinstance(target, Tensor):
+                        device = target.device
+                    elif isinstance(target, (str, torch.device)):
+                        device = target
+                if device is not None:
+                    return metadata.to(device=device)
+                return metadata
+            return tensor_op(metadata, *args, **kwargs)
+
         return self._reconstruct(
-            tensor_op(self._value, *args, **kwargs),
-            metadata_transform=lambda metadata: tensor_op(metadata, *args, **kwargs))
+            tensor_op(self._value, *args, **kwargs), metadata_transform=transform_metadata)
+
+    def _metadata_on_device(self, device):
+        """Return whether every tensor-backed metadata field is on ``device``."""
+        return all(
+            device == getattr(self, attribute).device
+            for attribute in self._constructor_metadata.values()
+            if isinstance(getattr(self, attribute), Tensor))
 
     def set(self, **kwargs):
         """
@@ -89,14 +107,7 @@ class QuantTensor(Tensor):
         """
         value = kwargs.pop('value', None)
         ctor_kwargs = self._get_constructor_kwargs()
-        # Map any field-name kwargs to constructor param names
-        mapped_kwargs = {}
-        for k, v in kwargs.items():
-            param_name = self._field_to_constructor_param.get(k, k)
-            mapped_kwargs[param_name] = v
-        ctor_kwargs.update(mapped_kwargs)
-        # Remove value from kwargs dict because it is positional.
-        ctor_kwargs.pop('value', None)
+        ctor_kwargs.update(kwargs)
         if value is not None:
             new_value = value
         else:
@@ -105,8 +116,8 @@ class QuantTensor(Tensor):
 
     def detach_(self):
         super().detach_()
-        for field in self._fields:
-            val = getattr(self, field)
+        for attribute in self._constructor_metadata.values():
+            val = getattr(self, attribute)
             if isinstance(val, Tensor):
                 val.detach_()
 
@@ -187,7 +198,138 @@ class QuantTensor(Tensor):
 
 
 class GroupwiseQuantTensorMixin:
-    """Adapt leading-dimension indexing for compressed groupwise storage."""
+    """Implement behavior shared by QuantTensors with compressed groupwise storage."""
+
+    @staticmethod
+    def _as_tensor(value, dtype):
+        """Convert metadata literals to Tensors while preserving Tensor inputs."""
+        return value if isinstance(value, Tensor) else torch.tensor(value, dtype=dtype)
+
+    def _set_groupwise_metadata(
+            self, scale, zero_point, group_size, group_dim, signed, training, dequant_shape):
+        """Store groupwise metadata shared by integer and floating-point formats."""
+        self._scale = scale
+        self._zero_point = zero_point
+        self._group_size = group_size
+        self._group_dim = group_dim
+        self._signed = signed
+        self._training = training
+        self._dequant_shape = dequant_shape
+
+    @property
+    def group_size(self):
+        return self._group_size
+
+    @property
+    def group_dim(self):
+        return self._group_dim
+
+    @property
+    def dequant_shape(self):
+        return self._dequant_shape
+
+    @property
+    def signed(self):
+        return self._signed.item()
+
+    @property
+    def training(self):
+        return self._training.item()
+
+    @classmethod
+    def __torch_function__(cls, func, types, args=(), kwargs=None):
+        if kwargs is None:
+            kwargs = {}
+        from brevitas.quant_tensor import _unpack_quant_tensor
+
+        from .torch_handler import QUANT_TENSOR_FN_HANDLER
+        if func in QUANT_TENSOR_FN_HANDLER:
+            return QUANT_TENSOR_FN_HANDLER[func](*args, **kwargs)
+        args = _unpack_quant_tensor(args)
+        kwargs = _unpack_quant_tensor(kwargs)
+        return func(*args, **kwargs)
+
+    def expand(self, expand_metadata=True):
+        """Expand grouped storage and optionally its quantization metadata."""
+        from brevitas.utils.quant_utils import groupwise_dequant_expand
+
+        return groupwise_dequant_expand(
+            self._value,
+            self._scale,
+            self._zero_point,
+            self.group_dim,
+            self.dequant_shape,
+            expand_metadata=expand_metadata)
+
+    @staticmethod
+    def from_expanded(value, group_size, group_dim, compress=False):
+        """Convert an expanded value or metadata tensor to grouped storage."""
+        group_dim = group_dim if group_dim >= 0 else group_dim - 1
+        size = list(value.shape)
+        assert size[group_dim] % group_size == 0, 'Input channel is not divisible by group size'
+        if compress:
+            size[group_dim] = 1
+        else:
+            size[group_dim] = size[group_dim] // group_size
+        size.insert(group_dim + 1, group_size)
+        return value.view(size)
+
+    @property
+    def value(self):
+        value, _, _ = self.expand(expand_metadata=False)
+        return value
+
+    @property
+    def scale(self):
+        _, scale, _ = self.expand()
+        return scale
+
+    @property
+    def zero_point(self):
+        _, _, zero_point = self.expand()
+        return zero_point
+
+    @property
+    def device(self):
+        value_device = self._value.device
+        if not self._metadata_on_device(value_device):
+            raise RuntimeError("Value and metadata are on different devices")
+        return value_device
+
+    @classmethod
+    def check_input_type(cls, tensor):
+        if not isinstance(tensor, cls):
+            raise RuntimeError(f"Tensor is not a {cls.__name__}")
+
+    def view(self, *args, **kwargs):
+        return self.value.view(*args, **kwargs)
+
+    def reshape(self, *args, **kwargs):
+        return self.value.reshape(*args, **kwargs)
+
+    def flatten(self, *args, **kwargs):
+        return self.value.flatten(*args, **kwargs)
+
+    def transpose(self, *args, **kwargs):
+        return self.value.transpose(*args, **kwargs)
+
+    def permute(self, *args, **kwargs):
+        return self.value.permute(*args, **kwargs)
+
+    def __add__(self, other):
+        if isinstance(other, QuantTensor):
+            return self.value + other.value
+        return self.value + other
+
+    def __mul__(self, other):
+        if isinstance(other, QuantTensor):
+            return self.value * other.value
+        return self.value * other
+
+    def __truediv__(self, other):
+        if isinstance(other, QuantTensor):
+            return self.value / other.value
+        return self.value / other
 
     def _slice_constructor_kwargs(self, index):
         """Update group geometry after indexing the dequantized leading dimension."""
@@ -256,9 +398,9 @@ class IntMixin:
                 else:
                     return int_value.type(torch.float32)
             else:
-                if self.bit_width <= 8. and self.signed_t.item():
+                if self.bit_width <= 8. and self._signed.item():
                     return int_value.to(torch.int8)
-                elif self.bit_width <= 8. and not self.signed_t.item():
+                elif self.bit_width <= 8. and not self._signed.item():
                     return int_value.to(torch.uint8)
                 else:
                     return int_value.to(torch.int32)
@@ -420,14 +562,7 @@ class FloatMixin:
     @property
     def device(self):
         value_device = self.value.device
-        is_same_device = True
-        for t in [self.scale,
-                  self.zero_point,
-                  self.exponent_bit_width,
-                  self.mantissa_bit_width,
-                  self.exponent_bias]:
-            is_same_device &= value_device == t.device
-        if not is_same_device:
+        if not self._metadata_on_device(value_device):
             raise RuntimeError("Value and metadata are on different devices")
         return value_device
 
