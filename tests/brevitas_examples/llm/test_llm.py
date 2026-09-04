@@ -197,7 +197,18 @@ def test_small_models_ppl(caplog, args_and_metrics, main):
     caplog.set_level(logging.INFO)
     args, extra_args, exp_metrics = args_and_metrics
     results, _ = main(args, extra_args)
-    assert_metrics(results, exp_metrics, atol=ATOL_PPL, rtol=RTOL_PPL)
+    assert_metrics(results, exp_metrics, atol=ATOL_PPL, rtol=RTOL_PPL, strict=False)
+    assert 0.0 <= results["quant_ear"] <= 1.0
+    assert results["quant_kld"] is not None
+
+
+@pytest.mark.llm
+def test_small_model_eval_computes_ppl_and_ear(default_run_args, main):
+    results, _ = main(default_run_args)
+
+    assert results["float_ppl"] is not None
+    assert results["quant_ppl"] is not None
+    assert 0.0 <= results["quant_ear"] <= 1.0
 
 
 @pytest.mark.llm

@@ -58,7 +58,7 @@ def _mock_entrypoint_main(
     # Validate that essential args exist
     assert hasattr(args, "model"), "args must have 'model'"
     assert hasattr(args, "weight_bit_width"), "args must have 'weight_bit_width'"
-    return {"float_ppl": 10.0, "quant_ppl": 15.0}, None
+    return {"float_ppl": 10.0, "quant_ppl": 15.0, "quant_ear": 0.9, "quant_kld": 0.01}, None
 
 
 # ====================== LLMEntryPointUtils: parse_log =====================
@@ -71,16 +71,22 @@ class TestLLMEntryPointUtils:
             "Loading model...\n"
             "Float perplexity (wikitext2): 25.123\n"
             "Running quantization...\n"
-            "Quantized perplexity (wikitext2): 30.456\n")
+            "Quantized perplexity (wikitext2): 30.456\n"
+            "Quantized expected acceptance rate (wikitext2): 0.987654\n"
+            "Quantized KL divergence (wikitext2): 0.012345\n")
         result = LLMEntryPointUtils.parse_log(log)
         assert result["float_ppl"] == pytest.approx(25.123)
         assert result["quant_ppl"] == pytest.approx(30.456)
+        assert result["quant_ear"] == pytest.approx(0.987654)
+        assert result["quant_kld"] == pytest.approx(0.012345)
 
     def test_parse_log_missing_ppl(self):
         log = "Loading model...\nDone.\n"
         result = LLMEntryPointUtils.parse_log(log)
         assert result["float_ppl"] is None
         assert result["quant_ppl"] is None
+        assert result["quant_ear"] is None
+        assert result["quant_kld"] is None
 
     def test_parse_log_with_few_shot_dict(self):
         log = (
@@ -177,10 +183,14 @@ class TestLLMGridBenchmark:
         assert len(df) >= 1
         assert "float_ppl" in df.columns
         assert "quant_ppl" in df.columns
+        assert "quant_ear" in df.columns
+        assert "quant_kld" in df.columns
         assert set(df["status"]) == {"successful"}
         # Verify the mock entrypoint results are in the CSV
         assert all(df["float_ppl"] == 10.0)
         assert all(df["quant_ppl"] == 15.0)
+        assert all(df["quant_ear"] == 0.9)
+        assert all(df["quant_kld"] == 0.01)
 
 
 # ================= LLMRandomBenchmark (Random Search) =====================
@@ -258,4 +268,6 @@ class TestLLMRandomBenchmark:
         assert len(df) >= 1
         assert "float_ppl" in df.columns
         assert "quant_ppl" in df.columns
+        assert "quant_ear" in df.columns
+        assert "quant_kld" in df.columns
         assert set(df["status"]) == {"successful"}
