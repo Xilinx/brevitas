@@ -346,7 +346,7 @@ def quantize_llm(args, extra_args=None):
             context_length=args.seqlen // 2,
             tokenizer=tokenizer,
             seed=args.seed)
-        float_ppl = float_metrics.perplexity
+        float_ppl = float_metrics.ppl
         reference_probabilities = float_metrics.reference_probabilities
         remove_hooks(model)
         print(f"Float perplexity ({args.dataset}): {float_ppl:.3f}")
@@ -741,11 +741,11 @@ def quantize_llm(args, extra_args=None):
                     tokenizer=tokenizer,
                     reference_probabilities=reference_probabilities,
                     seed=args.seed)
-            quant_ppl = quant_metrics.perplexity
-            quant_ear = quant_metrics.expected_acceptance_rate
+            quant_ppl = quant_metrics.ppl
+            quant_ear = quant_metrics.ear
             quant_kld = quant_metrics.kld
             print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
-            # Note: EAR and KLD use unnormalized probabilities
+            # NOTE: EAR and KLD are by default normalized by reference top-K probability mass.
             print(f"Quantized expected acceptance rate ({args.dataset}): {quant_ear:.6f}")
             print(f"Quantized KL divergence ({args.dataset}): {quant_kld:.6f}")
         few_shot_eval_results = dict()

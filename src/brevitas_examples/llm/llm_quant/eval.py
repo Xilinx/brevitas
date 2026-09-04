@@ -76,8 +76,8 @@ class ReferenceProbabilityCache:
 class EvaluationMetrics:
     """Store metrics and reference data from one evaluation pass."""
 
-    perplexity: Optional[float] = None
-    expected_acceptance_rate: Optional[float] = None
+    ppl: Optional[float] = None
+    ear: Optional[float] = None
     kld: Optional[float] = None
     reference_probabilities: Optional[ReferenceProbabilityCache] = None
 
@@ -151,7 +151,7 @@ def compute_float_evaluation_metrics(
         top_k: int = 10,
         seed: int = 0,
         dtype: torch.dtype = torch.float32) -> EvaluationMetrics:
-    """Compute float PPL and cache top-K probabilities"""
+    """Compute float PPL and cache top-K probabilities."""
 
     if top_k <= 0:
         raise ValueError("top_k must be positive.")
@@ -176,7 +176,7 @@ def compute_float_evaluation_metrics(
         num_positions += top_ids.numel() // top_k
 
     return EvaluationMetrics(
-        perplexity=torch.exp(torch.stack(nlls).mean()).item(),
+        ppl=torch.exp(torch.stack(nlls).mean()).item(),
         reference_probabilities=ReferenceProbabilityCache(
             chunks=reference_chunks, top_k=top_k, num_positions=num_positions))
 
@@ -188,12 +188,18 @@ def compute_quantized_evaluation_metrics(
         context_length: int,
         tokenizer: Any,
         reference_probabilities: ReferenceProbabilityCache,
+        normalize: bool = True,
         seed: int = 0,
         dtype: torch.dtype = torch.float32) -> EvaluationMetrics:
-    """Compute quantized PPL, EAR, and top-K KLD."""
+    """Compute quantized PPL, EAR, and top-K KLD.
+
+    By default, normalize both distributions by the reference top-K probability mass.
+    A quantized model that matches the reference top-K probabilities then gets
+    an EAR of 1.0. Set normalize to False to use unnormalized EAR and KLD.
+    """
 
     nlls = []
-    overlap_sum = 0.0
+    ear_sum = 0.0
     kld_sum = 0.0
     num_positions = 0
     chunk_index = 0
@@ -215,9 +221,14 @@ def compute_quantized_evaluation_metrics(
         reference_p = reference_chunk.probabilities.to(device=scored_logits.device)
         quantized_log_q = torch.log_softmax(scored_logits, dim=-1).gather(-1, token_ids)
         quantized_q = quantized_log_q.exp()
-        # We use unnormalized full-softmax probabilities on p's top-K support.
-        # See https://arxiv.org/abs/2605.02404, Section 3.2.
-        overlap_sum += torch.minimum(reference_p, quantized_q).double().sum().item()
+        # Use full-softmax probabilities on the reference model's top-K support.
+        # Normalize EAR and KLD by the reference top-K mass when requested.
+        if normalize:
+            reference_mass = reference_p.sum(dim=-1, keepdim=True)
+            reference_p = reference_p / reference_mass
+            quantized_q = quantized_q / reference_mass
+            quantized_log_q = quantized_log_q - reference_mass.log()
+        ear_sum += torch.minimum(reference_p, quantized_q).double().sum().item()
         kld_sum += (reference_p * (reference_p.log() - quantized_log_q)).double().sum().item()
         num_positions += reference_p.numel() // reference_probabilities.top_k
         chunk_index += 1
@@ -230,6 +241,6 @@ def compute_quantized_evaluation_metrics(
             "The reference probability cache has a different number of token positions.")
 
     return EvaluationMetrics(
-        perplexity=torch.exp(torch.stack(nlls).mean()).item(),
-        expected_acceptance_rate=overlap_sum / num_positions,
+        ppl=torch.exp(torch.stack(nlls).mean()).item(),
+        ear=ear_sum / num_positions,
         kld=kld_sum / num_positions)
