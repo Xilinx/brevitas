@@ -1,131 +1,53 @@
 # Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-import functools
 import math
 import re
 
 import torch
 
-from brevitas.utils.parametrization_utils import get_rotation_groups
-from brevitas.utils.parametrization_utils import RotationWeightParametrization
-
-
-def remove_rotation_aliases_from_optimizer(optimizer: torch.optim.Optimizer) -> None:
-    """Remove physical rotation aliases while retaining each logical owner."""
-    optimizers = [optimizer, *getattr(optimizer, 'optimizers', [])]
-    visited = set()
-    for current_optimizer in optimizers:
-        if id(current_optimizer) in visited:
-            continue
-        visited.add(id(current_optimizer))
-        for group in current_optimizer.param_groups:
-            group["params"] = [
-                parameter for parameter in group["params"]
-                if not getattr(parameter, '_brevitas_rotation_alias', False)]
+from brevitas.utils.parametrization_utils import ensure_rotation_bank
 
 
 class FSDPRotationCoordinator:
-    """Keep per-FSDP-unit rotation replicas equivalent to one shared parameter."""
+    """Coordinate a root-owned, FSDP-ignored bank of replicated rotations."""
 
     def __init__(self, trainer) -> None:
         self.trainer = trainer
         self.prepared = False
-        self.replica_groups = []
-        self._optimizer_hook = None
+        self.bank = None
         self._original_clip_grad_norm = None
-
-    @staticmethod
-    def _rotation_unit(module_name, wrapped_module_names):
-        candidates = [
-            name for name in wrapped_module_names
-            if module_name == name or module_name.startswith(name + ".")]
-        if candidates:
-            return max(candidates, key=len)
-        # Embeddings and output heads may be separately wrapped by FSDP2 even though
-        # they are not selected by the transformer auto-wrap policy.
-        return module_name.split(".parametrizations.", 1)[0]
 
     def prepare(self, model: torch.nn.Module) -> None:
         if self.prepared:
             return
-        from accelerate.utils.fsdp_utils import fsdp2_prepare_auto_wrap_policy
 
         plugin = self.trainer.accelerator.state.fsdp_plugin
         if plugin.cpu_ram_efficient_loading:
             raise RuntimeError(
                 "FSDP2 CPU-RAM-efficient loading is not supported with replicated rotations.")
-        from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
-        configured_policy = plugin.auto_wrap_policy
-        if isinstance(configured_policy, functools.partial):
-            configured_policy = configured_policy.func
-        if configured_policy is not transformer_auto_wrap_policy:
-            raise RuntimeError(
-                "FSDP2 rotation replication requires a transformer-based auto-wrap policy.")
-        auto_wrap_policy = fsdp2_prepare_auto_wrap_policy(plugin, model)
-        if auto_wrap_policy is None:
-            raise RuntimeError(
-                "FSDP2 rotation replication could not resolve the transformer auto-wrap policy.")
+
+        self.bank = ensure_rotation_bank(model)
+        if self.bank is None:
+            raise RuntimeError("FSDP rotation training requires a non-empty RotationBank.")
+        self.bank.to(self.trainer.accelerator.device)
 
         named_modules = list(model.named_modules())
-        wrapped_module_names = [
-            name for name, module in named_modules if name and auto_wrap_policy(module)]
-        if not wrapped_module_names:
-            raise RuntimeError("The FSDP2 auto-wrap policy did not select any model modules.")
-
-        occurrences_by_group = {}
-        for name, module in named_modules:
-            if isinstance(module, RotationWeightParametrization):
-                group_id = getattr(module, 'rotation_group_id', None)
-                group_id = group_id if group_id is not None else ("legacy", id(module.rot_mat))
-                if getattr(module, 'rotation_group_id', None) is None:
-                    module.rotation_group_id = group_id
-                occurrences_by_group.setdefault(group_id, []).append((name, module))
-
-        for occurrences in occurrences_by_group.values():
-            replicas = {}
-            original_owner = occurrences[0][1].rot_mat
-            # FSDP does not move ignored parameters, so place the preserved owner
-            # before optimizers capture it and clone aliases on the same device.
-            original_owner.data = original_owner.data.to(self.trainer.accelerator.device)
-            for name, module in occurrences:
-                unit = self._rotation_unit(name, wrapped_module_names)
-                if unit not in replicas:
-                    replicas[unit] = (
-                        original_owner if not replicas else torch.nn.Parameter(
-                            original_owner.detach().clone(),
-                            requires_grad=original_owner.requires_grad))
-                module.rot_mat = replicas[unit]
-
-            owner = original_owner
-            owner._brevitas_rotation_alias = False
-            for replica in replicas.values():
-                if replica is not owner:
-                    replica._brevitas_rotation_alias = True
-            for _, module in occurrences:
-                module.rotation_is_owner = module.rot_mat is owner
-
-        groups = get_rotation_groups(model)
-        for modules in groups.values():
-            parameters = []
-            owner = None
-            for module in modules:
-                parameter = module.rot_mat
-                if all(parameter is not existing for existing in parameters):
-                    parameters.append(parameter)
-                if getattr(module, 'rotation_is_owner', False):
-                    owner = parameter
-            if owner is not None:
-                self.replica_groups.append((owner, parameters))
-
-        rotation_modules = [module for modules in groups.values() for module in modules]
         ignored_modules = plugin.ignored_modules
         if isinstance(ignored_modules, str):
             pattern = re.compile(ignored_modules)
             ignored_modules = [module for name, module in named_modules if pattern.fullmatch(name)]
         else:
             ignored_modules = list(ignored_modules or [])
-        plugin.ignored_modules = list(dict.fromkeys(ignored_modules + rotation_modules))
+        plugin.ignored_modules = list(dict.fromkeys(ignored_modules + [self.bank]))
+
+        # The bank is ignored by FSDP, so synchronize its initial value explicitly.
+        import torch.distributed as dist
+        if dist.is_initialized():
+            parameters = self.bank.ordered_parameters()
+            flat_parameters = torch.nn.utils.parameters_to_vector(parameters)
+            dist.broadcast(flat_parameters, src=0)
+            torch.nn.utils.vector_to_parameters(flat_parameters, parameters)
 
         if self.trainer.args.gradient_checkpointing:
             checkpoint_kwargs = self.trainer.args.gradient_checkpointing_kwargs or {}
@@ -136,6 +58,7 @@ class FSDPRotationCoordinator:
                         "model.enable_input_require_grads(). Use non-reentrant checkpointing "
                         "instead.")
                 model.enable_input_require_grads()
+
         self._original_clip_grad_norm = self.trainer.accelerator.clip_grad_norm_
         self.trainer.accelerator.clip_grad_norm_ = self.clip_grad_norm_
         self.prepared = True
@@ -176,61 +99,38 @@ class FSDPRotationCoordinator:
         return torch.tensor(total_norm_value, device=tensor_parameters[0].device)
 
     def consolidate_gradients(self) -> None:
+        """Average every bank gradient with one fixed-order distributed collective."""
         if not self.prepared:
             return
         import torch.distributed as dist
 
-        for owner, parameters in self.replica_groups:
-            gradients = [parameter.grad for parameter in parameters if parameter.grad is not None]
-            if dist.is_initialized():
-                has_gradient = torch.tensor(bool(gradients), dtype=torch.int32, device=owner.device)
-                dist.all_reduce(has_gradient, op=dist.ReduceOp.MAX)
-                if not has_gradient.item():
-                    continue
-            elif not gradients:
-                continue
-            gradient = (
-                torch.zeros_like(owner) if owner.grad is None else owner.grad.detach().clone())
-            for parameter in parameters:
-                if parameter is not owner and parameter.grad is not None:
-                    gradient.add_(parameter.grad)
-                if parameter is not owner:
-                    parameter.grad = None
-            if dist.is_initialized():
-                dist.all_reduce(gradient, op=dist.ReduceOp.SUM)
-                gradient.div_(dist.get_world_size())
-            owner.grad = gradient
-
-    def synchronize_parameters(self, optimizer: torch.optim.Optimizer) -> None:
-        if not self.prepared:
+        parameters = self.bank.ordered_parameters()
+        if not parameters or not dist.is_initialized():
             return
-        import torch.distributed as dist
+        first = parameters[0]
+        if any(parameter.device != first.device or parameter.dtype != first.dtype
+               for parameter in parameters):
+            raise RuntimeError(
+                "RotationBank gradient reduction requires one device and dtype per bank.")
 
-        optimizers = getattr(optimizer, 'optimizers', [optimizer])
-        with torch.no_grad():
-            for owner, parameters in self.replica_groups:
-                if dist.is_initialized():
-                    dist.broadcast(owner, src=0)
-                for parameter in parameters:
-                    if parameter is not owner:
-                        parameter.copy_(owner)
-                if owner.is_cuda:
-                    torch.cuda.current_stream(owner.device).synchronize()
-                for sub_optimizer in optimizers:
-                    state = sub_optimizer.state.get(owner, {})
-                    for value in state.values():
-                        if (torch.is_tensor(value) and value.device == owner.device and
-                                dist.is_initialized()):
-                            dist.broadcast(value, src=0)
+        gradient_parts = [
+            torch.zeros_like(parameter).reshape(-1)
+            if parameter.grad is None else parameter.grad.detach().reshape(-1)
+            for parameter in parameters]
+        presence = torch.tensor([parameter.grad is not None for parameter in parameters],
+                                dtype=first.dtype,
+                                device=first.device)
+        gradient_numel = sum(part.numel() for part in gradient_parts)
+        packed = torch.cat([*gradient_parts, presence])
+        dist.all_reduce(packed, op=dist.ReduceOp.SUM)
 
-    def attach_optimizer(self, optimizer: torch.optim.Optimizer) -> None:
-        # Parameter selectors run after coordinator preparation and may re-enable only
-        # the logical owner. Aliases need gradients even though they are not optimized.
-        for owner, parameters in self.replica_groups:
-            for parameter in parameters:
-                parameter.requires_grad_(owner.requires_grad)
-        if self._optimizer_hook is None:
-            self._optimizer_hook = optimizer.register_step_post_hook(
-                lambda current_optimizer,
-                args,
-                kwargs: self.synchronize_parameters(current_optimizer))
+        world_size = dist.get_world_size()
+        offset = 0
+        global_presence = packed[gradient_numel:]
+        for index, parameter in enumerate(parameters):
+            next_offset = offset + parameter.numel()
+            if global_presence[index].item() == 0:
+                parameter.grad = None
+            else:
+                parameter.grad = packed[offset:next_offset].view_as(parameter).div(world_size)
+            offset = next_offset

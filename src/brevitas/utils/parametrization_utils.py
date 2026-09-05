@@ -14,6 +14,45 @@ from torch import nn
 from torch import Tensor
 import torch.nn.functional as F
 
+ROTATION_BANK_NAME = "_brevitas_rotation_bank"
+
+
+class RotationBank(torch.nn.Module):
+    """Own each trainable logical rotation exactly once."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.rotations = torch.nn.ParameterDict()
+
+    def add_rotation(self, rotation: nn.Parameter) -> str:
+        key = f"rotation_{len(self.rotations):04d}"
+        self.rotations[key] = rotation
+        return key
+
+    def resolve(self, key: str) -> nn.Parameter:
+        return self.rotations[key]
+
+    def ordered_parameters(self) -> List[nn.Parameter]:
+        """Return parameters in the stable insertion order used by distributed reduction."""
+        return list(self.rotations.values())
+
+    def prune(self, live_keys) -> None:
+        live_keys = set(live_keys)
+        for key in list(self.rotations):
+            if key not in live_keys:
+                del self.rotations[key]
+
+
+class _RotationBankHandle:
+    """Plain holder that does not register the bank under each consumer module."""
+
+    def __init__(self, bank: RotationBank, key: str) -> None:
+        self.bank = bank
+        self.key = key
+
+    def resolve(self) -> nn.Parameter:
+        return self.bank.resolve(self.key)
+
 
 class RotationWeightParametrization(torch.nn.Module):
     r"""Rotates a tensor by a specified axis
@@ -36,7 +75,7 @@ class RotationWeightParametrization(torch.nn.Module):
 
     def __init__(
         self,
-        rot_mat: Callable[[Tensor, Tensor, Optional[int]], Tensor],
+        rot_mat: Tensor,
         rot_func: Callable,
         axis: int,
         K: Optional[int] = None,
@@ -53,6 +92,30 @@ class RotationWeightParametrization(torch.nn.Module):
         # FSDP replaces one occurrence of a shared Parameter. It is deliberately plain
         # metadata rather than a buffer so that it does not affect state dicts.
         self.rotation_group_id = rotation_group_id
+
+    def __getattr__(self, name):
+        if name == "rot_mat":
+            handle = self.__dict__.get("_rotation_bank_handle")
+            if handle is not None:
+                return handle.resolve()
+        return super().__getattr__(name)
+
+    def bind_rotation_bank(self, bank: RotationBank, key: str) -> None:
+        """Resolve this consumer through a root-owned bank without registering an alias."""
+        rotation = self.rot_mat
+        if rotation is not bank.resolve(key):
+            raise RuntimeError("Rotation bank binding must preserve the original parameter.")
+        del self._parameters["rot_mat"]
+        self._rotation_bank_handle = _RotationBankHandle(bank, key)
+
+    @property
+    def is_rotation_bank_bound(self) -> bool:
+        return self.__dict__.get("_rotation_bank_handle") is not None
+
+    @property
+    def rotation_bank_key(self) -> Optional[str]:
+        handle = self.__dict__.get("_rotation_bank_handle")
+        return None if handle is None else handle.key
 
     def forward(self, tensor: torch.Tensor) -> torch.Tensor:
         if self.axis == 0:
@@ -140,6 +203,9 @@ class ScaleWeightParametrization(torch.nn.Module):
 
 
 def extract_trainable_rotation_matrices(model: nn.Module) -> List[nn.Parameter]:
+    bank = get_rotation_bank(model)
+    if bank is not None:
+        return bank.ordered_parameters()
     trainable_rotations = []
     # IDs of the rotation matrices are tracked, as several modules can share
     # the same parametrized rotation
@@ -155,18 +221,16 @@ def extract_trainable_rotation_matrices(model: nn.Module) -> List[nn.Parameter]:
 def extract_trainable_rotation_matrix_owners(model: nn.Module) -> List[nn.Parameter]:
     """Return one optimizer-owned parameter for each logical rotation group.
 
-    FSDP rotation replication marks one physical copy in each logical group as the
-    optimizer owner. Models without replicated rotations retain the existing identity-
-    based extraction behavior.
+    Banked models return the canonical bank parameters. Unbanked models return the first
+    physical parameter discovered for each logical group.
     """
+    bank = get_rotation_bank(model)
+    if bank is not None:
+        return bank.ordered_parameters()
     owners = []
     ids_rot = set()
     for group in get_rotation_groups(model).values():
-        marked_owners = {
-            module.rot_mat for module in group if getattr(module, 'rotation_is_owner', False)}
-        if len(marked_owners) > 1:
-            raise RuntimeError("A logical rotation group has multiple optimizer owners.")
-        parameter = next(iter(marked_owners)) if marked_owners else group[0].rot_mat
+        parameter = group[0].rot_mat
         if id(parameter) not in ids_rot:
             ids_rot.add(id(parameter))
             owners.append(parameter)
@@ -193,3 +257,69 @@ def get_rotation_groups(model: nn.Module) -> Dict[Hashable, List[RotationWeightP
                 key = module.rot_mat
             groups.setdefault(key, []).append(module)
     return groups
+
+
+def get_rotation_bank(model: nn.Module) -> Optional[RotationBank]:
+    bank = model._modules.get(ROTATION_BANK_NAME)
+    if bank is not None and not isinstance(bank, RotationBank):
+        raise RuntimeError(f"Model attribute {ROTATION_BANK_NAME} is not a RotationBank.")
+    return bank
+
+
+def ensure_rotation_bank(model: nn.Module) -> Optional[RotationBank]:
+    """Move trainable logical rotations into one root-owned parameter bank."""
+    bank = get_rotation_bank(model)
+    if bank is not None:
+        if not bank.rotations:
+            raise RuntimeError("An existing RotationBank is empty.")
+        for modules in get_rotation_groups(model).values():
+            for module in modules:
+                handle = module.__dict__.get("_rotation_bank_handle")
+                if handle is None or handle.bank is not bank or handle.key not in bank.rotations:
+                    raise RuntimeError(
+                        "Existing RotationBank does not own every rotation consumer.")
+        return bank
+
+    groups = list(get_rotation_groups(model).values())
+    trainable_groups = [
+        modules for modules in groups if modules and isinstance(modules[0].rot_mat, nn.Parameter)]
+    if not trainable_groups:
+        return None
+
+    rotations = []
+    physical_groups = {}
+    for modules in trainable_groups:
+        rotation = modules[0].rot_mat
+        if any(module.rot_mat is not rotation for module in modules):
+            raise RuntimeError(
+                "A logical rotation group contains distinct parameters before bank binding.")
+        if id(rotation) in physical_groups:
+            raise RuntimeError(
+                "One physical rotation parameter belongs to multiple logical groups.")
+        physical_groups[id(rotation)] = modules
+        rotations.append(rotation)
+
+    bank = RotationBank()
+    keys = []
+    for rotation in rotations:
+        keys.append(bank.add_rotation(rotation))
+    model.add_module(ROTATION_BANK_NAME, bank)
+    for modules, key in zip(trainable_groups, keys):
+        for module in modules:
+            module.bind_rotation_bank(bank, key)
+    return bank
+
+
+def prune_rotation_bank(model: nn.Module) -> Optional[RotationBank]:
+    bank = get_rotation_bank(model)
+    if bank is None:
+        return None
+    live_keys = [
+        module.rotation_bank_key
+        for module in model.modules()
+        if isinstance(module, RotationWeightParametrization) and module.is_rotation_bank_bound]
+    bank.prune(live_keys)
+    if not bank.rotations:
+        delattr(model, ROTATION_BANK_NAME)
+        return None
+    return bank

@@ -424,6 +424,15 @@ def offload_model(
             no_split_module_classes=model._no_split_modules
             if hasattr(model, "_no_split_modules") else None)
 
+    # RotationBank consumers resolve parameters indirectly, so the bank cannot rely on an
+    # AlignDevicesHook being invoked through bank.forward(). Keep the small replicated bank
+    # resident on the process-local FSDP device before dispatching the rest of the model.
+    if "LOCAL_RANK" in os.environ:
+        from brevitas.utils.parametrization_utils import get_rotation_bank
+        from brevitas.utils.parametrization_utils import ROTATION_BANK_NAME
+        if get_rotation_bank(model) is not None:
+            device_map[ROTATION_BANK_NAME] = int(os.environ["LOCAL_RANK"])
+
     model = dispatch_model(model, device_map)
 
     # Fixes an asymetric behavior in Accelerate where hooks are not attached at all when a single device is used.

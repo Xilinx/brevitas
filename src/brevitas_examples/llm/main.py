@@ -34,6 +34,7 @@ from brevitas.graph.utils import get_module
 from brevitas.graph.utils import remove_weight_orig
 from brevitas.nn.quant_sdpa import ScaledDotProductAttention
 from brevitas.utils.logging import setup_logger
+from brevitas.utils.parametrization_utils import ensure_rotation_bank
 from brevitas.utils.python_utils import hooked_on_a_function
 from brevitas_examples.common.accelerate_utils.accelerate import calc_gpu_device_map
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
@@ -470,6 +471,9 @@ def quantize_llm(args, extra_args=None):
         model = eq.apply(model)
         remove_hooks(model)
 
+    if args.fine_tune:
+        ensure_rotation_bank(model)
+
     if args.weight_equalization:
         print("Apply weight equalization...")
         # In case of float16 model, we need to offload to account for missing ops
@@ -711,14 +715,14 @@ def quantize_llm(args, extra_args=None):
                 torch.cuda.empty_cache()
             # Remove hooks from training
             remove_hooks(model)
+            # Fuse while consumer weights and the root-owned bank are materialized
+            # together. Redispatching first may place indirect consumers elsewhere.
+            if args.rotation is not None:
+                model = fuse_parametrizations(model)
             gpu_device_map = (
                 calc_gpu_device_map(
                     device_ids=range(torch.cuda.device_count())) if fsdp_enabled else None)
             model = offload_model(model, gpu_device_map=gpu_device_map)
-            # Fuse rotation parametrizations with weights when rotations
-            # were used (the function is a no-op when there are none).
-            if args.rotation is not None:
-                model = fuse_parametrizations(model)
 
         if args.svd_quant:
             print("Apply SVDQuant...")

@@ -54,6 +54,7 @@ from brevitas.nn.quant_scale_bias import ScaleBias
 from brevitas.proxy import BiasQuantProxyFromInjectorBase
 from brevitas.proxy import WeightQuantProxyFromInjectorBase
 from brevitas.utils.logging import setup_logger
+from brevitas.utils.parametrization_utils import prune_rotation_bank
 from brevitas.utils.parametrization_utils import RotationWeightParametrization
 from brevitas.utils.parametrization_utils import ScaleWeightParametrization
 from brevitas.utils.python_utils import recurse_getattr
@@ -1681,8 +1682,8 @@ def _compute_rotations(
         # If the rotation is not fused, redefine as a Parameter, to enable its optimization
         if not insert_rotation_module and not fuse_rotations:
             rot_mat = torch.nn.Parameter(rot_mat)
-            # Preserve the identity of this logical rotation after FSDP replaces the
-            # shared parameter with one physical replica per wrapping unit.
+            # Preserve logical grouping until trainable rotations are moved into the
+            # root-owned RotationBank.
             rotation_group_id = id(rot_mat)
 
         for name, indexes in region.srcs.items():
@@ -1815,6 +1816,7 @@ def fuse_parametrizations(model: nn.Module) -> nn.Module:
                         submodule.load_state_dict(state_dict)
                     if is_proxy_compiled:
                         submodule.compile_quant()
+    prune_rotation_bank(model)
     return model
 
 

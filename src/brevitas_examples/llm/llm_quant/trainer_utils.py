@@ -188,9 +188,7 @@ def _resolve_params(
     *params_fn* is a callable ``(model, training_args) -> List[Parameter]``. The
     selected parameters have ``requires_grad`` enabled.
     """
-    params = [
-        param for param in params_fn(model, training_args)
-        if not getattr(param, '_brevitas_rotation_alias', False)]
+    params = list(params_fn(model, training_args))
     for param in params:
         param.requires_grad = True
     return params
@@ -413,11 +411,6 @@ class GeneralizedTrainer(Trainer):
                 optimizer_model = self.model if model is None else model
                 self.optimizer, self.lr_scheduler = _build_optimizers_from_configs(
                     optimizer_model, self.args)
-        if self.rotation_coordinator is not None:
-            from brevitas_examples.llm.llm_quant.fsdp_rotation import \
-                remove_rotation_aliases_from_optimizer
-            remove_rotation_aliases_from_optimizer(self.optimizer)
-            self.rotation_coordinator.attach_optimizer(self.optimizer)
         return self.optimizer
 
     def _wrap_model(self, model, training=True, dataloader=None):
