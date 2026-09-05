@@ -3,6 +3,7 @@
 
 import copy
 from dataclasses import dataclass
+import os
 from typing import Any
 from typing import Callable
 from typing import Dict
@@ -12,6 +13,7 @@ from typing import Type
 
 from accelerate.utils import DistributedType
 from datasets import Dataset
+from packaging import version
 import torch
 import transformers
 from transformers import Trainer
@@ -23,9 +25,8 @@ except:
     from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
 from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
+from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrix_owners
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
-# Optimizer/scheduler building and trainer plumbing live in trainer_utils.
-from brevitas_examples.llm.llm_quant.trainer_utils import _build_optimizers_from_configs
 from brevitas_examples.llm.llm_quant.trainer_utils import GeneralizedTrainer
 from brevitas_examples.llm.llm_quant.trainer_utils import TrainingArguments
 
@@ -57,7 +58,30 @@ def _select_rotation_params(
         model: torch.nn.Module,
         training_args: transformers.TrainingArguments) -> List[torch.nn.Parameter]:
     """Return the model's trainable rotation matrices (one parameter group)."""
-    return extract_trainable_rotation_matrices(model)
+    return extract_trainable_rotation_matrix_owners(model)
+
+
+def _is_fsdp_enabled(training_args: transformers.TrainingArguments) -> bool:
+    return (
+        training_args.distributed_state.distributed_type == DistributedType.FSDP or
+        os.environ.get("ACCELERATE_USE_FSDP", "false").lower() == "true")
+
+
+def _validate_fsdp_dependencies(rotation_optimization: bool) -> None:
+    import accelerate
+
+    requirements = {
+        "PyTorch": (torch.__version__, "2.7" if rotation_optimization else "2.6", None),
+        "Accelerate": (accelerate.__version__, "1.14.0", "2"),
+        "Transformers": (transformers.__version__, "5.15.1", "6"),}
+    unsupported = [
+        f"{name}=={installed} (requires >={minimum}" +
+        (f",<{maximum}" if maximum is not None else "") + ")"
+        for name, (installed, minimum, maximum) in requirements.items()
+        if version.parse(installed) < version.parse(minimum) or
+        (maximum is not None and version.parse(installed) >= version.parse(maximum))]
+    if unsupported:
+        raise RuntimeError("LLM FSDP2 fine-tuning requires " + "; ".join(unsupported) + ".")
 
 
 class RotationTrainer(GeneralizedTrainer):
@@ -118,13 +142,27 @@ def _prepare_model(model: torch.nn.Module) -> torch.nn.Module:
     return model
 
 
+def resolve_trainer_cls(model: torch.nn.Module,
+                        trainer_cls: Optional[Type[Trainer]]) -> Type[Trainer]:
+    if trainer_cls is not None:
+        return trainer_cls
+    if len(extract_trainable_rotation_matrices(model)) == 0:
+        raise RuntimeError(
+            "No Custom Trainer has been defined and no optimizable rotations are present "
+            "in the model.")
+    return RotationTrainer
+
+
 def apply_fine_tuning(
         model: torch.nn.Module,
         tokenizer: PreTrainedTokenizerBase,
         train_dataset: Dataset,
         collate_fn: Callable,
         trainer_cls: Optional[Type[Trainer]] = None,
-        extra_args: Optional[List[str]] = None) -> None:
+        extra_args: Optional[List[str]] = None,
+        training_args: Optional[transformers.TrainingArguments] = None,
+        skip_training: bool = False,
+        return_state_dict: bool = True) -> Optional[Dict[str, torch.Tensor]]:
     """Fine-tune model weights and/or rotation matrices.
 
     The training arguments are parsed from *extra_args* via
@@ -135,8 +173,7 @@ def apply_fine_tuning(
 
     * If trainable rotation matrices are found, :class:`RotationTrainer` is used
       by default (CaileySGD on the rotations, via ``optimizer_scheduler_args``).
-    * Otherwise, ``(None, None)`` is passed to the Trainer so that it uses its
-      built-in optimizer (AdamW by default).
+    * Without rotations, callers must provide a custom trainer.
 
     Parameters
     ----------
@@ -153,10 +190,18 @@ def apply_fine_tuning(
         Its ``training_args_cls`` class attribute customises the training
         arguments (including the optimizer/scheduler setup through
         ``optimizer_scheduler_args``). When ``None`` (the default),
-        ``GeneralizedTrainer`` (or the built-in ``Trainer``) is used.
+        :class:`RotationTrainer` is used if trainable rotations are present.
     extra_args : list of str, optional
         Raw CLI-style extra arguments parsed into the training-arguments
         dataclass (see :func:`parse_rotation_optimization_args`).
+    training_args : TrainingArguments, optional
+        Pre-parsed arguments. This avoids initializing distributed state twice when
+        the caller needs to inspect the FSDP configuration before training.
+    skip_training : bool
+        Skip Trainer execution, used when loading an existing quantized checkpoint.
+    return_state_dict : bool
+        Return a full CPU state dictionary after FSDP training. Non-FSDP training
+        updates ``model`` in place and returns ``None``.
     """
 
     # Resolve the trainer class up front so that its ``training_args_cls`` (which
@@ -164,57 +209,71 @@ def apply_fine_tuning(
     # training arguments. When no custom trainer is given but the model has
     # trainable rotation matrices, default to RotationTrainer (CaileySGD on the
     # rotations, expressed through the standard optimizer_scheduler_args mechanism).
-    if trainer_cls is None:
-        if len(extract_trainable_rotation_matrices(model)) == 0:
-            raise RuntimeError(
-                "No Custom Trainer has been defined and no optimizable rotations are present in the model."
-            )
-        trainer_cls = RotationTrainer
-    else:
-        trainer_cls = trainer_cls
+    trainer_cls = resolve_trainer_cls(model, trainer_cls)
 
     # Parse the training arguments, resolving the training-args class from the
     # (possibly defaulted) trainer.
-    training_args = parse_rotation_optimization_args(extra_args=extra_args, trainer_cls=trainer_cls)
+    if training_args is None:
+        training_args = parse_rotation_optimization_args(
+            extra_args=extra_args, trainer_cls=trainer_cls)
 
     # Prepare model for training
     model = _prepare_model(model)
-    # Enable skipping training
-    if training_args.max_steps <= 0:
+    fsdp_enabled = _is_fsdp_enabled(training_args)
+    if fsdp_enabled:
+        _validate_fsdp_dependencies(
+            rotation_optimization=len(extract_trainable_rotation_matrices(model)) > 0)
+    if skip_training:
+        if fsdp_enabled:
+            training_args.distributed_state.destroy_process_group()
         return
     # Remove hooks and empty cache before starting training
     remove_hooks(model)
     torch.cuda.empty_cache()
-    # Freeze all model parameters; individual param groups will be
-    # unfrozen by the optimizer-building helpers.
-    for param in model.parameters():
-        param.requires_grad = False
-
-    # Build optimizer / scheduler pair from the training args.
-    if training_args.optimizer_scheduler_args is None:
-        raise RuntimeError("TrainingArguments needs to specify optimizer_scheduler_args")
-
-    # The optimizer-building helpers unfreeze the parameters of each
-    # selected param group.
-    optimizers = _build_optimizers_from_configs(model, training_args)
+    if training_args.optimizer_scheduler_args is not None:
+        # Configured parameter selectors re-enable only their assigned groups.
+        for param in model.parameters():
+            param.requires_grad = False
 
     trainer_kwargs: Dict[str, Any] = dict(
         model=model,
-        # `tokenizer` renamed to `processing_class` in transformers 4.46, removed in 5.x.
-        processing_class=tokenizer,
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=None,
-        data_collator=collate_fn,
-        optimizers=optimizers)
+        data_collator=collate_fn)
+    if version.parse(transformers.__version__) >= version.parse("5"):
+        trainer_kwargs["processing_class"] = tokenizer
+    else:
+        trainer_kwargs["tokenizer"] = tokenizer
 
     # Wire the teacher model whenever the selected trainer is a
     # GeneralizedTrainer subclass and distillation loss is enabled.
     if issubclass(trainer_cls, GeneralizedTrainer) and getattr(
             training_args, 'use_distillation_loss', False):
-        trainer_kwargs["teacher_model"] = copy.deepcopy(model.cpu())
+        teacher_model = copy.deepcopy(model.cpu())
+        for param in teacher_model.parameters():
+            param.requires_grad = False
+        trainer_kwargs["teacher_model"] = teacher_model
 
-    trainer = trainer_cls(**trainer_kwargs)
-    trainer.train()
-    # After finishing training, set eval mode again
-    model.eval()
+    trainer = None
+    try:
+        if fsdp_enabled and not issubclass(trainer_cls, GeneralizedTrainer):
+            raise RuntimeError("FSDP2 fine-tuning requires a GeneralizedTrainer subclass.")
+        trainer = trainer_cls(**trainer_kwargs)
+        if fsdp_enabled and not trainer.accelerator.is_fsdp2:
+            raise RuntimeError("LLM distributed fine-tuning supports FSDP2 only.")
+        trainer.train()
+        if fsdp_enabled:
+            state_dict = (
+                trainer.accelerator.get_state_dict(trainer.model) if return_state_dict else None)
+            trainer.accelerator.wait_for_everyone()
+            return state_dict
+        # After finishing training, set eval mode again
+        model.eval()
+        return None
+    finally:
+        if fsdp_enabled:
+            if trainer is not None:
+                trainer.accelerator.end_training()
+            else:
+                training_args.distributed_state.destroy_process_group()

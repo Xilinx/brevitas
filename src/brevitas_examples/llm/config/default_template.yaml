@@ -85,6 +85,7 @@ seqlen: 2048
 svd_quant: false
 svd_quant_iters: 1
 svd_quant_rank: 32
+synchronize_calibration_layers: false
 weight_bit_width: 8
 weight_equalization: false
 weight_group_dim: null

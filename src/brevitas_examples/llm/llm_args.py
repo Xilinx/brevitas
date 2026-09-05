@@ -527,6 +527,19 @@ def create_args_parser() -> ArgumentParser:
         type=int,
         default=1,
         help='Batch size for calibration data loader. (default: %(default)s).')
+    parser.add_argument(
+        '--synchronize-calibration-layers',
+        action='store_true',
+        help='Synchronize the current CUDA/ROCm device after each transformer layer during '
+        'the one-time quantizer initialization forward. Default: False.')
+
+    parser.add_argument(
+        '--job-folder',
+        type=str,
+        default=None,
+        help='If set, write results.json to this folder after quantization '
+        'completes. Used by the benchmark framework to collect results '
+        'from accelerate launch subprocesses. Default: %(default)s.')
 
     return parser
 
