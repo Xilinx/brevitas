@@ -83,6 +83,26 @@ class TestProxy:
         assert tracked_parameters[0] is module.parameter
         assert module.access_count == 1
 
+    def test_tracked_parameter_list_iteration_reads_each_parameter_once(self):
+
+        class TrackedModule:
+
+            def __init__(self, value):
+                self.access_count = 0
+                self.parameter = torch.nn.Parameter(torch.tensor([value]))
+
+            @property
+            def weight(self):
+                self.access_count += 1
+                return self.parameter
+
+        modules = [TrackedModule(1.), TrackedModule(2.)]
+        tracked_parameters = _TrackedParameterList(modules, "weight")
+
+        parameters = list(iter(tracked_parameters))
+        assert all(parameter is module.parameter for parameter, module in zip(parameters, modules))
+        assert [module.access_count for module in modules] == [1, 1]
+
     def test_weight_decoupled_proxy(self):
         model = QuantLinear(10, 5, weight_quant=Int8WeightPerChannelFloatDecoupled)
         assert model.weight_quant.pre_scale() is not None

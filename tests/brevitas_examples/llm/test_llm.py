@@ -38,7 +38,6 @@ from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation
 from brevitas_examples.llm.llm_quant.trainer_utils import _build_optimizers_from_configs
 from brevitas_examples.llm.llm_quant.trainer_utils import GeneralizedTrainer
 from brevitas_examples.llm.llm_quant.trainer_utils import TRAINER_REGISTRY
-from brevitas_examples.llm.main import calibration_forward_kwargs
 from brevitas_examples.llm.main import calibration_layer_sync
 from brevitas_examples.llm.main import main as llm_main
 from brevitas_examples.llm.main import quantize_llm
@@ -581,42 +580,6 @@ def test_parse_fsdp_pre_backward_sync_training_argument():
     assert training_args.fsdp_sync_forward_unshard
 
 
-def test_dynamic_input_initialization_disable_is_opt_in():
-    parser = create_args_parser()
-
-    default_args = parser.parse_args([])
-    disabled_args = parser.parse_args(["--disable-dynamic-input-during-initialization"])
-
-    assert not default_args.disable_dynamic_input_during_initialization
-    assert disabled_args.disable_dynamic_input_during_initialization
-
-
-def test_calibration_forward_skips_loss_and_limits_logits():
-
-    class Model:
-
-        def forward(self, input_ids, labels=None, logits_to_keep=0):
-            pass
-
-    batch = {"input_ids": torch.ones(1, 4), "labels": torch.ones(1, 4)}
-
-    inputs = calibration_forward_kwargs(Model(), batch)
-
-    assert set(inputs) == {"input_ids", "logits_to_keep"}
-    assert inputs["input_ids"] is batch["input_ids"]
-    assert inputs["logits_to_keep"] == 1
-    assert "labels" in batch
-
-
-def test_calibration_forward_supports_opaque_forward():
-    batch = {"input_ids": torch.ones(1, 4), "labels": torch.ones(1, 4)}
-
-    with patch("brevitas_examples.llm.main.inspect.signature", side_effect=ValueError):
-        inputs = calibration_forward_kwargs(nn.Module(), batch)
-
-    assert set(inputs) == {"input_ids"}
-
-
 def test_calibration_layer_sync_is_scoped(monkeypatch):
 
     class DecoderLayer(nn.Module):
@@ -631,6 +594,10 @@ def test_calibration_layer_sync_is_scoped(monkeypatch):
             super().__init__()
             self.layer = DecoderLayer()
 
+        def forward(self, value, labels=None):
+            self.labels = labels
+            return self.layer(value)
+
     synchronize_count = 0
 
     def synchronize():
@@ -640,10 +607,12 @@ def test_calibration_layer_sync_is_scoped(monkeypatch):
     monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
     monkeypatch.setattr(torch.cuda, "synchronize", synchronize)
     model = Model()
+    labels = torch.ones(1)
 
     with calibration_layer_sync(model, enabled=True):
-        model.layer(torch.ones(1))
+        model(value=torch.ones(1), labels=labels)
     assert synchronize_count == 1
+    assert model.labels is labels
 
     model.layer(torch.ones(1))
     assert synchronize_count == 1

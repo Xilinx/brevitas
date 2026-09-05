@@ -222,6 +222,23 @@ def test_fsdp_rotation_aliases_are_removed_from_generic_optimizer(monkeypatch):
         for parameter in optimized_parameters)
 
 
+def test_fsdp_rotation_aliases_follow_owner_trainability(monkeypatch):
+    model = RotationReplicaModel()
+    for parameter in model.parameters():
+        parameter.requires_grad_(False)
+    coordinator, _ = rotation_coordinator(model, monkeypatch)
+    coordinator.prepare(model)
+    owner = extract_trainable_rotation_matrix_owners(model)[0]
+    owner.requires_grad_(True)
+    optimizer = torch.optim.SGD([owner], lr=0.1)
+
+    coordinator.attach_optimizer(optimizer)
+
+    assert all(
+        parameter.requires_grad for _,
+        parameters in coordinator.replica_groups for parameter in parameters)
+
+
 def test_fsdp_unshard_sync_waits_for_real_unshard(monkeypatch):
 
     class FakeStream:

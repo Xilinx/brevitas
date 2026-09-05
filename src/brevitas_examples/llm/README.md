@@ -14,8 +14,7 @@ Set the env variable `BREVITAS_JIT=1` to speed up the quantization process. Curr
 
 When using `--optimize-rotations`, the rotation training procedure relies on the Trainer class (https://huggingface.co/docs/transformers/en/main_classes/trainer). Therefore, training can be further configured by passing arguments accepted by the dataclass TrainingArguments (https://huggingface.co/docs/transformers/en/main_classes/trainer#transformers.TrainingArguments), e.g. `--learning_rate`, `--weight_decay`, `per_device_train_batch_size`.
 
-For FSDP2 rotation training on ROCm, including the Qwen3-8B, 14B, and 32B
-configurations, see [FSDP_ROTATION.md](FSDP_ROTATION.md).
+For FSDP2 rotation training on ROCm, see [FSDP_ROTATION.md](FSDP_ROTATION.md).
 
 ```bash
 usage: main.py [-h] [--config CONFIG] [--model MODEL] [--dtype {auto,float32,float16,bfloat16}] [--seed SEED] [--nsamples NSAMPLES] [--nsamples-rot-calibration NSAMPLES_ROT_CALIBRATION] [--seqlen SEQLEN]

@@ -166,11 +166,10 @@ def extract_trainable_rotation_matrix_owners(model: nn.Module) -> List[nn.Parame
             module.rot_mat for module in group if getattr(module, 'rotation_is_owner', False)}
         if len(marked_owners) > 1:
             raise RuntimeError("A logical rotation group has multiple optimizer owners.")
-        parameters = marked_owners or [module.rot_mat for module in group]
-        for parameter in parameters:
-            if id(parameter) not in ids_rot:
-                ids_rot.add(id(parameter))
-                owners.append(parameter)
+        parameter = next(iter(marked_owners)) if marked_owners else group[0].rot_mat
+        if id(parameter) not in ids_rot:
+            ids_rot.add(id(parameter))
+            owners.append(parameter)
     return owners
 
 

@@ -79,6 +79,15 @@ class _TrackedParameterList(Sequence):
     def __getitem__(self, index):
         return self._parameters()[index]
 
+    def __iter__(self):
+        for module_ref in self.module_refs:
+            module = module_ref()
+            if module is None:
+                continue
+            parameter = getattr(module, self.parameter_name)
+            if parameter is not None:
+                yield parameter
+
     def __len__(self):
         return len(self._parameters())
 

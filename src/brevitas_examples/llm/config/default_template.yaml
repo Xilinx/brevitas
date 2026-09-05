@@ -71,7 +71,6 @@ qronos_alpha: 1.0e-06
 quant_sdpa: null
 quantize_input_zero_point: false
 quantize_last_layer: false
-disable_dynamic_input_during_initialization: false
 quantize_weight_zero_point: false
 replace_rmsnorm: false
 rotation: null

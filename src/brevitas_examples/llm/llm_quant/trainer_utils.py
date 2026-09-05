@@ -286,8 +286,8 @@ class TrainingArguments(transformers.TrainingArguments):
         default=False,
         metadata={
             "help":
-                "Also synchronize FSDP2 forward unshards for larger workloads where "
-                "pre-backward synchronization alone is insufficient."})
+                "Also synchronize FSDP2 forward unshards when the execution backend "
+                "requires parameter rematerialization to complete before module execution."})
 
     ### Multi-optimizer/scheduler args
     # List of dicts, one self-contained entry per optimizer.  Each dict may

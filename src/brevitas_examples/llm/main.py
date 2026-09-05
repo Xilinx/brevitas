@@ -5,7 +5,6 @@ from contextlib import contextmanager
 from contextlib import nullcontext
 from copy import deepcopy
 import functools
-import inspect
 import json
 import os
 import pprint
@@ -24,7 +23,6 @@ from transformers import AutoTokenizer
 from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.graph import load_quant_model_mode
-from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.equalize import apply_rewriters
 from brevitas.graph.equalize import fuse_parametrizations
 from brevitas.graph.equalize import GraphRotationEqualization
@@ -283,21 +281,6 @@ def requires_post_training_model(args):
         args.qronos,
         args.bias_corr,
     ))
-
-
-def calibration_forward_kwargs(model, batch):
-    """Build a calibration batch without an unnecessary language-model loss."""
-    inputs = dict(batch)
-    inputs.pop("labels", None)
-    try:
-        forward_parameters = inspect.signature(model.forward).parameters
-    except (TypeError, ValueError):
-        forward_parameters = {}
-    if "logits_to_keep" in forward_parameters:
-        inputs["logits_to_keep"] = 1
-    elif "num_logits_to_keep" in forward_parameters:
-        inputs["num_logits_to_keep"] = 1
-    return inputs
 
 
 @contextmanager
@@ -661,23 +644,12 @@ def quantize_llm(args, extra_args=None):
     use_post_training_model = requires_post_training_model(args)
     with quantization_cm:
         # We initialize weights scale factor
-        disable_dynamic_input_quant = (
-            args.disable_dynamic_input_during_initialization and
-            args.input_bit_width is not None and args.input_scale_type == "dynamic")
-        initialization_quantization_cm = (
-            quantization_status_manager(model, disable_act_quant=True, is_training=False)
-            if disable_dynamic_input_quant else nullcontext())
-        with (torch.no_grad(),
-              initialization_quantization_cm,
-              calibration_layer_sync(model, args.synchronize_calibration_layers)):
-            model(**calibration_forward_kwargs(model, next(iter(calibration_loader))))
-        synchronize_initialization = (
-            args.disable_dynamic_input_during_initialization or args.synchronize_calibration_layers)
-        if synchronize_initialization and torch.cuda.is_available():
+        with torch.no_grad(), calibration_layer_sync(model, args.synchronize_calibration_layers):
+            model(**next(iter(calibration_loader)))
+        if args.synchronize_calibration_layers and torch.cuda.is_available():
             # LOCAL_RANK was selected at entry, while the transformed model's first
             # parameter may be CPU/offloaded and is not a reliable synchronization device.
             torch.cuda.synchronize()
-            torch.cuda.empty_cache()
 
         if args.compile_ptq:
             for m in model.modules():

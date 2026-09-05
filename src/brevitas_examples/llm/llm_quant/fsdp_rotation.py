@@ -224,6 +224,11 @@ class FSDPRotationCoordinator:
                             dist.broadcast(value, src=0)
 
     def attach_optimizer(self, optimizer: torch.optim.Optimizer) -> None:
+        # Parameter selectors run after coordinator preparation and may re-enable only
+        # the logical owner. Aliases need gradients even though they are not optimized.
+        for owner, parameters in self.replica_groups:
+            for parameter in parameters:
+                parameter.requires_grad_(owner.requires_grad)
         if self._optimizer_hook is None:
             self._optimizer_hook = optimizer.register_step_post_hook(
                 lambda current_optimizer,

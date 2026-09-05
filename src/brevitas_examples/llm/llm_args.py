@@ -532,12 +532,6 @@ def create_args_parser() -> ArgumentParser:
         action='store_true',
         help='Synchronize the current CUDA/ROCm device after each transformer layer during '
         'the one-time quantizer initialization forward. Default: False.')
-    parser.add_argument(
-        '--disable-dynamic-input-during-initialization',
-        action='store_true',
-        help='Disable dynamic input quantization during the one-time weight-quantizer '
-        'initialization forward. Dynamic input quantization is restored before training. '
-        'Default: False.')
 
     parser.add_argument(
         '--job-folder',

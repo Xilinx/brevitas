@@ -352,6 +352,7 @@ def test_rotation_groups_support_replaced_parameter_occurrences():
     assert group[2].rot_mat is replacement
     # Logical discovery is independent of Parameter identity after replacement.
     assert list(get_rotation_groups(model).values()) == [group]
+    assert extract_trainable_rotation_matrix_owners(model) == [replacement]
 
 
 @requires_pt_ge('2.3.1')
