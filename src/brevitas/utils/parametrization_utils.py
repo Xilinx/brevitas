@@ -92,6 +92,9 @@ class RotationWeightParametrization(torch.nn.Module):
         # FSDP replaces one occurrence of a shared Parameter. It is deliberately plain
         # metadata rather than a buffer so that it does not affect state dicts.
         self.rotation_group_id = rotation_group_id
+        self.materialize_input = False
+        self.materialized_input_bytes = 0
+        self.materialized_input_calls = 0
 
     def __getattr__(self, name):
         if name == "rot_mat":
@@ -118,6 +121,10 @@ class RotationWeightParametrization(torch.nn.Module):
         return None if handle is None else handle.key
 
     def forward(self, tensor: torch.Tensor) -> torch.Tensor:
+        if self.materialize_input:
+            self.materialized_input_bytes += tensor.numel() * tensor.element_size()
+            self.materialized_input_calls += 1
+            tensor = tensor.clone(memory_format=torch.preserve_format)
         if self.axis == 0:
             tensor = tensor.t()
             init_shape = tensor.shape
@@ -323,3 +330,39 @@ def prune_rotation_bank(model: nn.Module) -> Optional[RotationBank]:
         delattr(model, ROTATION_BANK_NAME)
         return None
     return bank
+
+
+def _is_materializable_rotation(module: nn.Module) -> bool:
+    """Both rotation code paths save a tensor aliasing FSDP2-unsharded storage.
+
+    RotationWeightParametrization rotates the sharded weight (offline/fused rotation);
+    RotatedModule rotates the activation input at runtime (online rotation, e.g. SDPA
+    regions and orphan sinks). Cloning the input on either path gives the autograd graph
+    private storage that survives the post-forward reshard.
+    """
+    # Imported lazily to avoid a circular import between brevitas.nn and this util module.
+    from brevitas.nn.equalized_layer import RotatedModule
+    if isinstance(module, RotationWeightParametrization):
+        return module.is_rotation_bank_bound
+    return isinstance(module, RotatedModule)
+
+
+def configure_rotation_input_materialization(model: nn.Module, enabled: bool) -> None:
+    for module in model.modules():
+        if _is_materializable_rotation(module):
+            module.materialize_input = enabled
+
+
+def rotation_input_materialization_bytes(model: nn.Module) -> int:
+    return sum(
+        module.materialized_input_bytes
+        for module in model.modules()
+        if _is_materializable_rotation(module))
+
+
+def reset_rotation_input_materialization_stats(model: nn.Module) -> None:
+    from brevitas.nn.equalized_layer import RotatedModule
+    for module in model.modules():
+        if isinstance(module, (RotationWeightParametrization, RotatedModule)):
+            module.materialized_input_bytes = 0
+            module.materialized_input_calls = 0

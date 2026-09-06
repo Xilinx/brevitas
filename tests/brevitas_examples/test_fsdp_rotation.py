@@ -15,11 +15,16 @@ from torch.nn.utils import parametrize
 from torch.utils.checkpoint import checkpoint
 
 from brevitas.graph.equalize import fuse_parametrizations
+from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.optim.cailey_sgd import CaileySGD
+from brevitas.utils.parametrization_utils import configure_rotation_input_materialization
 from brevitas.utils.parametrization_utils import ensure_rotation_bank
 from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrix_owners
 from brevitas.utils.parametrization_utils import get_rotation_bank
+from brevitas.utils.parametrization_utils import reset_rotation_input_materialization_stats
+from brevitas.utils.parametrization_utils import rotation_input_materialization_bytes
 from brevitas.utils.parametrization_utils import RotationWeightParametrization
+from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.llm.llm_quant.fsdp_rotation import FSDPRotationCoordinator
 from brevitas_examples.llm.llm_quant.fsdp_workarounds import enable_fsdp_unshard_sync
 
@@ -125,6 +130,18 @@ def distributed_rotation_worker(rank, world_size, init_file):
             cailey.step()
         dist.all_gather(gathered, rotation)
         assert all(torch.equal(gathered[0], other) for other in gathered[1:])
+
+        coordinator.check_replica_consistency()
+        with torch.no_grad():
+            rotation.add_(rank)
+        replica_divergence_detected = False
+        try:
+            coordinator.check_replica_consistency()
+        except RuntimeError:
+            replica_divergence_detected = True
+        assert replica_divergence_detected
+        with torch.no_grad():
+            rotation.sub_(rank)
 
         from torch.distributed.checkpoint.state_dict import get_model_state_dict
         from torch.distributed.checkpoint.state_dict import StateDictOptions
@@ -285,6 +302,102 @@ def test_rotation_bank_optimizer_contains_parameter_once():
     assert optimizer.param_groups[0]["params"][0] is parameters[0]
 
 
+def test_remove_hooks_clears_stale_device_map():
+    model = nn.Linear(2, 2)
+    model.hf_device_map = {"": 0, "_brevitas_rotation_bank": 0}
+
+    remove_hooks(model)
+
+    assert not hasattr(model, "hf_device_map")
+
+
+def test_rotation_input_materialization_separates_storage_and_preserves_gradients():
+
+    class Model(nn.Module):
+
+        def __init__(self, materialize):
+            super().__init__()
+            rotation = nn.Parameter(torch.tensor([[0.8, -0.6], [0.6, 0.8]]))
+            self.consumer = RotationWeightParametrization(
+                rotation, lambda tensor, matrix, K: tensor @ matrix, axis=1, rotation_group_id="r1")
+            ensure_rotation_bank(self)
+            configure_rotation_input_materialization(self, materialize)
+
+    reference = Model(materialize=False)
+    materialized = Model(materialize=True)
+    materialized.load_state_dict(reference.state_dict())
+    reference_input = torch.randn(3, 2, requires_grad=True)
+    materialized_input = reference_input.detach().clone().requires_grad_(True)
+    materialized_storage = []
+
+    def materialized_matmul(tensor, matrix, K):
+        materialized_storage.append(tensor.data_ptr())
+        return tensor @ matrix
+
+    materialized.consumer.rot_func = materialized_matmul
+
+    reference.consumer(reference_input).sum().backward()
+    materialized.consumer(materialized_input).sum().backward()
+
+    assert len(materialized_storage) == 1
+    assert materialized_storage[0] != materialized_input.data_ptr()
+    assert torch.equal(materialized_input.grad, reference_input.grad)
+    assert torch.equal(
+        get_rotation_bank(materialized).ordered_parameters()[0].grad,
+        get_rotation_bank(reference).ordered_parameters()[0].grad)
+    assert rotation_input_materialization_bytes(
+        materialized) == materialized_input.numel() * materialized_input.element_size()
+    assert materialized.consumer.materialized_input_calls == 1
+    reset_rotation_input_materialization_stats(materialized)
+    assert rotation_input_materialization_bytes(materialized) == 0
+    assert materialized.consumer.materialized_input_calls == 0
+
+
+def test_online_rotation_input_materialization_separates_storage_and_preserves_gradients():
+    # The online activation rotation (RotatedModule.rotation_forward) is the second
+    # rotation code path. Like the weight path, its clone must sever storage from the
+    # FSDP2-unsharded input while preserving the forward output and input gradients.
+    layer = nn.Linear(16, 8, bias=False)
+    reference = RotatedModule(layer=deepcopy(layer))
+    materialized = RotatedModule(layer=deepcopy(layer))
+
+    configure_rotation_input_materialization(reference, False)
+    configure_rotation_input_materialization(materialized, True)
+    assert reference.materialize_input is False
+    assert materialized.materialize_input is True
+
+    reference_input = torch.randn(4, 16, requires_grad=True)
+    materialized_input = reference_input.detach().clone().requires_grad_(True)
+
+    reset_rotation_input_materialization_stats(materialized)
+    reference_out = reference(reference_input)
+    materialized_out = materialized(materialized_input)
+
+    # The clone must be transparent to the forward result.
+    assert torch.allclose(reference_out, materialized_out, atol=1e-6)
+
+    # Storage independence: mutating the caller input's storage in place after the
+    # forward must not alter the already-computed output, which is only true if the
+    # rotation consumed a private clone rather than aliasing the caller input.
+    materialized_out_detached = materialized_out.detach().clone()
+    with torch.no_grad():
+        materialized_input.add_(1000.0)
+    assert torch.equal(materialized_out.detach(), materialized_out_detached)
+
+    # Gradients still flow back to the original (pre-mutation) input graph node.
+    materialized_out.sum().backward()
+    reference_out.sum().backward()
+    assert torch.equal(materialized_input.grad, reference_input.grad)
+
+    expected_bytes = reference_input.numel() * reference_input.element_size()
+    assert rotation_input_materialization_bytes(materialized) == expected_bytes
+    assert materialized.materialized_input_calls == 1
+
+    reset_rotation_input_materialization_stats(materialized)
+    assert rotation_input_materialization_bytes(materialized) == 0
+    assert materialized.materialized_input_calls == 0
+
+
 def test_rotation_bank_reduces_all_gradients_with_one_collective(monkeypatch):
     model = RotationBankModel()
     model.extra_rotation = RotationHolder(nn.Parameter(2. * torch.eye(3)), group_id="r2")
@@ -347,15 +460,77 @@ def test_fsdp_unshard_sync_waits_for_real_unshard(monkeypatch):
     model = FakeFSDPModule(param_group)
     monkeypatch.setattr(torch_fsdp, "FSDPModule", FakeFSDPModule)
 
-    assert enable_fsdp_unshard_sync(model) == 1
+    # Selective pre-backward mode syncs only in the PRE_BACKWARD training state.
+    assert enable_fsdp_unshard_sync(model, sync_pre_backward=True) == 1
     param_group.wait_for_unshard()
     assert stream.synchronize_count == 1
     param_group._training_state = SimpleNamespace(name="FORWARD")
     param_group.wait_for_unshard()
     assert stream.synchronize_count == 1
+    # Re-enabling with forward sync updates the already-installed group in place.
     assert enable_fsdp_unshard_sync(model, sync_pre_backward=False, sync_forward=True) == 0
     param_group.wait_for_unshard()
     assert stream.synchronize_count == 2
+
+    # No flags installs nothing.
+    assert enable_fsdp_unshard_sync(model) == 0
+
+
+def test_fsdp_unshard_sync_universal_syncs_in_every_state(monkeypatch):
+    # The universal guard must synchronize after every unshard regardless of the
+    # training state, which is what covers the backward checkpoint-recompute site
+    # that the selective (state-gated) mode misses at larger model sizes.
+
+    class FakeStream:
+
+        def __init__(self):
+            self.synchronize_count = 0
+
+        def synchronize(self):
+            self.synchronize_count += 1
+
+    class FakeParamGroup:
+
+        def __init__(self, stream):
+            self._training_state = SimpleNamespace(name="FORWARD")
+            self._all_gather_result = object()
+            self.device_handle = SimpleNamespace(current_stream=lambda: stream)
+
+        def wait_for_unshard(self):
+            # Mirror FSDP2: a completed unshard clears the pending result. The
+            # guard must read "pending" before this original call runs.
+            self._all_gather_result = None
+
+    class FakeFSDPModule(nn.Module):
+
+        def __init__(self, param_group):
+            super().__init__()
+            self.state = SimpleNamespace(_fsdp_param_groups=[param_group])
+
+        def _get_fsdp_state(self):
+            return self.state
+
+    import torch.distributed.fsdp as torch_fsdp
+
+    stream = FakeStream()
+    param_group = FakeParamGroup(stream)
+    model = FakeFSDPModule(param_group)
+    monkeypatch.setattr(torch_fsdp, "FSDPModule", FakeFSDPModule)
+
+    assert enable_fsdp_unshard_sync(model, sync_all=True) == 1
+
+    count = 0
+    for state in ("FORWARD", "PRE_FORWARD", "PRE_BACKWARD", "IDLE", "UNKNOWN"):
+        param_group._training_state = SimpleNamespace(name=state)
+        param_group._all_gather_result = object()  # a fresh pending unshard
+        param_group.wait_for_unshard()
+        count += 1
+        assert stream.synchronize_count == count, state
+
+    # A no-op unshard (nothing pending) must not synchronize.
+    param_group._all_gather_result = None
+    param_group.wait_for_unshard()
+    assert stream.synchronize_count == count
 
 
 @pytest.mark.parametrize("use_reentrant", [True, False])

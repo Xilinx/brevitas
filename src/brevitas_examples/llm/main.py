@@ -34,7 +34,10 @@ from brevitas.graph.utils import get_module
 from brevitas.graph.utils import remove_weight_orig
 from brevitas.nn.quant_sdpa import ScaledDotProductAttention
 from brevitas.utils.logging import setup_logger
+from brevitas.utils.parametrization_utils import configure_rotation_input_materialization
 from brevitas.utils.parametrization_utils import ensure_rotation_bank
+from brevitas.utils.parametrization_utils import reset_rotation_input_materialization_stats
+from brevitas.utils.parametrization_utils import rotation_input_materialization_bytes
 from brevitas.utils.python_utils import hooked_on_a_function
 from brevitas_examples.common.accelerate_utils.accelerate import calc_gpu_device_map
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
@@ -473,6 +476,7 @@ def quantize_llm(args, extra_args=None):
 
     if args.fine_tune:
         ensure_rotation_bank(model)
+        configure_rotation_input_materialization(model, args.materialize_rotation_inputs)
 
     if args.weight_equalization:
         print("Apply weight equalization...")
@@ -648,8 +652,14 @@ def quantize_llm(args, extra_args=None):
     use_post_training_model = requires_post_training_model(args)
     with quantization_cm:
         # We initialize weights scale factor
+        reset_rotation_input_materialization_stats(model)
         with torch.no_grad(), calibration_layer_sync(model, args.synchronize_calibration_layers):
             model(**next(iter(calibration_loader)))
+        if args.materialize_rotation_inputs and int(os.environ.get("RANK", "0")) == 0:
+            materialized_gib = rotation_input_materialization_bytes(model) / 1024 ** 3
+            print(
+                "Rotation input clone payload per complete forward: "
+                f"{materialized_gib:.2f} GiB")
         if args.synchronize_calibration_layers and torch.cuda.is_available():
             # LOCAL_RANK was selected at entry, while the transformed model's first
             # parameter may be CPU/offloaded and is not a reliable synchronization device.

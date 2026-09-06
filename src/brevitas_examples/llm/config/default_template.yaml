@@ -61,6 +61,7 @@ ln_affine_merge: false
 load_checkpoint: false
 magr: false
 magr_alpha: 0.01
+materialize_rotation_inputs: false
 model: facebook/opt-125m
 no_quantize: false
 nsamples: 128

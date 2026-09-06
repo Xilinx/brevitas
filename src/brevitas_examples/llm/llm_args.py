@@ -532,6 +532,11 @@ def create_args_parser() -> ArgumentParser:
         action='store_true',
         help='Synchronize the current CUDA/ROCm device after each transformer layer during '
         'the one-time quantizer initialization forward. Default: False.')
+    parser.add_argument(
+        '--materialize-rotation-inputs',
+        action='store_true',
+        help='Clone FSDP-backed tensors before trainable rotation operations so tensors saved '
+        'for backward do not alias resharded parameter storage. Default: False.')
 
     parser.add_argument(
         '--job-folder',

@@ -262,7 +262,25 @@ def apply_fine_tuning(
         trainer = trainer_cls(**trainer_kwargs)
         if fsdp_enabled and not trainer.accelerator.is_fsdp2:
             raise RuntimeError("LLM distributed fine-tuning supports FSDP2 only.")
+        if torch.cuda.is_available():
+            torch.cuda.reset_peak_memory_stats(trainer.accelerator.device)
         trainer.train()
+        if torch.cuda.is_available():
+            peak_allocated = torch.cuda.max_memory_allocated(trainer.accelerator.device) / 1024 ** 3
+            peak_reserved = torch.cuda.max_memory_reserved(trainer.accelerator.device) / 1024 ** 3
+            memory = torch.tensor([peak_allocated, peak_reserved],
+                                  device=trainer.accelerator.device,
+                                  dtype=torch.float64)
+            min_memory = memory.clone()
+            max_memory = memory.clone()
+            if torch.distributed.is_initialized():
+                torch.distributed.all_reduce(min_memory, op=torch.distributed.ReduceOp.MIN)
+                torch.distributed.all_reduce(max_memory, op=torch.distributed.ReduceOp.MAX)
+            if trainer.accelerator.is_main_process:
+                print(
+                    "Training peak CUDA memory across ranks: "
+                    f"allocated={min_memory[0].item():.2f}-{max_memory[0].item():.2f} GiB, "
+                    f"reserved={min_memory[1].item():.2f}-{max_memory[1].item():.2f} GiB")
         if fsdp_enabled:
             state_dict = (
                 trainer.accelerator.get_state_dict(trainer.model) if return_state_dict else None)

@@ -134,3 +134,25 @@ class FSDPRotationCoordinator:
             else:
                 parameter.grad = packed[offset:next_offset].view_as(parameter).div(world_size)
             offset = next_offset
+
+    def check_replica_consistency(self) -> None:
+        """Assert every rank holds an identical copy of each bank parameter."""
+        if not self.prepared:
+            return
+        import torch.distributed as dist
+
+        if not dist.is_initialized():
+            return
+        world_size = dist.get_world_size()
+        if world_size == 1:
+            return
+        with torch.no_grad():
+            for index, parameter in enumerate(self.bank.ordered_parameters()):
+                gathered = [torch.empty_like(parameter) for _ in range(world_size)]
+                dist.all_gather(gathered, parameter.contiguous())
+                for rank, other in enumerate(gathered[1:], start=1):
+                    if not torch.equal(gathered[0], other):
+                        max_difference = (gathered[0] - other).abs().max().item()
+                        raise RuntimeError(
+                            f"RotationBank parameter {index} diverged on rank {rank}; "
+                            f"max abs difference {max_difference}.")

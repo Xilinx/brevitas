@@ -274,18 +274,36 @@ class TrainingArguments(transformers.TrainingArguments):
                 "Data type for CaileySGD optimizer computations. None means use parameter dtype."})
 
     ### FSDP2 args
+    fsdp_sync_all_unshards: bool = field(
+        default=False,
+        metadata={
+            "help":
+                "Synchronize every FSDP2 unshard unconditionally, in every training state "
+                "(forward, pre-forward, pre-backward, and backward checkpoint recompute). "
+                "This is the robust, size-independent guard against ROCm unshard/consume "
+                "stream races: it needs no per-consumer enumeration, adds no allocations, "
+                "and preserves FSDP resharding, so VRAM is unchanged (only overlap is "
+                "reduced). Supersedes the selective flags below when set."})
     fsdp_sync_pre_backward_unshard: bool = field(
         default=False,
         metadata={
             "help":
-                "Synchronize each FSDP2 pre-backward unshard before autograd consumes it. "
-                "This preserves post-forward resharding while avoiding ROCm stream races."})
+                "Selective mode: synchronize each FSDP2 pre-backward unshard before autograd "
+                "consumes it. Prefer fsdp_sync_all_unshards; this state-gated flag can miss "
+                "unshard sites (e.g. backward checkpoint recompute) at larger model sizes."})
     fsdp_sync_forward_unshard: bool = field(
         default=False,
         metadata={
             "help":
-                "Also synchronize FSDP2 forward unshards when the execution backend "
-                "requires parameter rematerialization to complete before module execution."})
+                "Selective mode: also synchronize FSDP2 forward unshards when the execution "
+                "backend requires parameter rematerialization to complete before module "
+                "execution. Prefer fsdp_sync_all_unshards."})
+    check_rotation_replica_consistency: bool = field(
+        default=False,
+        metadata={
+            "help":
+                "After each optimizer synchronization boundary, assert every rank holds an "
+                "identical copy of each RotationBank parameter. Diagnostic only."})
 
     ### Multi-optimizer/scheduler args
     # List of dicts, one self-contained entry per optimizer.  Each dict may
@@ -426,21 +444,48 @@ class GeneralizedTrainer(Trainer):
             self.teacher_model = fsdp2_prepare_model(self.accelerator, self.teacher_model)
         return wrapped
 
+    def _install_fsdp_unshard_sync(self, model):
+        """Install the FSDP2 unshard synchronization on every FSDP-managed model.
+
+        The guard is applied to the student ``model`` and, when distillation is
+        enabled, to the separately FSDP2-prepared ``teacher_model``. The teacher
+        runs its own forward in ``compute_loss`` and unshards its parameters, so
+        it is subject to the same unshard/consume hazard and must be protected
+        too.
+        """
+        sync_all = getattr(self.args, "fsdp_sync_all_unshards", False)
+        sync_pre_backward = getattr(self.args, "fsdp_sync_pre_backward_unshard", False)
+        sync_forward = getattr(self.args, "fsdp_sync_forward_unshard", False)
+        if not (sync_all or sync_pre_backward or sync_forward):
+            return
+        if not self.accelerator.is_fsdp2:
+            raise RuntimeError("FSDP unshard synchronization is supported with FSDP2 only.")
+        from brevitas_examples.llm.llm_quant.fsdp_workarounds import enable_fsdp_unshard_sync
+        targets = [("student", model)]
+        if self.teacher_model is not None and self.is_fsdp_enabled:
+            targets.append(("teacher", self.teacher_model))
+        is_main_process = int(os.environ.get("RANK", "0")) == 0
+        for name, target in targets:
+            installed = enable_fsdp_unshard_sync(
+                target,
+                sync_pre_backward=sync_pre_backward,
+                sync_forward=sync_forward,
+                sync_all=sync_all)
+            if is_main_process:
+                mode = "universal" if sync_all else "selective"
+                print(
+                    f"FSDP unshard synchronization ({mode}) installed on {installed} "
+                    f"{name} parameter group(s).")
+
     def training_step(self, model, inputs, num_items_in_batch=None):
         if not self._fsdp_post_wrap_initialized:
-            sync_pre_backward = getattr(self.args, "fsdp_sync_pre_backward_unshard", False)
-            sync_forward = getattr(self.args, "fsdp_sync_forward_unshard", False)
-            if sync_pre_backward or sync_forward:
-                if not self.accelerator.is_fsdp2:
-                    raise RuntimeError("FSDP unshard synchronization is supported with FSDP2 only.")
-                from brevitas_examples.llm.llm_quant.fsdp_workarounds import \
-                    enable_fsdp_unshard_sync
-                enable_fsdp_unshard_sync(
-                    model, sync_pre_backward=sync_pre_backward, sync_forward=sync_forward)
+            self._install_fsdp_unshard_sync(model)
             self._fsdp_post_wrap_initialized = True
         loss = super().training_step(model, inputs, num_items_in_batch)
         if self.rotation_coordinator is not None and self.accelerator.sync_gradients:
             self.rotation_coordinator.consolidate_gradients()
+            if getattr(self.args, "check_rotation_replica_consistency", False):
+                self.rotation_coordinator.check_replica_consistency()
         return loss
 
     def floating_point_ops(self, inputs):
