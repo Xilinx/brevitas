@@ -151,6 +151,11 @@ def padding_to_multiple(x: torch.Tensor, dim_to_expand: int, dim_multiple: int) 
     # Given a tensor X, compute the padding along dim_multiple so that new dimension is a multiple of dim_multiple
     dim_to_expand = dim_to_expand % x.dim()
     padding_size = (-x.shape[dim_to_expand]) % dim_multiple
+    # Eager fast path: when already a multiple, return as-is with no allocation. The
+    # `and` short-circuits under Dynamo, so the symbolic `padding_size == 0` comparison
+    # is never evaluated during tracing and cannot force a symbolic-to-bool conversion.
+    if not brevitas.is_dynamo_compiling() and padding_size == 0:
+        return x
     # Exact-size allocation cannot be traced when the symbolic modulo-derived padding
     # dimension may be zero. Over-pad by a fixed positive block, then narrow to size.
     padding_shape = [
