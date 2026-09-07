@@ -8,7 +8,6 @@ import torch
 
 from brevitas.utils.quant_utils import groupwise_dequant_expand
 from brevitas.utils.torch_utils import padding_to_multiple
-from tests.marker import jit_disabled_for_compile
 from tests.marker import requires_pt_ge
 from tests.marker import requires_torch_compile
 
@@ -19,7 +18,6 @@ from tests.marker import requires_torch_compile
      ((5, 3), 0, 4, (8, 3))])
 @requires_pt_ge('2.2')
 @requires_torch_compile()
-@jit_disabled_for_compile()
 def test_compile_padding_to_multiple(shape, dim, multiple, expected_shape):
     x = torch.arange(math.prod(shape), dtype=torch.float32).reshape(shape)
     compiled_fn = torch.compile(padding_to_multiple, backend='eager', fullgraph=True)
@@ -43,7 +41,6 @@ def test_compile_padding_to_multiple(shape, dim, multiple, expected_shape):
 @pytest.mark.parametrize('expand_metadata', [False, True])
 @requires_pt_ge('2.2')
 @requires_torch_compile()
-@jit_disabled_for_compile()
 def test_compile_groupwise_dequant_expand(group_dim, scalar_metadata, expand_metadata):
     value = torch.arange(16, dtype=torch.float32).reshape(2, 2, 4)
     if scalar_metadata:

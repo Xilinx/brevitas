@@ -184,24 +184,16 @@ class GroupwiseMixin(torch.nn.Module):
             **kwargs) -> None:
         super().__init__(**kwargs)
         self.skip_create_quant_tensor = True
-        self._group_dim = None
-        self._group_size = None
-
-    @property
-    def group_dim(self) -> int:
-        return self._group_dim
-
-    @property
-    def group_size(self) -> int:
-        return self._group_size
+        self.group_dim = None
+        self.group_size = None
 
     def prepare_for_export(self, module: nn.Module) -> None:
         if hasattr(super(), 'prepare_for_export'):
             super().prepare_for_export(module)
         if module.is_quant_enabled:
             # Keep grouping metadata in Python so Dynamo treats it as static control flow.
-            self._group_dim = int(module.group_dim)
-            self._group_size = int(module.group_size)
+            self.group_dim = int(module.group_dim)
+            self.group_size = int(module.group_size)
 
     def reshape(self, x: Tensor, group_dim: int, group_size: int) -> Tensor:
         init_shape = list(x.shape)

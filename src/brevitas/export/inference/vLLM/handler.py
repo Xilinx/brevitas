@@ -70,9 +70,9 @@ class vLLMGroupwiseMetadataMixin:
         super()._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
         if prefix + 'group_dim_t' in state_dict:
-            self._group_dim = int(self.group_dim_t.item())
+            self.group_dim = int(self.group_dim_t.item())
         if prefix + 'group_size_t' in state_dict:
-            self._group_size = int(self.group_size_t.item())
+            self.group_size = int(self.group_size_t.item())
 
 
 class vLLMGroupwiseIntInferenceHandler(vLLMGroupwiseMetadataMixin,
