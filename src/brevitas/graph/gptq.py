@@ -173,7 +173,7 @@ class GPTQ(GPxQ):
 
             h_inv_block = h_inv[:, i1:i2, i1:i2]
             for i in range(count):
-                q_groups = self.get_quant_weights(i, i1, permutation_list)  # [groups, OC/groups]
+                q_groups = self.get_quant_weight(i, i1, permutation_list)  # [groups, OC/groups]
                 for group_index in range(self.groups):
                     perm = permutation_list[group_index]
                     q = q_groups[group_index].to(self.dtype)  # [OC/groups]

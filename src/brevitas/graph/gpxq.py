@@ -24,6 +24,7 @@ from brevitas.graph.utils import get_batch_dim
 from brevitas.graph.utils import is_conv_transposed
 from brevitas.graph.utils import is_quant_module
 import brevitas.nn as qnn
+from brevitas.nn.mixin import WeightRegion
 from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.torch_utils import rename_tensor
@@ -36,6 +37,56 @@ SUPPORTED_CONV_OP = (
 class LayerHandler:
     layer_names: Set = field(default_factory=set)
     forward_count: int = 0
+
+
+class GPxQWeightReader:
+    """Read quantized weights in GPxQ's ``[groups, rows, columns]`` layout."""
+
+    def __init__(self, owner):
+        self.owner = owner
+
+    def _check_initialized(self):
+        for module in self.owner.layer.weight_quant.modules():
+            if hasattr(module, 'init_done') and not module.init_done:
+                raise RuntimeError(
+                    "Weight quantizer not initialized. Run a forward pass after quantization and try again."
+                )
+
+    def _full(self):
+        quant_weight = self.owner.layer.quant_weight(quant_input=self.owner.quant_metadata)
+        quant_weight = _unpack_quant_tensor(quant_weight)
+        if isinstance(self.owner.layer, qnn.QuantLinear):
+            return quant_weight.unsqueeze(0)
+        if is_conv_transposed(self.owner.layer):
+            quant_weight = quant_weight.transpose(1, 0)
+        quant_weight = quant_weight.flatten(1)
+        return quant_weight.view(self.owner.groups, -1, quant_weight.shape[-1])
+
+    def current(self, position, permutation_list):
+        """Return one current quantized column as ``[groups, rows, 1]``."""
+        self._check_initialized()
+        if isinstance(self.owner.layer, qnn.QuantLinear):
+            index = int(permutation_list[0][position])
+            region = WeightRegion((None, (index, index + 1)))
+            quant_weight = self.owner.layer.quant_weight_region(
+                region=region, quant_input=self.owner.quant_metadata)
+            return quant_weight.unsqueeze(0)
+
+        quant_weight = self._full()
+        columns = []
+        for group_index, permutation in enumerate(permutation_list):
+            index = permutation[position]
+            columns.append(quant_weight[group_index, :, index:index + 1])
+        return torch.stack(columns)
+
+    def history(self, end, permutation_list):
+        """Return the quantized permutation prefix as ``[groups, rows, end]``."""
+        self._check_initialized()
+        quant_weight = self._full()
+        history = []
+        for group_index, permutation in enumerate(permutation_list):
+            history.append(quant_weight[group_index].index_select(1, permutation[:end]))
+        return torch.stack(history)
 
 
 class gpxq_mode(quantization_status_manager):
@@ -230,6 +281,7 @@ class GPxQ(ABC):
         self.disable_pre_forward_hook = False
         # Some layers require knowledge from quant inputs to compute quant weights
         self.quant_metadata = None
+        self.weight_reader = GPxQWeightReader(self)
 
     @property
     def use_intermediate_buffer(self):
@@ -310,83 +362,8 @@ class GPxQ(ABC):
     def single_layer_update(self):
         pass
 
-    def get_quant_weights(self, i, i1, permutation_list, with_quant_history=False):
+    def get_quant_weight(self, i, i1, permutation_list):
+        return self.weight_reader.current(i1 + i, permutation_list).squeeze(2)
 
-        # If the weight quantizer has not been initialized, raise an error
-        for m in self.layer.weight_quant.modules():
-            if hasattr(m, 'init_done') and not m.init_done:
-                raise RuntimeError(
-                    "Weight quantizer not initialized. Run a forward pass after quantization and try again."
-                )
-
-        # We need to recompute quant weights at runtime since our float weights are being updated
-        # Add offset in case of blockwise computation
-        i = i1 + i
-
-        # For QuantLinear and for some QuantConvolutional layers, we exploit the possibility
-        # of quantizing only a subset of the entire matrix speeding up the computation of GPxQ
-        no_slice = False
-        # Groupwise Quantization does not support slicing
-        no_slice = no_slice or self.layer.weight_quant.is_groupwise
-        # If we need quantization of past channels, we do not use slicing
-        no_slice = no_slice or with_quant_history
-        # If we are in export mode (i.e., inference mode), we do not slice for torch.compile
-        # compatibility
-        no_slice = no_slice or self.layer.weight_quant.export_mode
-
-        if isinstance(self.layer, qnn.QuantLinear):
-            if no_slice:
-
-                # No slicing, not optimized
-                q = self.layer.quant_weight(quant_input=self.quant_metadata)
-                q = _unpack_quant_tensor(q).unsqueeze(0)  # [1, OC, IC]
-                if with_quant_history:
-                    return q[:, :, permutation_list[0][:i]]  # [1, OC, i]
-                index = permutation_list[0][i]  # only 1 group for linear layers
-                q = q[:, :, index:index + 1]  # [1, OC, 1]
-            else:
-                index = permutation_list[0][i]
-                subtensor_slice_list = [None, (index, index + 1)]
-                q = _unpack_quant_tensor(
-                    self.layer.quant_weight(
-                        subtensor_slice_list=subtensor_slice_list,
-                        quant_input=self.quant_metadata)).unsqueeze(0)  # [1, OC, 1]
-        elif isinstance(self.layer, SUPPORTED_CONV_OP):
-            # Depthwise and ConvTranspose does not support slicing
-            no_slice_conv = no_slice or (self.groups > 1 or is_conv_transposed(self.layer))
-
-            if no_slice_conv:
-
-                quant_weight = self.layer.quant_weight(quant_input=self.quant_metadata)
-                quant_weight = _unpack_quant_tensor(quant_weight)
-
-                if is_conv_transposed(self.layer):
-                    quant_weight = quant_weight.transpose(1, 0)  # This performs a view
-                quant_weight = quant_weight.flatten(1)
-                quant_weight = quant_weight.view(self.groups, -1, quant_weight.shape[-1])
-
-                if self.act_order:
-                    for ii, perm in enumerate(permutation_list):
-                        quant_weight[ii, :, :] = quant_weight[ii, :, perm]
-
-                if with_quant_history:
-                    return quant_weight[:, :, :i]  # [groups, OC/groups, i]
-                q = quant_weight[:, :, i:i + 1]  # [groups, OC/groups, 1]
-            else:
-                index = permutation_list[0][i]
-                shapes = self.layer.weight.shape[1:]
-                index_2d_to_nd = []
-                residual_index = index.item()
-                for shape in shapes[::-1]:
-                    index_2d_to_nd.append((residual_index % shape, residual_index % shape + 1))
-                    residual_index = residual_index // shape
-                index_2d_to_nd = index_2d_to_nd[::-1]
-                index_2d_to_nd.insert(0, None)
-                q = _unpack_quant_tensor(
-                    self.layer.quant_weight(
-                        subtensor_slice_list=index_2d_to_nd,
-                        quant_input=self.quant_metadata)).flatten(1)  # [OC, 1]
-                q = q.unsqueeze(0)  # [1, OC, 1]
-        # We need to remove the last dim
-        q = q.squeeze(2)  # [groups, OC/groups] or [1, OC]
-        return q
+    def get_quant_weight_history(self, end, permutation_list):
+        return self.weight_reader.history(end, permutation_list)
