@@ -801,10 +801,19 @@ def quantize_llm(args, extra_args=None):
             print("Few shot eval results")
             pprint.pprint(few_shot_eval_results)
         elif args.few_shot_eval == 'lighteval':
-
+            # The model must not be re-wrapped/moved by lighteval's own Accelerate
+            # backend when it is already dispatched across multiple devices, either
+            # by FSDP or by `offload_model` in a single-process multi-GPU run.
+            # In those cases we keep the existing device dispatch (do not remove the
+            # hooks) and evaluate in-process across all GPUs. Only when the model
+            # lives on a single device do we let lighteval drive Accelerate (which,
+            # under `accelerate launch`, provides data-parallel evaluation).
+            model_is_device_dispatched = fsdp_enabled or (
+                hasattr(model, "hf_device_map") and len(set(model.hf_device_map.values())) > 1 and
+                "LOCAL_RANK" not in os.environ)
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
                 model(**next(iter(calibration_loader)))
-                if not fsdp_enabled:
+                if not model_is_device_dispatched:
                     remove_hooks(model)
 
                 from brevitas_examples.llm.eval_lighteval import run_lighteval
@@ -815,7 +824,7 @@ def quantize_llm(args, extra_args=None):
                     dtype=args.dtype,
                     batch_size=args.few_shot_override_batch_size,
                     max_samples=args.few_shot_limit,
-                    use_accelerate=not fsdp_enabled,
+                    use_accelerate=not model_is_device_dispatched,
                 )
             # Print nicely formatted results
             pprint.pprint(few_shot_eval_results)
