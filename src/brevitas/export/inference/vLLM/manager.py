@@ -38,13 +38,13 @@ from brevitas.proxy.quant_proxy import QuantProxyFromInjector
 
 from ..handler import FloatInferencetHandler
 from ..handler import FloatWeightInferencetHandler
-from ..handler import GroupwiseFloatWeightInferenceHandler
-from ..handler import GroupwiseIntWeightInferenceHandler
 from ..handler import IntInferenceHandler
 from ..handler import IntWeightInferencetHandler
 from .handler import vLLMDynamicPerRowFloatInferenceHandler
 from .handler import vLLMGroupwiseFloatInferenceHandler
+from .handler import vLLMGroupwiseFloatWeightInferenceHandler
 from .handler import vLLMGroupwiseIntInferenceHandler
+from .handler import vLLMGroupwiseIntWeightInferenceHandler
 
 
 @register_quantization_config("quant_brevitas")
@@ -152,9 +152,9 @@ class vLLMExportManager(BaseManager):
         IntWeightInferencetHandler,
         FloatWeightInferencetHandler,
         vLLMGroupwiseIntInferenceHandler,
-        GroupwiseIntWeightInferenceHandler,
+        vLLMGroupwiseIntWeightInferenceHandler,
         vLLMGroupwiseFloatInferenceHandler,
-        GroupwiseFloatWeightInferenceHandler]
+        vLLMGroupwiseFloatWeightInferenceHandler]
 
     @classmethod
     def set_export_mode(cls, model: Module, enabled: bool):

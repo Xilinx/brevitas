@@ -26,7 +26,6 @@ from brevitas.quant.mx_quant_ocp import MXInt8Weight
 from brevitas_examples.common.generative.quantize import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import FP8e4m3OCPDynamicActPerRowFloat
 from tests.brevitas.hyp_helper import float_tensor_st
-from tests.marker import jit_disabled_for_compile
 from tests.marker import requires_pt_ge
 from tests.marker import requires_torch_compile
 
@@ -58,7 +57,6 @@ ACT_QUANTIZERS = {
 @given(weight=float_tensor_st(shape=(8, 16), max_val=1e10, min_val=-1e10))
 @requires_pt_ge('2.3.1')
 @requires_torch_compile()
-@jit_disabled_for_compile()
 def test_compile_weight(weight, weight_quantizer):
     name, quant = weight_quantizer
     if version.parse('2.8') <= torch_version < version.parse('2.9'):
@@ -88,7 +86,6 @@ def test_compile_weight(weight, weight_quantizer):
 @given(inp=float_tensor_st(shape=(8, 16), max_val=1e10, min_val=-1e10))
 @requires_pt_ge('2.3.1')
 @requires_torch_compile()
-@jit_disabled_for_compile()
 def test_compile_act(inp, act_quantizer):
     name, quant = act_quantizer
     if version.parse('2.8') <= torch_version < version.parse('2.9'):
@@ -113,3 +110,39 @@ def test_compile_act(inp, act_quantizer):
         inference_out = identity(inp)
     assert torch.allclose(out, quant_out)
     assert torch.allclose(out, inference_out)
+
+
+@requires_torch_compile()
+@torch.no_grad()
+@pytest.mark.parametrize('weight_quantizer', [MXInt8Weight, MXFloat8e4m3Weight])
+def test_compile_mx_weight_non_divisible_group(weight_quantizer):
+    if platform.system() == "Windows":
+        pytest.skip("Skip compile + Windows because the CI runner has no C++ compiler")
+    inp = torch.randn(2, 33)
+    linear = qnn.QuantLinear(33, 16, weight_quant=weight_quantizer, group_dim=1)
+    linear.eval()
+
+    expected = linear(inp)
+    with quant_inference_mode(linear, compile=True):
+        linear(inp)
+        actual = linear(inp)
+
+    assert torch.allclose(expected, actual)
+
+
+@requires_torch_compile()
+@torch.no_grad()
+@pytest.mark.parametrize('act_quantizer', [MXInt8Act, MXFloat8e4m3Act])
+def test_compile_mx_act_non_divisible_group(act_quantizer):
+    if platform.system() == "Windows":
+        pytest.skip("Skip compile + Windows because the CI runner has no C++ compiler")
+    inp = torch.randn(2, 33)
+    identity = qnn.QuantIdentity(act_quantizer, group_dim=1)
+    identity.eval()
+
+    expected = identity(inp)
+    with quant_inference_mode(identity, compile=True):
+        identity(inp)
+        actual = identity(inp)
+
+    assert torch.allclose(expected, actual)

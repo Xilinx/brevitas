@@ -48,6 +48,22 @@ ACT_QUANTIZERS = {
     'mxfloat8': MXFloat8e4m3Act}
 
 
+@pytest.mark.parametrize('act_quantizer', [MXInt8Act, MXFloat8e4m3Act])
+def test_groupwise_inference_handler_group_metadata_is_static(act_quantizer):
+    identity = qnn.QuantIdentity(act_quantizer, group_dim=1)
+    inp = torch.randn(2, 16)
+    identity(inp)
+    identity.eval()
+
+    with quant_inference_mode(identity, compile=False):
+        identity(inp)
+        handler = identity.act_quant.export_handler
+        assert isinstance(handler.group_dim, int)
+        assert isinstance(handler.group_size, int)
+        assert handler.group_dim == 1
+        assert handler.group_size == 32
+
+
 @pytest_cases.parametrize('weight_quantizer', WEIGHT_QUANTIZERS.items())
 @given(weight=float_tensor_st(shape=(8, 16), max_val=1e10, min_val=-1e10))
 @requires_pt_ge('2.1')

@@ -15,13 +15,14 @@ from brevitas import torch_version
 def requires_torch_compile():
     # Newest Python versions have only limited supports for torch.compile on
     # older torch versions
-    skip = ((torch_version <= parse('2.9.1') and python_version >= parse('3.14')) or
-            (torch_version <= parse('2.3.1') and python_version >= parse('3.12')))
+    unsupported = ((torch_version <= parse('2.9.1') and python_version >= parse('3.14')) or
+                   (torch_version <= parse('2.3.1') and python_version >= parse('3.12')))
+    skip = config.JIT_ENABLED or unsupported
 
     return pytest.mark.skipif(
         skip,
         reason=(
-            'Upstream torch incompatibility: torch.compile is unsupported for '
+            'Compile requires JIT to be disabled and torch.compile to be supported for '
             'PyTorch <= 2.9.1 on Python >= 3.14 and '
             'PyTorch <= 2.3.1 on Python >= 3.12'))
 
@@ -72,15 +73,6 @@ def jit_disabled_for_mock():
 
     def skip_wrapper(f):
         return pytest.mark.skipif(skip, reason=f'Mock requires JIT to be disabled')(f)
-
-    return skip_wrapper
-
-
-def jit_disabled_for_compile():
-    skip = config.JIT_ENABLED
-
-    def skip_wrapper(f):
-        return pytest.mark.skipif(skip, reason=f'Compile requires JIT to be disabled')(f)
 
     return skip_wrapper
 
