@@ -131,3 +131,21 @@ class TestCaileySGD:
                 assert closure().item() > initial_value
             else:
                 assert closure().item() < initial_value
+
+
+def test_cailey_sgd_is_deterministic_across_replicas():
+    first = Parameter(torch.eye(3))
+    second = Parameter(first.detach().clone())
+    first_optimizer = CaileySGD([first], lr=0.1, stiefel=True)
+    second_optimizer = CaileySGD([second], lr=0.1, stiefel=True)
+
+    for _ in range(105):
+        gradient = torch.arange(9, dtype=first.dtype).view_as(first) / 10
+        first.grad = gradient.clone()
+        second.grad = gradient.clone()
+        first_optimizer.step()
+        second_optimizer.step()
+
+    assert torch.equal(first, second)
+    assert first_optimizer.state[first]["retraction_step"] == 105
+    assert second_optimizer.state[second]["retraction_step"] == 105

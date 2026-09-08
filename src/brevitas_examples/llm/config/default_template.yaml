@@ -61,6 +61,7 @@ ln_affine_merge: false
 load_checkpoint: false
 magr: false
 magr_alpha: 0.01
+materialize_rotation_inputs: false
 model: facebook/opt-125m
 no_quantize: false
 nsamples: 128
@@ -85,6 +86,7 @@ seqlen: 2048
 svd_quant: false
 svd_quant_iters: 1
 svd_quant_rank: 32
+synchronize_calibration_layers: false
 weight_bit_width: 8
 weight_equalization: false
 weight_group_dim: null

@@ -123,10 +123,16 @@ QuaRot [2]_.
 Optimized Fused Rotations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If `use_parametrized_rotations` is True, the rotations are registered as parametrizations ([5]_),
-and as a parameters.
+If `use_parametrized_rotations` is True, rotations are registered as parametrizations ([5]_)
+and as trainable parameters.
 After adding the quantization blocks to the network, it is thus necessary to optimize the rotations and
 then fuse them into the corresponding weights.
+
+For FSDP2 training, trainable rotations are moved into a root-owned ``RotationBank`` before
+distributed preparation. Parametrizations retain only non-registering handles to that bank, so one
+logical rotation has one parameter and one optimizer state even when it is consumed from multiple
+independently wrapped FSDP units. The bank remains replicated and ignored by FSDP; its accumulated
+gradients are reduced once per optimizer synchronization boundary.
 
 Brevitas offers an example of how to accomplish that in our LLM entrypoint (`brevitas_ptq_llm`).
 

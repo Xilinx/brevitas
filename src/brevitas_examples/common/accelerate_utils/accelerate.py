@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import logging
+import os
 from typing import Dict
+from typing import Iterable
 from typing import Mapping
 from typing import Optional
 from typing import Union
@@ -325,6 +327,11 @@ def remove_hooks(model: torch.nn.Module) -> torch.nn.Module:
                 del module.offload_params
     remove_hook_from_module(model, recurse=True)
     model.cpu()
+    # The model is no longer inference-dispatched. Leaving this metadata behind
+    # makes Accelerator.prepare() reject an otherwise materialized FSDP model.
+    for module in model.modules():
+        if "hf_device_map" in module.__dict__:
+            delattr(module, "hf_device_map")
     if hasattr(model, "graph"):
         for node in model.graph.nodes:
             if node.op == "call_function":
@@ -370,12 +377,17 @@ def find_all_devices(data):
         return [(data, str(data.device))]
 
 
-def calc_gpu_device_map(absolute_mem_margin: float = 2.0 * 1e9,
-                        relative_mem_margin: float = 0.3) -> Dict[int, float]:
+def calc_gpu_device_map(
+        absolute_mem_margin: float = 2.0 * 1e9,
+        relative_mem_margin: float = 0.3,
+        device_ids: Optional[Iterable[int]] = None) -> Dict[int, float]:
     torch.cuda.empty_cache()
+    if device_ids is None:
+        device_ids = [int(os.environ["LOCAL_RANK"])] if "LOCAL_RANK" in os.environ else range(
+            torch.cuda.device_count())
     gpu_device_map = {
         i: (torch.cuda.mem_get_info(i)[0] - absolute_mem_margin) * (1.0 - relative_mem_margin)
-        for i in range(torch.cuda.device_count())}
+        for i in device_ids}
     return gpu_device_map
 
 
@@ -416,6 +428,15 @@ def offload_model(
             memory_map,
             no_split_module_classes=model._no_split_modules
             if hasattr(model, "_no_split_modules") else None)
+
+    # RotationBank consumers resolve parameters indirectly, so the bank cannot rely on an
+    # AlignDevicesHook being invoked through bank.forward(). Keep the small replicated bank
+    # resident on the process-local FSDP device before dispatching the rest of the model.
+    if "LOCAL_RANK" in os.environ:
+        from brevitas.utils.parametrization_utils import get_rotation_bank
+        from brevitas.utils.parametrization_utils import ROTATION_BANK_NAME
+        if get_rotation_bank(model) is not None:
+            device_map[ROTATION_BANK_NAME] = int(os.environ["LOCAL_RANK"])
 
     model = dispatch_model(model, device_map)
 

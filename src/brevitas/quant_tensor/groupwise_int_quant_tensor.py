@@ -121,7 +121,11 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, IntMixin, QuantTensor)
     def device(self):
         value_device = self.value_.device
         is_same_device = True
-        for t in [self.scale_, self.zero_point_, self.bit_width]:
+        for t in [self.scale,
+                  self.zero_point,
+                  self.exponent_bit_width,
+                  self.mantissa_bit_width,
+                  self.exponent_bias]:
             is_same_device &= value_device == t.device
         if not is_same_device:
             raise RuntimeError("Value and metadata are on different devices")

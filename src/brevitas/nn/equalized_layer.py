@@ -85,8 +85,19 @@ class RotatedModule(torch.nn.Module):
         self.expansion_step = expansion_step
         self.expand_input = expand_input
         self.hidden_dim = hidden_dim
+        # When True, the activation entering the online rotation is cloned so that the
+        # autograd graph saves private storage instead of aliasing an FSDP2-unsharded
+        # tensor that is freed on reshard. See RotationWeightParametrization for the
+        # analogous protection on the weight rotation path.
+        self.materialize_input = False
+        self.materialized_input_bytes = 0
+        self.materialized_input_calls = 0
 
     def rotation_forward(self, inp):
+        if self.materialize_input:
+            self.materialized_input_bytes += inp.numel() * inp.element_size()
+            self.materialized_input_calls += 1
+            inp = inp.clone(memory_format=torch.preserve_format)
         if self.expand_input:
             # TODO: This only works for Linear layers. We have an assert in equalize.py to check for this
             featured_dim = inp.dim() - 1

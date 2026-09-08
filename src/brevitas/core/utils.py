@@ -44,11 +44,13 @@ class StatelessBuffer(brevitas.jit.ScriptModule):
 
     def __init__(self, value: torch.Tensor):
         super(StatelessBuffer, self).__init__()
-        self.register_buffer(VALUE_ATTR_NAME, value)
+        # Constants are never differentiable. Detach at registration rather than
+        # in forward so FakeTensor execution does not require aten::detach.
+        self.register_buffer(VALUE_ATTR_NAME, value.detach())
 
     @brevitas.jit.script_method
     def forward(self):
-        return self.value.detach()
+        return self.value
 
     def _load_from_state_dict(
             self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
