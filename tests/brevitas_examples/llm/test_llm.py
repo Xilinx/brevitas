@@ -539,7 +539,8 @@ def test_small_models_rotation_optimization_ppl(caplog, args_layer_count_and_ppl
     # Drop the unnecesary entries from exp_metrics
     del exp_metrics["exp_layer_types_count"]
     results, _ = main(args, extra_args)
-    assert_metrics(results, exp_metrics, atol=ATOL_ROT, rtol=RTOL_ROT)
+    # NOTE: PPL expectations remain checked; additional EAR/KLD results are ignored.
+    assert_metrics(results, exp_metrics, atol=ATOL_ROT, rtol=RTOL_ROT, strict=False)
 
 
 @pytest.mark.llm
