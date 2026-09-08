@@ -127,19 +127,9 @@ def _get_logits(
                 subsample["input_ids"][:, context_length:]
 
 
-def compute_perplexity(
-        logits: Iterable[Tuple[torch.Tensor, torch.Tensor]],
-        dtype: torch.dtype = torch.float32) -> float:
-    """Compute perplexity from scored logits and labels."""
-
-    cross_entropy_loss = nn.CrossEntropyLoss()
-    nlls = []
-    for scored_logits, labels in logits:
-        scored_logits = scored_logits.to(dtype)
-        nlls.append(
-            cross_entropy_loss(
-                scored_logits.reshape(-1, scored_logits.shape[-1]), labels.reshape(-1)))
-    return torch.exp(torch.stack(nlls).mean()).item()
+def _compute_perplexity(nlls: Iterable[torch.Tensor], dtype: torch.dtype = torch.float32) -> float:
+    nlls = torch.stack(nlls).to(dtype=dtype)
+    return torch.exp(nlls.mean()).item()
 
 
 @torch.no_grad()
@@ -176,7 +166,7 @@ def compute_float_evaluation_metrics(
         num_positions += top_ids.numel() // top_k
 
     return EvaluationMetrics(
-        ppl=torch.exp(torch.stack(nlls).mean()).item(),
+        ppl=_compute_perplexity(nlls, dtype=dtype),
         reference_probabilities=ReferenceProbabilityCache(
             chunks=reference_chunks, top_k=top_k, num_positions=num_positions))
 
@@ -241,6 +231,6 @@ def compute_quantized_evaluation_metrics(
             "The reference probability cache has a different number of token positions.")
 
     return EvaluationMetrics(
-        ppl=torch.exp(torch.stack(nlls).mean()).item(),
+        ppl=_compute_perplexity(nlls, dtype=dtype),
         ear=ear_sum / num_positions,
         kld=kld_sum / num_positions)
