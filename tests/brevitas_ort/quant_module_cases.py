@@ -104,8 +104,17 @@ def wbiol_config_st(draw):
         export_q_weight = False  # ignored on the qonnx export path
 
     return WBIOLConfig(
-        quantizer_name, weight_quant, io_quant, o, w, i, impl, rounding_type, export_type,
-        bias_quant, export_q_weight)
+        quantizer_name,
+        weight_quant,
+        io_quant,
+        o,
+        w,
+        i,
+        impl,
+        rounding_type,
+        export_type,
+        bias_quant,
+        export_q_weight)
 
 
 def build_wbiol_model(config):
