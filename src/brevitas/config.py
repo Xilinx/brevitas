@@ -1,6 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from contextlib import contextmanager
 from contextvars import ContextVar
 import os
 
@@ -37,3 +38,15 @@ IGNORE_PROXY_KEYS = ContextVar("IGNORE_PROXY_KEYS", default=False)
 _FULL_STATE_DICT = False
 _IS_INSIDE_QUANT_LAYER = None
 _ONGOING_EXPORT = None
+
+
+@contextmanager
+def disable_reinit_on_state_dict_load():
+    """Temporarily preserve initialized quantizers while loading model state."""
+    global REINIT_ON_STATE_DICT_LOAD
+    previous_value = REINIT_ON_STATE_DICT_LOAD
+    REINIT_ON_STATE_DICT_LOAD = False
+    try:
+        yield
+    finally:
+        REINIT_ON_STATE_DICT_LOAD = previous_value
