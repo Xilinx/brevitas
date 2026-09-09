@@ -247,8 +247,3 @@ def sym_min(a, b):
     elif isinstance(b, (SymInt, SymFloat)):
         return b.__sym_min__(a)
     return builtins.min(a, b)  # type: ignore[operator]
-
-
-# Populate magic methods on SymInt and SymFloat
-import brevitas.backport.fx.experimental.symbolic_shapes
-import brevitas.backport.fx

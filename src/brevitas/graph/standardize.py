@@ -5,11 +5,10 @@ from copy import deepcopy
 from typing import Dict
 
 from torch import nn
+from torch.fx import GraphModule
+from torch.fx import Node
+from torch.fx.immutable_collections import immutable_dict
 import torch.nn.functional as F
-
-from brevitas.fx import GraphModule
-from brevitas.fx import immutable_dict
-from brevitas.fx import Node
 
 from .base import FnToModule
 from .base import GraphTransform

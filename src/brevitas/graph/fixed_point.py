@@ -3,10 +3,10 @@
 
 import torch
 from torch import nn
+from torch.fx import GraphModule
+from torch.fx.immutable_collections import immutable_dict
+from torch.fx.immutable_collections import immutable_list
 
-from brevitas.fx import GraphModule
-from brevitas.fx import immutable_dict
-from brevitas.fx import immutable_list
 import brevitas.nn as qnn
 from brevitas.nn.utils import merge_bn
 

@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import torch
+from torch.fx import symbolic_trace
 
-from brevitas.fx import symbolic_trace
 from brevitas.graph.channel_splitting import _clean_regions
 from brevitas.graph.channel_splitting import _split
 from brevitas.graph.equalize import _extract_regions
