@@ -11,10 +11,10 @@ from typing import Union
 
 import torch
 from torch import nn
+from torch.fx import map_arg
+from torch.fx import Node
 
 from brevitas import nn as qnn
-from brevitas.fx import map_arg
-from brevitas.fx import Node
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 
 __all__ = [
