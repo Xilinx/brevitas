@@ -12,14 +12,14 @@ from typing import Tuple
 from typing import Type
 
 import torch
+from torch.fx import GraphModule
+from torch.fx import Node
+from torch.fx.immutable_collections import immutable_dict
 from torch.nn import Module
 from torch.nn.utils.parametrize import is_parametrized
 from torch.nn.utils.parametrize import register_parametrization
 from torch.overrides import get_testing_overrides
 
-from brevitas.fx import GraphModule
-from brevitas.fx import immutable_dict
-from brevitas.fx import Node
 from brevitas.graph.utils import *
 from brevitas.utils.python_utils import islambda
 from brevitas.utils.torch_utils import rename_tensor
