@@ -114,7 +114,7 @@ MATRIX_ALL_SUPPORTED = od([('python_version', list(ALL_SUPPORTED_PYTHON_VERSIONS
                            ('pytorch_version', list(ALL_SUPPORTED_PYTORCH_VERSIONS)),
                            ('platform', PLATFORM_LIST)])
 
-EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS = ('2.6.0', '2.7.1')
+EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS = ('2.6.0', '2.7.1', '2.14.1')
 EXAMPLES_LLM_PYTEST_MATRIX = od([('python_version', list(PYTHON_VERSIONS)),
                                  ('pytorch_version', list(EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS)),
                                  ('platform', PLATFORM_LIST)])
