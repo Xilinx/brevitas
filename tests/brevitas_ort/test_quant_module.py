@@ -28,20 +28,11 @@ from .quant_module_cases import WBIOL_MAX_EXAMPLES
 @given(config=wbiol_config_st())
 def test_ort_wbiol(config):
     model = build_wbiol_model(config)
-    rounding = config.rounding_type
     impl = config.impl.__name__
     quantizer = config.quantizer_name
     export_type = config.export_type
-    onnx_opset = DEFAULT_ONNX_OPSET
-    export_q_weight = False
-
-    # Round weights can be exported as a Q-node (QuantizeLinear); floor weights and A2Q require
-    # integer-initializer export instead, so they are excluded from Q-node export.
-    if rounding == 'round' and 'a2q' not in quantizer:
-        export_q_weight = True
-    if 'fp8' in quantizer:
-        onnx_opset = 19
-        export_q_weight = True
+    onnx_opset = 19 if 'fp8' in quantizer else DEFAULT_ONNX_OPSET
+    export_q_weight = config.export_q_weight
 
     if impl in ('QuantLinear'):
         in_size = (1, IN_CH)

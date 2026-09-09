@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from dataclasses import dataclass
+from typing import Optional
 
 from hypothesis import strategies as st
 from pytest_cases import parametrize
@@ -30,13 +31,16 @@ class WBIOLConfig:
     impl: type
     rounding_type: str
     export_type: str
+    bias_quant: Optional[type]
+    export_q_weight: bool
 
     @property
     def id(self):
+        bias = self.bias_quant.__name__ if self.bias_quant is not None else 'none'
         return (
             f'wbiol-{self.quantizer_name}-o{self.output_bit_width}-w{self.weight_bit_width}'
             f'-i{self.input_bit_width}-{self.impl.__name__}-rtype_{self.rounding_type}'
-            f'-{self.export_type}')
+            f'-{self.export_type}-bias_{bias}-qw_{int(self.export_q_weight)}')
 
 
 @st.composite
@@ -80,8 +84,28 @@ def wbiol_config_st(draw):
         exports = [e for e in exports if e in ('qcdq', 'qcdq_dynamo')]
     export_type = draw(st.sampled_from(exports))
 
+    # Bias: Int32Bias needs a static input scale, so fp8/dynamic must use None; otherwise free.
+    bias_quant = None if (is_fp8 or is_dynamic) else draw(st.sampled_from([None, Int32Bias]))
+
+    # export_q_weight only affects the qcdq path. Constraints are enforced in the exporter source:
+    #   fp8 -> True only (minifloat integer export raises NotImplementedError)
+    #   qcdq_dynamo -> True only (manager raises RuntimeError otherwise)
+    #   a2q -> False only (DecoupledWeightQuantWithInput asserts integer weights)
+    #   floor -> False only (a QuantizeLinear Q-node rounds to nearest even, not floor)
+    #   round + non-a2q + non-fp8 + qcdq -> either path is valid, so draw it
+    if export_type in ('qcdq', 'qcdq_dynamo'):
+        if is_fp8 or export_type == 'qcdq_dynamo':
+            export_q_weight = True
+        elif rounding_type == 'floor' or 'a2q' in quantizer_name:
+            export_q_weight = False
+        else:
+            export_q_weight = draw(st.booleans())
+    else:
+        export_q_weight = False  # ignored on the qonnx export path
+
     return WBIOLConfig(
-        quantizer_name, weight_quant, io_quant, o, w, i, impl, rounding_type, export_type)
+        quantizer_name, weight_quant, io_quant, o, w, i, impl, rounding_type, export_type,
+        bias_quant, export_q_weight)
 
 
 def build_wbiol_model(config):
@@ -99,7 +123,7 @@ def build_wbiol_model(config):
     else:
         layer_kwargs = {'in_channels': IN_CH, 'out_channels': OUT_CH, 'kernel_size': KERNEL_SIZE}
 
-    bias_quantizer = None if (is_fp8 or is_dynamic) else Int32Bias
+    bias_quantizer = config.bias_quant
     # Required because of numpy error with FP8 data type. Export iself works fine.
     return_quant_tensor = False if is_fp8 else True
 
