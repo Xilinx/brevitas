@@ -116,7 +116,7 @@ ALL_SUPPORTED_EXCLUSION_LIST = generate_exclusion_list([
 
 PYTHON_VERSIONS = ('3.10', '3.11')
 
-PYTORCH_VERSIONS = ('2.2.2', '2.3.1', '2.4.1', '2.5.1', '2.6.0', '2.7.1')
+PYTORCH_VERSIONS = ('2.2.2', '2.3.1', '2.4.1', '2.5.1', '2.6.0', '2.7.1', '2.14.0')
 JIT_STATUSES = ('jit_disabled', 'jit_enabled')
 
 # Data used only by Github Actions, formatted as lists or lists of ordered dicts
@@ -142,18 +142,20 @@ MATRIX_ALL_SUPPORTED = od([('python_version', list(ALL_SUPPORTED_PYTHON_VERSIONS
                            ('pytorch_version', list(ALL_SUPPORTED_PYTORCH_VERSIONS)),
                            ('platform', PLATFORM_LIST)])
 
-EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS = ('2.6.0', '2.7.1')
+EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS = ('2.6.0', '2.7.1', '2.14.0')
 EXAMPLES_LLM_PYTEST_MATRIX = od([('python_version', list(PYTHON_VERSIONS)),
                                  ('pytorch_version', list(EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS)),
                                  ('platform', PLATFORM_LIST)])
 
-EXAMPLES_DIFFUSION_PYTEST_PYTORCH_VERSIONS = ('2.2.2', '2.3.1', '2.4.1', '2.5.1', '2.6.0', '2.7.1')
+EXAMPLES_DIFFUSION_PYTEST_PYTORCH_VERSIONS = (
+    '2.2.2', '2.3.1', '2.4.1', '2.5.1', '2.6.0', '2.7.1', '2.14.0')
 EXAMPLES_DIFFUSION_PYTEST_MATRIX = od([
     ('python_version', list(PYTHON_VERSIONS)),
     ('pytorch_version', list(EXAMPLES_DIFFUSION_PYTEST_PYTORCH_VERSIONS)),
     ('platform', PLATFORM_LIST)])
 
-EXAMPLES_VISION_PYTEST_PYTORCH_VERSIONS = ('2.2.2', '2.3.1', '2.4.1', '2.5.1', '2.6.0', '2.7.1')
+EXAMPLES_VISION_PYTEST_PYTORCH_VERSIONS = (
+    '2.2.2', '2.3.1', '2.4.1', '2.5.1', '2.6.0', '2.7.1', '2.14.0')
 EXAMPLES_VISION_PYTEST_MATRIX = od([
     ('python_version', list(PYTHON_VERSIONS)),
     ('pytorch_version', list(EXAMPLES_VISION_PYTEST_PYTORCH_VERSIONS)),
