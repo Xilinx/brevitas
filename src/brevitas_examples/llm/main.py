@@ -19,6 +19,7 @@ from transformers import __version__ as transformers_version
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
 
+from brevitas import config as brevitas_config
 from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.graph import load_quant_model_mode
@@ -665,7 +666,9 @@ def quantize_llm(args, extra_args=None):
                             json.dump(results, results_file)
                     return results, None
                 if is_main_process and fsdp_state_dict is not None:
-                    copied_model.load_state_dict(fsdp_state_dict)
+                    with brevitas_config.disable_reinit_on_state_dict_load():
+                        copied_model.load_state_dict(fsdp_state_dict, assign=True)
+                    del fsdp_state_dict
                     del model
                     model = copied_model
                 if not is_main_process:
@@ -673,14 +676,17 @@ def quantize_llm(args, extra_args=None):
                 torch.cuda.empty_cache()
             # Remove hooks from training
             remove_hooks(model)
+            # Fuse before dispatch so each parametrized layer and its weights
+            # can be materialized together on the fusion device.
+            if args.rotation is not None:
+                fusion_device = (
+                    torch.device("cuda", torch.cuda.current_device())
+                    if torch.cuda.is_available() else None)
+                model = fuse_parametrizations(model, device=fusion_device)
             gpu_device_map = (
                 calc_gpu_device_map(
                     device_ids=range(torch.cuda.device_count())) if fsdp_enabled else None)
             model = offload_model(model, gpu_device_map=gpu_device_map)
-            # Fuse rotation parametrizations with weights when rotations
-            # were used (the function is a no-op when there are none).
-            if args.rotation is not None:
-                model = fuse_parametrizations(model)
 
         if args.svd_quant:
             print("Apply SVDQuant...")
@@ -812,6 +818,12 @@ def quantize_llm(args, extra_args=None):
                 hasattr(model, "hf_device_map") and len(set(model.hf_device_map.values())) > 1 and
                 "LOCAL_RANK" not in os.environ)
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
+                if fsdp_enabled:
+                    # The FSDP inference copy is made before training disables
+                    # KV caching. Match the non-FSDP evaluation configuration.
+                    model.config.use_cache = False
+                    if hasattr(model, "generation_config"):
+                        model.generation_config.use_cache = False
                 model(**next(iter(calibration_loader)))
                 if not model_is_device_dispatched:
                     remove_hooks(model)

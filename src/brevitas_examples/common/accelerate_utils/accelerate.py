@@ -327,6 +327,11 @@ def remove_hooks(model: torch.nn.Module) -> torch.nn.Module:
                 del module.offload_params
     remove_hook_from_module(model, recurse=True)
     model.cpu()
+    # The model is no longer inference-dispatched. Leaving this metadata behind
+    # makes Accelerator.prepare() reject an otherwise materialized model.
+    for module in model.modules():
+        if "hf_device_map" in module.__dict__:
+            delattr(module, "hf_device_map")
     if hasattr(model, "graph"):
         for node in model.graph.nodes:
             if node.op == "call_function":

@@ -113,6 +113,11 @@ class MultiOptimizer(torch.optim.Optimizer):
                 f"got {len(sub_states)}.")
         for optimizer, sub_state in zip(self.optimizers, sub_states):
             optimizer.load_state_dict(sub_state)
+        # Optimizer.load_state_dict() replaces each sub-optimizer's group
+        # dictionary. Rebuild the wrapper view so later FSDP2 remapping updates
+        # the groups used by MultiOptimizer.step().
+        self.param_groups = [
+            group for optimizer in self.optimizers for group in optimizer.param_groups]
 
 
 class MultiScheduler:
@@ -464,3 +469,8 @@ class GeneralizedTrainer(Trainer):
             loss = self.gamma * loss + (1. - self.gamma) * distill_loss
 
         return (loss, outputs) if return_outputs else loss
+
+    def floating_point_ops(self, inputs):
+        if self.accelerator.is_fsdp2:
+            return 0
+        return super().floating_point_ops(inputs)

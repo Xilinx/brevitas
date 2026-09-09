@@ -538,7 +538,8 @@ def test_small_models_rotation_optimization_layer_count(caplog, args_layer_count
         pytest.skip("Skipping dynamo + windows/macos")
     caplog.set_level(logging.INFO)
     args, extra_args, exp_metrics = args_layer_count_and_ppl
-    with patch('brevitas_examples.llm.main.fuse_parametrizations', lambda model: model):
+    with patch('brevitas_examples.llm.main.fuse_parametrizations',
+               lambda model, device=None: model):
         _, model = main(args, extra_args)
     assert_layer_types_count(model, exp_metrics["exp_layer_types_count"])
 
