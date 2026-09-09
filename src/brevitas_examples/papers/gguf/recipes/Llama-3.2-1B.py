@@ -58,6 +58,8 @@ def _bump_layers(layers, module_suffix, weight_quant):
 
 
 # Q4_0: ffn_down on layers 0-1 bumped to Q4_1
+# NOTE: llama.cpp applies this bump only when an importance matrix is present.
+# See the Q4_0 FFN_DOWN branch in llama_tensor_get_type_impl in src/llama-quant.cpp.
 _Q4_0_RECIPE = {
     **_bump_layers([0, 1], "mlp.down_proj", GGUFQ4_1WeightQuant),}
 

@@ -77,6 +77,7 @@ custom_quantizer: recipes/Llama-3.2-1B.py:gguf_q4_k_m
 
 | Plugin | Model | Registered names |
 |---|---|---|
+| [`recipes/Llama-3.1-8B.py`](recipes/Llama-3.1-8B.py) | Llama 3.1 8B (Base or Instruct) | `gguf_q4_0`, `gguf_q4_k_s`, `gguf_q4_k_m`, `gguf_q5_k_m`, `gguf_q2_k`, `gguf_q3_k_m`, `gguf_q3_k_l` |
 | [`recipes/Llama-3.2-1B.py`](recipes/Llama-3.2-1B.py) | Llama 3.2 1B (Base or Instruct) | `gguf_q4_0`, `gguf_q4_k_s`, `gguf_q4_k_m`, `gguf_q5_k_m`, `gguf_q2_k`, `gguf_q3_k_m`, `gguf_q3_k_l` |
 | [`recipes/Llama-3.2-3B.py`](recipes/Llama-3.2-3B.py) | Llama 3.2 3B (Base or Instruct) | The same names as 1B. Layer rules differ. |
 
@@ -91,7 +92,7 @@ Example configs set only non-default fields. See
 |---|---|
 | `custom_quantizer` | A registered name, such as `gguf_q8_0`, or a plugin path, such as `recipes/Llama-3.2-1B.py:gguf_q4_k_s`. |
 | `quantize_first_last_layer` | Required to also quantize `token_embd` and `output`. Without this option, these tensors stay F32 during export. |
-| `export_target` | A `gguf:<ftype>` value, such as `gguf:q4_k_s` or `gguf:q8_0`. |
+| `export_target` | Set to `gguf`. The selected custom quantizer determines the GGUF file type. |
 | `export_path` | The output file or directory. A path that ends in `.gguf` sets the exact output file. Other paths set an output directory. If omitted, the exporter writes to the working directory. |
 
 > [!IMPORTANT]
@@ -109,7 +110,7 @@ brevitas_ptq_llm --config llama3-1b-q2_k.yml
 model: meta-llama/Llama-3.2-1B-Instruct
 custom_quantizer: recipes/Llama-3.2-1B.py:gguf_q4_k_s
 dtype: float16
-export_target: gguf:q4_k_s
+export_target: gguf
 export_path: Llama-3.2-1B-Instruct-Q4_K_S.gguf
 quantize_first_last_layer: true
 ```
@@ -120,7 +121,7 @@ quantize_first_last_layer: true
 model: meta-llama/Llama-3.2-1B-Instruct
 custom_quantizer: gguf_q8_0
 dtype: float16
-export_target: gguf:q8_0
+export_target: gguf
 export_path: Llama-3.2-1B-Instruct-Q8_0.gguf
 quantize_first_last_layer: true
 ```
