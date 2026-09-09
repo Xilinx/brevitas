@@ -6,6 +6,7 @@ SPDX-License-Identifier: MIT
 import argparse
 from argparse import ArgumentParser
 from argparse import Namespace
+import json
 import re
 from typing import Any
 from typing import Dict
@@ -97,7 +98,10 @@ def parse_args(parser: ArgumentParser,
         # Consequently, they will be part of the second value returned by parse_known_args (thus being
         # used as extra_args in quantize_llm)
         for key in extra_args_keys:
-            args += [f"--{key}", str(override_defaults[key])]
+            value = override_defaults[key]
+            if isinstance(value, (dict, list)):
+                value = json.dumps(value)
+            args += [f"--{key}", str(value)]
             del override_defaults[key]
     parser.set_defaults(**override_defaults)
     return parser.parse_known_args(args)
