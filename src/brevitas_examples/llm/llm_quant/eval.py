@@ -27,6 +27,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+from abc import ABC
+from abc import abstractmethod
 from dataclasses import dataclass
 import random
 from typing import Any
@@ -122,14 +124,77 @@ def _get_logits(
                 subsample["past_key_values"] = sample["past_key_values"]
 
             subsample = _move_subsample_to_model(model, subsample)
-            lm_logits = model(**subsample)["logits"]
-            yield lm_logits[:, context_length - 1:-1].to(dtype), \
+            logits = model(**subsample)["logits"]
+            yield logits[:, context_length - 1:-1].to(dtype), \
                 subsample["input_ids"][:, context_length:]
 
 
-def _compute_perplexity(nlls: Iterable[torch.Tensor], dtype: torch.dtype = torch.float32) -> float:
-    nlls = torch.stack(nlls).to(dtype=dtype)
-    return torch.exp(nlls.mean()).item()
+class MetricBase(ABC):
+
+    def __init__(self, dtype: torch.dtype = torch.float32):
+        self.dtype = dtype
+
+    @abstractmethod
+    def update(self, output: torch.Tensor, target: torch.Tensor) -> None:
+        """Update the metric state with one evaluation chunk."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def finalize(self) -> float:
+        """Return the final metric value."""
+        raise NotImplementedError
+
+
+class Perplexity(MetricBase):
+
+    def __init__(self, dtype: torch.dtype = torch.float32):
+        super().__init__(dtype=dtype)
+        self.nlls = []
+
+    def update(self, output: torch.Tensor, target: torch.Tensor) -> None:
+        self.nlls.append(
+            nn.functional.cross_entropy(output.reshape(-1, output.shape[-1]), target.reshape(-1)))
+
+    def finalize(self) -> float:
+        nlls = torch.stack(self.nlls).to(dtype=self.dtype)
+        return torch.exp(nlls.mean()).item()
+
+
+class EAR(MetricBase):
+    """
+    Expected Acceptance Rate (EAR) as proposed in https://arxiv.org/pdf/2605.02404
+    """
+
+    def __init__(self, dtype: torch.dtype = torch.float32):
+        super().__init__(dtype=dtype)
+        self.ear_sum = 0.0
+        self.num_positions = 0
+
+    def update(self, output: torch.Tensor, target: torch.Tensor) -> None:
+        output = output.to(dtype=self.dtype)
+        target = target.to(dtype=self.dtype)
+        self.ear_sum += torch.minimum(output, target).sum().item()
+        self.num_positions += target.numel() // target.shape[-1]
+
+    def finalize(self) -> float:
+        return self.ear_sum / self.num_positions
+
+
+class KLD(MetricBase):
+
+    def __init__(self, dtype: torch.dtype = torch.float32):
+        super().__init__(dtype=dtype)
+        self.kld_sum = 0.0
+        self.num_positions = 0
+
+    def update(self, output: torch.Tensor, target: torch.Tensor) -> None:
+        output = output.to(dtype=self.dtype)
+        target = target.to(dtype=self.dtype)
+        self.kld_sum += (target * (target.log() - output.log())).sum().item()
+        self.num_positions += target.numel() // target.shape[-1]
+
+    def finalize(self) -> float:
+        return self.kld_sum / self.num_positions
 
 
 @torch.no_grad()
@@ -146,19 +211,16 @@ def compute_float_evaluation_metrics(
     if top_k <= 0:
         raise ValueError("top_k must be positive.")
 
-    nlls = []
+    ppl = Perplexity(dtype=dtype)
     reference_chunks = []
     num_positions = 0
-    for scored_logits, labels in _get_logits(
+    for logits, labels in _get_logits(
             model, data, context_length, tokenizer, seed=seed, dtype=dtype):
-        if top_k > scored_logits.shape[-1]:
-            raise ValueError(
-                f"top_k ({top_k}) exceeds the vocabulary size ({scored_logits.shape[-1]}).")
-        nlls.append(
-            nn.functional.cross_entropy(
-                scored_logits.reshape(-1, scored_logits.shape[-1]), labels.reshape(-1)))
-        top_logits, top_ids = scored_logits.topk(top_k, dim=-1)
-        top_probabilities = torch.exp(top_logits - scored_logits.logsumexp(dim=-1, keepdim=True))
+        if top_k > logits.shape[-1]:
+            raise ValueError(f"top_k ({top_k}) exceeds the vocabulary size ({logits.shape[-1]}).")
+        ppl.update(logits, labels)
+        top_logits, top_ids = logits.topk(top_k, dim=-1)
+        top_probabilities = torch.exp(top_logits - logits.logsumexp(dim=-1, keepdim=True))
         reference_chunks.append(
             TopKReferenceChunk(
                 token_ids=top_ids.to(device="cpu", dtype=torch.int32),
@@ -166,7 +228,7 @@ def compute_float_evaluation_metrics(
         num_positions += top_ids.numel() // top_k
 
     return EvaluationMetrics(
-        ppl=_compute_perplexity(nlls, dtype=dtype),
+        ppl=ppl.finalize(),
         reference_probabilities=ReferenceProbabilityCache(
             chunks=reference_chunks, top_k=top_k, num_positions=num_positions))
 
@@ -188,28 +250,27 @@ def compute_quantized_evaluation_metrics(
     an EAR of 1.0. Set normalize to False to use unnormalized EAR and KLD.
     """
 
-    nlls = []
-    ear_sum = 0.0
-    kld_sum = 0.0
+    ppl = Perplexity(dtype=dtype)
+    ear = EAR(dtype=dtype)
+    kld = KLD(dtype=dtype)
     num_positions = 0
     chunk_index = 0
-    for scored_logits, labels in _get_logits(
+    for logits, labels in _get_logits(
             model, data, context_length, tokenizer, seed=seed, dtype=dtype):
+        ppl.update(logits, labels)
         if chunk_index >= len(reference_probabilities.chunks):
             raise ValueError(
                 "The evaluation data has more chunks than the reference probability cache.")
         reference_chunk = reference_probabilities.chunks[chunk_index]
-        expected_shape = (*scored_logits.shape[:-1], reference_probabilities.top_k)
+        expected_shape = (*logits.shape[:-1], reference_probabilities.top_k)
         if reference_chunk.token_ids.shape != expected_shape or \
                 reference_chunk.probabilities.shape != expected_shape:
             raise ValueError("The reference probability cache does not match the evaluation data.")
 
-        nlls.append(
-            nn.functional.cross_entropy(
-                scored_logits.reshape(-1, scored_logits.shape[-1]), labels.reshape(-1)))
-        token_ids = reference_chunk.token_ids.to(device=scored_logits.device, dtype=torch.int64)
-        reference_p = reference_chunk.probabilities.to(device=scored_logits.device)
-        quantized_log_q = torch.log_softmax(scored_logits, dim=-1).gather(-1, token_ids)
+        token_ids = reference_chunk.token_ids.to(device=logits.device, dtype=torch.int64)
+        reference_p = reference_chunk.probabilities.to(device=logits.device)
+        quantized_log_q = torch.log_softmax(
+            logits.to(dtype=torch.float32), dim=-1).gather(-1, token_ids)
         quantized_q = quantized_log_q.exp()
         # Use full-softmax probabilities on the reference model's top-K support.
         # Normalize EAR and KLD by the reference top-K mass when requested.
@@ -217,9 +278,8 @@ def compute_quantized_evaluation_metrics(
             reference_mass = reference_p.sum(dim=-1, keepdim=True)
             reference_p = reference_p / reference_mass
             quantized_q = quantized_q / reference_mass
-            quantized_log_q = quantized_log_q - reference_mass.log()
-        ear_sum += torch.minimum(reference_p, quantized_q).double().sum().item()
-        kld_sum += (reference_p * (reference_p.log() - quantized_log_q)).double().sum().item()
+        ear.update(quantized_q, reference_p)
+        kld.update(quantized_q, reference_p)
         num_positions += reference_p.numel() // reference_probabilities.top_k
         chunk_index += 1
 
@@ -230,7 +290,4 @@ def compute_quantized_evaluation_metrics(
         raise ValueError(
             "The reference probability cache has a different number of token positions.")
 
-    return EvaluationMetrics(
-        ppl=_compute_perplexity(nlls, dtype=dtype),
-        ear=ear_sum / num_positions,
-        kld=kld_sum / num_positions)
+    return EvaluationMetrics(ppl=ppl.finalize(), ear=ear.finalize(), kld=kld.finalize())
