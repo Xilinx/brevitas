@@ -28,10 +28,10 @@ from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 try:
     import gguf
 
-    from brevitas_examples.llm.gguf_export.convert import ModelBase
+    from brevitas_examples.llm.gguf_export.models import get_model_class
 except ImportError:
     gguf = None
-    ModelBase = None
+    get_model_class = None
 
 
 def find_hparam(keys: Iterable[str], hparams: Dict[str, int], optional: bool = False) -> Any:
@@ -46,7 +46,7 @@ def find_hparam(keys: Iterable[str], hparams: Dict[str, int], optional: bool = F
 def gguf_tensor_map(config):
 
     hf_arch = config.to_dict()["architectures"][0]
-    gguf_arch = ModelBase.from_model_architecture(hf_arch)
+    gguf_arch = get_model_class(hf_arch)
     block_count = find_hparam(["n_layers", "num_hidden_layers", "n_layer", "num_layers"],
                               config.to_dict())
     tensor_map = gguf.get_tensor_name_map(gguf_arch.model_arch, block_count)

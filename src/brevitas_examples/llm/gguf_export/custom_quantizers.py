@@ -40,15 +40,19 @@ from .base_quantizers import GGUFQ8_0WeightQuant
 _LAST_LAYER_NAMES = ("lm_head", "embed_out", "output")
 
 
+def is_last_layer(module, name):
+    short_name = name.split(".")[-1] if name is not None else ""
+    return short_name in _LAST_LAYER_NAMES
+
+
 def is_first_or_last_layer(module, name):
     # ``name`` is the fully-qualified module path (e.g. ``model.lm_head``), so we
     # compare the last component.
-    short_name = name.split(".")[-1] if name is not None else ""
     # First layer: the token embedding.
     if isinstance(module, torch.nn.Embedding):
         return True
     # Last layer: the output projection / lm_head.
-    if short_name in _LAST_LAYER_NAMES:
+    if is_last_layer(module, name):
         return True
     # Optionally we can check whether input/output dim == vocab_size.
     return False

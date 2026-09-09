@@ -41,6 +41,7 @@ from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
 from brevitas_examples.common.parse_utils import override_defaults
 from brevitas_examples.common.parse_utils import parse_args
 from brevitas_examples.llm.gguf_export.export import save_quantized_as_gguf
+from brevitas_examples.llm.gguf_export.file_types import file_type_from_quantizer
 from brevitas_examples.llm.llm_args import create_args_parser
 from brevitas_examples.llm.llm_args import fx_required
 from brevitas_examples.llm.llm_args import validate
@@ -179,7 +180,7 @@ def set_seed(seed):
     torch.random.manual_seed(seed)
 
 
-def model_export(model, tokenizer, ref_input, args, config=None):
+def model_export(model, tokenizer, ref_input, args, config=None, quantizer_name=None):
     if args.export_target == 'onnx_qcdq':
         # Local import to allow for optional install
         from optimum.exporters.onnx import onnx_export_from_model
@@ -197,8 +198,9 @@ def model_export(model, tokenizer, ref_input, args, config=None):
                 f"./{args.export_prefix}",
                 task="text-generation-with-past",
                 do_validation=False)
-    elif 'gguf' in args.export_target:
-        save_quantized_as_gguf(model, tokenizer, args.export_target, export_path=args.export_path)
+    elif args.export_target == 'gguf':
+        file_type = file_type_from_quantizer(quantizer_name)
+        save_quantized_as_gguf(model, tokenizer, file_type=file_type, export_path=args.export_path)
     elif args.export_target == 'vllm':
         from brevitas.export.inference.vLLM.manager import vLLMExportManager
 
@@ -425,6 +427,7 @@ def quantize_llm(args, extra_args=None):
         remove_hooks(model)
         print(f"MagR applied.")
 
+    quantizer_name = None
     if not args.no_quantize:
         name_blacklist = []
         custom_quantizer = None
@@ -762,7 +765,13 @@ def quantize_llm(args, extra_args=None):
             print(f"Export to {args.export_target}")
             # Currently we always export with a float32 container to avoid float16 CPU errors
             model = model.to(dtype=torch.float32)
-            model_export(model, tokenizer, next(iter(calibration_loader)), args, config)
+            model_export(
+                model,
+                tokenizer,
+                next(iter(calibration_loader)),
+                args,
+                config,
+                quantizer_name=quantizer_name)
 
     return {"float_ppl": float_ppl, "quant_ppl": quant_ppl, **few_shot_eval_results}, model
 

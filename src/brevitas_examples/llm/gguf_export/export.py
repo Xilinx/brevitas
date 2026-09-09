@@ -22,6 +22,7 @@ import shutil
 import tempfile
 import time
 
+import gguf
 import torch
 
 from brevitas.utils.logging import setup_logger
@@ -29,10 +30,9 @@ from brevitas.utils.logging import setup_logger
 # Imported for its side effect: registers the GGUF custom quantizers (gguf_q4_0,
 # gguf_q4_k, ...) in QUANTIZERS_REGISTRY so they are selectable via --custom-quantizer.
 from . import custom_quantizers  # noqa: F401
-from .convert import ModelBase
+from .models import get_model_class
+from .models import ModelBase
 from .proxy import GGUFGroupwiseWeightQuantProxyFromInjector
-from .targets import FTYPE_MAP
-from .targets import GGUF_EXPORT_TARGETS
 
 logger = setup_logger(__name__)
 
@@ -78,7 +78,8 @@ def _resolve_model_name(name_or_path: str) -> str:
 def save_quantized_as_gguf(
         model,
         tokenizer,
-        backend="gguf:q4_0",
+        # TODO: Consider removing the file_type specification altogether.
+        file_type: gguf.LlamaFileType,
         override_model_tensors=None,
         override_qtype=None,
         export_path=None):
@@ -87,6 +88,9 @@ def save_quantized_as_gguf(
     When ``override_model_tensors``/``override_qtype`` are None, no tensor qtype is
     overridden at export time: every tensor follows the quantization it already
     has (or the file type otherwise).
+
+    ``file_type`` sets the GGUF file metadata, the fallback quantization type for
+    untagged tensors, and the type used in automatic filenames.
 
     ``export_path`` controls where the ``.gguf`` file is written:
 
@@ -99,16 +103,6 @@ def save_quantized_as_gguf(
     """
     st = time.time()
     config = model.config
-
-    # TODO: every tensor now carries its own qtype via
-    # GGUFGroupwiseWeightQuantProxyFromInjector.gguf_qtype, so `ftype` (derived
-    # from `backend` below) no longer determines how already-quantized tensors are
-    # packed. It's still used for the `general.file_type` header, the fallback
-    # qtype applied to any untagged tensor, and `{ftype}`-based auto-naming --
-    # worth revisiting whether `ftype` can be simplified or dropped for those.
-    assert backend in GGUF_EXPORT_TARGETS, f"{backend} is not supported"
-    output_type = backend.split(":")[-1].lower()
-    output_type = FTYPE_MAP.get(output_type)
 
     if export_path is None:
         fname_out = Path('.')
@@ -131,13 +125,13 @@ def save_quantized_as_gguf(
         with torch.no_grad():
             hparams = ModelBase.load_hparams(tmp_work_dir)
             model_architecture = hparams["architectures"][0]
-            model_class = ModelBase.from_model_architecture(model_architecture)
+            model_class = get_model_class(model_architecture)
             model_name = _resolve_model_name(model.name_or_path)
 
             model_instance = model_class(
                 model,
                 dir_model=tmp_work_dir,
-                ftype=output_type,
+                ftype=file_type,
                 fname_out=fname_out,
                 is_big_endian=False,
                 model_name=model_name,
