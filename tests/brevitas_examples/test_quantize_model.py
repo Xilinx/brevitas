@@ -213,9 +213,9 @@ def test_fx_sym_quant(simple_model):
 
     # Assert the tensors are signed as expected for symmetric quantization, with zero-points at 0.
     # Weights
-    assert first_conv_layer.quant_weight().signed_t
+    assert first_conv_layer.quant_weight().signed
     assert torch.isclose(first_conv_layer.quant_weight().zero_point, torch.Tensor([0.0]))
-    assert last_layer.quant_weight().signed_t
+    assert last_layer.quant_weight().signed
     assert torch.isclose(last_layer.quant_weight().zero_point, torch.Tensor([0.0]))
 
     # Activations
