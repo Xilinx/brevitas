@@ -284,11 +284,11 @@ def quantize_llm(args, extra_args=None):
     print("Model loaded.")
     model.eval()
     tokenizer = AutoTokenizer.from_pretrained(args.model)
+    float_probabilities = None
     float_ppl = None
     quant_ppl = None
     quant_ear = None
     quant_kld = None
-    reference_probabilities = None
 
     require_fx = fx_required(args)
     if require_fx and args.calibration_batch_size > 1:
@@ -347,7 +347,7 @@ def quantize_llm(args, extra_args=None):
             tokenizer=tokenizer,
             seed=args.seed)
         float_ppl = float_metrics.ppl
-        reference_probabilities = float_metrics.reference_probabilities
+        float_probabilities = float_metrics.probabilities
         remove_hooks(model)
         print(f"Float perplexity ({args.dataset}): {float_ppl:.3f}")
 
@@ -739,13 +739,13 @@ def quantize_llm(args, extra_args=None):
                     data=validation_loader,
                     context_length=args.seqlen // 2,
                     tokenizer=tokenizer,
-                    reference_probabilities=reference_probabilities,
+                    reference_probabilities=float_probabilities,
                     seed=args.seed)
             quant_ppl = quant_metrics.ppl
+            # NOTE: EAR and KLD are by default normalized by reference top-K probability mass.
             quant_ear = quant_metrics.ear
             quant_kld = quant_metrics.kld
             print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
-            # NOTE: EAR and KLD are by default normalized by reference top-K probability mass.
             print(f"Quantized expected acceptance rate ({args.dataset}): {quant_ear:.6f}")
             print(f"Quantized KL divergence ({args.dataset}): {quant_kld:.6f}")
         few_shot_eval_results = dict()

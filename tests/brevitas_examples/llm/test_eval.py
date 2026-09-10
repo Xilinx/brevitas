@@ -31,7 +31,7 @@ def test_expected_acceptance_rate_uses_original_top_k_without_renormalization():
 
     reference_metrics = compute_float_evaluation_metrics(
         model=reference_model, data=data, context_length=2, tokenizer=None, top_k=2)
-    reference_cache = reference_metrics.reference_probabilities
+    reference_cache = reference_metrics.probabilities
     quantized_metrics = compute_quantized_evaluation_metrics(
         model=quantized_model,
         data=data,
@@ -52,7 +52,6 @@ def test_expected_acceptance_rate_uses_original_top_k_without_renormalization():
     assert quantized_metrics.ear == pytest.approx(expected_ear)
     assert quantized_metrics.kld == pytest.approx(expected_kld)
     assert reference_cache.top_k == 2
-    assert reference_cache.num_positions == 2
     assert reference_cache.chunks[0].token_ids.dtype == torch.int32
     assert reference_cache.chunks[0].token_ids.device.type == "cpu"
     assert reference_cache.chunks[0].probabilities.dtype == torch.float32
@@ -64,7 +63,7 @@ def test_identical_models_return_reference_top_k_mass():
     data = [{"input_ids": torch.tensor([[0, 1, 2, 0]])}]
     reference_cache = compute_float_evaluation_metrics(
         model=model, data=data, context_length=2, tokenizer=None, top_k=2)
-    reference_cache = reference_cache.reference_probabilities
+    reference_cache = reference_cache.probabilities
 
     quantized_metrics = compute_quantized_evaluation_metrics(
         model=model,
@@ -84,7 +83,7 @@ def test_identical_models_normalized_ear_reaches_full_mass():
     data = [{"input_ids": torch.tensor([[0, 1, 2, 0]])}]
     reference_metrics = compute_float_evaluation_metrics(
         model=model, data=data, context_length=2, tokenizer=None, top_k=2)
-    reference_cache = reference_metrics.reference_probabilities
+    reference_cache = reference_metrics.probabilities
 
     quantized_metrics = compute_quantized_evaluation_metrics(
         model=model,
@@ -106,7 +105,7 @@ def test_normalized_ear_scales_by_reference_top_k_mass():
 
     reference_metrics = compute_float_evaluation_metrics(
         model=reference_model, data=data, context_length=2, tokenizer=None, top_k=2)
-    reference_cache = reference_metrics.reference_probabilities
+    reference_cache = reference_metrics.probabilities
     unnormalized_metrics = compute_quantized_evaluation_metrics(
         model=quantized_model,
         data=data,
@@ -139,15 +138,15 @@ def test_combined_evaluation_uses_one_forward_per_chunk():
 
     assert model.forward_count == 1
     assert metrics.ppl is not None
-    assert metrics.reference_probabilities is not None
+    assert metrics.probabilities is not None
 
 
 def test_expected_acceptance_rate_rejects_cache_with_fewer_chunks():
     model = FixedLogitsModel([2.0, 1.0, 0.0])
     data = [{"input_ids": torch.tensor([[0, 1, 2, 0]])}]
-    empty_cache = ReferenceProbabilityCache(chunks=[], top_k=2, num_positions=0)
+    empty_cache = ReferenceProbabilityCache(chunks=[], top_k=2)
 
-    with pytest.raises(ValueError, match="more chunks"):
+    with pytest.raises(AssertionError, match="same length"):
         compute_quantized_evaluation_metrics(
             model=model,
             data=data,
