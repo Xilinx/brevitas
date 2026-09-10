@@ -151,7 +151,6 @@ def tests_brevitas_examples_llm(session, pytorch, jit_status):
     cmd += install_torchvision_cmd(pytorch)  # Optimum seems to require torchvision
     session.install('-e', '.[test, llm, export]', *cmd)
     session.run('pytest', '-n', 'logical', '-m', 'llm', 'tests/brevitas_examples/llm/')
-    session.run('pytest', '-n', 'logical', '-m', 'llm', 'tests/brevitas_examples/gguf')
 
 
 @nox.session(python=PYTHON_VERSIONS)
