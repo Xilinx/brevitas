@@ -651,10 +651,6 @@ class HQOScale(ExtendedInjector):
     def scaling_stats_impl():
         return this.stats_impl_scale
 
-    @value
-    def restrict_scale_positive():
-        return this.hqo_init_op_scale.restrict_scale_positive
-
 
 class HQOAsymmetricScale(HQOScale):
     hqo_init_op_scale = AbsMinMax

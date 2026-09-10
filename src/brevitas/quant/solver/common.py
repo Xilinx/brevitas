@@ -27,6 +27,7 @@ from brevitas.inject import value
 from brevitas.inject.enum import LearnedRoundImplType
 
 __all__ = [
+    'solve_stats_impl',
     'solve_bit_width_impl_from_enum',
     'solve_restrict_value_impl_from_enum',
     'solve_float_to_int_impl_from_enum',
@@ -169,45 +170,53 @@ class SolveBitWidthImplFromEnum(ExtendedInjector):
         return solve_bit_width_impl_from_enum(bit_width_impl_type)
 
 
+def solve_stats_impl(stats_op=None, restrict_type=None):
+    if stats_op is None:
+        scaling_stats_impl = None
+    elif stats_op == StatsOp.MAX:
+        scaling_stats_impl = AbsMax
+    elif stats_op == StatsOp.MAX_AVE:
+        scaling_stats_impl = AbsMaxAve
+    elif stats_op == StatsOp.AVE:
+        scaling_stats_impl = AbsAve
+    elif stats_op == StatsOp.MEAN_SIGMA_STD:
+        scaling_stats_impl = MeanSigmaStd
+    elif stats_op == StatsOp.MEAN_LEARN_SIGMA_STD:
+        scaling_stats_impl = MeanLearnedSigmaStd
+    elif stats_op == StatsOp.PERCENTILE:
+        scaling_stats_impl = AbsPercentile
+    elif stats_op == StatsOp.MIN_MAX:
+        scaling_stats_impl = AbsMinMax
+    elif stats_op == StatsOp.PERCENTILE_INTERVAL:
+        scaling_stats_impl = PercentileInterval
+    elif stats_op == StatsOp.SIGNED_MAX:
+        scaling_stats_impl = SignedAbsMax
+    elif stats_op == StatsOp.NEG_MIN_OR_ZERO:
+        scaling_stats_impl = NegativeMinOrZero
+    elif stats_op == StatsOp.NEG_PERCENTILE_OR_ZERO:
+        scaling_stats_impl = NegativePercentileOrZero
+    else:
+        raise RuntimeError(f"{stats_op} not recognized.")
+
+    # For power of two scales, the stat needs to be unsigned
+    if restrict_type == RestrictValueType.POWER_OF_TWO:
+        if scaling_stats_impl not in SIGNEDNESS_STATS:
+            raise ValueError(
+                f"Signedness of statistic {scaling_stats_impl.__name__} is not known."
+                f"Register the statistic using the decorator @register_stat_implementation.")
+        if SIGNEDNESS_STATS[scaling_stats_impl]:
+            raise ValueError(
+                f"Statistic {scaling_stats_impl.__name__} is signed but only unsigned statistics can "
+                f"be used with power-of-two scales.")
+
+    return scaling_stats_impl
+
+
 class SolveScalingStatsOpFromEnum(ExtendedInjector):
 
     @value
     def scaling_stats_impl(scaling_stats_op=None, restrict_scaling_type=None):
-        if scaling_stats_op is None:
-            scaling_stats_impl = None
-        elif scaling_stats_op == StatsOp.MAX:
-            scaling_stats_impl = AbsMax
-        elif scaling_stats_op == StatsOp.MAX_AVE:
-            scaling_stats_impl = AbsMaxAve
-        elif scaling_stats_op == StatsOp.AVE:
-            scaling_stats_impl = AbsAve
-        elif scaling_stats_op == StatsOp.MEAN_SIGMA_STD:
-            scaling_stats_impl = MeanSigmaStd
-        elif scaling_stats_op == StatsOp.MEAN_LEARN_SIGMA_STD:
-            scaling_stats_impl = MeanLearnedSigmaStd
-        elif scaling_stats_op == StatsOp.PERCENTILE:
-            scaling_stats_impl = AbsPercentile
-        elif scaling_stats_op == StatsOp.MIN_MAX:
-            scaling_stats_impl = AbsMinMax
-        elif scaling_stats_op == StatsOp.PERCENTILE_INTERVAL:
-            scaling_stats_impl = PercentileInterval
-        elif scaling_stats_op == StatsOp.SIGNED_MAX:
-            scaling_stats_impl = SignedAbsMax
-        else:
-            raise RuntimeError(f"{scaling_stats_op} not recognized.")
-
-        # For power of two scales, the stat needs to be unsigned
-        if restrict_scaling_type == RestrictValueType.POWER_OF_TWO:
-            if scaling_stats_impl not in SIGNEDNESS_STATS:
-                raise ValueError(
-                    f"Signedness of statistic {scaling_stats_impl.__name__} is not known."
-                    f"Register the statistic using the decorator @register_stat_implementation.")
-            if SIGNEDNESS_STATS[scaling_stats_impl]:
-                raise ValueError(
-                    f"Statistic {scaling_stats_impl.__name__} is signed but only unsigned statistics can "
-                    f"be used with power-of-two scales.")
-
-        return scaling_stats_impl
+        return solve_stats_impl(scaling_stats_op, restrict_scaling_type)
 
 
 class SolveAffineRescalingFromEnum(ExtendedInjector):
@@ -283,7 +292,7 @@ class SolveStatsReduceDimFromEnum(ExtendedInjector):
             return reduce_dim
 
     @value
-    def keepdim(scaling_per_output):
+    def keepdim(scaling_per_output, mse_scale=None):
         if scaling_per_output == ScalingPerOutputType.GROUP:
             return True
         else:
