@@ -184,7 +184,7 @@ class _GGUFCachedScaleShiftQuantZeroPoint(_ScaleShiftQuantZeroPoint):
         return quant_zp
 
 
-class __GGUFBaseKQuantMixin(_GGUFBaseQuantMixin):
+class _GGUFBaseKQuantMixin(_GGUFBaseQuantMixin):
     """Common base for the K-quant weight quantizers."""
     restrict_scaling_impl = _GGUFCachedQuantRestrictValue
     restrict_threshold_impl = FloatRestrictValue
@@ -200,7 +200,7 @@ class __GGUFBaseKQuantMixin(_GGUFBaseQuantMixin):
         return None
 
 
-class _GGUFShiftedBaseKQuantMixin(__GGUFBaseKQuantMixin, MSEAsymmetricScale):
+class _GGUFShiftedBaseKQuantMixin(_GGUFBaseKQuantMixin, MSEAsymmetricScale):
     """Base quantizer for asymmetric K-quants with nested scale + zero-point (min)."""
     scale_shift_zero_point_impl = _GGUFCachedScaleShiftQuantZeroPoint
     zero_point_impl = ParameterFromStatsFromParameterZeroPoint
@@ -219,7 +219,7 @@ class _GGUFShiftedBaseKQuantMixin(__GGUFBaseKQuantMixin, MSEAsymmetricScale):
         return None
 
 
-class _GGUFSignedBaseKQuantMixin(__GGUFBaseKQuantMixin, MSESymmetricScale):
+class _GGUFSignedBaseKQuantMixin(_GGUFBaseKQuantMixin, MSESymmetricScale):
     """Base quantizer for signed symmetric K-quants with nested scales."""
     signed = True
     restrict_scaling_type = RestrictValueType.SIGNED_FP
@@ -227,7 +227,7 @@ class _GGUFSignedBaseKQuantMixin(__GGUFBaseKQuantMixin, MSESymmetricScale):
     restrict_scale_positive = False
 
 
-class __GGUFKQuantScaleZPMixin(ExtendedInjector):
+class _GGUFKQuantScaleZPMixin(ExtendedInjector):
     """Common base for every nested K-quant scale/zero-point sub-injector."""
     narrow_range = False  # scale/zp quantization is always full-range too
     rescaling_int_quant = RescalingIntQuant
@@ -262,13 +262,13 @@ class __GGUFKQuantScaleZPMixin(ExtendedInjector):
         return tuple(size)
 
 
-class _GGUFKQuantScalingMixin(__GGUFKQuantScaleZPMixin):
+class _GGUFKQuantScalingMixin(_GGUFKQuantScaleZPMixin):
     """Base nested K-quant scale sub-injector (the scale-of-scale)."""
     module = (this << 1).module
     upstream_shape = (this << 1).scaling_shape
 
 
-class _GGUFKQuantZPMixin(__GGUFKQuantScaleZPMixin):
+class _GGUFKQuantZPMixin(_GGUFKQuantScaleZPMixin):
     """Base nested K-quant zero-point/min sub-injector (the min-of-min)."""
     module = (this << 1).module
     upstream_shape = (this << 1).zero_point_shape
