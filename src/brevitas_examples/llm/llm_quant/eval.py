@@ -58,19 +58,18 @@ def create_validation_dataloader(data, seqlen, device):
 
 
 @dataclass(frozen=True)
-class TopKReferenceChunk:
-    """Store original-model probabilities for one evaluation chunk."""
+class ProbabilityChunk:
+    """Store probabilities for one evaluation chunk."""
 
     token_ids: torch.Tensor
     probabilities: torch.Tensor
 
 
 @dataclass(frozen=True)
-class ReferenceProbabilityCache:
-    """Store compact original-model probabilities for EAR and KLD evaluation."""
+class ProbabilityCache:
+    """Store list of probability chunks."""
 
-    chunks: List[TopKReferenceChunk]
-    top_k: int
+    chunks: List[ProbabilityChunk]
 
     def __len__(self) -> int:
         return len(self.chunks)
@@ -78,12 +77,12 @@ class ReferenceProbabilityCache:
 
 @dataclass(frozen=True)
 class EvaluationResults:
-    """Store metrics and reference data from one evaluation pass."""
+    """Store metrics and probabilities."""
 
     ppl: Optional[float] = None
     ear: Optional[float] = None
     kld: Optional[float] = None
-    probabilities: Optional[ReferenceProbabilityCache] = None
+    probabilities: Optional[ProbabilityCache] = None
 
 
 def _set_eval_seed(seed: int) -> None:
@@ -142,8 +141,7 @@ def compute_float_evaluation_metrics(
         dtype: torch.dtype = torch.float32) -> EvaluationResults:
     """Compute float PPL and cache top-K probabilities."""
 
-    if top_k <= 0:
-        raise ValueError("top_k must be positive.")
+    assert top_k > 0, "top_k must be positive."
 
     ppl = Perplexity(dtype=dtype)
     chunks = []
@@ -155,12 +153,11 @@ def compute_float_evaluation_metrics(
         top_logits, top_ids = logits.topk(top_k, dim=-1)
         top_probabilities = torch.exp(top_logits - logits.logsumexp(dim=-1, keepdim=True))
         chunks.append(
-            TopKReferenceChunk(
+            ProbabilityChunk(
                 token_ids=top_ids.to(device="cpu", dtype=torch.int32),
                 probabilities=top_probabilities.to(device="cpu", dtype=torch.float32)))
 
-    return EvaluationResults(
-        ppl=ppl.finalize(), probabilities=ReferenceProbabilityCache(chunks=chunks, top_k=top_k))
+    return EvaluationResults(ppl=ppl.finalize(), probabilities=ProbabilityCache(chunks=chunks))
 
 
 @torch.no_grad()
@@ -169,7 +166,7 @@ def compute_quantized_evaluation_metrics(
         data: Iterable[Dict],
         context_length: int,
         tokenizer: Any,
-        reference_probabilities: ReferenceProbabilityCache,
+        reference_probabilities: ProbabilityCache,
         normalize: bool = True,
         seed: int = 0,
         dtype: torch.dtype = torch.float32) -> EvaluationResults:

@@ -7,7 +7,7 @@ from torch import nn
 
 from brevitas_examples.llm.llm_quant.eval import compute_float_evaluation_metrics
 from brevitas_examples.llm.llm_quant.eval import compute_quantized_evaluation_metrics
-from brevitas_examples.llm.llm_quant.eval import ReferenceProbabilityCache
+from brevitas_examples.llm.llm_quant.eval import ProbabilityCache
 
 
 class FixedLogitsModel(nn.Module):
@@ -51,7 +51,6 @@ def test_expected_acceptance_rate_uses_original_top_k_without_renormalization():
 
     assert quantized_metrics.ear == pytest.approx(expected_ear)
     assert quantized_metrics.kld == pytest.approx(expected_kld)
-    assert reference_cache.top_k == 2
     assert reference_cache.chunks[0].token_ids.dtype == torch.int32
     assert reference_cache.chunks[0].token_ids.device.type == "cpu"
     assert reference_cache.chunks[0].probabilities.dtype == torch.float32
@@ -144,7 +143,7 @@ def test_combined_evaluation_uses_one_forward_per_chunk():
 def test_expected_acceptance_rate_rejects_cache_with_fewer_chunks():
     model = FixedLogitsModel([2.0, 1.0, 0.0])
     data = [{"input_ids": torch.tensor([[0, 1, 2, 0]])}]
-    empty_cache = ReferenceProbabilityCache(chunks=[], top_k=2)
+    empty_cache = ProbabilityCache(chunks=[])
 
     with pytest.raises(AssertionError, match="same length"):
         compute_quantized_evaluation_metrics(
