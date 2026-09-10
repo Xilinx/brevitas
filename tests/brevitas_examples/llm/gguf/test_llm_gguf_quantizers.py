@@ -8,7 +8,6 @@ import pytest
 import pytest_cases
 import torch
 
-from brevitas.core.zero_point import StatsFromParameterZeroPoint
 import brevitas.nn as qnn
 from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
 from brevitas_examples.llm.gguf_export.base_quantizers import GGUFQ2_KWeightQuant
@@ -26,10 +25,6 @@ from brevitas_examples.llm.gguf_export.quant import ggml_quant
 from tests.marker import jit_disabled_for_local_loss
 
 from .common import *
-
-# StatsFromParameterZeroPoint accepts scale_shift_zero_point_impl.
-# ParameterFromStatsFromParameterZeroPoint does not accept that argument until PR #1585.
-_weight_quant_kwargs = {'zero_point_impl': StatsFromParameterZeroPoint}
 
 
 def _packed_row_size(in_features, qtype):
@@ -127,7 +122,7 @@ class TestQ8_0Custom(_CustomQuantTests):
 
 @jit_disabled_for_local_loss()
 class TestQ2KCustom(_CustomQuantTests):
-    weight_quant = GGUFQ2_KWeightQuant.let(**_weight_quant_kwargs)
+    weight_quant = GGUFQ2_KWeightQuant
     qtype = Q2_K
 
 
@@ -139,13 +134,13 @@ class TestQ3KCustom(_CustomQuantTests):
 
 @jit_disabled_for_local_loss()
 class TestQ4KCustom(_CustomQuantTests):
-    weight_quant = GGUFQ4_KWeightQuant.let(**_weight_quant_kwargs)
+    weight_quant = GGUFQ4_KWeightQuant
     qtype = Q4_K
 
 
 @jit_disabled_for_local_loss()
 class TestQ5KCustom(_CustomQuantTests):
-    weight_quant = GGUFQ5_KWeightQuant.let(**_weight_quant_kwargs)
+    weight_quant = GGUFQ5_KWeightQuant
     qtype = Q5_K
 
 
