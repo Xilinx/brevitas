@@ -67,7 +67,20 @@ QK_K = 256
 
 @dataclass(frozen=True)
 class KQuantConfig:
-    """Store the nested K-quant layout parameters."""
+    """
+    K-quants: hierarchical quantization of the sub-block scales (and mins)
+    within a super-block.
+
+      Q6_K -> 16 sub-blocks of 16, symmetric: 8-bit signed scales, single fp16
+              super-block d (no min / zero-point).
+      Q5_K -> like Q4_K but 5-bit weight codes.
+      Q4_K -> 8 sub-blocks of 32, asymmetric: 6-bit unsigned scales + 6-bit
+              unsigned mins, fp16 super-block d / dmin.
+      Q3_K -> 16 sub-blocks of 16, symmetric: 6-bit signed scales, single fp16
+              super-block d (no min / zero-point).
+      Q2_K -> 16 sub-blocks of 16, asymmetric: 4-bit unsigned scales + 4-bit
+              unsigned mins, fp16 super-block d / dmin.
+    """
 
     group_size: int
     sub_scale_bit_width: int
@@ -118,21 +131,6 @@ class GGUFQ4_0WeightQuant(_GGUFBaseQuantMixin, Int8WeightPerChannelFloat):
     gguf_qtype = gguf.GGMLQuantizationType.Q4_0
     group_size = QK
     bit_width = 4
-
-
-# ---------------------------------------------------------------------------
-# K-quants: nested ("double") quantization of the sub-block scales (and mins).
-#
-#   Q6_K -> 16 sub-blocks of 16, symmetric: 8-bit signed scales, single fp16
-#           super-block d (no min / zero-point).
-#   Q5_K -> like Q4_K but 5-bit weight codes.
-#   Q4_K -> 8 sub-blocks of 32, asymmetric: 6-bit unsigned scales + 6-bit
-#           unsigned mins, fp16 super-block d / dmin.
-#   Q3_K -> 16 sub-blocks of 16, symmetric: 6-bit signed scales, single fp16
-#           super-block d (no min / zero-point).
-#   Q2_K -> 16 sub-blocks of 16, asymmetric: 4-bit unsigned scales + 4-bit
-#           unsigned mins, fp16 super-block d / dmin.
-# ---------------------------------------------------------------------------
 
 
 class _GGUFCachedQuantRestrictValue(QuantRestrictValue):
