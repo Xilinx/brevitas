@@ -124,7 +124,9 @@ class _CustomKQuantTests:
 
         scaling_impl = layer.weight_quant.tensor_quant.scaling_impl
         scaling_stats_impl = scaling_impl.parameter_list_stats.stats.stats_impl
-        assert isinstance(scaling_stats_impl, MSE)
+        assert isinstance(scaling_stats_impl, MSE), "MSE did not resolve correctly"
+        assert scaling_stats_impl.bipolar_search is not self.restrict_scale_positive, \
+            "restrict_scale_positive did not resolve correctly"
 
 
 class TestQ4_0Custom(_CustomQuantTests):
