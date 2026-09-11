@@ -21,7 +21,7 @@ from brevitas_examples.llm.llm_args import validate as validate_llm_args
 class LLMEntryPointUtils(EntryPointUtils):
 
     argument_parser: ArgumentParser = create_llm_args_parser()
-    eval_metrics: List[str] = ["float_ppl", "quant_ppl"]
+    eval_metrics: List[str] = ["float_ppl", "quant_ppl", "quant_ear", "quant_kld"]
 
     @staticmethod
     def parse_log(job_log: str) -> Dict[str, Any]:
@@ -31,6 +31,11 @@ class LLMEntryPointUtils(EntryPointUtils):
         # Find the line containing Quant PPL number
         quant_ppl_line = re.search(r"Quantized perplexity \((.*?)\): (\d+\.\d+)", job_log)
         quant_ppl = float(quant_ppl_line.group(2)) if quant_ppl_line is not None else None
+        quant_ear_line = re.search(
+            r"Quantized expected acceptance rate \((.*?)\): (\d+\.\d+)", job_log)
+        quant_ear = float(quant_ear_line.group(2)) if quant_ear_line is not None else None
+        quant_kld_line = re.search(r"Quantized KL divergence \((.*?)\): (-?\d+\.\d+)", job_log)
+        quant_kld = float(quant_kld_line.group(2)) if quant_kld_line is not None else None
         # Search for dictionary in log
         few_shot_eval_line = re.findall(r"({.*?})", job_log)
         # Retrieve last dictionary, in case other dictionaries were printed to the log
@@ -39,6 +44,8 @@ class LLMEntryPointUtils(EntryPointUtils):
         job_log_results = {
             "float_ppl": float_ppl,
             "quant_ppl": quant_ppl,
+            "quant_ear": quant_ear,
+            "quant_kld": quant_kld,
             **few_shot_eval,}
         return job_log_results
 
