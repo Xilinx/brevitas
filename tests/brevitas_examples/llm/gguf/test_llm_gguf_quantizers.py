@@ -8,6 +8,7 @@ import pytest
 import pytest_cases
 import torch
 
+from brevitas.core.stats.stats_op import MSE
 import brevitas.nn as qnn
 from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
 from brevitas_examples.llm.gguf_export.base_quantizers import GGUFQ2_KWeightQuant
@@ -112,6 +113,20 @@ class _CustomQuantTests:
         np.testing.assert_allclose(recon_gguf, recon_brevitas, rtol=0, atol=atol)
 
 
+class _CustomKQuantTests:
+
+    def test_scaling_stats_impl_resolves_to_mse(self):
+        """The instantiated K-quant scaling module uses MSE statistics."""
+        layer = qnn.QuantLinear(256, 8, bias=False, weight_quant=self.weight_quant)
+        layer.weight.data.normal_()
+        layer.eval()
+        layer.quant_weight()
+
+        scaling_impl = layer.weight_quant.tensor_quant.scaling_impl
+        scaling_stats_impl = scaling_impl.parameter_list_stats.stats.stats_impl
+        assert isinstance(scaling_stats_impl, MSE)
+
+
 class TestQ4_0Custom(_CustomQuantTests):
     weight_quant = GGUFQ4_0WeightQuant
     qtype = Q4_0
@@ -128,32 +143,32 @@ class TestQ8_0Custom(_CustomQuantTests):
 
 
 @jit_disabled_for_local_loss()
-class TestQ2KCustom(_CustomQuantTests):
+class TestQ2KCustom(_CustomQuantTests, _CustomKQuantTests):
     weight_quant = GGUFQ2_KWeightQuant
     qtype = Q2_K
 
 
 @jit_disabled_for_local_loss()
-class TestQ3KCustom(_CustomQuantTests):
+class TestQ3KCustom(_CustomQuantTests, _CustomKQuantTests):
     weight_quant = GGUFQ3_KWeightQuant
     qtype = Q3_K
     restrict_scale_positive = False
 
 
 @jit_disabled_for_local_loss()
-class TestQ4KCustom(_CustomQuantTests):
+class TestQ4KCustom(_CustomQuantTests, _CustomKQuantTests):
     weight_quant = GGUFQ4_KWeightQuant
     qtype = Q4_K
 
 
 @jit_disabled_for_local_loss()
-class TestQ5KCustom(_CustomQuantTests):
+class TestQ5KCustom(_CustomQuantTests, _CustomKQuantTests):
     weight_quant = GGUFQ5_KWeightQuant
     qtype = Q5_K
 
 
 @jit_disabled_for_local_loss()
-class TestQ6KCustom(_CustomQuantTests):
+class TestQ6KCustom(_CustomQuantTests, _CustomKQuantTests):
     weight_quant = GGUFQ6_KWeightQuant
     qtype = Q6_K
     restrict_scale_positive = False
