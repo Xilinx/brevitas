@@ -208,7 +208,6 @@ class _GGUFShiftedBaseKQuantMixin(_GGUFBaseKQuantMixin, MSEAsymmetricScale):
     """Base quantizer for asymmetric K-quants with nested scale + zero-point (min)."""
     scale_shift_zero_point_impl = _GGUFCachedScaleShiftQuantZeroPoint
     zero_point_impl = ParameterFromStatsFromParameterZeroPoint
-    restrict_scale_positive = True
     # MSEAsymmetricScale sets scaling_stats_input_view_shape_impl = Identity; pin it explicitly
     zero_point_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_SUBCHANNEL_BLOCK
 
@@ -228,7 +227,6 @@ class _GGUFSignedBaseKQuantMixin(_GGUFBaseKQuantMixin, MSESymmetricScale):
     signed = True
     restrict_scaling_type = RestrictValueType.SIGNED_FP
     scaling_stats_op = StatsOp.SIGNED_MAX
-    restrict_scale_positive = False
 
 
 class _GGUFKQuantScaleZPMixin(ExtendedInjector):

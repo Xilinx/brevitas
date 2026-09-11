@@ -84,6 +84,13 @@ class _CustomQuantTests:
     weight_quant = None
     qtype = None
 
+    # most quantizers are restricted to positive scales by default
+    restrict_scale_positive = True
+
+    def test_restrict_scale_positive_resolved(self):
+        """Resolve scale sign restrictions from the quantizer solver."""
+        assert self.weight_quant.restrict_scale_positive is self.restrict_scale_positive
+
     @pytest_cases.parametrize("x", list(MODEL_TENSORS.values()), ids=list(MODEL_TENSORS))
     def test_block_layout(self, x):
         block = _custom_export(x, self.weight_quant, self.qtype)
@@ -130,6 +137,7 @@ class TestQ2KCustom(_CustomQuantTests):
 class TestQ3KCustom(_CustomQuantTests):
     weight_quant = GGUFQ3_KWeightQuant
     qtype = Q3_K
+    restrict_scale_positive = False
 
 
 @jit_disabled_for_local_loss()
@@ -148,6 +156,7 @@ class TestQ5KCustom(_CustomQuantTests):
 class TestQ6KCustom(_CustomQuantTests):
     weight_quant = GGUFQ6_KWeightQuant
     qtype = Q6_K
+    restrict_scale_positive = False
 
 
 # ``custom_quantizers.py`` registers a recipe for each GGUF format. Low-bit
