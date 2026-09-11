@@ -16,8 +16,11 @@ from brevitas.quant.scaled_int import Int32Bias
 
 from .common import *
 
-# Hypothesis examples for the WBIOL space; each is a full ONNX export + ORT inference.
-WBIOL_MAX_EXAMPLES = 10000
+# Bit-width examples drawn by Hypothesis per enumerated flag combination (each is a full ONNX
+# export + ORT inference). WBIOL is tested as a hybrid: the valid *flag* combinations are
+# enumerated (one pytest node each, so xdist parallelises them) and only the bit-widths are
+# sampled by Hypothesis within each node.
+WBIOL_BITWIDTH_EXAMPLES = 10
 
 
 @dataclass(frozen=True)
@@ -43,78 +46,119 @@ class WBIOLConfig:
             f'-{self.export_type}-bias_{bias}-qw_{int(self.export_q_weight)}')
 
 
-@st.composite
-def wbiol_config_st(draw):
-    """Draw a valid WBIOL configuration (valid-by-construction: no assume/skip needed)."""
+@dataclass(frozen=True)
+class WBIOLFlags:
+    """A valid WBIOL configuration minus the bit-widths (the enumerated axes)."""
+    quantizer_name: str
+    weight_quant: type
+    io_quant: type
+    impl: type
+    rounding_type: str
+    export_type: str
+    bias_quant: Optional[type]
+    export_q_weight: bool
+
+    @property
+    def is_fp8(self):
+        return self.weight_quant == Fp8e4m3OCPWeightPerTensorFloat
+
+    @property
+    def is_dynamic(self):
+        return self.io_quant == ShiftedUint8DynamicActPerTensorFloat
+
+    @property
+    def id(self):
+        bias = self.bias_quant.__name__ if self.bias_quant is not None else 'none'
+        return (
+            f'{self.quantizer_name}-{self.impl.__name__}-rtype_{self.rounding_type}'
+            f'-{self.export_type}-bias_{bias}-qw_{int(self.export_q_weight)}')
+
+
+def enumerate_wbiol_flags():
+    """Enumerate every valid WBIOL flag combination (bit-widths are sampled per node).
+
+    Validity rules (same as the historical skips, verified against the exporter source):
+      * QuantLinear + asymmetric is excluded (historically flaky in ORT).
+      * dynamo export types require torch>=2.8; dynamic act quant only runs on the QCDQ paths.
+      * Bias: fp8/dynamic must use None (Int32Bias needs a static input scale); otherwise free.
+      * export_q_weight (qcdq path only): fp8/qcdq_dynamo require True; a2q/floor require False;
+        round + non-a2q + non-fp8 + qcdq allows either. qonnx ignores it (fixed to False).
+    """
+    combos = []
     names = list(WBIOL_QUANTIZERS)
     if torch_version < parse('2.1'):
         names = [n for n in names if 'fp8' not in n]  # fp8 requires PyTorch >= 2.1
-    quantizer_name = draw(st.sampled_from(names))
-    weight_quant, io_quant = WBIOL_QUANTIZERS[quantizer_name]
-    is_fp8 = weight_quant == Fp8e4m3OCPWeightPerTensorFloat
-    is_dynamic = io_quant == ShiftedUint8DynamicActPerTensorFloat
+    for quantizer_name in names:
+        weight_quant, io_quant = WBIOL_QUANTIZERS[quantizer_name]
+        is_fp8 = weight_quant == Fp8e4m3OCPWeightPerTensorFloat
+        is_dynamic = io_quant == ShiftedUint8DynamicActPerTensorFloat
+        for impl in QUANT_WBIOL_IMPL:
+            if impl is QuantLinear and 'asymmetric' in quantizer_name:
+                continue
+            for rounding_type in ['round', 'floor']:
+                exports = ['qcdq', 'qonnx']
+                if torch_version >= parse('2.8'):
+                    exports.append('qonnx_dynamo')
+                    if rounding_type == 'round' and (is_fp8 or is_dynamic):
+                        exports.append('qcdq_dynamo')
+                if is_dynamic:
+                    exports = [e for e in exports if e in ('qcdq', 'qcdq_dynamo')]
+                for export_type in exports:
+                    biases = [None] if (is_fp8 or is_dynamic) else [None, Int32Bias]
+                    for bias_quant in biases:
+                        if export_type not in ('qcdq', 'qcdq_dynamo'):
+                            qws = [False]  # ignored on the qonnx export path
+                        elif is_fp8 or export_type == 'qcdq_dynamo':
+                            qws = [True]
+                        elif rounding_type == 'floor' or 'a2q' in quantizer_name:
+                            qws = [False]
+                        else:
+                            qws = [True, False]
+                        for export_q_weight in qws:
+                            combos.append(
+                                WBIOLFlags(
+                                    quantizer_name,
+                                    weight_quant,
+                                    io_quant,
+                                    impl,
+                                    rounding_type,
+                                    export_type,
+                                    bias_quant,
+                                    export_q_weight))
+    return combos
 
-    # QuantLinear + asymmetric was historically excluded as flaky in ORT; re-add the exclusion
-    # here if intermittent failures reappear.
-    impl = draw(st.sampled_from(QUANT_WBIOL_IMPL))
 
-    rounding_type = draw(st.sampled_from(['round', 'floor']))
+WBIOL_FLAG_COMBOS = enumerate_wbiol_flags()
 
-    # fp8 (fixed 1+4+3 split) and dynamic act quant (ONNX DynamicQuantizeLinear) are rejected by
-    # the QCDQ exporter at any non-8 bit-width; dynamic only pins i/o, weight stays free. floor is
-    # unrestricted.
-    if is_fp8:
+
+@st.composite
+def wbiol_config_st(draw, flags):
+    """Complete a flag combination with Hypothesis-sampled bit-widths.
+
+    fp8 is fixed to all-8 (OCP e4m3 is a fixed 1+4+3 split the exporter rejects otherwise);
+    dynamic act quant pins 8-bit input/output (ONNX DynamicQuantizeLinear) with weight free.
+    """
+    if flags.is_fp8:
         o = w = i = 8
-    elif is_dynamic:
+    elif flags.is_dynamic:
         o, i = 8, 8
         w = draw(st.sampled_from(list(BIT_WIDTHS)))
     else:
         o = draw(st.sampled_from(list(BIT_WIDTHS)))
         w = draw(st.sampled_from(list(BIT_WIDTHS)))
         i = draw(st.sampled_from(list(BIT_WIDTHS)))
-
-    exports = ['qcdq', 'qonnx']
-    if torch_version >= parse('2.8'):
-        exports.append('qonnx_dynamo')
-        # Dynamo QCDQ exports weights as a round-only Q-node and cannot export quantized bias,
-        # so it is limited to round + fp8/dynamic quantizers (which don't quantize bias).
-        if rounding_type == 'round' and (is_fp8 or is_dynamic):
-            exports.append('qcdq_dynamo')
-    if is_dynamic:  # dynamic act quant is only supported on the QCDQ export paths
-        exports = [e for e in exports if e in ('qcdq', 'qcdq_dynamo')]
-    export_type = draw(st.sampled_from(exports))
-
-    # Bias: Int32Bias needs a static input scale, so fp8/dynamic must use None; otherwise free.
-    bias_quant = None if (is_fp8 or is_dynamic) else draw(st.sampled_from([None, Int32Bias]))
-
-    # export_q_weight only affects the qcdq path. Constraints are enforced in the exporter source:
-    #   fp8 -> True only (minifloat integer export raises NotImplementedError)
-    #   qcdq_dynamo -> True only (manager raises RuntimeError otherwise)
-    #   a2q -> False only (DecoupledWeightQuantWithInput asserts integer weights)
-    #   floor -> False only (a QuantizeLinear Q-node rounds to nearest even, not floor)
-    #   round + non-a2q + non-fp8 + qcdq -> either path is valid, so draw it
-    if export_type in ('qcdq', 'qcdq_dynamo'):
-        if is_fp8 or export_type == 'qcdq_dynamo':
-            export_q_weight = True
-        elif rounding_type == 'floor' or 'a2q' in quantizer_name:
-            export_q_weight = False
-        else:
-            export_q_weight = draw(st.booleans())
-    else:
-        export_q_weight = False  # ignored on the qonnx export path
-
     return WBIOLConfig(
-        quantizer_name,
-        weight_quant,
-        io_quant,
+        flags.quantizer_name,
+        flags.weight_quant,
+        flags.io_quant,
         o,
         w,
         i,
-        impl,
-        rounding_type,
-        export_type,
-        bias_quant,
-        export_q_weight)
+        flags.impl,
+        flags.rounding_type,
+        flags.export_type,
+        flags.bias_quant,
+        flags.export_q_weight)
 
 
 def build_wbiol_model(config):

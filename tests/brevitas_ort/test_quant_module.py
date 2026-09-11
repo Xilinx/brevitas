@@ -7,6 +7,7 @@ import os
 
 from hypothesis import given
 from hypothesis import settings
+from hypothesis import strategies as st
 from packaging.version import parse
 import pytest
 from pytest_cases import get_case_id
@@ -21,12 +22,17 @@ from .quant_module_cases import build_wbiol_model
 from .quant_module_cases import QuantAvgPoolCases
 from .quant_module_cases import QuantRecurrentCases
 from .quant_module_cases import wbiol_config_st
-from .quant_module_cases import WBIOL_MAX_EXAMPLES
+from .quant_module_cases import WBIOL_BITWIDTH_EXAMPLES
+from .quant_module_cases import WBIOL_FLAG_COMBOS
 
 
-@settings(max_examples=WBIOL_MAX_EXAMPLES, deadline=None)
-@given(config=wbiol_config_st())
-def test_ort_wbiol(config):
+# WBIOL is tested as a hybrid: enumerate every valid flag combination (one parametrized node each,
+# so xdist distributes them) and let Hypothesis sample the bit-widths within each node.
+@pytest.mark.parametrize('flags', WBIOL_FLAG_COMBOS, ids=[f.id for f in WBIOL_FLAG_COMBOS])
+@settings(max_examples=WBIOL_BITWIDTH_EXAMPLES, deadline=None)
+@given(data=st.data())
+def test_ort_wbiol(flags, data):
+    config = data.draw(wbiol_config_st(flags))
     model = build_wbiol_model(config)
     impl = config.impl.__name__
     quantizer = config.quantizer_name
