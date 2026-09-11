@@ -30,6 +30,8 @@ Each quantizer uses `GGUFGroupwiseWeightQuantProxyFromInjector` as its `proxy_cl
 and declares a `gguf_qtype` class attribute.
 """
 
+from dataclasses import dataclass
+
 from dependencies import this
 from dependencies import value
 import gguf
@@ -62,24 +64,22 @@ from brevitas_examples.llm.gguf_export.proxy import GGUFGroupwiseWeightQuantProx
 QK = 32
 QK_K = 256
 
-# K-quant sub-block geometry and nested scale bit widths
-Q6_K_GROUP_SIZE = 16  # 16 sub-blocks of 16 per 256-element super-block
-Q6_K_SUB_SCALE_BIT_WIDTH = 8
 
-Q5_K_GROUP_SIZE = 32  # 8 sub-blocks of 32 per 256-element super-block
-Q5_K_SUB_SCALE_BIT_WIDTH = 6
-Q5_K_SUB_ZP_BIT_WIDTH = 6
+@dataclass(frozen=True)
+class KQuantConfig:
+    """Store the nested K-quant layout parameters."""
 
-Q4_K_GROUP_SIZE = 32
-Q4_K_SUB_SCALE_BIT_WIDTH = 6
-Q4_K_SUB_ZP_BIT_WIDTH = 6
+    group_size: int
+    sub_scale_bit_width: int
+    sub_zp_bit_width: int | None = None
 
-Q3_K_GROUP_SIZE = 16
-Q3_K_SUB_SCALE_BIT_WIDTH = 6
 
-Q2_K_GROUP_SIZE = 16
-Q2_K_SUB_SCALE_BIT_WIDTH = 4
-Q2_K_SUB_ZP_BIT_WIDTH = 4
+K_QUANT_CONFIG = {
+    "Q6_K": KQuantConfig(group_size=16, sub_scale_bit_width=8),
+    "Q5_K": KQuantConfig(group_size=32, sub_scale_bit_width=6, sub_zp_bit_width=6),
+    "Q4_K": KQuantConfig(group_size=32, sub_scale_bit_width=6, sub_zp_bit_width=6),
+    "Q3_K": KQuantConfig(group_size=16, sub_scale_bit_width=6),
+    "Q2_K": KQuantConfig(group_size=16, sub_scale_bit_width=4, sub_zp_bit_width=4),}
 
 GGUF_SCALING_MIN_VAL = 1e-10
 
@@ -276,8 +276,8 @@ class _GGUFKQuantZPMixin(_GGUFKQuantScaleZPMixin):
 
 class _GGUFQ6_KScalingSubInjector(_GGUFKQuantScalingMixin, Int8WeightPerChannelFloat):
     """8-bit signed quantizer for the per-sub-block scales (the scale-of-scale)."""
-    bit_width = Q6_K_SUB_SCALE_BIT_WIDTH
-    group_size = QK_K // Q6_K_GROUP_SIZE
+    bit_width = K_QUANT_CONFIG["Q6_K"].sub_scale_bit_width
+    group_size = QK_K // K_QUANT_CONFIG["Q6_K"].group_size
     signed = True
     restrict_scaling_type = RestrictValueType.SIGNED_FP
     scaling_stats_op = StatsOp.SIGNED_MAX
@@ -286,29 +286,29 @@ class _GGUFQ6_KScalingSubInjector(_GGUFKQuantScalingMixin, Int8WeightPerChannelF
 class GGUFQ6_KWeightQuant(_GGUFSignedBaseKQuantMixin, Int8WeightPerChannelFloat):
     """Signed symmetric 6-bit Q6_K super-block quantizer with nested scales."""
     gguf_qtype = gguf.GGMLQuantizationType.Q6_K
-    group_size = Q6_K_GROUP_SIZE
+    group_size = K_QUANT_CONFIG["Q6_K"].group_size
     bit_width = 6
     scaling_quant = _GGUFQ6_KScalingSubInjector
 
 
 class _GGUFQ5_KScalingSubInjector(_GGUFKQuantScalingMixin, Int8WeightPerTensorFloat):
     """6-bit unsigned quantizer for the per-sub-block scales (the scale-of-scale)."""
-    bit_width = Q4_K_SUB_SCALE_BIT_WIDTH
-    group_size = QK_K // Q4_K_GROUP_SIZE
+    bit_width = K_QUANT_CONFIG["Q5_K"].sub_scale_bit_width
+    group_size = QK_K // K_QUANT_CONFIG["Q5_K"].group_size
     signed = False
 
 
 class _GGUFQ5_KZPSubInjector(_GGUFKQuantZPMixin, Int8WeightPerTensorFloat):
     """6-bit unsigned quantizer for the per-sub-block mins (the min-of-min)."""
-    bit_width = Q4_K_SUB_ZP_BIT_WIDTH
-    group_size = QK_K // Q4_K_GROUP_SIZE
+    bit_width = K_QUANT_CONFIG["Q5_K"].sub_zp_bit_width
+    group_size = QK_K // K_QUANT_CONFIG["Q5_K"].group_size
     signed = False
 
 
 class GGUFQ5_KWeightQuant(_GGUFShiftedBaseKQuantMixin, ShiftedUint8WeightPerTensorFloat):
     """Asymmetric unsigned 5-bit Q5_K super-block quantizer with nested scales/mins."""
     gguf_qtype = gguf.GGMLQuantizationType.Q5_K
-    group_size = Q5_K_GROUP_SIZE
+    group_size = K_QUANT_CONFIG["Q5_K"].group_size
     bit_width = 5
     scaling_quant = _GGUFQ5_KScalingSubInjector
     zp_quant = _GGUFQ5_KZPSubInjector
@@ -317,14 +317,14 @@ class GGUFQ5_KWeightQuant(_GGUFShiftedBaseKQuantMixin, ShiftedUint8WeightPerTens
 class GGUFQ4_KWeightQuant(GGUFQ5_KWeightQuant):
     """Asymmetric unsigned 4-bit Q4_K super-block quantizer with nested scales/mins."""
     gguf_qtype = gguf.GGMLQuantizationType.Q4_K
-    group_size = Q4_K_GROUP_SIZE
+    group_size = K_QUANT_CONFIG["Q4_K"].group_size
     bit_width = 4
 
 
 class _GGUFQ3_KScalingSubInjector(_GGUFKQuantScalingMixin, Int8WeightPerChannelFloat):
     """6-bit *signed* quantizer for the per-sub-block scales (the scale-of-scale)."""
-    bit_width = Q3_K_SUB_SCALE_BIT_WIDTH
-    group_size = QK_K // Q3_K_GROUP_SIZE
+    bit_width = K_QUANT_CONFIG["Q3_K"].sub_scale_bit_width
+    group_size = QK_K // K_QUANT_CONFIG["Q3_K"].group_size
     signed = True
     restrict_scaling_type = RestrictValueType.SIGNED_FP
     scaling_stats_op = StatsOp.SIGNED_MAX
@@ -333,23 +333,23 @@ class _GGUFQ3_KScalingSubInjector(_GGUFKQuantScalingMixin, Int8WeightPerChannelF
 class GGUFQ3_KWeightQuant(_GGUFSignedBaseKQuantMixin, Int8WeightPerChannelFloat):
     """Signed symmetric 3-bit Q3_K super-block quantizer with nested scales."""
     gguf_qtype = gguf.GGMLQuantizationType.Q3_K
-    group_size = Q3_K_GROUP_SIZE
+    group_size = K_QUANT_CONFIG["Q3_K"].group_size
     bit_width = 3
     scaling_quant = _GGUFQ3_KScalingSubInjector
 
 
 class _GGUFQ2_KScalingSubInjector(_GGUFKQuantScalingMixin, Int8WeightPerTensorFloat):
     """4-bit unsigned quantizer for the per-sub-block scales (the scale-of-scale)."""
-    bit_width = Q2_K_SUB_SCALE_BIT_WIDTH
-    group_size = QK_K // Q2_K_GROUP_SIZE
+    bit_width = K_QUANT_CONFIG["Q2_K"].sub_scale_bit_width
+    group_size = QK_K // K_QUANT_CONFIG["Q2_K"].group_size
     signed = False
     float_to_int_impl = CeilSte
 
 
 class _GGUFQ2_KZPSubInjector(_GGUFKQuantZPMixin, Int8WeightPerTensorFloat):
     """4-bit unsigned quantizer for the per-sub-block mins (the min-of-min)."""
-    bit_width = Q2_K_SUB_ZP_BIT_WIDTH
-    group_size = QK_K // Q2_K_GROUP_SIZE
+    bit_width = K_QUANT_CONFIG["Q2_K"].sub_zp_bit_width
+    group_size = QK_K // K_QUANT_CONFIG["Q2_K"].group_size
     signed = False
     float_to_int_impl = FloorSte
 
@@ -357,7 +357,7 @@ class _GGUFQ2_KZPSubInjector(_GGUFKQuantZPMixin, Int8WeightPerTensorFloat):
 class GGUFQ2_KWeightQuant(_GGUFShiftedBaseKQuantMixin, ShiftedUint8WeightPerTensorFloat):
     """Asymmetric unsigned 2-bit Q2_K super-block quantizer with nested scales/mins."""
     gguf_qtype = gguf.GGMLQuantizationType.Q2_K
-    group_size = Q2_K_GROUP_SIZE
+    group_size = K_QUANT_CONFIG["Q2_K"].group_size
     bit_width = 2
     scaling_quant = _GGUFQ2_KScalingSubInjector
     zp_quant = _GGUFQ2_KZPSubInjector
