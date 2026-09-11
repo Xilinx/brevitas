@@ -21,8 +21,8 @@ from .common import *
 from .quant_module_cases import build_wbiol_model
 from .quant_module_cases import QuantAvgPoolCases
 from .quant_module_cases import QuantRecurrentCases
-from .quant_module_cases import wbiol_config_st
 from .quant_module_cases import WBIOL_BITWIDTH_EXAMPLES
+from .quant_module_cases import wbiol_config_st
 from .quant_module_cases import WBIOL_FLAG_COMBOS
 
 
