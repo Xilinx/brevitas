@@ -31,11 +31,14 @@ and declares a `gguf_qtype` class attribute.
 """
 
 from dataclasses import dataclass
+from typing import Optional
+from typing import Tuple
 
 from dependencies import this
 from dependencies import value
 import gguf
 import torch
+from torch.nn import Module
 
 from brevitas.core.function_wrapper import CeilSte
 from brevitas.core.function_wrapper import FloorSte
@@ -59,6 +62,7 @@ from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 from brevitas_examples.llm.gguf_export.proxy import GGUFGroupwiseWeightQuantProxyFromInjector
+from brevitas_examples.llm.gguf_export.utils import _GGUFCachedScaleZPGroupwiseInt
 
 # GGML block geometry: K-quant super-block spans QK_K elements; Q4_0/Q4_1/Q8_0 span QK.
 QK = 32
@@ -137,18 +141,18 @@ class _GGUFCachedQuantRestrictValue(QuantRestrictValue):
 
     def __init__(
             self,
-            restrict_value_float_to_int_impl,
-            scaling_shape,
-            scale_dequantized_shape,
-            int_scaling_impl,
-            bit_width_impl,
-            gguf_scaling_cache):
+            restrict_value_float_to_int_impl: Module,
+            scaling_shape: Tuple[int, ...],
+            scale_dequantized_shape: Optional[Tuple[int, ...]],
+            int_scaling_impl: Module,
+            bit_width_impl: Module,
+            gguf_scaling_cache: _GGUFCachedScaleZPGroupwiseInt) -> None:
         super().__init__(restrict_value_float_to_int_impl, scaling_shape, scale_dequantized_shape)
         self.int_scaling_impl = int_scaling_impl
         self.bit_width_impl = bit_width_impl
         self.gguf_scaling_cache = gguf_scaling_cache
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         out, scale_of_scale, *_ = self.float_to_int_impl(x)
         if self.gguf_scaling_cache.enabled:
             int_threshold = self.int_scaling_impl(self.bit_width_impl())
@@ -162,15 +166,17 @@ class _GGUFCachedScaleShiftQuantZeroPoint(_ScaleShiftQuantZeroPoint):
 
     def __init__(
             self,
-            zp_int_quant,
-            int_quant,
-            zero_point_shape,
-            zero_point_dequantized_shape,
-            gguf_zero_point_cache):
+            zp_int_quant: Module,
+            int_quant: Module,
+            zero_point_shape: Tuple[int, ...],
+            zero_point_dequantized_shape: Optional[Tuple[int, ...]],
+            gguf_zero_point_cache: _GGUFCachedScaleZPGroupwiseInt) -> None:
         super().__init__(zp_int_quant, int_quant, zero_point_shape, zero_point_dequantized_shape)
         self.gguf_zero_point_cache = gguf_zero_point_cache
 
-    def forward(self, zero_point: torch.Tensor, scale: torch.Tensor, bit_width: torch.Tensor):
+    def forward(
+            self, zero_point: torch.Tensor, scale: torch.Tensor,
+            bit_width: torch.Tensor) -> torch.Tensor:
         min_int = self.int_quant.min_int(bit_width)
         quant_zp, scale_of_zp, *_ = self.zp_int_quant(zero_point)
         if self.zero_point_dequantized_shape is not None:
