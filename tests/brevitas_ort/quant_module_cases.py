@@ -1,6 +1,10 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from dataclasses import dataclass
+from typing import Optional
+
+from hypothesis import strategies as st
 from pytest_cases import parametrize
 from pytest_cases import set_case_id
 from torch import nn
@@ -12,73 +16,194 @@ from brevitas.quant.scaled_int import Int32Bias
 
 from .common import *
 
+# Bit-width examples drawn by Hypothesis per enumerated flag combination (each is a full ONNX
+# export + ORT inference). WBIOL is tested as a hybrid: the valid *flag* combinations are
+# enumerated (one pytest node each, so xdist parallelises them) and only the bit-widths are
+# sampled by Hypothesis within each node.
+WBIOL_BITWIDTH_EXAMPLES = 10
 
-class QuantWBIOLCases:
 
-    @parametrize(
-        'rounding_type', ['round', 'floor'], ids=[f'rtype_{r}' for r in ['round', 'floor']])
-    @parametrize('impl', QUANT_WBIOL_IMPL, ids=[f'{c.__name__}' for c in QUANT_WBIOL_IMPL])
-    @parametrize('input_bit_width', BIT_WIDTHS, ids=[f'i{b}' for b in BIT_WIDTHS])
-    @parametrize('weight_bit_width', BIT_WIDTHS, ids=[f'w{b}' for b in BIT_WIDTHS])
-    @parametrize('output_bit_width', BIT_WIDTHS, ids=[f'o{b}' for b in BIT_WIDTHS])
-    @parametrize('quantizers', WBIOL_QUANTIZERS.values(), ids=list(WBIOL_QUANTIZERS.keys()))
-    def case_quant_wbiol(
-            self,
-            rounding_type,
-            impl,
-            input_bit_width,
-            weight_bit_width,
-            output_bit_width,
-            quantizers,
-            request):
+@dataclass(frozen=True)
+class WBIOLConfig:
+    quantizer_name: str
+    weight_quant: type
+    io_quant: type
+    output_bit_width: int
+    weight_bit_width: int
+    input_bit_width: int
+    impl: type
+    rounding_type: str
+    export_type: str
+    bias_quant: Optional[type]
+    export_q_weight: bool
 
-        # Change the case_id based on current value of Parameters
-        set_case_id(request.node.callspec.id, QuantWBIOLCases.case_quant_wbiol)
+    @property
+    def id(self):
+        bias = self.bias_quant.__name__ if self.bias_quant is not None else 'none'
+        return (
+            f'wbiol-{self.quantizer_name}-o{self.output_bit_width}-w{self.weight_bit_width}'
+            f'-i{self.input_bit_width}-{self.impl.__name__}-rtype_{self.rounding_type}'
+            f'-{self.export_type}-bias_{bias}-qw_{int(self.export_q_weight)}')
 
-        weight_quant, io_quant = quantizers
+
+@dataclass(frozen=True)
+class WBIOLFlags:
+    """A valid WBIOL configuration minus the bit-widths (the enumerated axes)."""
+    quantizer_name: str
+    weight_quant: type
+    io_quant: type
+    impl: type
+    rounding_type: str
+    export_type: str
+    bias_quant: Optional[type]
+    export_q_weight: bool
+
+    @property
+    def is_fp8(self):
+        return self.weight_quant == Fp8e4m3OCPWeightPerTensorFloat
+
+    @property
+    def is_dynamic(self):
+        return self.io_quant == ShiftedUint8DynamicActPerTensorFloat
+
+    @property
+    def id(self):
+        bias = self.bias_quant.__name__ if self.bias_quant is not None else 'none'
+        return (
+            f'{self.quantizer_name}-{self.impl.__name__}-rtype_{self.rounding_type}'
+            f'-{self.export_type}-bias_{bias}-qw_{int(self.export_q_weight)}')
+
+
+def enumerate_wbiol_flags():
+    """Enumerate every valid WBIOL flag combination (bit-widths are sampled per node).
+
+    Validity rules (same as the historical skips, verified against the exporter source):
+      * QuantLinear + asymmetric is excluded (historically flaky in ORT).
+      * dynamo export types require torch>=2.8; dynamic act quant only runs on the QCDQ paths.
+      * Bias: fp8/dynamic must use None (Int32Bias needs a static input scale); otherwise free.
+      * export_q_weight (qcdq path only): fp8/qcdq_dynamo require True; a2q/floor require False;
+        round + non-a2q + non-fp8 + qcdq allows either. qonnx ignores it (fixed to False).
+    """
+    combos = []
+    names = list(WBIOL_QUANTIZERS)
+    if torch_version < parse('2.1'):
+        names = [n for n in names if 'fp8' not in n]  # fp8 requires PyTorch >= 2.1
+    for quantizer_name in names:
+        weight_quant, io_quant = WBIOL_QUANTIZERS[quantizer_name]
         is_fp8 = weight_quant == Fp8e4m3OCPWeightPerTensorFloat
         is_dynamic = io_quant == ShiftedUint8DynamicActPerTensorFloat
-        if is_fp8 or rounding_type == 'floor':
-            if weight_bit_width < 8 or input_bit_width < 8 or output_bit_width < 8:
-                pytest.skip('FP8 export and FLOOR rounding require all bitwidths equal to 8')
-            torch.use_deterministic_algorithms(False)
-        else:
-            torch.use_deterministic_algorithms(True)
+        for impl in QUANT_WBIOL_IMPL:
+            if impl is QuantLinear and 'asymmetric' in quantizer_name:
+                continue
+            for rounding_type in ['round', 'floor']:
+                exports = ['qcdq', 'qonnx']
+                if torch_version >= parse('2.8'):
+                    exports.append('qonnx_dynamo')
+                    if rounding_type == 'round' and (is_fp8 or is_dynamic):
+                        exports.append('qcdq_dynamo')
+                if is_dynamic:
+                    exports = [e for e in exports if e in ('qcdq', 'qcdq_dynamo')]
+                for export_type in exports:
+                    biases = [None] if (is_fp8 or is_dynamic) else [None, Int32Bias]
+                    for bias_quant in biases:
+                        if export_type not in ('qcdq', 'qcdq_dynamo'):
+                            qws = [False]  # ignored on the qonnx export path
+                        elif is_fp8 or export_type == 'qcdq_dynamo':
+                            qws = [True]
+                        elif rounding_type == 'floor' or 'a2q' in quantizer_name:
+                            qws = [False]
+                        else:
+                            qws = [True, False]
+                        for export_q_weight in qws:
+                            combos.append(
+                                WBIOLFlags(
+                                    quantizer_name,
+                                    weight_quant,
+                                    io_quant,
+                                    impl,
+                                    rounding_type,
+                                    export_type,
+                                    bias_quant,
+                                    export_q_weight))
+    return combos
 
-        if impl is QuantLinear:
-            layer_kwargs = {'in_features': IN_CH, 'out_features': OUT_CH}
-        else:
-            layer_kwargs = {
-                'in_channels': IN_CH, 'out_channels': OUT_CH, 'kernel_size': KERNEL_SIZE}
 
-        bias_quantizer = None if (is_fp8 or is_dynamic) else Int32Bias
-        # Required because of numpy error with FP8 data type. Export iself works fine.
-        return_quant_tensor = False if is_fp8 else True
+WBIOL_FLAG_COMBOS = enumerate_wbiol_flags()
 
-        class Model(nn.Module):
 
-            def __init__(self):
-                super().__init__()
-                self.conv = impl(
-                    **layer_kwargs,
-                    bias=True,
-                    weight_quant=weight_quant,
-                    input_quant=io_quant,
-                    output_quant=io_quant,
-                    weight_bit_width=weight_bit_width,
-                    input_bit_width=input_bit_width,
-                    output_bit_width=output_bit_width,
-                    bias_quant=bias_quantizer,
-                    weight_float_to_int_impl_type=rounding_type,
-                    return_quant_tensor=return_quant_tensor)
-                self.conv.weight.data.uniform_(-0.01, 0.01)
+@st.composite
+def wbiol_config_st(draw, flags):
+    """Complete a flag combination with Hypothesis-sampled bit-widths.
 
-            def forward(self, x):
-                return self.conv(x)
+    fp8 is fixed to all-8 (OCP e4m3 is a fixed 1+4+3 split the exporter rejects otherwise);
+    dynamic act quant pins 8-bit input/output (ONNX DynamicQuantizeLinear) with weight free.
+    """
+    if flags.is_fp8:
+        o = w = i = 8
+    elif flags.is_dynamic:
+        o, i = 8, 8
+        w = draw(st.sampled_from(list(BIT_WIDTHS)))
+    else:
+        o = draw(st.sampled_from(list(BIT_WIDTHS)))
+        w = draw(st.sampled_from(list(BIT_WIDTHS)))
+        i = draw(st.sampled_from(list(BIT_WIDTHS)))
+    return WBIOLConfig(
+        flags.quantizer_name,
+        flags.weight_quant,
+        flags.io_quant,
+        o,
+        w,
+        i,
+        flags.impl,
+        flags.rounding_type,
+        flags.export_type,
+        flags.bias_quant,
+        flags.export_q_weight)
 
-        torch.random.manual_seed(SEED)
-        module = Model()
-        return module
+
+def build_wbiol_model(config):
+    weight_quant, io_quant = config.weight_quant, config.io_quant
+    is_fp8 = weight_quant == Fp8e4m3OCPWeightPerTensorFloat
+    is_dynamic = io_quant == ShiftedUint8DynamicActPerTensorFloat
+    if is_fp8 or config.rounding_type == 'floor':
+        torch.use_deterministic_algorithms(False)
+    else:
+        torch.use_deterministic_algorithms(True)
+
+    impl = config.impl
+    if impl is QuantLinear:
+        layer_kwargs = {'in_features': IN_CH, 'out_features': OUT_CH}
+    else:
+        layer_kwargs = {'in_channels': IN_CH, 'out_channels': OUT_CH, 'kernel_size': KERNEL_SIZE}
+
+    bias_quantizer = config.bias_quant
+    # Required because of numpy error with FP8 data type. Export iself works fine.
+    return_quant_tensor = False if is_fp8 else True
+
+    class Model(nn.Module):
+
+        def __init__(self):
+            super().__init__()
+            self.conv = impl(
+                **layer_kwargs,
+                bias=True,
+                weight_quant=weight_quant,
+                input_quant=io_quant,
+                output_quant=io_quant,
+                weight_bit_width=config.weight_bit_width,
+                input_bit_width=config.input_bit_width,
+                output_bit_width=config.output_bit_width,
+                bias_quant=bias_quantizer,
+                weight_float_to_int_impl_type=config.rounding_type,
+                return_quant_tensor=return_quant_tensor)
+            self.conv.weight.data.uniform_(-0.01, 0.01)
+
+        def forward(self, x):
+            return self.conv(x)
+
+    torch.random.manual_seed(SEED)
+    module = Model()
+    return module
 
 
 class QuantAvgPoolCases:

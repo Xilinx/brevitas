@@ -1,6 +1,8 @@
 onnx==1.17.0 ; python_version < "3.13"
 onnx ; python_version >= "3.13"
 onnxoptimizer
-onnxruntime>=1.15.0
+# >=1.18.0 required: the dynamo ONNX export (torch>=2.8) emits IR version 10, which older
+# onnxruntime cannot load (fails in Model::Model / model.cc). See PR notes.
+onnxruntime>=1.18.0
 onnxscript
 qonnx
