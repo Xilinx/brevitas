@@ -25,7 +25,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from functools import partial
 import os
 import pathlib
 import re
@@ -39,11 +38,11 @@ from lighteval.pipeline import ParallelismManager
 from lighteval.pipeline import Pipeline
 from lighteval.pipeline import PipelineParameters
 from lighteval.tasks.lighteval_task import LightevalTaskConfig
-from lighteval.tasks.prompt_manager import PromptManager
 from lighteval.tasks.requests import Doc
-from lighteval.tasks.requests import SamplingMethod
 from torch import nn
 from transformers import AutoTokenizer
+
+from brevitas_examples.llm.lighteval_prompt import BrevitasPromptManager
 
 ### LightEval Custom Tasks
 
@@ -131,50 +130,6 @@ piqa_lm_eval = LightevalTaskConfig(
 TASKS_TABLE = [hellaswag_lm_eval, piqa_lm_eval]
 
 ### End of LightEval custom tasks
-
-
-class BrevitasPromptManager(PromptManager):
-    """Task-type-aware PromptManager that handles reasoning models like Qwen3.
-
-    Reasoning models (e.g. Qwen3) have two problems with lighteval's default PromptManager:
-
-    1. **Loglikelihood tasks**: When a chat template is used, Qwen3's template ends
-       the prompt with ``<|im_start|>assistant\n``, at which point the model's probability
-       distribution heavily favours ``<think>`` as the next token.  Passing
-       ``enable_thinking=False`` makes it worse by injecting an empty
-       ``<think>\\n\\n</think>\\n\\n`` block between context and continuation, corrupting
-       the loglikelihood computation.  Plain-text formatting avoids both issues.
-    2. **Generative tasks** (e.g. GSM8K): Instruct-tuned models need the chat template
-       to produce useful output, but thinking mode must be suppressed so the model does
-       not waste the token budget on ``<think>...</think>`` blocks.
-
-    This subclass inspects ``doc.sampling_methods`` and routes accordingly:
-
-    * ``LOGPROBS`` / ``PERPLEXITY`` → plain-text formatting (no chat template).
-    * ``GENERATIVE`` → chat template with ``enable_thinking=False``.
-
-    For non-reasoning models the ``enable_thinking`` kwarg is silently ignored by Jinja2,
-    so this is safe to use unconditionally.
-    """
-
-    def prepare_prompt(self, doc: Doc) -> str:
-        is_generative = SamplingMethod.GENERATIVE in doc.sampling_methods
-        if is_generative and self.use_chat_template:
-            return self._prepare_chat_template_no_thinking(doc)
-        else:
-            # For loglikelihood / perplexity tasks, always use plain text so
-            # that no thinking block or chat framing interferes with the
-            # probability computation over continuation tokens.
-            return self._prepare_plain_text(doc)
-
-    def _prepare_chat_template_no_thinking(self, doc: Doc) -> str:
-        """Format using the chat template with thinking mode explicitly disabled."""
-        orig_apply = self.tokenizer.apply_chat_template
-        try:
-            self.tokenizer.apply_chat_template = partial(orig_apply, enable_thinking=False)
-            return self._prepare_chat_template(doc)
-        finally:
-            self.tokenizer.apply_chat_template = orig_apply
 
 
 def filter_results(results, tasks):
