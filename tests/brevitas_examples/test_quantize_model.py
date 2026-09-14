@@ -5,6 +5,7 @@ from copy import deepcopy
 
 import pytest
 import torch
+from torch.fx import symbolic_trace
 import torch.nn as nn
 
 import brevitas
@@ -100,7 +101,7 @@ def test_fx_model(simple_model, weight_bit_width, bias_bit_width, act_bit_width)
     - That setting `None` for the `bias_bit_width` returns a dequantized bias.
     - That the bit widths are as desired.
     """
-    fx_model = brevitas.fx.symbolic_trace(simple_model)
+    fx_model = symbolic_trace(simple_model)
     quant_model = quantize_model(
         model=fx_model,
         backend='fx',
@@ -178,7 +179,7 @@ def test_fx_sym_quant(simple_model):
     act_bit_width = 8
     bias_bit_width = 32
 
-    fx_model = brevitas.fx.symbolic_trace(simple_model)
+    fx_model = symbolic_trace(simple_model)
     quant_model = quantize_model(
         model=fx_model,
         backend='fx',
@@ -249,7 +250,7 @@ def test_fx_affine_quantization(simple_model):
     act_bit_width = 8
     bias_bit_width = 32
 
-    fx_model = brevitas.fx.symbolic_trace(simple_model)
+    fx_model = symbolic_trace(simple_model)
     quant_model = quantize_model(
         model=fx_model,
         backend='fx',
@@ -312,7 +313,7 @@ def test_fx_param_method_stats(simple_model, weight_bit_width, bias_bit_width, a
     - That setting `None` for the `bias_bit_width` returns a dequantized bias.
     - That the bit widths are as desired.
     """
-    fx_model = brevitas.fx.symbolic_trace(simple_model)
+    fx_model = symbolic_trace(simple_model)
     quant_model = quantize_model(
         model=fx_model,
         backend='fx',
@@ -391,7 +392,7 @@ def test_fx_per_chan_weight_quantization(simple_model):
     act_bit_width = 8
     bias_bit_width = 32
 
-    fx_model = brevitas.fx.symbolic_trace(simple_model)
+    fx_model = symbolic_trace(simple_model)
     quant_model = quantize_model(
         model=fx_model,
         backend='fx',
@@ -436,7 +437,7 @@ def test_invalid_input(simple_model):
     """
     We test various invalid inputs, e.g. invalid strings and zero/negative bit widths.
     """
-    fx_model = brevitas.fx.symbolic_trace(simple_model)
+    fx_model = symbolic_trace(simple_model)
     with pytest.raises(KeyError):
         quantize_model(
             model=fx_model,

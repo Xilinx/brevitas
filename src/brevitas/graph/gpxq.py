@@ -14,11 +14,10 @@ from typing import Set
 import warnings
 
 import torch
-from torch.fx import GraphModule as TorchGraphModule
+from torch.fx import GraphModule
 import torch.nn as nn
 import unfoldNd
 
-from brevitas.fx import GraphModule
 from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.utils import get_batch_dim
 from brevitas.graph.utils import is_conv_transposed
@@ -107,7 +106,7 @@ class gpxq_mode(quantization_status_manager):
         self.return_forward_output = return_forward_output
 
         self.orig_forward = self.model.forward
-        if isinstance(self.model, (GraphModule, TorchGraphModule)):
+        if isinstance(self.model, GraphModule):
             self.model.__class__.forward = self.catch_stopfwd
         else:
             self.model.forward = self.catch_stopfwd
@@ -174,7 +173,7 @@ class gpxq_mode(quantization_status_manager):
     def __exit__(self, type, value, traceback):
         # Restore original quantization configuration
         super().__exit__(type, value, traceback)
-        if isinstance(self.model, (GraphModule, TorchGraphModule)):
+        if isinstance(self.model, GraphModule):
             self.model.__class__.forward = self.orig_forward
         else:
             self.model.forward = self.orig_forward

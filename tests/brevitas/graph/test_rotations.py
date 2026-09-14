@@ -10,10 +10,10 @@ from unittest.mock import patch
 import pytest
 import pytest_cases
 import torch
+from torch.fx import symbolic_trace
 import torch.nn as nn
 import torch.nn.utils.parametrize as parametrize
 
-from brevitas.fx import symbolic_trace
 from brevitas.graph.equalize import _apply_had_device
 from brevitas.graph.equalize import _apply_ort_device
 from brevitas.graph.equalize import _compute_rotations

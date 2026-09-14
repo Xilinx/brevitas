@@ -9,12 +9,12 @@ from typing import Type
 
 import torch
 from torch import nn
+from torch.fx import symbolic_trace
 from torch.overrides import TorchFunctionMode
 
 from brevitas import config
 from brevitas.core.scaling.standalone import ConstScaling
 from brevitas.core.scaling.standalone import ParameterScaling
-from brevitas.fx.brevitas_tracer import symbolic_trace
 from brevitas.graph.base import ModuleToModuleByClass
 from brevitas.graph.channel_splitting import GraphChannelSplitting
 from brevitas.graph.equalize import EqualizeGraph

@@ -22,13 +22,12 @@ import warnings
 import packaging
 import packaging.version
 import torch
-from torch.fx import GraphModule as TorchGraphModule
+from torch.fx import GraphModule
+from torch.fx import Node
 import torch.nn as nn
 import torch.nn.utils.parametrize as parametrize
 
 from brevitas import torch_version
-from brevitas.fx import GraphModule
-from brevitas.fx import Node
 from brevitas.graph import ModuleToModuleByInstance
 from brevitas.graph.base import GraphTransform
 from brevitas.graph.base import InsertModuleCallAfter
@@ -423,7 +422,7 @@ class activation_equalization_mode:
             self.graph_act_eq = LayerwiseActivationEqualization(
                 self.model, blacklist_layers=blacklist_layers, fuse_scaling=self.fuse_scaling)
         else:
-            if not isinstance(self.model, (TorchGraphModule, GraphModule)):
+            if not isinstance(self.model, GraphModule):
                 raise TypeError(
                     "A Torch FX representation of the model is needed for Graph Activation Equalization"
                 )

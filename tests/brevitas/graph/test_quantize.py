@@ -12,10 +12,10 @@ from typing import Union
 import pytest
 import pytest_cases
 import torch
+from torch.fx import symbolic_trace
 import torch.nn as nn
 import torch.nn.utils.parametrize as parametrize
 
-from brevitas.fx import symbolic_trace
 from brevitas.graph.base import _remove_parametrization_entries_state_dict
 from brevitas.graph.quantize import LAYERWISE_COMPUTE_LAYER_MAP
 from brevitas.graph.quantize import layerwise_quantize

@@ -9,10 +9,10 @@ import pytest
 import pytest_cases
 import torch
 from torch import nn
+from torch.fx import symbolic_trace
 from torchvision import models
 
 from brevitas import torch_version
-from brevitas.fx import symbolic_trace
 from brevitas.graph.equalize import _batch_norm
 from brevitas.graph.equalize import _extract_regions
 from brevitas.graph.equalize import _is_supported_module

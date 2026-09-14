@@ -8,9 +8,9 @@ import pytest
 import pytest_cases
 import torch
 from torch import nn
+from torch.fx import symbolic_trace
 from torchvision import models
 
-from brevitas.fx import symbolic_trace
 from brevitas.graph import AvgPoolToQuantDepthwiseConv
 from brevitas.graph import DuplicateSharedStatelessModule
 from brevitas.graph import FnToModule
