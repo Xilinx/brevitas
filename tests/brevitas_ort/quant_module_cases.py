@@ -16,34 +16,8 @@ from brevitas.quant.scaled_int import Int32Bias
 
 from .common import *
 
-# Bit-width examples drawn by Hypothesis per enumerated flag combination (each is a full ONNX
-# export + ORT inference). WBIOL is tested as a hybrid: the valid *flag* combinations are
-# enumerated (one pytest node each, so xdist parallelises them) and only the bit-widths are
-# sampled by Hypothesis within each node.
+# Bit-width examples Hypothesis draws per enumerated flag combination (each a full export + ORT run).
 WBIOL_BITWIDTH_EXAMPLES = 10
-
-
-@dataclass(frozen=True)
-class WBIOLConfig:
-    quantizer_name: str
-    weight_quant: type
-    io_quant: type
-    output_bit_width: int
-    weight_bit_width: int
-    input_bit_width: int
-    impl: type
-    rounding_type: str
-    export_type: str
-    bias_quant: Optional[type]
-    export_q_weight: bool
-
-    @property
-    def id(self):
-        bias = self.bias_quant.__name__ if self.bias_quant is not None else 'none'
-        return (
-            f'wbiol-{self.quantizer_name}-o{self.output_bit_width}-w{self.weight_bit_width}'
-            f'-i{self.input_bit_width}-{self.impl.__name__}-rtype_{self.rounding_type}'
-            f'-{self.export_type}-bias_{bias}-qw_{int(self.export_q_weight)}')
 
 
 @dataclass(frozen=True)
@@ -77,12 +51,9 @@ class WBIOLFlags:
 def enumerate_wbiol_flags():
     """Enumerate every valid WBIOL flag combination (bit-widths are sampled per node).
 
-    Validity rules (same as the historical skips, verified against the exporter source):
-      * QuantLinear + asymmetric is excluded (historically flaky in ORT).
-      * dynamo export types require torch>=2.8; dynamic act quant only runs on the QCDQ paths.
-      * Bias: fp8/dynamic must use None (Int32Bias needs a static input scale); otherwise free.
-      * export_q_weight (qcdq path only): fp8/qcdq_dynamo require True; a2q/floor require False;
-        round + non-a2q + non-fp8 + qcdq allows either. qonnx ignores it (fixed to False).
+    Validity mirrors the exporter's limits: QuantLinear+asymmetric is excluded; dynamo exports
+    need torch>=2.8 and dynamic act quant is QCDQ-only; fp8/dynamic force bias_quant=None;
+    export_q_weight is forced True for fp8/qcdq_dynamo and False for a2q/floor.
     """
     combos = []
     names = list(WBIOL_QUANTIZERS)
@@ -132,53 +103,32 @@ WBIOL_FLAG_COMBOS = enumerate_wbiol_flags()
 
 
 @st.composite
-def wbiol_config_st(draw, flags):
-    """Complete a flag combination with Hypothesis-sampled bit-widths.
-
-    fp8 is fixed to all-8 (OCP e4m3 is a fixed 1+4+3 split the exporter rejects otherwise);
-    dynamic act quant pins 8-bit input/output (ONNX DynamicQuantizeLinear) with weight free.
-    """
+def wbiol_bitwidths_st(draw, flags):
+    """Sample (output, weight, input) bit-widths valid for these flags (fp8: all-8; dynamic: 8-bit i/o)."""
     if flags.is_fp8:
-        o = w = i = 8
-    elif flags.is_dynamic:
-        o, i = 8, 8
-        w = draw(st.sampled_from(list(BIT_WIDTHS)))
-    else:
-        o = draw(st.sampled_from(list(BIT_WIDTHS)))
-        w = draw(st.sampled_from(list(BIT_WIDTHS)))
-        i = draw(st.sampled_from(list(BIT_WIDTHS)))
-    return WBIOLConfig(
-        flags.quantizer_name,
-        flags.weight_quant,
-        flags.io_quant,
-        o,
-        w,
-        i,
-        flags.impl,
-        flags.rounding_type,
-        flags.export_type,
-        flags.bias_quant,
-        flags.export_q_weight)
+        return 8, 8, 8
+    if flags.is_dynamic:
+        return 8, draw(st.sampled_from(list(BIT_WIDTHS))), 8
+    return tuple(draw(st.sampled_from(list(BIT_WIDTHS))) for _ in range(3))
 
 
-def build_wbiol_model(config):
-    weight_quant, io_quant = config.weight_quant, config.io_quant
-    is_fp8 = weight_quant == Fp8e4m3OCPWeightPerTensorFloat
-    is_dynamic = io_quant == ShiftedUint8DynamicActPerTensorFloat
-    if is_fp8 or config.rounding_type == 'floor':
+def build_wbiol_model(flags, bit_widths):
+    output_bit_width, weight_bit_width, input_bit_width = bit_widths
+    weight_quant, io_quant = flags.weight_quant, flags.io_quant
+    if flags.is_fp8 or flags.rounding_type == 'floor':
         torch.use_deterministic_algorithms(False)
     else:
         torch.use_deterministic_algorithms(True)
 
-    impl = config.impl
+    impl = flags.impl
     if impl is QuantLinear:
         layer_kwargs = {'in_features': IN_CH, 'out_features': OUT_CH}
     else:
         layer_kwargs = {'in_channels': IN_CH, 'out_channels': OUT_CH, 'kernel_size': KERNEL_SIZE}
 
-    bias_quantizer = config.bias_quant
+    bias_quantizer = flags.bias_quant
     # Required because of numpy error with FP8 data type. Export iself works fine.
-    return_quant_tensor = False if is_fp8 else True
+    return_quant_tensor = False if flags.is_fp8 else True
 
     class Model(nn.Module):
 
@@ -190,11 +140,11 @@ def build_wbiol_model(config):
                 weight_quant=weight_quant,
                 input_quant=io_quant,
                 output_quant=io_quant,
-                weight_bit_width=config.weight_bit_width,
-                input_bit_width=config.input_bit_width,
-                output_bit_width=config.output_bit_width,
+                weight_bit_width=weight_bit_width,
+                input_bit_width=input_bit_width,
+                output_bit_width=output_bit_width,
                 bias_quant=bias_quantizer,
-                weight_float_to_int_impl_type=config.rounding_type,
+                weight_float_to_int_impl_type=flags.rounding_type,
                 return_quant_tensor=return_quant_tensor)
             self.conv.weight.data.uniform_(-0.01, 0.01)
 

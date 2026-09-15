@@ -22,23 +22,22 @@ from .quant_module_cases import build_wbiol_model
 from .quant_module_cases import QuantAvgPoolCases
 from .quant_module_cases import QuantRecurrentCases
 from .quant_module_cases import WBIOL_BITWIDTH_EXAMPLES
-from .quant_module_cases import wbiol_config_st
+from .quant_module_cases import wbiol_bitwidths_st
 from .quant_module_cases import WBIOL_FLAG_COMBOS
 
 
-# WBIOL is tested as a hybrid: enumerate every valid flag combination (one parametrized node each,
-# so xdist distributes them) and let Hypothesis sample the bit-widths within each node.
+# WBIOL hybrid: enumerate valid flag combinations (one xdist-distributed node each), sample bit-widths.
 @pytest.mark.parametrize('flags', WBIOL_FLAG_COMBOS, ids=[f.id for f in WBIOL_FLAG_COMBOS])
 @settings(max_examples=WBIOL_BITWIDTH_EXAMPLES, deadline=None)
 @given(data=st.data())
 def test_ort_wbiol(flags, data):
-    config = data.draw(wbiol_config_st(flags))
-    model = build_wbiol_model(config)
-    impl = config.impl.__name__
-    quantizer = config.quantizer_name
-    export_type = config.export_type
+    bit_widths = data.draw(wbiol_bitwidths_st(flags))
+    model = build_wbiol_model(flags, bit_widths)
+    impl = flags.impl.__name__
+    quantizer = flags.quantizer_name
+    export_type = flags.export_type
     onnx_opset = 19 if 'fp8' in quantizer else DEFAULT_ONNX_OPSET
-    export_q_weight = config.export_q_weight
+    export_q_weight = flags.export_q_weight
 
     if impl in ('QuantLinear'):
         in_size = (1, IN_CH)
@@ -55,7 +54,7 @@ def test_ort_wbiol(flags, data):
 
     model(torch.from_numpy(inp))  # accumulate scale factors
     model.eval()
-    export_name = f'qcdq_qop_export_{config.id}.onnx'
+    export_name = f'qcdq_qop_export_{flags.id}.onnx'
     try:
         close = is_brevitas_ort_close(
             model,
