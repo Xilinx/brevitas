@@ -16,7 +16,7 @@ from brevitas.quant.scaled_int import Int32Bias
 
 from .common import *
 
-# Bit-width examples Hypothesis draws per enumerated flag combination (each a full export + ORT run).
+# Bit-width examples Hypothesis draws per flag combination (each a full export + ORT run).
 WBIOL_BITWIDTH_EXAMPLES = 10
 
 
@@ -104,7 +104,10 @@ WBIOL_FLAG_COMBOS = enumerate_wbiol_flags()
 
 @st.composite
 def wbiol_bitwidths_st(draw, flags):
-    """Sample (output, weight, input) bit-widths valid for these flags (fp8: all-8; dynamic: 8-bit i/o)."""
+    """Sample (output, weight, input) bit-widths valid for these flags.
+
+    fp8 is fixed to all-8; dynamic act quant pins 8-bit input/output with the weight free.
+    """
     if flags.is_fp8:
         return 8, 8, 8
     if flags.is_dynamic:

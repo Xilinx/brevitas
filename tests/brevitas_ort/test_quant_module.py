@@ -26,7 +26,8 @@ from .quant_module_cases import wbiol_bitwidths_st
 from .quant_module_cases import WBIOL_FLAG_COMBOS
 
 
-# WBIOL hybrid: enumerate valid flag combinations (one xdist-distributed node each), sample bit-widths.
+# WBIOL hybrid: enumerate valid flag combinations (one xdist-distributed node each) and let
+# Hypothesis sample the bit-widths within each node.
 @pytest.mark.parametrize('flags', WBIOL_FLAG_COMBOS, ids=[f.id for f in WBIOL_FLAG_COMBOS])
 @settings(max_examples=WBIOL_BITWIDTH_EXAMPLES, deadline=None)
 @given(data=st.data())
