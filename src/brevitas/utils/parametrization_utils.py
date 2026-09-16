@@ -141,3 +141,20 @@ def extract_trainable_rotation_matrices(model: nn.Module) -> List[nn.Parameter]:
                 ids_rot.add(id(module.rot_mat))
                 trainable_rotations.append(module.rot_mat)
     return trainable_rotations
+
+
+def cast_parameters_(parameters: List[nn.Parameter], dtype: Optional[torch.dtype] = None) -> None:
+    """In-place change the storage ``dtype`` of ``parameters``.
+
+    The underlying ``Parameter`` objects are preserved (only ``.data`` is
+    replaced), so any sharing/tying between modules is maintained. This is used
+    to keep trainable state (e.g. rotation matrices) in a higher precision than
+    the surrounding model without altering the forward path, which casts back to
+    the operating dtype at the point of use.
+    """
+    if dtype is None:
+        return
+    with torch.no_grad():
+        for param in parameters:
+            if param.dtype != dtype:
+                param.data = param.data.to(dtype=dtype)
