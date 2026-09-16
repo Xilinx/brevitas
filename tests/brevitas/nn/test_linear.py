@@ -5,6 +5,7 @@ import torch
 
 from brevitas.nn import QuantLinear
 from brevitas.quant import Int32Bias
+from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
 from brevitas.quant_tensor import IntQuantTensor
 
 OUTPUT_FEATURES = 10

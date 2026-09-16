@@ -30,6 +30,8 @@ from brevitas.graph.hadamard import get_hadK
 from brevitas.graph.quantize import LAYERWISE_COMPUTE_LAYER_MAP
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.nn.equalized_layer import RotatedModule
+from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
+from brevitas.utils.parametrization_utils import get_rotation_groups
 from brevitas.utils.parametrization_utils import RotationWeightParametrization
 from brevitas.utils.python_utils import recurse_getattr
 from tests.marker import requires_pt_ge
@@ -298,6 +300,12 @@ def test_compute_rotations(
     assert sum([len(region_dict["srcs"]) > 0 for region_dict in regions_dicts]) == sum([
         "rot_mat" in name for name,
         _ in rotated_model_unfused.named_parameters(remove_duplicate=True)])
+    rotation_groups = get_rotation_groups(rotated_model_unfused)
+    assert len(rotation_groups) == sum([
+        len(region_dict["srcs"]) > 0 for region_dict in regions_dicts])
+    for group_id, occurrences in rotation_groups.items():
+        assert group_id is not None
+        assert all(occurrence.rotation_group_id == group_id for occurrence in occurrences)
     # Verify that RotatedModules were added appropiately
     for rotated_model in [rotated_model_fused, rotated_model_unfused]:
         assert sum([len(region_dict["srcs"]) == 0 for region_dict in regions_dicts]) == sum([
@@ -315,6 +323,36 @@ def test_compute_rotations(
     # Verify that the weights have changed with respect to the unrotated module for the modules that have received parametrizations
     # Verify that weights match between the fused and unfused model
     compare_model_weights(rotated_model_fused, rotated_model_unfused)
+
+
+def test_rotation_groups_support_replaced_parameter_occurrences():
+    model = nn.ModuleList([nn.Linear(4, 4) for _ in range(3)])
+    shared_parameter = nn.Parameter(torch.eye(4))
+    group_id = (("source",), ("sink",))
+    for layer in model:
+        parametrize.register_parametrization(
+            layer,
+            "weight",
+            RotationWeightParametrization(
+                rot_mat=shared_parameter,
+                rot_func=_apply_ort_device,
+                axis=1,
+                rotation_group_id=group_id))
+
+    # Preserve the established identity-based extraction behavior.
+    assert extract_trainable_rotation_matrices(model) == [shared_parameter]
+    group = get_rotation_groups(model)[group_id]
+    assert len(group) == 3
+
+    replacement = nn.Parameter(2. * torch.eye(4))
+    group[0].rot_mat = replacement
+    group[2].rot_mat = replacement
+    assert group[0].rot_mat is replacement
+    assert group[1].rot_mat is shared_parameter
+    assert group[2].rot_mat is replacement
+    # Logical discovery is independent of Parameter identity after replacement.
+    assert list(get_rotation_groups(model).values()) == [group]
+    assert extract_trainable_rotation_matrix_owners(model) == [replacement]
 
 
 @requires_pt_ge('2.3.1')

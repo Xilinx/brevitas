@@ -54,6 +54,7 @@ from brevitas.nn.quant_scale_bias import ScaleBias
 from brevitas.proxy import BiasQuantProxyFromInjectorBase
 from brevitas.proxy import WeightQuantProxyFromInjectorBase
 from brevitas.utils.logging import setup_logger
+from brevitas.utils.parametrization_utils import prune_rotation_bank
 from brevitas.utils.parametrization_utils import RotationWeightParametrization
 from brevitas.utils.parametrization_utils import ScaleWeightParametrization
 from brevitas.utils.python_utils import recurse_getattr
@@ -1627,6 +1628,7 @@ def _compute_rotations(
     rot_mat, K = None, None
     for region in regions:
         insert_rotation_module = len(region.srcs) == 0
+        rotation_group_id = None
 
         if not insert_rotation_module and full_rotation_method == 'ort':
             assert not region.expand_region, "Orthogonal rotation not compatible with expansion"
@@ -1680,6 +1682,9 @@ def _compute_rotations(
         # If the rotation is not fused, redefine as a Parameter, to enable its optimization
         if not insert_rotation_module and not fuse_rotations:
             rot_mat = torch.nn.Parameter(rot_mat)
+            # Preserve logical grouping until trainable rotations are moved into the
+            # root-owned RotationBank.
+            rotation_group_id = id(rot_mat)
 
         for name, indexes in region.srcs.items():
             module = region.get_module_from_name(name)
@@ -1694,7 +1699,13 @@ def _compute_rotations(
                     module=module,
                     tensor_name=tensor_name,
                     transform_module=RotationWeightParametrization(
-                        rot_mat=rot_mat, rot_func=rot_func, axis=axis, K=K, hidden_dim=hidden_dim))
+                        rot_mat=rot_mat,
+                        rot_func=rot_func,
+                        axis=axis,
+                        K=K,
+                        hidden_dim=hidden_dim,
+                        rotation_group_id=rotation_group_id if isinstance(
+                            rot_mat, torch.nn.Parameter) else None))
                 rewriters.append(rewriter)
 
         for name, indexes in region.sinks.items():
@@ -1720,7 +1731,9 @@ def _compute_rotations(
                     rot_func=rot_func,
                     axis=weight_axis,
                     K=K,
-                    hidden_dim=hidden_dim))
+                    hidden_dim=hidden_dim,
+                    rotation_group_id=rotation_group_id
+                    if isinstance(rot_mat, torch.nn.Parameter) else None))
             rewriters.append(rewriter)
             # Replace by RotatedModule in orphan sink
             if insert_rotation_module and len(region.srcs) == 0:
@@ -1803,6 +1816,7 @@ def fuse_parametrizations(model: nn.Module) -> nn.Module:
                         submodule.load_state_dict(state_dict)
                     if is_proxy_compiled:
                         submodule.compile_quant()
+    prune_rotation_bank(model)
     return model
 
 

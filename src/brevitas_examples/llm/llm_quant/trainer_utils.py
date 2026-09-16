@@ -24,6 +24,7 @@ from transformers import get_scheduler
 from transformers import Trainer
 
 from brevitas.graph.calibrate import quantization_status_manager
+from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
 from brevitas.utils.python_utils import Registry
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.trainer_utils import parse_lr_scheduler_class
@@ -61,9 +62,8 @@ class MultiOptimizer(torch.optim.Optimizer):
     Allows attaching different optimizer/scheduler pairs to different parameter
     groups (e.g. CaileySGD for rotation matrices and AdamW for other params).
 
-    Inherits from :class:`torch.optim.Optimizer` (without calling
-    ``super().__init__()``) so that ``isinstance`` checks in ``accelerate``
-    and the HuggingFace ``Trainer`` recognise this object as an optimizer.
+    Inherits from :class:`torch.optim.Optimizer` so Accelerate can remap its
+    parameter groups to FSDP2 DTensors and preserve optimizer hook semantics.
 
     .. note::
         The HuggingFace ``Trainer`` calls ``model.zero_grad()`` rather than
@@ -74,9 +74,10 @@ class MultiOptimizer(torch.optim.Optimizer):
     """
 
     def __init__(self, optimizers: List[torch.optim.Optimizer]) -> None:
-        # Intentionally skip super().__init__() — this is a thin wrapper
-        # that delegates all real work to the sub-optimizers.
         self.optimizers = optimizers
+        param_groups = [
+            param_group for optimizer in optimizers for param_group in optimizer.param_groups]
+        super().__init__(param_groups, defaults={})
 
     def zero_grad(self, set_to_none: bool = False) -> None:
         for optimizer in self.optimizers:
@@ -93,38 +94,6 @@ class MultiOptimizer(torch.optim.Optimizer):
         for optimizer in self.optimizers:
             optimizer.step()
         return loss
-
-    @property
-    def state(self) -> Dict[torch.nn.Parameter, Any]:
-        # Returns a **snapshot** (shallow copy) of the merged optimizer
-        # states.  Mutations to this dict do not propagate back to the
-        # sub-optimizers.  Keys are parameter objects; if two sub-optimizers
-        # manage the same parameter (a misconfiguration), the later entry
-        # silently wins — detect and raise to prevent silent corruption.
-        merged: Dict[str, Any] = {}
-        for optimizer in self.optimizers:
-            for k, v in optimizer.state.items():
-                if k in merged:
-                    raise RuntimeError(
-                        f"MultiOptimizer.state: parameter {k} appears in "
-                        "multiple sub-optimizers.  Each parameter must belong "
-                        "to exactly one optimizer.")
-                merged[k] = v
-        return merged
-
-    @property
-    def param_groups(self) -> List[Dict[str, Any]]:
-        return [
-            param_group for optimizer in self.optimizers for param_group in optimizer.param_groups]
-
-    @property
-    def defaults(self) -> Dict[str, Any]:
-        # Return the defaults of the first sub-optimizer as a best-effort
-        # approximation.  This is accessed by accelerate's
-        # AcceleratedOptimizer property delegation.
-        if self.optimizers:
-            return self.optimizers[0].defaults
-        return {}
 
     def state_dict(self) -> Dict[str, Any]:
         """Return a serialisation-safe state dict for all sub-optimizers."""
@@ -304,6 +273,38 @@ class TrainingArguments(transformers.TrainingArguments):
             "help":
                 "Data type for CaileySGD optimizer computations. None means use parameter dtype."})
 
+    ### FSDP2 args
+    fsdp_sync_all_unshards: bool = field(
+        default=False,
+        metadata={
+            "help":
+                "Synchronize every FSDP2 unshard unconditionally, in every training state "
+                "(forward, pre-forward, pre-backward, and backward checkpoint recompute). "
+                "This is the robust, size-independent guard against ROCm unshard/consume "
+                "stream races: it needs no per-consumer enumeration, adds no allocations, "
+                "and preserves FSDP resharding, so VRAM is unchanged (only overlap is "
+                "reduced). Supersedes the selective flags below when set."})
+    fsdp_sync_pre_backward_unshard: bool = field(
+        default=False,
+        metadata={
+            "help":
+                "Selective mode: synchronize each FSDP2 pre-backward unshard before autograd "
+                "consumes it. Prefer fsdp_sync_all_unshards; this state-gated flag can miss "
+                "unshard sites (e.g. backward checkpoint recompute) at larger model sizes."})
+    fsdp_sync_forward_unshard: bool = field(
+        default=False,
+        metadata={
+            "help":
+                "Selective mode: also synchronize FSDP2 forward unshards when the execution "
+                "backend requires parameter rematerialization to complete before module "
+                "execution. Prefer fsdp_sync_all_unshards."})
+    check_rotation_replica_consistency: bool = field(
+        default=False,
+        metadata={
+            "help":
+                "After each optimizer synchronization boundary, assert every rank holds an "
+                "identical copy of each RotationBank parameter. Diagnostic only."})
+
     ### Multi-optimizer/scheduler args
     # List of dicts, one self-contained entry per optimizer.  Each dict may
     # contain:
@@ -362,7 +363,16 @@ class GeneralizedTrainer(Trainer):
         self.gamma = args.gamma
         self.temperature = args.temperature
         self.kl_loss_reduction = args.kl_loss_reduction
-        self.teacher_model = None if teacher_model is None else offload_model(teacher_model)
+        self.teacher_model = (
+            None if teacher_model is None else
+            teacher_model if self.is_fsdp_enabled else offload_model(teacher_model))
+        self._fsdp_post_wrap_initialized = False
+        self.rotation_coordinator = None
+        if self.is_fsdp_enabled and extract_trainable_rotation_matrices(self.model):
+            from brevitas_examples.llm.llm_quant.fsdp_rotation import FSDPRotationCoordinator
+            self.rotation_coordinator = FSDPRotationCoordinator(self)
+            # Finalize rotation parameter identities before optimizers capture them.
+            self.rotation_coordinator.prepare(self.model)
 
     def _default_scheduler(self, optimizer, num_training_steps):
         """Build the HuggingFace default LR scheduler for a single optimizer.
@@ -382,28 +392,109 @@ class GeneralizedTrainer(Trainer):
     def create_scheduler(self, num_training_steps, optimizer=None):
         """Set up the LR scheduler, matching the HuggingFace default.
 
-        The optimizer/scheduler pair is built eagerly (before the Trainer exists)
-        by :func:`_build_optimizers_from_configs`, which cannot know
-        ``num_training_steps``. Any optimizer left without an explicit scheduler
-        is therefore represented by a ``None`` placeholder and filled in here with
-        the HuggingFace default scheduler (linear warmup + linear decay).
+        The optimizer/scheduler pair is built before ``num_training_steps`` is
+        available. Any optimizer left without an explicit scheduler is therefore
+        represented by a ``None`` placeholder and filled in here with the
+        HuggingFace default scheduler (linear warmup + linear decay).
 
         Handles both the single-optimizer case (``self.lr_scheduler is None``,
         delegated to the base implementation) and the multi-optimizer case
         (a :class:`MultiScheduler` with ``None`` entries).
         """
         # Multi-optimizer case: fill in any None sub-schedulers in place.
-        if isinstance(self.lr_scheduler, MultiScheduler) and isinstance(self.optimizer,
+        base_optimizer = getattr(self.optimizer, "optimizer", self.optimizer)
+        if isinstance(self.lr_scheduler, MultiScheduler) and isinstance(base_optimizer,
                                                                         MultiOptimizer):
-            for idx, (sub_optimizer, sub_scheduler) in enumerate(zip(self.optimizer.optimizers,
+            scheduler_created = False
+            for idx, (sub_optimizer, sub_scheduler) in enumerate(zip(base_optimizer.optimizers,
                                                                      self.lr_scheduler.schedulers)):
                 if sub_scheduler is None:
                     self.lr_scheduler.schedulers[idx] = self._default_scheduler(
                         sub_optimizer, num_training_steps)
+                    scheduler_created = True
+            if scheduler_created:
+                self._created_lr_scheduler = True
             return self.lr_scheduler
         # Single-optimizer case: the base implementation already builds the
         # HuggingFace default scheduler when self.lr_scheduler is None.
         return super().create_scheduler(num_training_steps, optimizer)
+
+    def create_optimizer(self, model=None) -> torch.optim.Optimizer:
+        if self.optimizer is None:
+            if self.args.optimizer_scheduler_args is None:
+                self.optimizer = (
+                    super().create_optimizer() if model is None else super().create_optimizer(
+                        model=model))
+            else:
+                optimizer_model = self.model if model is None else model
+                self.optimizer, self.lr_scheduler = _build_optimizers_from_configs(
+                    optimizer_model, self.args)
+        return self.optimizer
+
+    def _wrap_model(self, model, training=True, dataloader=None):
+        if self.rotation_coordinator is not None:
+            if not self.accelerator.is_fsdp2:
+                raise RuntimeError("Distributed rotation optimization supports FSDP2 only.")
+            self.rotation_coordinator.prepare(model)
+        wrapped = super()._wrap_model(model, training, dataloader)
+        if self.teacher_model is not None and self.is_fsdp_enabled:
+            if not self.accelerator.is_fsdp2:
+                raise RuntimeError("LLM distributed fine-tuning supports FSDP2 only.")
+            from accelerate.utils import fsdp2_prepare_model
+            self.teacher_model = fsdp2_prepare_model(self.accelerator, self.teacher_model)
+        return wrapped
+
+    def _install_fsdp_unshard_sync(self, model):
+        """Install the FSDP2 unshard synchronization on every FSDP-managed model.
+
+        The guard is applied to the student ``model`` and, when distillation is
+        enabled, to the separately FSDP2-prepared ``teacher_model``. The teacher
+        runs its own forward in ``compute_loss`` and unshards its parameters, so
+        it is subject to the same unshard/consume hazard and must be protected
+        too.
+        """
+        sync_all = getattr(self.args, "fsdp_sync_all_unshards", False)
+        sync_pre_backward = getattr(self.args, "fsdp_sync_pre_backward_unshard", False)
+        sync_forward = getattr(self.args, "fsdp_sync_forward_unshard", False)
+        if not (sync_all or sync_pre_backward or sync_forward):
+            return
+        if not self.accelerator.is_fsdp2:
+            raise RuntimeError("FSDP unshard synchronization is supported with FSDP2 only.")
+        from brevitas_examples.llm.llm_quant.fsdp_workarounds import enable_fsdp_unshard_sync
+        targets = [("student", model)]
+        if self.teacher_model is not None and self.is_fsdp_enabled:
+            targets.append(("teacher", self.teacher_model))
+        is_main_process = int(os.environ.get("RANK", "0")) == 0
+        for name, target in targets:
+            installed = enable_fsdp_unshard_sync(
+                target,
+                sync_pre_backward=sync_pre_backward,
+                sync_forward=sync_forward,
+                sync_all=sync_all)
+            if is_main_process:
+                mode = "universal" if sync_all else "selective"
+                print(
+                    f"FSDP unshard synchronization ({mode}) installed on {installed} "
+                    f"{name} parameter group(s).")
+
+    def training_step(self, model, inputs, num_items_in_batch=None):
+        if not self._fsdp_post_wrap_initialized:
+            self._install_fsdp_unshard_sync(model)
+            self._fsdp_post_wrap_initialized = True
+        loss = super().training_step(model, inputs, num_items_in_batch)
+        if self.rotation_coordinator is not None and self.accelerator.sync_gradients:
+            self.rotation_coordinator.consolidate_gradients()
+            if getattr(self.args, "check_rotation_replica_consistency", False):
+                self.rotation_coordinator.check_replica_consistency()
+        return loss
+
+    def floating_point_ops(self, inputs):
+        # Transformers estimates FLOPs by traversing model parameters. FSDP2
+        # materializes parametrized weights transiently, so that traversal is
+        # neither meaningful nor safe during distributed training.
+        if self.accelerator.is_fsdp2:
+            return 0
+        return super().floating_point_ops(inputs)
 
     @staticmethod
     def forward_kl_loss(

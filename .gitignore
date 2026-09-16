@@ -68,6 +68,8 @@ docsrc/source/_templates/
 # Test environments and logs
 .hypothesis/
 .nox/
+/src/brevitas_examples/llm/debug*.txt
+/src/brevitas_examples/llm/out*.txt
 
 # Notebooks
 /notebooks/.ipynb_checkpoints/

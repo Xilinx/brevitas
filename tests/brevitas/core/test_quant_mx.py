@@ -15,6 +15,7 @@ from hypothesis import example
 from hypothesis import given
 import pytest_cases
 import torch
+from torch.nn.utils import parametrize
 
 from brevitas.core.scaling import RoundMidMaxSte
 from brevitas.nn.quant_activation import QuantIdentity
@@ -217,6 +218,29 @@ def test_weight_mx(inp, bit_widths, scale_rounding, weight_quant_type):
     y = quantizer.quantize(x, select=scale_rounding == "midmax")
     assert torch.allclose(qx_weight.value, y, atol=1e-8)
     assert torch.allclose(qx_weight_two.value, y, atol=1e-8)
+
+
+def test_groupwise_weight_quantization_reads_parametrized_weight_once():
+
+    class CountingParametrization(torch.nn.Module):
+
+        def __init__(self):
+            super().__init__()
+            self.calls = 0
+
+        def forward(self, weight):
+            self.calls += 1
+            return weight
+
+    layer = QuantLinear(32, 1, bias=False, weight_quant=MXFloat8e4m3Weight)
+    parametrization = CountingParametrization()
+    parametrize.register_parametrization(layer, 'weight', parametrization)
+    layer.weight_quant.init_tensor_quant()
+
+    parametrization.calls = 0
+    layer.quant_weight()
+
+    assert parametrization.calls == 1
 
 
 @pytest_cases.parametrize(

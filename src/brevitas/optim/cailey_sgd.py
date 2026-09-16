@@ -8,8 +8,6 @@
 
 # This code is originally from: https://github.com/JunLi-Galios/Optimization-on-Stiefel-Manifold-via-Cayley-Transform/blob/master/stiefel_optimizer.py
 
-import random
-
 import torch
 from torch.optim.optimizer import Optimizer
 
@@ -148,9 +146,9 @@ class CaileySGD(Optimizer):
                 unity = param.view(p.size()[0], -1)
                 unity, _ = unit(unity)
                 if stiefel and unity.size()[0] <= unity.size()[1]:
-
-                    rand_num = random.randint(1, 101)
-                    if rand_num == 1:
+                    retraction_step = param_state.get("retraction_step", 0) + 1
+                    param_state["retraction_step"] = retraction_step
+                    if retraction_step % 100 == 0:
                         unity = qr_retraction(unity)
 
                     g = p.grad.data.view(p.size()[0], -1)

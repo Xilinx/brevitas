@@ -37,8 +37,8 @@ class GroupwiseWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
         start_dim = self.group_dim if self.group_dim >= 0 else self.group_dim - 1
         return x.flatten(start_dim, start_dim + 1)
 
-    def create_quant_tensor(self, qt_args: Tuple[Any]) -> GroupwiseIntQuantTensor:
-        shape = self.tracked_parameter_list[0].shape
+    def create_quant_tensor(
+            self, qt_args: Tuple[Any], input_shape: Tuple[int, ...]) -> GroupwiseIntQuantTensor:
         out, scale, zero_point, bit_width = qt_args
         return GroupwiseIntQuantTensor(
             out,
@@ -49,4 +49,4 @@ class GroupwiseWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
             bit_width,
             self.is_signed,
             self.training,
-            shape)
+            input_shape)
