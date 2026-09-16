@@ -74,6 +74,7 @@ from brevitas_examples.llm.llm_quant.prepare_for_quantize import make_dynamo_com
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
     replace_sdpa_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.rotation_optimization import apply_fine_tuning
+from brevitas_examples.llm.llm_quant.rotation_optimization import prepare_fine_tuning
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
 from brevitas_examples.llm.llm_quant.trainer_utils import TRAINER_REGISTRY
@@ -560,6 +561,25 @@ def quantize_llm(args, extra_args=None):
     if args.bias_corr:
         model = add_zero_bias_to_linear(model)
 
+    # Resolve the fine-tuning trainer and prepare the model before quant-proxy
+    # compilation. This gives the trainer a chance to establish parameter
+    # sharing/storage dtypes before compilation captures parameter identities.
+    custom_trainer_cls = None
+    training_args = None
+    fine_tune_extra_args = list(extra_args) if extra_args is not None else []
+    if args.fine_tune:
+        if args.custom_trainer is not None:
+            custom_trainer_config_name = parse_custom_trainer(args.custom_trainer)
+            custom_trainer_cls = TRAINER_REGISTRY.get(custom_trainer_config_name)
+        if args.load_checkpoint:
+            # Skip training when loading from a checkpoint by forcing max_steps to
+            # 0 through the training arguments. Appended last so that it overrides
+            # any user-provided --max_steps (the argument parser keeps the last
+            # value for a repeated flag).
+            fine_tune_extra_args += ["--max_steps", "0"]
+        custom_trainer_cls, training_args = prepare_fine_tuning(
+            model=model, trainer_cls=custom_trainer_cls, extra_args=fine_tune_extra_args)
+
     model = offload_model(model)
 
     dict_hooks = dict()
@@ -601,30 +621,17 @@ def quantize_llm(args, extra_args=None):
             print("Act calibration applied.")
 
         if args.fine_tune:
-            # Load custom training plugin if specified. The registered Trainer class
-            # carries its own ``training_args_cls`` class attribute (which in turn
-            # defines the optimizer setup via ``optimizer_scheduler_args``), consumed
-            # inside apply_fine_tuning.
-            custom_trainer_cls = None
-
-            if args.custom_trainer is not None:
-                custom_trainer_config_name = parse_custom_trainer(args.custom_trainer)
-                custom_trainer_cls = TRAINER_REGISTRY.get(custom_trainer_config_name)
-
-            fine_tune_extra_args = extra_args if extra_args is not None else []
-            if args.load_checkpoint:
-                # Skip training when loading from a checkpoint by forcing
-                # max_steps to 0 through the training arguments. Appended last so
-                # that it overrides any user-provided --max_steps (the argument
-                # parser keeps the last value for a repeated flag).
-                fine_tune_extra_args += ["--max_steps", "0"]
+            # The trainer and training arguments were resolved (and the model
+            # prepared) before compilation. Pass them straight through so that
+            # neither is re-parsed nor re-prepared here.
             apply_fine_tuning(
                 model=model,
                 tokenizer=tokenizer,
                 train_dataset=finetune_dataset,
                 collate_fn=collate_fn,
                 trainer_cls=custom_trainer_cls,
-                extra_args=fine_tune_extra_args)
+                extra_args=fine_tune_extra_args,
+                training_args=training_args)
             # Remove hooks from training
             remove_hooks(model)
             model = offload_model(model)
