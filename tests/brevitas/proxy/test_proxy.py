@@ -1,9 +1,13 @@
 # Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import gc
+import weakref
+
 import pytest
 import torch
 
+from brevitas.core.scaling import ParameterFromStatsFromParameterScaling
 from brevitas.nn import QuantLinear
 from brevitas.nn.quant_activation import QuantReLU
 from brevitas.quant.scaled_int import Int8AccumulatorAwareWeightQuant
@@ -37,6 +41,27 @@ class TestProxy:
         assert model.weight_quant.scale() is None
         assert model.weight_quant.zero_point() is None
         assert model.weight_quant.bit_width() is None
+
+    def test_tracked_parameter_list_follows_parameter_replacement(self):
+        model = QuantLinear(
+            10,
+            5,
+            weight_quant=Int8WeightPerTensorFloat,
+            weight_scaling_impl_type='parameter_from_stats')
+        assert isinstance(
+            model.weight_quant.tensor_quant.scaling_impl, ParameterFromStatsFromParameterScaling)
+        tracked_parameters = model.weight_quant.quant_injector.tracked_parameter_list
+        old_weight = model.weight
+        old_weight_ref = weakref.ref(old_weight)
+        new_weight = torch.nn.Parameter(torch.randn_like(old_weight))
+
+        # FSDP2 swaps parameters directly in the module parameter dictionary.
+        model._parameters['weight'] = new_weight
+        del old_weight
+        gc.collect()
+
+        assert tracked_parameters[0] is new_weight
+        assert old_weight_ref() is None
 
     def test_weight_decoupled_proxy(self):
         model = QuantLinear(10, 5, weight_quant=Int8WeightPerChannelFloatDecoupled)

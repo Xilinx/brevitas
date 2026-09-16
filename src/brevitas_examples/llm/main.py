@@ -4,6 +4,7 @@
 from contextlib import nullcontext
 from copy import deepcopy
 import functools
+import json
 import os
 import pprint
 import sys
@@ -18,6 +19,7 @@ from transformers import __version__ as transformers_version
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
 
+from brevitas import config as brevitas_config
 from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.graph import load_quant_model_mode
@@ -33,6 +35,7 @@ from brevitas.graph.utils import remove_weight_orig
 from brevitas.nn.quant_sdpa import ScaledDotProductAttention
 from brevitas.utils.logging import setup_logger
 from brevitas.utils.python_utils import hooked_on_a_function
+from brevitas_examples.common.accelerate_utils.accelerate import calc_gpu_device_map
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.accelerate_utils.accelerate import update_internal_dict
@@ -73,7 +76,9 @@ from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_t
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import make_dynamo_compatible
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
     replace_sdpa_with_quantizable_layers
+from brevitas_examples.llm.llm_quant.rotation_optimization import _is_fsdp_enabled
 from brevitas_examples.llm.llm_quant.rotation_optimization import apply_fine_tuning
+from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
 from brevitas_examples.llm.llm_quant.trainer_utils import TRAINER_REGISTRY
@@ -261,8 +266,26 @@ def find_equalized_layer(layer):
     return layer
 
 
+def requires_post_training_model(args):
+    return any((
+        args.eval,
+        args.few_shot_eval is not None,
+        args.checkpoint_name is not None,
+        args.export_target is not None,
+        args.svd_quant,
+        args.learned_round,
+        args.load_checkpoint,
+        args.gptq,
+        args.gpfq,
+        args.qronos,
+        args.bias_corr,
+    ))
+
+
 def quantize_llm(args, extra_args=None):
     validate(args, extra_args)
+    if "LOCAL_RANK" in os.environ:
+        torch.cuda.set_device(int(os.environ["LOCAL_RANK"]))
     set_seed(args.seed)
     if args.export_prefix is None:
         args.export_prefix = f"{args.model.replace('/', '--')}"
@@ -585,6 +608,9 @@ def quantize_llm(args, extra_args=None):
     else:
         quantization_cm = nullcontext()
 
+    fsdp_enabled = False
+    is_main_process = True
+    use_post_training_model = requires_post_training_model(args)
     with quantization_cm:
         # We initialize weights scale factor
         with torch.no_grad():
@@ -611,27 +637,56 @@ def quantize_llm(args, extra_args=None):
                 custom_trainer_config_name = parse_custom_trainer(args.custom_trainer)
                 custom_trainer_cls = TRAINER_REGISTRY.get(custom_trainer_config_name)
 
-            fine_tune_extra_args = extra_args if extra_args is not None else []
-            if args.load_checkpoint:
-                # Skip training when loading from a checkpoint by forcing
-                # max_steps to 0 through the training arguments. Appended last so
-                # that it overrides any user-provided --max_steps (the argument
-                # parser keeps the last value for a repeated flag).
-                fine_tune_extra_args += ["--max_steps", "0"]
-            apply_fine_tuning(
+            fine_tune_extra_args = list(extra_args) if extra_args is not None else []
+            training_args = parse_rotation_optimization_args(
+                extra_args=fine_tune_extra_args, trainer_cls=custom_trainer_cls)
+            fsdp_enabled = _is_fsdp_enabled(training_args)
+            is_main_process = int(os.environ.get("RANK", "0")) == 0
+            if fsdp_enabled:
+                remove_hooks(model)
+            copied_model = (
+                deepcopy(model.cpu()) if fsdp_enabled and is_main_process and
+                use_post_training_model and not args.load_checkpoint else None)
+            fsdp_state_dict = apply_fine_tuning(
                 model=model,
                 tokenizer=tokenizer,
                 train_dataset=finetune_dataset,
                 collate_fn=collate_fn,
                 trainer_cls=custom_trainer_cls,
-                extra_args=fine_tune_extra_args)
+                extra_args=fine_tune_extra_args,
+                skip_training=args.load_checkpoint,
+                return_state_dict=use_post_training_model)
+            if fsdp_enabled:
+                if not use_post_training_model:
+                    results = {"float_ppl": float_ppl, "quant_ppl": None}
+                    if args.job_folder is not None and is_main_process:
+                        os.makedirs(args.job_folder, exist_ok=True)
+                        with open(os.path.join(args.job_folder, "results.json"),
+                                  "w") as results_file:
+                            json.dump(results, results_file)
+                    return results, None
+                if is_main_process and fsdp_state_dict is not None:
+                    with brevitas_config.disable_reinit_on_state_dict_load():
+                        copied_model.load_state_dict(fsdp_state_dict, assign=True)
+                    del fsdp_state_dict
+                    del model
+                    model = copied_model
+                if not is_main_process:
+                    sys.exit(0)
+                torch.cuda.empty_cache()
             # Remove hooks from training
             remove_hooks(model)
-            model = offload_model(model)
-            # Fuse rotation parametrizations with weights when rotations
-            # were used (the function is a no-op when there are none).
+            # Fuse before dispatch so each parametrized layer and its weights
+            # can be materialized together on the fusion device.
             if args.rotation is not None:
-                model = fuse_parametrizations(model)
+                fusion_device = (
+                    torch.device("cuda", torch.cuda.current_device())
+                    if torch.cuda.is_available() else None)
+                model = fuse_parametrizations(model, device=fusion_device)
+            gpu_device_map = (
+                calc_gpu_device_map(
+                    device_ids=range(torch.cuda.device_count())) if fsdp_enabled else None)
+            model = offload_model(model, gpu_device_map=gpu_device_map)
 
         if args.svd_quant:
             print("Apply SVDQuant...")
@@ -752,10 +807,26 @@ def quantize_llm(args, extra_args=None):
             print("Few shot eval results")
             pprint.pprint(few_shot_eval_results)
         elif args.few_shot_eval == 'lighteval':
-
+            # The model must not be re-wrapped/moved by lighteval's own Accelerate
+            # backend when it is already dispatched across multiple devices, either
+            # by FSDP or by `offload_model` in a single-process multi-GPU run.
+            # In those cases we keep the existing device dispatch (do not remove the
+            # hooks) and evaluate in-process across all GPUs. Only when the model
+            # lives on a single device do we let lighteval drive Accelerate (which,
+            # under `accelerate launch`, provides data-parallel evaluation).
+            model_is_device_dispatched = fsdp_enabled or (
+                hasattr(model, "hf_device_map") and len(set(model.hf_device_map.values())) > 1 and
+                "LOCAL_RANK" not in os.environ)
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
+                if fsdp_enabled:
+                    # The FSDP inference copy is made before training disables
+                    # KV caching. Match the non-FSDP evaluation configuration.
+                    model.config.use_cache = False
+                    if hasattr(model, "generation_config"):
+                        model.generation_config.use_cache = False
                 model(**next(iter(calibration_loader)))
-                remove_hooks(model)
+                if not model_is_device_dispatched:
+                    remove_hooks(model)
 
                 from brevitas_examples.llm.eval_lighteval import run_lighteval
                 few_shot_eval_results = run_lighteval(
@@ -765,6 +836,7 @@ def quantize_llm(args, extra_args=None):
                     dtype=args.dtype,
                     batch_size=args.few_shot_override_batch_size,
                     max_samples=args.few_shot_limit,
+                    use_accelerate=not model_is_device_dispatched,
                 )
             # Print nicely formatted results
             pprint.pprint(few_shot_eval_results)
@@ -779,7 +851,12 @@ def quantize_llm(args, extra_args=None):
             model = model.to(dtype=torch.float32)
             model_export(model, tokenizer, next(iter(calibration_loader)), args, config)
 
-    return {"float_ppl": float_ppl, "quant_ppl": quant_ppl, **few_shot_eval_results}, model
+    results = {"float_ppl": float_ppl, "quant_ppl": quant_ppl, **few_shot_eval_results}
+    if args.job_folder is not None and is_main_process:
+        os.makedirs(args.job_folder, exist_ok=True)
+        with open(os.path.join(args.job_folder, "results.json"), "w") as results_file:
+            json.dump(results, results_file)
+    return results, model
 
 
 def main():
