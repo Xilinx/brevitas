@@ -49,6 +49,26 @@ class QuantReLU(QuantNLAL):
             **kwargs)
 
 
+class QuantLeakyReLU(QuantNLAL):
+
+    def __init__(
+            self,
+            negative_slope: float = 0.01,
+            act_quant: Optional[ActQuantType] = Int8ActPerTensorFloat,
+            input_quant: Optional[ActQuantType] = None,
+            return_quant_tensor: bool = False,
+            **kwargs):
+        QuantNLAL.__init__(
+            self,
+            act_impl=nn.LeakyReLU,
+            passthrough_act=False,
+            input_quant=input_quant,
+            act_quant=act_quant,
+            return_quant_tensor=return_quant_tensor,
+            negative_slope=negative_slope,
+            **kwargs)
+
+
 class QuantSigmoid(QuantNLAL):
 
     def __init__(

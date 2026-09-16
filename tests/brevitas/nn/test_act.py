@@ -7,6 +7,7 @@ import torch
 from brevitas.nn import QuantHardSwish
 from brevitas.nn import QuantHardTanh
 from brevitas.nn import QuantIdentity
+from brevitas.nn import QuantLeakyReLU
 from brevitas.nn import QuantReLU
 
 
@@ -68,6 +69,61 @@ class TestQuantHardSwish:
         mod.eval()
         out_eval = mod(inp)
         assert out_eval.shape == inp.shape
+
+
+class TestQuantLeakyReLU:
+
+    @pytest.mark.parametrize("slope", [0.0, 0.01, 0.1, 0.2, 1.0])
+    def test_reference_equivalence(self, slope):
+        # Reference-equivalence test
+        mod = QuantLeakyReLU(negative_slope=slope, act_quant=None)
+        ref = torch.nn.LeakyReLU(negative_slope=slope)
+        x = torch.tensor([-2.0, -1.0, -0.5, 0.0, 0.5, 1.0, 2.0])
+        assert torch.allclose(mod(x), ref(x))
+
+    def test_quantized_behavior(self):
+        mod = QuantLeakyReLU()
+        x = torch.tensor([-2.0, -1.0, 0.0, 1.0, 2.0])
+        out = mod(x)
+        assert out.shape == x.shape
+        assert torch.isfinite(out).all()
+        # Verify negative input can produce negative output
+        assert (out[x < 0] <= 0).all()
+        # Verify positive input remains positive
+        assert (out[x > 0] > 0).all()
+
+    def test_custom_quantizer(self):
+        from brevitas.inject.defaults import Int8ActPerTensorFloat
+        mod = QuantLeakyReLU(act_quant=Int8ActPerTensorFloat, bit_width=4)
+        x = torch.tensor([-2.0, -1.0, 0.0, 1.0, 2.0])
+        out = mod(x)
+        assert out.shape == x.shape
+        assert torch.isfinite(out).all()
+
+    def test_quant_tensor_metadata(self):
+        mod = QuantLeakyReLU(return_quant_tensor=True)
+        x = torch.tensor([-2.0, -1.0, 0.0, 1.0, 2.0])
+        out = mod(x)
+        assert hasattr(out, 'value')
+        assert hasattr(out, 'scale')
+        assert hasattr(out, 'zero_point')
+        assert hasattr(out, 'bit_width')
+        assert hasattr(out, 'signed')
+        assert out.signed is True
+
+    def test_backward_qat(self):
+        mod = QuantLeakyReLU()
+        x = torch.tensor([-2.0, -1.0, -0.1, 0.0, 0.1, 1.0, 2.0], requires_grad=True)
+        y = mod(x)
+        loss = y.sum()
+        loss.backward()
+        assert x.grad is not None
+        assert torch.isfinite(x.grad).all()
+        # Both branches should participate
+        # positive branch should have non-zero gradients
+        assert (x.grad[x > 0] > 0).all()
+        # negative branch grad should be non-zero (unless slope is 0)
+        assert (x.grad[x < 0] != 0).all()
 
 
 class TestQuantDelay:

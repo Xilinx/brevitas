@@ -7,6 +7,7 @@ from .quant_accumulator import TruncQuantAccumulator
 from .quant_activation import QuantHardSwish
 from .quant_activation import QuantHardTanh
 from .quant_activation import QuantIdentity
+from .quant_activation import QuantLeakyReLU
 from .quant_activation import QuantReLU
 from .quant_activation import QuantSigmoid
 from .quant_activation import QuantTanh
