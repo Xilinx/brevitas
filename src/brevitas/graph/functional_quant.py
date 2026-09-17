@@ -404,47 +404,62 @@ class _HookedMode(TorchFunctionMode):
         self.counters.clear()
         self.parameter_views.clear()
 
+    def _owner_matches(self, owner: Tuple[nn.Module, str], tensor: Tensor) -> bool:
+        """Return whether an owner still refers to the exact parameter tensor."""
+        module, name = owner
+        # Parametrized attributes expose a transformed value; provenance tracks
+        # the original parameter stored in the ParametrizationList.
+        if is_parametrized(module, name):
+            current = getattr(module.parametrizations, name).original
+        else:
+            current = getattr(module, name, None)
+        return current is tensor
+
+    def _lookup_view(self, value: Tensor) -> Optional[_ParameterView]:
+        """Resolve provenance using the current owner and view maps."""
+        # Prefer explicitly tracked operations, which preserve selection and
+        # transpose history that cannot be reconstructed from `_base` alone.
+        entry = self.parameter_views.get(id(value))
+        if entry is not None:
+            tracked_value_ref, parameter_view = entry
+            # IDs can be reused after a tensor is collected, so dereference the
+            # weak reference before accepting this provenance entry.
+            tracked_value = tracked_value_ref()
+            if tracked_value is value:
+                return parameter_view
+            self.parameter_views.pop(id(value), None)
+
+        # A direct parameter has no recorded view operations.
+        owner = self.parameter_owners.get(id(value))
+        if owner is not None and self._owner_matches(owner, value):
+            return _ParameterView(owner=owner)
+        if owner is not None:
+            self.parameter_owners.pop(id(value), None)
+
+        # Fall back to the view chain only to identify unsupported derivations.
+        # Those remain parameter-derived, but must not be treated as direct.
+        base = getattr(value, '_base', None)
+        visited = set()
+        while base is not None and id(base) not in visited:
+            visited.add(id(base))
+            entry = self.parameter_views.get(id(base))
+            if entry is not None:
+                tracked_value_ref, parameter_view = entry
+                tracked_value = tracked_value_ref()
+                if tracked_value is base:
+                    return parameter_view
+                self.parameter_views.pop(id(base), None)
+            owner = self.parameter_owners.get(id(base))
+            if owner is not None and self._owner_matches(owner, base):
+                return _ParameterView(owner=owner, reason='untracked parameter view')
+            if owner is not None:
+                self.parameter_owners.pop(id(base), None)
+            base = getattr(base, '_base', None)
+        return None
+
     def _resolve_view(self, value: Tensor) -> Optional[_ParameterView]:
         """Resolve provenance and refresh owner identities after parameter replacement."""
-
-        def lookup() -> Optional[_ParameterView]:
-
-            def owner_matches(owner: Tuple[nn.Module, str], tensor: Tensor) -> bool:
-                module, name = owner
-                if is_parametrized(module, name):
-                    current = getattr(module.parametrizations, name).original
-                else:
-                    current = getattr(module, name, None)
-                return current is tensor
-
-            entry = self.parameter_views.get(id(value))
-            if entry is not None:
-                if entry[0]() is value:
-                    return entry[1]
-                self.parameter_views.pop(id(value), None)
-
-            owner = self.parameter_owners.get(id(value))
-            if owner is not None and owner_matches(owner, value):
-                return _ParameterView(owner=owner)
-            if owner is not None:
-                self.parameter_owners.pop(id(value), None)
-
-            base = getattr(value, '_base', None)
-            visited = set()
-            while base is not None and id(base) not in visited:
-                visited.add(id(base))
-                entry = self.parameter_views.get(id(base))
-                if entry is not None and entry[0]() is base:
-                    return entry[1]
-                owner = self.parameter_owners.get(id(base))
-                if owner is not None and owner_matches(owner, base):
-                    return _ParameterView(owner=owner, reason='untracked parameter view')
-                if owner is not None:
-                    self.parameter_owners.pop(id(base), None)
-                base = getattr(base, '_base', None)
-            return None
-
-        view = lookup()
+        view = self._lookup_view(value)
         if view is not None:
             return view
 
@@ -454,8 +469,10 @@ class _HookedMode(TorchFunctionMode):
             visited.add(id(base))
             base = base._base
         if isinstance(base, nn.Parameter):
+            # Offload hooks and model code can replace a parameter after the
+            # owner map was built. Refresh once, then repeat the same lookup.
             self._build_parameter_owners()
-            return lookup()
+            return self._lookup_view(value)
         return view
 
     def _record_view(self, value: Tensor, view: _ParameterView) -> None:
