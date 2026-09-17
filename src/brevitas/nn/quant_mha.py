@@ -411,9 +411,9 @@ class QuantMultiheadAttention(Module):
                 # Mark dimensions through named tensors.
                 if not torch._C._get_tracing_state():
                     if isinstance(query, QuantTensor):
-                        query.value.rename_('L', 'N', 'E')
+                        query = query.set(value=query.value.rename('L', 'N', 'E'))
                     else:
-                        query.rename_('L', 'N', 'E')
+                        query = query.rename('L', 'N', 'E')
                 # self-attention
                 q, k, v = self.in_proj(query).chunk(3, dim=-1)
             else:
@@ -426,11 +426,18 @@ class QuantMultiheadAttention(Module):
             assert self.v_proj is not None, "use_separate_proj_weight is True but v_proj is None"
             # Mark dimensions through named tensors.
             if not torch._C._get_tracing_state():
-                for t in [query, key, value]:
-                    if isinstance(t, QuantTensor):
-                        t.value.rename_('L', 'N', 'E')
-                    else:
-                        t.rename_('L', 'N', 'E')
+                if isinstance(query, QuantTensor):
+                    query = query.set(value=query.value.rename('L', 'N', 'E'))
+                else:
+                    query = query.rename('L', 'N', 'E')
+                if isinstance(key, QuantTensor):
+                    key = key.set(value=key.value.rename('L', 'N', 'E'))
+                else:
+                    key = key.rename('L', 'N', 'E')
+                if isinstance(value, QuantTensor):
+                    value = value.set(value=value.value.rename('L', 'N', 'E'))
+                else:
+                    value = value.rename('L', 'N', 'E')
             q, k, v = self.q_proj(query), self.k_proj(key), self.v_proj(value)
         # Remove names to avoid errors downstream
         if not torch._C._get_tracing_state():
