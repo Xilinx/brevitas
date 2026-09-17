@@ -54,8 +54,8 @@ class _ParameterView:
     owner: Tuple[nn.Module, str]
     selector_dim: Optional[int] = None
     selector: Any = None
-    transpose_last_two: bool = False
-    direct: bool = True
+    selector_is_scalar: Optional[bool] = None
+    transposes: Tuple[Tuple[int, int], ...] = ()
     reason: Optional[str] = None
 
 
@@ -404,35 +404,50 @@ class _HookedMode(TorchFunctionMode):
         self.counters.clear()
         self.parameter_views.clear()
 
-    def _view_for(self, value: Tensor) -> Any:
-        entry = self.parameter_views.get(id(value))
-        if entry is not None and entry[0]() is value:
-            return entry[1]
-        owner = self.parameter_owners.get(id(value))
-        if owner is not None:
-            return _ParameterView(owner)
-        base = getattr(value, '_base', None)
-        visited = set()
-        while base is not None and id(base) not in visited:
-            visited.add(id(base))
-            entry = self.parameter_views.get(id(base))
-            if entry is not None and entry[0]() is base:
-                return entry[1]
-            owner = self.parameter_owners.get(id(base))
-            if owner is not None:
-                return _ParameterView(owner, direct=False, reason='untracked parameter view')
-            base = getattr(base, '_base', None)
-        return None
-
-    def _record_view(self, value: Any, view: Any) -> None:
-        if isinstance(value, Tensor):
-            self.parameter_views[id(value)] = (weakref.ref(value), view)
-
     def _resolve_view(self, value: Tensor) -> Optional[_ParameterView]:
         """Resolve provenance and refresh owner identities after parameter replacement."""
-        view = self._view_for(value)
-        if isinstance(view, _ParameterView):
+
+        def lookup() -> Optional[_ParameterView]:
+
+            def owner_matches(owner: Tuple[nn.Module, str], tensor: Tensor) -> bool:
+                module, name = owner
+                if is_parametrized(module, name):
+                    current = getattr(module.parametrizations, name).original
+                else:
+                    current = getattr(module, name, None)
+                return current is tensor
+
+            entry = self.parameter_views.get(id(value))
+            if entry is not None:
+                if entry[0]() is value:
+                    return entry[1]
+                self.parameter_views.pop(id(value), None)
+
+            owner = self.parameter_owners.get(id(value))
+            if owner is not None and owner_matches(owner, value):
+                return _ParameterView(owner=owner)
+            if owner is not None:
+                self.parameter_owners.pop(id(value), None)
+
+            base = getattr(value, '_base', None)
+            visited = set()
+            while base is not None and id(base) not in visited:
+                visited.add(id(base))
+                entry = self.parameter_views.get(id(base))
+                if entry is not None and entry[0]() is base:
+                    return entry[1]
+                owner = self.parameter_owners.get(id(base))
+                if owner is not None and owner_matches(owner, base):
+                    return _ParameterView(owner=owner, reason='untracked parameter view')
+                if owner is not None:
+                    self.parameter_owners.pop(id(base), None)
+                base = getattr(base, '_base', None)
+            return None
+
+        view = lookup()
+        if view is not None:
             return view
+
         base = value
         visited = set()
         while getattr(base, '_base', None) is not None and id(base) not in visited:
@@ -440,55 +455,69 @@ class _HookedMode(TorchFunctionMode):
             base = base._base
         if isinstance(base, nn.Parameter):
             self._build_parameter_owners()
-            view = self._resolve_view(value)
-            if isinstance(view, _ParameterView):
-                return view
-        return None
+            return lookup()
+        return view
+
+    def _record_view(self, value: Tensor, view: _ParameterView) -> None:
+        self.parameter_views[id(value)] = (weakref.ref(value), view)
 
     def _track_parameter_view(
             self, func: Callable, args: Tuple[Any, ...], kwargs: Dict[str, Any],
             output: Any) -> None:
         """Propagate the deliberately small parameter-view subset we support."""
-        if not isinstance(output, Tensor) or not args or not isinstance(args[0], Tensor):
+        source = args[0] if args else kwargs.get('input')
+        if not isinstance(output, Tensor) or not isinstance(source, Tensor):
             return
-        view = self._resolve_view(args[0])
+        view = self._resolve_view(source)
         if view is None:
             return
+
+        def unsupported(reason: str) -> None:
+            self._record_view(output, _ParameterView(owner=view.owner, reason=reason))
+
         if view.reason is not None:
             self._record_view(output, view)
             return
         if func in _SELECT_FUNCTIONS:
             index = args[1] if len(args) > 1 else kwargs.get('index')
             if isinstance(index, tuple):
-                self._record_view(output, _ParameterView(view.owner, reason='tuple indexing'))
+                unsupported('tuple indexing')
                 return
-            # MoE stores experts on one leading axis. Support scalar and vector
-            # indexing there; arbitrary indexing is intentionally rejected.
-            if (view.selector_dim is not None or isinstance(index, bool) or
-                    not isinstance(index, (int, Tensor))):
-                self._record_view(output, _ParameterView(view.owner, reason='unsupported indexing'))
+            # MoE stores experts on one leading axis. PyTorch has already
+            # validated the index, so retain its scalar/advanced semantics.
+            if view.selector_dim is not None or view.transposes:
+                unsupported('selection after another view operation')
                 return
+            if not isinstance(index, (int, Tensor)):
+                unsupported('unsupported indexing')
+                return
+            selector_is_scalar = (
+                isinstance(index, int) and not isinstance(index, bool) or
+                isinstance(index, Tensor) and index.dim() == 0 and output.dim() == source.dim() - 1)
+            if isinstance(index, Tensor):
+                index = index.detach().clone()
             self._record_view(
-                output, _ParameterView(view.owner, 0, index, view.transpose_last_two, direct=False))
+                output,
+                _ParameterView(
+                    owner=view.owner,
+                    selector_dim=0,
+                    selector=index,
+                    selector_is_scalar=selector_is_scalar))
             return
         if func in _TRANSPOSE_FUNCTIONS:
             dim0 = args[1] if len(args) > 1 else kwargs.get('dim0')
             dim1 = args[2] if len(args) > 2 else kwargs.get('dim1')
-            rank = args[0].dim()
+            rank = source.dim()
             dim0 = dim0 if dim0 >= 0 else rank + dim0
             dim1 = dim1 if dim1 >= 0 else rank + dim1
-            if {dim0, dim1} == {rank - 2, rank - 1}:
-                self._record_view(
-                    output,
-                    _ParameterView(
-                        view.owner,
-                        view.selector_dim,
-                        view.selector,
-                        not view.transpose_last_two,
-                        direct=False))
-            else:
-                self._record_view(
-                    output, _ParameterView(view.owner, reason='unsupported transpose'))
+            self._record_view(
+                output,
+                _ParameterView(
+                    owner=view.owner,
+                    selector_dim=view.selector_dim,
+                    selector=view.selector,
+                    selector_is_scalar=view.selector_is_scalar,
+                    transposes=view.transposes + ((dim0, dim1),)))
 
     def _build_parameter_owners(self) -> None:
         """Map each direct model parameter to its owning module attribute."""
@@ -511,13 +540,6 @@ class _HookedMode(TorchFunctionMode):
                      ) in self.parameter_owners and self.parameter_owners[id(original)] != owner:
                     self.aliased_parameters.add(id(original))
                 self.parameter_owners[id(original)] = owner
-
-    def _parameter_owner(self, value: Tensor) -> Tuple[Optional[Tuple[nn.Module, str]], bool]:
-        """Resolve an owner through the shared parameter-view provenance path."""
-        tracked = self._resolve_view(value)
-        if tracked is not None:
-            return tracked.owner, tracked.direct
-        return None, False
 
     def _spec_for(self, func: Callable, arg_idx: int, is_parameter: bool) -> Any:
         """Select the effective specification for an argument at a call site."""
@@ -583,7 +605,7 @@ class _FunctionalQuantBuilder(_HookedMode):
         required = ('output_channel_dim', 'group_dim')
         if view is not None and view.reason is not None:
             return owner_di_kwargs, view.reason
-        if view is not None and not view.direct:
+        if view is not None and (view.selector_dim is not None or view.transposes):
             missing = [name for name in required if name not in owner_di_kwargs]
             if missing:
                 return owner_di_kwargs, (
@@ -618,7 +640,8 @@ class _FunctionalQuantBuilder(_HookedMode):
             self, name: str, module: nn.Module, func: Callable, index: int, arg_idx: int,
             value: Tensor) -> Optional[_DiscoveredArgument]:
         """Classify one operand and record any owner-level weight requirement."""
-        owner, _ = self._parameter_owner(value)
+        view = self._resolve_view(value)
+        owner = view.owner if view is not None else None
         spec = self._spec_for(func, arg_idx, owner is not None)
         quant_class, di_kwargs = _resolve_spec(spec, module, name, index)
         if quant_class is None:
@@ -628,7 +651,6 @@ class _FunctionalQuantBuilder(_HookedMode):
 
         fallback_spec = self._fallback_spec_for(func, arg_idx)
         fallback_quant_class, fallback_di_kwargs = _resolve_spec(fallback_spec, module, name, index)
-        view = self._resolve_view(value)
         owner_value = getattr(owner[0], owner[1], None)
         selector_dim = None
         if isinstance(view, _ParameterView) and view.reason is None:
@@ -873,6 +895,13 @@ class functional_quantization_mode(_HookedMode):
             key in enumerate(keys)]
         return torch.stack(weights, selector_dim)
 
+    @staticmethod
+    def _replay_transposes(value: Tensor, transposes: Tuple[Tuple[int, int], ...]) -> Tensor:
+        """Replay parameter-view transposes after weight quantization."""
+        for dim0, dim1 in transposes:
+            value = value.transpose(dim0, dim1)
+        return value
+
     def __torch_function__(
             self, func: Callable, types: Tuple[Type, ...], args=(), kwargs=None) -> Any:
         """Route an intercepted call through its prepared argument quantizers."""
@@ -916,19 +945,16 @@ class functional_quantization_mode(_HookedMode):
                     # Grouped-MM receives the full expert bank. Materialize the
                     # independently quantized slices once and preserve its layout.
                     value = self._expert_bank(owner, selector_dim, keys)
-                    if view.transpose_last_two:
-                        value = value.transpose(-2, -1)
-                    replace(value)
+                    replace(self._replay_transposes(value, view.transposes))
                     continue
                 selector = view.selector
+                if not view.selector_is_scalar:
+                    bank = self._expert_bank(owner, selector_dim, keys)
+                    gathered = bank[selector]
+                    replace(self._replay_transposes(gathered, view.transposes))
+                    continue
                 if isinstance(selector, Tensor):
-                    if selector.numel() == 1:
-                        selector = int(selector.item())
-                    else:
-                        bank = self._expert_bank(owner, selector_dim, keys)
-                        gathered = bank[selector]
-                        replace(gathered.transpose(-2, -1) if view.transpose_last_two else gathered)
-                        continue
+                    selector = int(selector.item())
                 selector = int(selector)
                 if selector < 0:
                     selector += len(keys)
@@ -938,7 +964,7 @@ class functional_quantization_mode(_HookedMode):
                 quantized = self.state.quantizers[keys[selector]](
                     parameter.select(selector_dim, selector))
                 quantized = _unpack_quant_tensor(quantized)
-                replace(quantized.transpose(-2, -1) if view.transpose_last_two else quantized)
+                replace(self._replay_transposes(quantized, view.transposes))
                 continue
             prepared = call.arguments.get(arg_idx)
             if prepared is None or isinstance(value, QuantTensor) or not isinstance(value, Tensor):
