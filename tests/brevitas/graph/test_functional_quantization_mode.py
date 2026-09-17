@@ -183,6 +183,50 @@ class GatheredFunctionalWeightModel(nn.Module):
         return torch.bmm(self.weight[expert_ids], x.unsqueeze(-1)).squeeze(-1)
 
 
+class TransposedGatheredFunctionalWeightModel(nn.Module):
+    """Batched expert gather followed by a transpose."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.weight = nn.Parameter(torch.randn(3, 4, 3))
+
+    def forward(self, x: Tensor, expert_ids: Tensor) -> Tensor:
+        weight = torch.transpose(self.weight[expert_ids], 1, 2)
+        return torch.bmm(weight, x.unsqueeze(-1)).squeeze(-1)
+
+
+class TransposedSelectedFunctionalWeightModel(nn.Module):
+    """Scalar expert selection followed by a transpose."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.weight = nn.Parameter(torch.randn(2, 3, 4))
+
+    def forward(self, x: Tensor, expert_idx: int) -> Tensor:
+        return x @ self.weight[expert_idx].transpose(0, 1)
+
+
+class ComposedTransposeGroupedWeightModel(GroupedFunctionalWeightModel):
+    """Grouped expert bank with composed function and method transposes."""
+
+    def forward(self, x: Tensor, offsets: Tensor) -> Tensor:
+        weight = torch.transpose(self.weight, 0, 1)
+        weight = weight.transpose(0, 2)
+        weight = torch.transpose(weight, 0, 1)
+        return self.grouped_mm(x, weight, offs=offsets)
+
+
+class TransposeBeforeIndexWeightModel(nn.Module):
+    """Selection after transpose remains outside supported provenance."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.weight = nn.Parameter(torch.randn(2, 3, 4))
+
+    def forward(self, x: Tensor) -> Tensor:
+        return F.linear(x, self.weight.transpose(0, 1)[0])
+
+
 class MixedFunctionalWeightModel(nn.Module):
     """The same functional operator consumes normal and expert weights."""
 
@@ -331,6 +375,71 @@ class TestFunctionalQuantizationMode:
         assert output.shape == (2, 3)
         state.cleanup()
 
+    def test_one_element_vector_selector_preserves_batch_dimension(self):
+        model = GatheredFunctionalWeightModel()
+        quant_map = {torch.bmm: (None, None, Int8WeightPerTensorFloat)}
+        state = prepare_functional_quantization(
+            model, quant_map, example_inputs=(torch.randn(1, 4), torch.tensor([1])))
+        with functional_quantization_mode(state):
+            output = model(torch.randn(1, 4), torch.tensor([2]))
+        assert output.shape == (1, 3)
+        state.cleanup()
+
+    def test_boolean_selector_replays_advanced_indexing(self):
+        model = GatheredFunctionalWeightModel()
+        quant_map = {torch.bmm: (None, None, Int8WeightPerTensorFloat)}
+        selector = torch.tensor([True, False, True])
+        state = prepare_functional_quantization(
+            model, quant_map, example_inputs=(torch.randn(2, 4), selector))
+        with functional_quantization_mode(state):
+            output = model(torch.randn(2, 4), selector)
+        assert output.shape == (2, 3)
+        state.cleanup()
+
+    def test_zero_dimensional_tensor_selector_uses_scalar_expert(self):
+        model = StackedFunctionalWeightModel()
+        quant_map = {F.linear: (None, None, Int8WeightPerTensorFloat)}
+        state = prepare_functional_quantization(
+            model, quant_map, example_inputs=(torch.randn(2, 4), torch.tensor(0)))
+        with functional_quantization_mode(state):
+            output = model(torch.randn(2, 4), torch.tensor(1))
+        assert output.shape == (2, 3)
+        state.cleanup()
+
+    def test_vector_selector_replays_transpose(self):
+        model = TransposedGatheredFunctionalWeightModel()
+        quant_map = {torch.bmm: (None, None, Int8WeightPerTensorFloat)}
+        state = prepare_functional_quantization(
+            model, quant_map, example_inputs=(torch.randn(2, 4), torch.tensor([0, 2])))
+        with functional_quantization_mode(state):
+            output = model(torch.randn(2, 4), torch.tensor([2, 1]))
+        assert output.shape == (2, 3)
+        state.cleanup()
+
+    def test_scalar_selector_replays_transpose(self):
+        model = TransposedSelectedFunctionalWeightModel()
+        spec = (None, None, (Int8WeightPerTensorFloat, {'output_channel_dim': 0, 'group_dim': 1}))
+        quant_map = {torch.matmul: spec, torch.Tensor.matmul: spec, torch.Tensor.__matmul__: spec}
+        state = prepare_functional_quantization(
+            model, quant_map, example_inputs=(torch.randn(2, 4), 0))
+        with functional_quantization_mode(state):
+            output = model(torch.randn(2, 4), 1)
+        assert output.shape == (2, 3)
+        state.cleanup()
+
+    def test_transpose_before_index_is_unsupported(self):
+        model = TransposeBeforeIndexWeightModel()
+        quant_map = {
+            F.linear: (Int8ActPerTensorFloat, Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
+        with pytest.warns(UserWarning, match='falling back to runtime activation quantization'):
+            state = prepare_functional_quantization(
+                model, quant_map, example_inputs=(torch.randn(2, 4),))
+        assert not state.parameter_view_quantizers
+        with functional_quantization_mode(state):
+            output = model(torch.randn(2, 4))
+        assert output.shape == (2, 2)
+        state.cleanup()
+
     def test_provenance_distinguishes_normal_and_expert_weights(self):
         model = MixedFunctionalWeightModel()
         quant_map = {F.linear: (None, None, Int8WeightPerTensorFloat)}
@@ -421,6 +530,21 @@ class TestFunctionalQuantizationMode:
                 torch.randn(4, 256, dtype=torch.bfloat16), torch.tensor([2, 4], dtype=torch.int32)))
         assert len(next(iter(state.parameter_view_quantizers.values()))[2]) == 2
         assert not is_parametrized(model, 'weight')
+        with functional_quantization_mode(state):
+            output = model(
+                torch.randn(4, 256, dtype=torch.bfloat16), torch.tensor([2, 4], dtype=torch.int32))
+        assert output.shape == (4, 64)
+        state.cleanup()
+
+    @pytest.mark.skipif(not hasattr(torch, '_grouped_mm'), reason='Torch grouped_mm is unavailable')
+    def test_grouped_mm_replays_composed_arbitrary_transposes(self):
+        model = ComposedTransposeGroupedWeightModel()
+        grouped_mm = next(func for func in grouped_mm_functions() if func is torch._grouped_mm)
+        spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 0, 'group_dim': 1})
+        state = prepare_functional_quantization(
+            model, {grouped_mm: (None, None, spec)},
+            example_inputs=(
+                torch.randn(4, 256, dtype=torch.bfloat16), torch.tensor([2, 4], dtype=torch.int32)))
         with functional_quantization_mode(state):
             output = model(
                 torch.randn(4, 256, dtype=torch.bfloat16), torch.tensor([2, 4], dtype=torch.int32))
