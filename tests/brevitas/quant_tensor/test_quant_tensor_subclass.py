@@ -94,6 +94,10 @@ def _make_groupwise_qt(quant_tensor_class, value=None):
 
 class TestIsInstance:
 
+    def test_base_quant_tensor_cannot_be_constructed(self):
+        with pytest.raises(TypeError, match='base class'):
+            QuantTensor(torch.randn(4, 4))
+
     def test_int_quant_tensor_is_tensor(self):
         qt = _make_int_qt()
         assert isinstance(qt, torch.Tensor)
