@@ -6,8 +6,7 @@ MULTIVERSION  ?= sphinx-multiversion
 PYTHON        ?= python
 SOURCEDIR     = source
 BUILDDIR      = build
-VERSION       ?=
-BUILD_VERSION ?= $(VERSION)
+BUILD_VERSION ?=
 
 export VERSION=$(BUILD_VERSION)
 
