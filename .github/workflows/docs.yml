@@ -1,0 +1,116 @@
+name: Documentation
+
+on:
+  # TEMPORARY: remove this trigger and the PR-specific checkout before merging.
+  pull_request:
+    paths:
+      - '.github/workflows/docs.yml'
+      - 'docsrc/**'
+      - 'requirements/requirements-docs.txt'
+      - 'requirements/requirements.txt'
+      - 'requirements/requirements-setup.txt'
+      - 'setup.py'
+      - 'src/**'
+      - 'notebooks/**'
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'release' && github.event.release.prerelease == false)
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check out documentation configuration
+        uses: actions/checkout@v4
+        with:
+          # TEMPORARY: check out the proposed PR revision for artifact validation.
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || 'master' }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Prepare Git refs and verify release tag
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          test "$(git rev-parse --is-shallow-repository)" = false
+          if [ "$(git branch --show-current)" != master ]; then
+            git branch --force master HEAD
+          fi
+          git show-ref --verify refs/heads/master
+          if [ "${{ github.event_name }}" = release ]; then
+            git rev-parse --verify "refs/tags/$RELEASE_TAG"
+          fi
+
+      - name: Discover published stable releases
+        id: releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/releases.json"
+          tags="$(python docsrc/versioning.py --published-releases "$RUNNER_TEMP/releases.json")"
+          test -n "$tags" || { echo "No published stable releases were found."; exit 1; }
+          if [ "${{ github.event_name }}" = release ]; then
+            case ",$tags," in
+              *",$RELEASE_TAG,"*) ;;
+              *) echo "Published release $RELEASE_TAG is not a supported stable documentation release."; exit 1 ;;
+            esac
+          fi
+          echo "tags=$tags" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: pip
+          cache-dependency-path: |
+            setup.py
+            requirements/requirements.txt
+            requirements/requirements-setup.txt
+            requirements/requirements-docs.txt
+
+      - name: Install documentation environment
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[docs]' 'sphinx-multiversion @ git+https://github.com/Holzhaus/sphinx-multiversion.git@ec101ba44132ddf1bd32e462912dd60296856387'
+
+      - name: Build complete Pages artifact
+        env:
+          BREVITAS_DOC_RELEASE_TAGS: ${{ steps.releases.outputs.tags }}
+        run: make -C docsrc pages
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docsrc/build/html
+          retention-days: 7
+
+  deploy:
+    if: >-
+      needs.build.result == 'success' &&
+      (github.event_name == 'release' || github.event_name == 'workflow_dispatch')
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
