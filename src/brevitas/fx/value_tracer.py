@@ -60,6 +60,7 @@ from typing import Union
 import warnings
 
 from packaging import version
+import torch
 from torch._C import ScriptObject
 import torch.utils._pytree as pytree
 
