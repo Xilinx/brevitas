@@ -645,6 +645,12 @@ class ModelBase:
             logger.warning("Trying to load config.json instead")
             with open(dir_model / "config.json", "r", encoding="utf-8") as f:
                 config = json.load(f)
+        # Transformers 5.x stores RoPE settings in rope_parameters.
+        # Copy these settings to the keys that the GGUF converter reads.
+        if "rope_parameters" in config:
+            config.setdefault("rope_scaling", config["rope_parameters"])
+            if "rope_theta" in config["rope_parameters"]:
+                config.setdefault("rope_theta", config["rope_parameters"]["rope_theta"])
         if "llm_config" in config:
             # rename for InternVL
             config["text_config"] = config["llm_config"]
