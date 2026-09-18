@@ -8,6 +8,7 @@ import torch
 
 from brevitas.utils.quant_utils import groupwise_dequant_expand
 from brevitas.utils.torch_utils import padding_to_multiple
+from tests.marker import excludes_pt_version
 from tests.marker import requires_pt_ge
 from tests.marker import requires_torch_compile
 
@@ -40,6 +41,11 @@ def test_compile_padding_to_multiple(shape, dim, multiple, expected_shape):
 @pytest.mark.parametrize('expand_metadata', [False, True])
 @requires_pt_ge('2.2')
 @requires_torch_compile()
+@excludes_pt_version(
+    '2.4.1',
+    system='Windows',
+    reason='PyTorch 2.4.1 on Windows: dynamo fails to inline its own list_cmp '
+    'polyfill (trace_rules SKIP_DIRS), see CI run 34640106969')
 def test_compile_groupwise_dequant_expand(group_dim, scalar_metadata, expand_metadata):
     value = torch.arange(16, dtype=torch.float32).reshape(2, 2, 4)
     if scalar_metadata:
