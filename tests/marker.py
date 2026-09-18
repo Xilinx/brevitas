@@ -59,6 +59,19 @@ def requires_pt_lt(pt_version: str, system: str = None):
     return skip_wrapper
 
 
+def excludes_pt_version(pt_version: str, system: str = None, reason: str = None):
+    skip = torch_version == parse(pt_version)
+    if system is not None:
+        skip = skip and platform.system() == system
+    if reason is None:
+        reason = f'Excluded for PyTorch == {pt_version}'
+
+    def skip_wrapper(f):
+        return pytest.mark.skipif(skip, reason=reason)(f)
+
+    return skip_wrapper
+
+
 def jit_disabled_for_export():
     skip = config.JIT_ENABLED
 
