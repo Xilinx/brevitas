@@ -50,6 +50,7 @@ If you adopt Brevitas in your work, please cite it as:
 
 ## History
 
+- *2026/09/18* - Release version 0.13.3, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.13.3).
 - *2026/08/28* - Release version 0.13.2, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.13.2).
 - *2026/08/25* - Release version 0.13.1, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.13.1).
 - *2026/07/14* - Release version 0.13.0, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.13.0).
