@@ -23,6 +23,8 @@ class QuantTensor(Tensor):
 
     @staticmethod
     def __new__(cls, value, *args, **kwargs):
+        if cls is QuantTensor:
+            raise TypeError('QuantTensor is a base class and cannot be instantiated directly.')
         if not isinstance(value, Tensor):
             value = torch.tensor(value, dtype=torch.float)
         # Create tensor subclass wrapping the value data.
@@ -61,7 +63,7 @@ class QuantTensor(Tensor):
             parameter: getattr(self, attribute) for parameter,
             attribute in self._constructor_metadata.items()}
 
-    def _reconstruct(self, value, ctor_kwargs=None, metadata_transform=None):
+    def _reconstruct(self, value, ctor_kwargs=None):
         """
         Rebuild this type from constructor-form value and metadata.
 
@@ -73,18 +75,15 @@ class QuantTensor(Tensor):
             ctor_kwargs = self._get_constructor_kwargs()
         else:
             ctor_kwargs = dict(ctor_kwargs)
-        if metadata_transform is not None:
-            for parameter, metadata in ctor_kwargs.items():
-                if isinstance(metadata, Tensor):
-                    ctor_kwargs[parameter] = metadata_transform(parameter, metadata)
         return type(self)(value, **ctor_kwargs)
 
     def _apply_and_reconstruct(self, tensor_op, *args, **kwargs):
         """Apply a Tensor operation to the constructor value and tensor metadata."""
-        return self._reconstruct(
-            tensor_op(self._value, *args, **kwargs),
-            metadata_transform=lambda _,
-            metadata: tensor_op(metadata, *args, **kwargs))
+        ctor_kwargs = self._get_constructor_kwargs()
+        for parameter, metadata in ctor_kwargs.items():
+            if isinstance(metadata, Tensor):
+                ctor_kwargs[parameter] = tensor_op(metadata, *args, **kwargs)
+        return self._reconstruct(tensor_op(self._value, *args, **kwargs), ctor_kwargs)
 
     def _metadata_on_device(self, device):
         """Return whether every tensor-backed metadata field is on ``device``."""
@@ -155,13 +154,15 @@ class QuantTensor(Tensor):
 
     def to(self, *args, **kwargs):
         new_value = Tensor.to(self._value, *args, **kwargs)
-
-        def transform_metadata(_, metadata):
+        ctor_kwargs = self._get_constructor_kwargs()
+        for parameter, metadata in ctor_kwargs.items():
+            if not isinstance(metadata, Tensor):
+                continue
             if metadata.dtype == torch.bool:
-                return metadata.to(device=new_value.device)
-            return metadata.to(*args, **kwargs)
-
-        return self._reconstruct(new_value, metadata_transform=transform_metadata)
+                ctor_kwargs[parameter] = metadata.to(device=new_value.device)
+            else:
+                ctor_kwargs[parameter] = metadata.to(*args, **kwargs)
+        return self._reconstruct(new_value, ctor_kwargs)
 
     def cuda(self, *args, **kwargs):
         return self._apply_and_reconstruct(Tensor.cuda, *args, **kwargs)
