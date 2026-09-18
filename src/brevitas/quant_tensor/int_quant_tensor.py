@@ -8,7 +8,6 @@ from brevitas.function.ops import min_int
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops_ste import round_ste
 from brevitas.quant_tensor import _unpack_quant_tensor
-from brevitas.quant_tensor import IntQuantTensorBase
 from brevitas.quant_tensor import QuantTensor
 from brevitas.quant_tensor.base_quant_tensor import IntMixin
 
@@ -16,30 +15,65 @@ from .int_torch_handler import INT_QUANT_TENSOR_FN_HANDLER
 from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
 
-class IntQuantTensor(IntQuantTensorBase, IntMixin, QuantTensor):
+class IntQuantTensor(IntMixin, QuantTensor):
+
+    _constructor_metadata = {
+        'scale': '_scale',
+        'zero_point': '_zero_point',
+        'bit_width': '_bit_width',
+        'signed': '_signed',
+        'training': '_training'}
 
     def __new__(cls, value, scale, zero_point, bit_width, signed, training):
+        if not isinstance(value, torch.Tensor):
+            value = torch.tensor(value, dtype=torch.float)
+        # Use as_subclass to preserve grad_fn and requires_grad
+        return value.as_subclass(cls)
 
-        if not isinstance(scale, torch.Tensor):
-            scale = torch.tensor(scale, dtype=torch.float)
-        if not isinstance(zero_point, torch.Tensor):
-            zero_point = torch.tensor(zero_point, dtype=torch.float)
-        if not isinstance(bit_width, torch.Tensor):
-            bit_width = torch.tensor(bit_width, dtype=torch.float)
-        if not isinstance(signed, torch.Tensor):
-            signed = torch.tensor(signed, dtype=torch.bool)
-        if not isinstance(training, torch.Tensor):
-            training = torch.tensor(training, dtype=torch.bool)
-        quant_tensor = super().__new__(cls, value, scale, zero_point, bit_width, signed, training)
-        return quant_tensor
+    def __init__(self, value, scale, zero_point, bit_width, signed, training):
+        device = self._value.device
+        scale = self._as_tensor(scale, torch.float, device)
+        zero_point = self._as_tensor(zero_point, torch.float, device)
+        bit_width = self._as_tensor(bit_width, torch.float, device)
+        signed = self._as_tensor(signed, torch.bool, device)
+        training = self._as_tensor(training, torch.bool, device)
+        self._scale = scale
+        self._zero_point = zero_point
+        self._bit_width = bit_width
+        self._signed = signed
+        self._training = training
+
+    @property
+    def scale(self):
+        return self._scale
+
+    @scale.setter
+    def scale(self, value):
+        self._scale = value
+
+    @property
+    def zero_point(self):
+        return self._zero_point
+
+    @zero_point.setter
+    def zero_point(self, value):
+        self._zero_point = value
+
+    @property
+    def bit_width(self):
+        return self._bit_width
+
+    @bit_width.setter
+    def bit_width(self, value):
+        self._bit_width = value
 
     @property
     def signed(self):
-        return self.signed_t.item()
+        return self._signed.item()
 
     @property
     def training(self):
-        return self.training_t.item()
+        return self._training.item()
 
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
@@ -55,16 +89,9 @@ class IntQuantTensor(IntQuantTensorBase, IntMixin, QuantTensor):
             return func(*args, **kwargs)
 
     @property
-    def tensor(self):
-        return self.value
-
-    @property
     def device(self):
         value_device = self.value.device
-        is_same_device = True
-        for t in [self.scale, self.zero_point, self.bit_width]:
-            is_same_device &= value_device == t.device
-        if not is_same_device:
+        if not self._metadata_on_device(value_device):
             raise RuntimeError("Value and metadata are on different devices")
         return value_device
 
@@ -193,7 +220,7 @@ class IntQuantTensor(IntQuantTensorBase, IntMixin, QuantTensor):
         return output
 
     def __str__(self):
-        return f"IntQuantTensor(value={self.value}, scale={self.scale}, zero_point={self.zero_point}, bit_width={self.bit_width}, signed_t={self.signed_t}, training_t={self.training_t})"
+        return f"IntQuantTensor(value={self.value}, scale={self.scale}, zero_point={self.zero_point}, bit_width={self.bit_width}, signed={self._signed}, training={self._training})"
 
     def __truediv__(self, other):
         if isinstance(other, IntQuantTensor):

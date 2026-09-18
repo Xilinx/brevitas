@@ -79,9 +79,13 @@ def test_qt_structure():
         torch.randn(10), torch.randn(1), torch.tensor(0.), torch.tensor(8.), True, False)
     assert isinstance(qt, IntQuantTensor)
     assert isinstance(qt, QuantTensor)
-    assert isinstance(qt, tuple)
-    assert hasattr(qt, '_fields')
-    assert len(qt._fields) == 6
+    assert isinstance(qt, torch.Tensor)
+    assert qt._constructor_metadata == {
+        'scale': '_scale',
+        'zero_point': '_zero_point',
+        'bit_width': '_bit_width',
+        'signed': '_signed',
+        'training': '_training'}
 
 
 def test_quant_tensor_init():
@@ -264,6 +268,8 @@ def test_groupwise_quant_tensor_device(device, quant_tensor_class):
     assert quant_tensor.device == device
 
     other_device = torch.device("meta" if device.type == "cpu" else "cpu")
-    mismatched_quant_tensor = quant_tensor._replace(scale_=torch.tensor(1.0, device=other_device))
+    mismatched_kwargs = dict(kwargs)
+    mismatched_kwargs['scale'] = torch.tensor(1.0, device=other_device)
+    mismatched_quant_tensor = quant_tensor_class(**mismatched_kwargs)
     with pytest.raises(RuntimeError, match="Value and metadata are on different devices"):
         mismatched_quant_tensor.device

@@ -58,9 +58,9 @@ class StaticScaleZeroPointMixin(torch.nn.Module, ABC):
             super().prepare_for_export(module)
 
         if module.is_quant_enabled:
-            self.scale = module.scale_() if hasattr(module, 'scale_') else module.scale()
-            self.zero_point = module.zero_point_() if hasattr(
-                module, 'zero_point_') else module.zero_point()
+            self.scale = module._scale() if hasattr(module, '_scale') else module.scale()
+            self.zero_point = module._zero_point() if hasattr(
+                module, '_zero_point') else module.zero_point()
             # Continguous is used to be extra-safe with torch.compile
             self.zero_point = self.zero_point.contiguous()
             self.scale = self.scale.contiguous()
