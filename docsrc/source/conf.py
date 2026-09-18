@@ -21,6 +21,12 @@ import sys
 
 import pypandoc
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from versioning import DEVELOPMENT_BRANCH
+from versioning import SITE_URL
+from versioning import selected_release_tags
+from versioning import tag_whitelist
+
 
 # nbsphinx renders notebook markdown cells with pandoc, which nbconvert looks up on PATH.
 # `pypandoc-binary` ships a pinned pandoc inside site-packages, so put it first: a system pandoc
@@ -113,28 +119,19 @@ def setup(app):
     # Old tags derive version metadata from the installed package; restore the selected tag name.
     app.connect('config-inited', set_version_from_multiversion_name, priority=1000)
 
-# `VERSION=local` builds the checked-out branch as `master`; an empty value rebuilds every tag
-# matched below plus master; an explicit tag builds that tag plus master for staging comparison.
+# `VERSION=local` builds the checked-out branch as `master`; an empty value rebuilds published
+# release tags supplied by CI plus master. Local builds fall back to stable tags in the repository.
 version_to_build = os.environ.get('VERSION', '')
 if version_to_build == 'local':
-    current_version = 'master'
-    smv_outputdir_format = 'master'
+    current_version = DEVELOPMENT_BRANCH
+    smv_outputdir_format = DEVELOPMENT_BRANCH
     branch_to_build = local_branch
 elif version_to_build == '':
-    # This select all versions above v0.9
-    # ^v: Starts with v
-    # ([1-9][0-9]*\.\d+\.\d+): Matches v1.0.0, v2.3.4, etc. (major version ≥ 1)
-    # |: OR
-    # 0\.(1[0-9]|\d{2,})\.\d+: Matches v0.10.0, v0.11.0, ..., v0.99.0, etc. (minor version ≥ 10)
-    # |: OR
-    # 0\.9\.(?!0+$)\d+: Matches v0.9.1, v0.9.2, ..., but not v0.9.0
-    # $: End of string
-    version_to_build = r'^v([1-9][0-9]*\.\d+\.\d+|0\.(1[0-9]|\d{2,})\.\d+|0\.9\.(?!0+$)\d+)$'
-    # Keep the staging documentation available alongside all release tags.
-    branch_to_build = 'master'
+    version_to_build = tag_whitelist(selected_release_tags())
+    branch_to_build = DEVELOPMENT_BRANCH
 else:
     # Release preparation intentionally produces the selected tag and current staging docs.
-    branch_to_build = 'master'
+    branch_to_build = DEVELOPMENT_BRANCH
 
 # -- General configuration ---------------------------------------------------
 
@@ -187,7 +184,7 @@ html_theme_options = {
    },
     "switcher": {
         # All versions use this shared manifest so the switcher always targets current staging docs.
-        "json_url": "https://xilinx.github.io/brevitas/master/_static/versions.json",
+        "json_url": f"{SITE_URL}/{DEVELOPMENT_BRANCH}/_static/versions.json",
         "version_match": current_version,
     },
     "footer_end": ["version-switcher"]

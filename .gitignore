@@ -63,6 +63,7 @@ coverage.xml
 # Sphinx documentation
 docs/_build/
 docs/_sources/
+docsrc/build/
 docsrc/source/_templates/
 
 # Test environments and logs

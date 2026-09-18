@@ -3,28 +3,35 @@
 SPHINXOPTS    ?=
 SPHINXBUILD   ?= sphinx-build
 MULTIVERSION  ?= sphinx-multiversion
+PYTHON        ?= python
 SOURCEDIR     = source
 BUILDDIR      = build
-BUILD_VERSION ?=
+VERSION       ?=
+BUILD_VERSION ?= $(VERSION)
 
 export VERSION=$(BUILD_VERSION)
 
-.PHONY: help html github livehtml
+.PHONY: help clean html github pages livehtml
 
 help:
 	@echo "Available targets:"
 	@echo "  html       Build documentation for all versions using sphinx-multiversion"
-	@echo "  github     Build and copy HTML docs to ../docs"
+	@echo "  pages      Build and validate the complete GitHub Pages artifact"
+	@echo "  github     Deprecated alias for pages"
 	@echo "  livehtml   Live-reload documentation (single version, not multiversion)"
+	@echo "  clean      Remove generated HTML documentation"
 	@echo "  help       Show this message"
+
+clean:
+	@rm -rf "$(BUILDDIR)/html"
 
 html:
 	@$(MULTIVERSION) "$(SOURCEDIR)" "$(BUILDDIR)/html" $(SPHINXOPTS)
 
-github: html
-	@cp -a "$(BUILDDIR)/html/." ../docs
-	@cp -a "$(SOURCEDIR)/index.html" ../docs
-	@touch .nojekyll ../docs
+pages: clean html
+	@$(PYTHON) prepare_pages.py "$(BUILDDIR)/html"
+
+github: pages
 
 livehtml:
 	sphinx-autobuild "$(SOURCEDIR)" "$(BUILDDIR)/livehtml" $(SPHINXOPTS)
