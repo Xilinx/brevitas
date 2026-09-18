@@ -1,6 +1,17 @@
 name: Documentation
 
 on:
+  # TEMPORARY: remove this trigger and the PR-specific checkout before merging.
+  pull_request:
+    paths:
+      - '.github/workflows/docs.yml'
+      - 'docsrc/**'
+      - 'requirements/requirements-docs.txt'
+      - 'requirements/requirements.txt'
+      - 'requirements/requirements-setup.txt'
+      - 'setup.py'
+      - 'src/**'
+      - 'notebooks/**'
   release:
     types: [published]
   workflow_dispatch:
@@ -14,23 +25,30 @@ concurrency:
 
 jobs:
   build:
-    if: github.event_name == 'workflow_dispatch' || github.event.release.prerelease == false
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'release' && github.event.release.prerelease == false)
     runs-on: ubuntu-22.04
     permissions:
       contents: read
     steps:
-      - name: Check out current documentation configuration
+      - name: Check out documentation configuration
         uses: actions/checkout@v4
         with:
-          ref: master
+          # TEMPORARY: check out the proposed PR revision for artifact validation.
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || 'master' }}
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Verify Git history and release tag
+      - name: Prepare Git refs and verify release tag
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           test "$(git rev-parse --is-shallow-repository)" = false
+          if [ "$(git branch --show-current)" != master ]; then
+            git branch --force master HEAD
+          fi
           git show-ref --verify refs/heads/master
           if [ "${{ github.event_name }}" = release ]; then
             git rev-parse --verify "refs/tags/$RELEASE_TAG"
@@ -81,7 +99,9 @@ jobs:
           retention-days: 7
 
   deploy:
-    if: needs.build.result == 'success'
+    if: >-
+      needs.build.result == 'success' &&
+      (github.event_name == 'release' || github.event_name == 'workflow_dispatch')
     needs: build
     runs-on: ubuntu-22.04
     permissions:
