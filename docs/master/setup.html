@@ -492,7 +492,7 @@ except for some distributed training scenarios with <code class="docutils litera
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>The custom C++ autograd functions are implemented in a single <cite>.cpp</cite> file distributed together with Brevitas that is internally compiled and loaded at runtime through the <code class="docutils literal notranslate"><span class="pre">torch.utils.cpp_extension.load()</span></code> mechanism.
-This simplifies the packaging of Brevitas, since it avoids to mantain precompiled binaries for every possible supported platform, but it puts on the user the burden of making sure an appropriate compiler is present.</p>
+This simplifies the packaging of Brevitas, since it avoids to maintain precompiled binaries for every possible supported platform, but it puts on the user the burden of making sure an appropriate compiler is present.</p>
 </div>
 </section>
 <section id="optional-inference-requirements">
