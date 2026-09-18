@@ -45,7 +45,7 @@ def test_compile_padding_to_multiple(shape, dim, multiple, expected_shape):
     '2.4.1',
     system='Windows',
     reason='PyTorch 2.4.1 on Windows: dynamo fails to inline its own list_cmp '
-    'polyfill (trace_rules SKIP_DIRS), see CI run 34640106969')
+    'polyfill (trace_rules SKIP_DIRS)')
 def test_compile_groupwise_dequant_expand(group_dim, scalar_metadata, expand_metadata):
     value = torch.arange(16, dtype=torch.float32).reshape(2, 2, 4)
     if scalar_metadata:
