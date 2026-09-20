@@ -36,6 +36,16 @@ def to_quant_tensor(input: torch.Tensor, bit_width=8) -> IntQuantTensor:
     return mod(input)
 
 
+def to_quant_tensor_per_channel(input: torch.Tensor, bit_width=8) -> IntQuantTensor:
+    mod = QuantIdentity(
+        bit_width=bit_width,
+        scaling_per_output_channel=True,
+        per_channel_broadcastable_shape=(input.shape[0],) + (1,) * (input.ndim - 1),
+        scaling_stats_permute_dims=tuple(range(input.ndim)),
+        return_quant_tensor=True)
+    return mod(input)
+
+
 def to_float_quant_tensor(
         input: torch.Tensor,
         bit_width=8,
@@ -150,6 +160,32 @@ def test_quant_tensor_transpose():
     a = x.clone()
     b = to_quant_tensor(x)
     assert torch.allclose(a.transpose(0, 1), b.transpose(0, 1), atol=0.01)
+
+
+def test_quant_tensor_squeeze():
+    x = torch.rand(4, 1, 4)
+    a = x.clone()
+    a_squeezed = a.squeeze(1)
+    b = to_quant_tensor(x)
+    b_squeezed = b.squeeze(1)
+    assert torch.allclose(a_squeezed, b_squeezed, atol=0.01)
+    c = to_quant_tensor_per_channel(x)
+    c_squeezed = c.squeeze(1)
+    assert c_squeezed.scale.shape == torch.Size([4, 1])
+    assert torch.allclose(a_squeezed, c_squeezed, atol=0.01)
+
+
+def test_quant_tensor_unsqueeze():
+    x = torch.rand(4, 4)
+    a = x.clone()
+    a_unsqueezed = a.unsqueeze(1)
+    b = to_quant_tensor(x)
+    b_unsqueezed = b.unsqueeze(1)
+    assert torch.allclose(a_unsqueezed, b_unsqueezed, atol=0.01)
+    c = to_quant_tensor_per_channel(x)
+    c_unsqueezed = c.unsqueeze(1)
+    assert c_unsqueezed.scale.shape == torch.Size([4, 1, 1])
+    assert torch.allclose(a_unsqueezed, c_unsqueezed, atol=0.01)
 
 
 # TODO: need to deal with quant metadata
