@@ -33,6 +33,7 @@ jobs:
     permissions:
       contents: read
     steps:
+      # Check out the PR revision temporarily, otherwise the release build configuration.
       - name: Check out documentation configuration
         uses: actions/checkout@v4
         with:
@@ -41,6 +42,7 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
+      # Make the selected revision available as local master for sphinx-multiversion.
       - name: Prepare Git refs and verify release tag
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
@@ -54,6 +56,7 @@ jobs:
             git rev-parse --verify "refs/tags/$RELEASE_TAG"
           fi
 
+      # Restrict the artifact to stable versions with published GitHub Releases.
       - name: Discover published stable releases
         id: releases
         env:
@@ -71,6 +74,7 @@ jobs:
           fi
           echo "tags=$tags" >> "$GITHUB_OUTPUT"
 
+      # Provide the supported Python runtime and reuse cached package downloads.
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -82,16 +86,19 @@ jobs:
             requirements/requirements-setup.txt
             requirements/requirements-docs.txt
 
+      # Install documentation dependencies without adding the VCS dependency to PyPI metadata.
       - name: Install documentation environment
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e '.[docs]' 'sphinx-multiversion @ git+https://github.com/Holzhaus/sphinx-multiversion.git@ec101ba44132ddf1bd32e462912dd60296856387'
 
+      # Build, validate, and prepare the complete static Pages site.
       - name: Build complete Pages artifact
         env:
           BREVITAS_DOC_RELEASE_TAGS: ${{ steps.releases.outputs.tags }}
         run: make -C docsrc pages
 
+      # Preserve the validated artifact for review or the deployment job.
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
@@ -111,6 +118,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # Publish the validated artifact only for release or manual events.
       - name: Deploy GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

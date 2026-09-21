@@ -13,6 +13,7 @@ from versioning import selected_release_tags
 
 
 def assert_regular_files(site_directory: Path) -> None:
+    """Reject links and special entries unsupported by Pages artifacts."""
     for path in site_directory.rglob('*'):
         path_stat = path.lstat()
         if stat.S_ISLNK(path_stat.st_mode):
@@ -26,12 +27,14 @@ def assert_regular_files(site_directory: Path) -> None:
 
 
 def remove_doctrees(site_directory: Path) -> None:
+    """Remove Sphinx build caches from the deployable site."""
     for path in site_directory.rglob('.doctrees'):
         if path.is_dir():
             shutil.rmtree(path)
 
 
 def validate_versions(site_directory: Path, release_tags: list[str]) -> None:
+    """Require exactly the selected releases and development documentation."""
     expected_versions = {DEVELOPMENT_BRANCH, *release_tags}
     actual_versions = {
         path.name for path in site_directory.iterdir()
@@ -50,6 +53,7 @@ def validate_versions(site_directory: Path, release_tags: list[str]) -> None:
 
 
 def write_versions_manifest(site_directory: Path, release_tags: list[str]) -> None:
+    """Write the shared PyData theme version-switcher manifest."""
     manifest = [{
         'name': 'master (development)',
         'version': DEVELOPMENT_BRANCH,
@@ -67,6 +71,7 @@ def write_versions_manifest(site_directory: Path, release_tags: list[str]) -> No
 
 
 def write_root_redirect(site_directory: Path, release_tags: list[str]) -> None:
+    """Redirect the site root to the latest stable release."""
     destination = release_tags[-1] if release_tags else DEVELOPMENT_BRANCH
     target = f'./{destination}/'
     escaped_target = html.escape(target, quote=True)
@@ -87,6 +92,7 @@ def write_root_redirect(site_directory: Path, release_tags: list[str]) -> None:
 
 
 def main() -> None:
+    """Prepare a validated multiversion site for GitHub Pages upload."""
     parser = argparse.ArgumentParser(description='Prepare a complete GitHub Pages documentation artifact.')
     parser.add_argument('site_directory', type=Path)
     args = parser.parse_args()
