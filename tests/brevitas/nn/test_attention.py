@@ -5,6 +5,7 @@ import pytest
 import torch
 from torch.nn import MultiheadAttention
 
+from brevitas.export.manager import _cache_inp_out
 from brevitas.nn import QuantMultiheadAttention
 
 ATOL = 1e-6
@@ -60,3 +61,29 @@ class TestQuantMultiheadAttention:
         for proj in projections:
             assert proj is not None
             assert proj.batch_dim == 1
+
+    def test_mha_torchscript_trace_after_input_output_cache(self):
+        qm = QuantMultiheadAttention(
+            EMBED_DIM,
+            NUM_HEADS,
+            in_proj_input_quant=None,
+            in_proj_weight_quant=None,
+            in_proj_bias_quant=None,
+            softmax_input_quant=None,
+            attn_output_weights_quant=None,
+            q_scaled_quant=None,
+            k_transposed_quant=None,
+            v_quant=None,
+            out_proj_input_quant=None,
+            out_proj_weight_quant=None,
+            out_proj_bias_quant=None,
+            out_proj_output_quant=None).eval()
+        query = torch.randn(5, 2, EMBED_DIM)
+        inputs = (query, query, query)
+
+        # This is the eager pass performed by the TorchScript export path. The same
+        # input objects are passed to tracing immediately afterward.
+        _cache_inp_out(qm, *inputs)
+        assert query.names == (None, None, None)
+
+        torch.jit.trace(qm, inputs)

@@ -91,6 +91,18 @@ def _restore_act_caching_mode(m: Module):
         del m.cache_inference_quant_act_backup
 
 
+def _cache_inp_out(module, *args, **kwargs):
+    # Force caching for the eager pass used before tracing.
+    module.apply(lambda m: _override_quant_metadata_caching_mode(m, enabled=True))
+    module.apply(lambda m: _override_bias_caching_mode(m, enabled=True))
+    module.apply(lambda m: _override_act_caching_mode(m, enabled=True))
+    _ = module.forward(*args, **kwargs)
+    # Restore previous caching properties.
+    module.apply(lambda m: _restore_quant_metadata_caching_mode(m))
+    module.apply(lambda m: _restore_bias_caching_mode(m))
+    module.apply(lambda m: _restore_act_caching_mode(m))
+
+
 def _set_recurrent_layer_export_mode(model: Module, enabled: bool):
     for m in model.modules():
         if isinstance(m, QuantRecurrentLayerMixin) and hasattr(m, 'export_mode'):
@@ -192,15 +204,7 @@ class BaseManager(ABC):
 
     @classmethod
     def _cache_inp_out(cls, module, *args, **kwargs):
-        # force enable caching
-        module.apply(lambda m: _override_quant_metadata_caching_mode(m, enabled=True))
-        module.apply(lambda m: _override_bias_caching_mode(m, enabled=True))
-        module.apply(lambda m: _override_act_caching_mode(m, enabled=True))
-        _ = module.forward(*args, **kwargs)
-        # Restore previous caching properties
-        module.apply(lambda m: _restore_quant_metadata_caching_mode(m))
-        module.apply(lambda m: _restore_bias_caching_mode(m))
-        module.apply(lambda m: _restore_act_caching_mode(m))
+        _cache_inp_out(module, *args, **kwargs)
 
     @classmethod
     def jit_inference_trace(
