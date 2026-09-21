@@ -84,6 +84,6 @@ class TestQuantMultiheadAttention:
         # This is the eager pass performed by the TorchScript export path. The same
         # input objects are passed to tracing immediately afterward.
         _cache_inp_out(qm, *inputs)
-        assert query.names == (None, None, None)
 
         torch.jit.trace(qm, inputs)
+        assert query.names == (None, None, None)
