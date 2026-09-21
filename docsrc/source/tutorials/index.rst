@@ -11,5 +11,6 @@ Tutorials
     quant_tensor_quant_conv2d_overview
     quant_activation_overview
     anatomy_quantizer
+    minifloat_mx
     quant_recurrent
     onnx_export
