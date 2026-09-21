@@ -1,6 +1,7 @@
 bitstring
+# onnx >= 1.23 emits ONNX IR version 14; onnxruntime accepts at most IR version 13
+onnx<1.23 ; python_version >= "3.13"
 onnx==1.17.0 ; python_version < "3.13"
-onnx ; python_version >= "3.13"
 onnxoptimizer
 onnxruntime>=1.15.0
 onnxscript
