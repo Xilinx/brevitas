@@ -14,13 +14,15 @@ The table reports `llama-perplexity` results for GGUF models exported by Brevita
 Qronos row uses the same GGUF recipe and model size. The difference shows the effect of calibration.
 Lower PPL is better.
 
-| Recipe | Algorithm | 1B | 3B |
-|---|---|---:|---:|
-| Q2_K | RTN | 30.60 | 15.04 |
-| Q2_K | Qronos | 18.17 | 12.60 |
+| Recipe | Algorithm | 1B | 3B | 8B |
+|---|---|---:|---:|---:|
+| Q2_K | RTN | 30.60 | 15.04 | 9.59 |
+| Q2_K | Qronos | 16.97 | 13.16 | 7.90 |
 
-The Qronos results above use the provided configurations for [Llama-3.2-1B-Instruct](llama3-1b-q2_k.yml)
-and [Llama-3.2-3B-Instruct](llama3-3b-q2_k.yml). Brevitas also provides a native evaluation harness.
+The Qronos results above use the provided configurations for
+[Llama-3.2-1B-Instruct](llama3-1b-q2_k.yml),
+[Llama-3.2-3B-Instruct](llama3-3b-q2_k.yml), and
+[Llama-3.1-8B-Instruct](llama3-8b-q2_k.yml). Brevitas also uses a native evaluation harness.
 The sections below describe the available GGUF recipes and configuration options, then compare
 in-process PPL with `llama-perplexity` across the supported formats.
 
@@ -30,7 +32,7 @@ This quick start uses the following versions.
 
 - `torch==2.6.0+rocm6.1`
 - `gguf==0.18.0`
-- `transformers==4.57.6`
+- `transformers==5.17.0`
 
 See
 [`requirements-llm.txt`](../../../../requirements/requirements-llm.txt) for the latest supported
@@ -46,7 +48,8 @@ Brevitas supports two types of GGUF quantization recipes.
 Uniform recipes are registered in
 [`custom_quantizers.py`](../../llm/gguf_export/custom_quantizers.py). Every linear layer uses the
 same base quant type. When `quantize_first_last_layer: true`, high-impact tensors such as
-`token_embd` and `output` use Q6_K. The Q8_0 and Q6_K recipes keep their base quant types.
+`token_embd` and `output` use Q6_K. The Q8_0 and Q6_K recipes keep their base quant types. The canonical
+Llama 3.1 8B recipe plugin uses the base quant type for the token embedding and Q6_K otherwise.
 
 | Name | Base weight quant | Notes |
 |---|---|---|
@@ -67,7 +70,7 @@ Use `--custom-quantizer=gguf_q8_0` on the command line. In YAML, use
 The mixed-precision recipes mirror llama.cpp's `llama_tensor_get_type_impl` rules for the selected
 models. Per-layer overrides use higher K-quants for sensitive tensors, such as
 `self_attn.v_proj` and `mlp.down_proj`. When `quantize_first_last_layer: true`, `token_embd` and
-`output` use Q6_K.
+`output` are quantized according to their recipe.
 
 Specify a plugin as `path/to/recipe.py:quantizer_name`.
 
@@ -79,6 +82,7 @@ custom_quantizer: recipes/Llama-3.2-1B.py:gguf_q4_k_m
 |---|---|---|
 | [`recipes/Llama-3.2-1B.py`](recipes/Llama-3.2-1B.py) | Llama 3.2 1B (Base or Instruct) | `gguf_q4_0`, `gguf_q4_k_s`, `gguf_q4_k_m`, `gguf_q5_k_m`, `gguf_q2_k`, `gguf_q3_k_m`, `gguf_q3_k_l` |
 | [`recipes/Llama-3.2-3B.py`](recipes/Llama-3.2-3B.py) | Llama 3.2 3B (Base or Instruct) | The same names as 1B. Layer rules differ. |
+| [`recipes/Llama-3.1-8B.py`](recipes/Llama-3.1-8B.py) | Llama 3.1 8B (Base or Instruct) | The same as above plus `gguf_q4_1`, `gguf_q4_k`, `gguf_q5_k`, and `gguf_q3_k` for quantized embeddings. |
 
 Recipe plugins validate the loaded model name via [`RecipeMixin`](recipes/common.py).
 
@@ -198,3 +202,21 @@ This command processes all 141 chunks. Size values are reported in MB.
 | Q3_K_M | 1687.2 | 10.01 | 9.95 |
 | Q3_K_S | 1542.8 | 11.59 | 11.44 |
 | Q2_K | 1363.9 | 15.19 | 15.04 |
+
+### Llama-3.1-8B-Instruct
+
+| Recipe | Size (MB) | Brevitas PPL | llama.cpp PPL |
+|---|---:|---:|---:|
+| Q8_0 | 8540.8 | 6.47 | 6.48 |
+| Q6_K | 6596.0 | 6.49 | 6.50 |
+| Q5_K_M | 5733.0 | 6.52 | 6.52 |
+| Q5_K | 5599.3 | 6.54 | 6.54 |
+| Q4_1 | 5130.3 | 6.78 | 6.81 |
+| Q4_K_M | 4920.7 | 6.63 | 6.64 |
+| Q4_K_S | 4692.7 | 6.68 | 6.68 |
+| Q4_0 | 4675.9 | 7.00 | 7.00 |
+| Q4_K | 4661.2 | 6.77 | 6.77 |
+| Q3_K_L | 4322.0 | 6.98 | 6.96 |
+| Q3_K_M | 4018.9 | 7.06 | 7.04 |
+| Q3_K_S | 3664.5 | 7.80 | 7.80 |
+| Q2_K | 3179.1 | 9.59 | 9.59 |

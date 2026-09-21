@@ -1,0 +1,28 @@
+# non-defaults only; see default_template.yaml for defaults
+model: meta-llama/Llama-3.1-8B-Instruct
+dtype: float16  # llama.cpp uses FP16 internally
+
+# Q2_K mixed-precision recipe for Llama 3.1 8B (Base or Instruct)
+custom_quantizer: recipes/Llama-3.1-8B.py:gguf_q2_k
+# Quantize the untied token embedding with Q2_K and the output with Q6_K.
+quantize_first_last_layer: true
+
+# Evaluate PPL on WikiText-2 before and after quantization.
+eval: true
+bos_preprocessing: sequence
+dataset: wikitext2
+dataset_eval_split: test
+nsamples: 128
+seqlen: 2048
+
+# Run Qronos (Zhang et al., ICLR 2026).
+qronos: true
+qronos_alpha: 1e-6
+gpxq_act_order: true
+gpxq_block_name: model.layers
+gpxq_use_quant_activations: true
+gpxq_buffer_device: same
+
+# GGUF export
+export_target: gguf:q2_k
+export_path: scratch/Llama-3.1-8B-Instruct-Q2_K.gguf
