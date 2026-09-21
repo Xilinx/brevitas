@@ -18,6 +18,7 @@ STABLE_TAG_PATTERN = re.compile(r'^v(\d+)\.(\d+)\.(\d+)$')
 
 
 def parse_stable_tag(tag: str) -> tuple[int, int, int] | None:
+    """Parse a supported stable documentation tag."""
     match = STABLE_TAG_PATTERN.fullmatch(tag)
     if match is None:
         return None
@@ -82,6 +83,7 @@ def published_release_tags(releases: object) -> list[str]:
 
 
 def main() -> None:
+    """Print published stable release tags from GitHub API JSON."""
     parser = argparse.ArgumentParser(description='Select published Brevitas documentation tags.')
     parser.add_argument('--published-releases', type=Path, required=True)
     args = parser.parse_args()
