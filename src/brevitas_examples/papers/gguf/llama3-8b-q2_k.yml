@@ -25,4 +25,4 @@ gpxq_buffer_device: same
 
 # GGUF export
 export_target: gguf:q2_k
-export_path: scratch/Llama-3.1-8B-Instruct-Q2_K.gguf
+export_path: outputs/Llama-3.1-8B-Instruct-Q2_K.gguf

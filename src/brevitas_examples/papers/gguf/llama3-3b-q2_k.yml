@@ -2,7 +2,7 @@
 model: meta-llama/Llama-3.2-3B-Instruct
 dtype: float16  # llama.cpp uses FP16 internally
 
-# Q2_K mixed-precision recipe for Llama 3.2 1B (base or Instruct)
+# Q2_K mixed-precision recipe for Llama 3.2 3B (base or Instruct)
 custom_quantizer: recipes/Llama-3.2-3B.py:gguf_q2_k
 # Required so the custom quantizer's high-precision (Q6_K) bump for
 # token_embd/output is actually applied; otherwise those tensors are left
@@ -27,4 +27,4 @@ gpxq_buffer_device: same
 
 # GGUF export
 export_target: gguf:q2_k
-export_path: scratch/Llama-3.2-3B-Instruct-Q2_K.gguf
+export_path: outputs/Llama-3.2-3B-Instruct-Q2_K.gguf
