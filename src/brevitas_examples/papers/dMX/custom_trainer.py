@@ -179,7 +179,9 @@ class _CastParameterForForward(torch.nn.Module):
         self.dtype = dtype
 
     def forward(self, master: torch.Tensor) -> torch.Tensor:
-        return master.to(dtype=self.dtype)
+        # Keep the forward metadata scalar so an FP32 master does not promote
+        # BF16 quantization values through ordinary tensor broadcasting.
+        return master.to(dtype=self.dtype).reshape(())
 
 
 def _parametrize_bit_width_params_for_forward(
@@ -196,7 +198,10 @@ def _parametrize_bit_width_params_for_forward(
         if bit_width_offset.dtype == master_dtype:
             continue
         parametrize.register_parametrization(
-            module, "bit_width_offset", _CastParameterForForward(bit_width_offset.dtype))
+            module,
+            "bit_width_offset",
+            _CastParameterForForward(bit_width_offset.dtype),
+            unsafe=True)
 
 
 def remove_bit_width_forward_parametrizations_(model: torch.nn.Module) -> None:
