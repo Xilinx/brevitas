@@ -63,27 +63,36 @@ class TestQuantMultiheadAttention:
             assert proj.batch_dim == 1
 
     def test_mha_torchscript_trace_after_input_output_cache(self):
-        qm = QuantMultiheadAttention(
-            EMBED_DIM,
-            NUM_HEADS,
-            in_proj_input_quant=None,
-            in_proj_weight_quant=None,
-            in_proj_bias_quant=None,
-            softmax_input_quant=None,
-            attn_output_weights_quant=None,
-            q_scaled_quant=None,
-            k_transposed_quant=None,
-            v_quant=None,
-            out_proj_input_quant=None,
-            out_proj_weight_quant=None,
-            out_proj_bias_quant=None,
-            out_proj_output_quant=None).eval()
+
+        class MHAModel(torch.nn.Module):
+
+            def __init__(self):
+                super().__init__()
+                self.mha = QuantMultiheadAttention(
+                    EMBED_DIM,
+                    NUM_HEADS,
+                    in_proj_input_quant=None,
+                    in_proj_weight_quant=None,
+                    in_proj_bias_quant=None,
+                    softmax_input_quant=None,
+                    attn_output_weights_quant=None,
+                    q_scaled_quant=None,
+                    k_transposed_quant=None,
+                    v_quant=None,
+                    out_proj_input_quant=None,
+                    out_proj_weight_quant=None,
+                    out_proj_bias_quant=None,
+                    out_proj_output_quant=None)
+
+            def forward(self, x):
+                return self.mha(x, x, x)
+
+        model = MHAModel().eval()
         query = torch.randn(5, 2, EMBED_DIM)
-        inputs = (query, query, query)
 
         # This is the eager pass performed by the TorchScript export path. The same
         # input objects are passed to tracing immediately afterward.
-        _cache_inp_out(qm, *inputs)
+        _cache_inp_out(model, query)
 
-        torch.jit.trace(qm, inputs)
+        torch.jit.trace(model, query)
         assert query.names == (None, None, None)
