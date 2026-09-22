@@ -100,14 +100,14 @@ def _move_input_to_model_device(model: torch.nn.Module, sample: Dict[str, Any]) 
     return recursive_to_device(sample, device)
 
 
-def _get_logits(
+def _get_shifted_logits_and_labels(
         model: torch.nn.Module,
         data: Iterable[Dict],
         context_length: int,
         tokenizer: Any,
         seed: int = 0,
         dtype: torch.dtype = torch.float32) -> Iterator[Tuple[torch.Tensor, torch.Tensor]]:
-    """Yield scored logits and labels from the model."""
+    """Yield shifted logits and labels for next-token evaluation."""
 
     _set_eval_seed(seed)
     model = model.eval()
@@ -143,7 +143,7 @@ def compute_float_evaluation_metrics(
 
     ppl = Perplexity(dtype=dtype)
     chunks = []
-    for logits, labels in _get_logits(
+    for logits, labels in _get_shifted_logits_and_labels(
             model, data, context_length, tokenizer, seed=seed, dtype=dtype):
         if top_k > logits.shape[-1]:
             raise ValueError(f"top_k ({top_k}) exceeds the vocabulary size ({logits.shape[-1]}).")
@@ -180,8 +180,9 @@ def compute_quantized_evaluation_metrics(
     kld = KLD(normalize=normalize, dtype=dtype)
     assert len(data) == len(reference_probabilities), \
         "Evaluation data and reference probabilities must have the same length."
-    logits_labels = _get_logits(model, data, context_length, tokenizer, seed=seed, dtype=dtype)
-    for (logits, labels), reference_chunk in zip(logits_labels, reference_probabilities.chunks):
+    logits_and_labels = _get_shifted_logits_and_labels(
+        model, data, context_length, tokenizer, seed=seed, dtype=dtype)
+    for (logits, labels), reference_chunk in zip(logits_and_labels, reference_probabilities.chunks):
         ppl.update(logits, labels)
 
         # Token IDs are stored as int32 in the cache. We convert them to int64 here because
