@@ -1,3 +1,6 @@
+# Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
 """
 Adapted from https://github.com/huggingface/optimum-amd, released under the following LICENSE:
 
@@ -31,6 +34,7 @@ from typing import Callable
 from typing import Dict
 from typing import Iterable
 from typing import List
+from typing import Mapping
 from typing import Optional
 from typing import Union
 import warnings
@@ -95,9 +99,12 @@ def llm_collate(
 
 
 @torch.no_grad()
-def recursive_to_device(tensor_or_iterable: Union[Iterable, torch.Tensor], device) -> None:
+def recursive_to_device(tensor_or_iterable: Union[Iterable, Mapping, torch.Tensor], device) -> Any:
     if isinstance(tensor_or_iterable, torch.Tensor):
         return tensor_or_iterable.to(device)
+    elif isinstance(tensor_or_iterable, Mapping):
+        return {
+            key: recursive_to_device(value, device) for key, value in tensor_or_iterable.items()}
     elif isinstance(tensor_or_iterable,
                     tuple):  # Special handling of tuples, since they are immutable
         tmp_list = []

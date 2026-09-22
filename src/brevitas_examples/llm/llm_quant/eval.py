@@ -91,15 +91,13 @@ def _set_eval_seed(seed: int) -> None:
     torch.random.manual_seed(seed)
 
 
-def _move_subsample_to_model(model: torch.nn.Module, subsample: Dict[str, Any]) -> Dict[str, Any]:
+def _move_input_to_model_device(model: torch.nn.Module, sample: Dict[str, Any]) -> Dict[str, Any]:
     use_accelerate = hasattr(model, "hf_device_map")
     if not use_accelerate or not hasattr(model, "_hf_hook"):
         device = next(model.parameters()).device
     else:
         device = model._hf_hook.execution_device
-    for name, value in subsample.items():
-        subsample[name] = recursive_to_device(value, device)
-    return subsample
+    return recursive_to_device(sample, device)
 
 
 def _get_logits(
@@ -124,7 +122,7 @@ def _get_logits(
             if "past_key_values" in sample and isinstance(model, torch.fx.GraphModule):
                 subsample["past_key_values"] = sample["past_key_values"]
 
-            subsample = _move_subsample_to_model(model, subsample)
+            subsample = _move_input_to_model_device(model, subsample)
             logits = model(**subsample)["logits"]
             yield logits[:, context_length - 1:-1].to(dtype), \
                 subsample["input_ids"][:, context_length:]
