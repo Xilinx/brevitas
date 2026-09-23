@@ -120,28 +120,6 @@ class QuantTensor(Tensor):
     def contiguous(self):
         return self._apply_and_reconstruct(Tensor.contiguous)
 
-    def _slice_metadata_kwargs(self, index):
-        """Slice tensor metadata that is aligned with the leading value dimension."""
-        original_shape = self.value.shape
-        metadata_kwargs = self._get_metadata_kwargs()
-        for name, metadata in tuple(metadata_kwargs.items()):
-            if (isinstance(metadata, Tensor) and metadata.dim() > 0 and
-                    metadata.shape[0] == original_shape[0]):
-                metadata_kwargs[name] = metadata[index]
-        return metadata_kwargs
-
-    def __getitem__(self, index):
-        """Index the leading dimension while preserving aligned quantization metadata."""
-        if isinstance(index, Tensor):
-            if index.dim() != 0 or index.dtype not in (
-                    torch.int8, torch.int16, torch.int32, torch.int64, torch.uint8):
-                raise TypeError('QuantTensor indices must be integer scalars.')
-            index = int(index.item())
-        if not isinstance(index, (int, slice)):
-            raise TypeError('QuantTensor indexing supports an integer or slice.')
-
-        return self._reconstruct(self._value[index], self._slice_metadata_kwargs(index))
-
     @property
     def shape(self):
         return self.value.shape
@@ -328,22 +306,6 @@ class GroupwiseQuantTensorMixin:
         if isinstance(other, QuantTensor):
             return self.value / other.value
         return self.value / other
-
-    def _slice_metadata_kwargs(self, index):
-        """Update group geometry after indexing the dequantized leading dimension."""
-        metadata_kwargs = super()._slice_metadata_kwargs(index)
-        if isinstance(index, int):
-            group_dim = self.group_dim
-            original_shape = self.value.shape
-            normalized_group_dim = group_dim if group_dim >= 0 else group_dim + len(original_shape)
-            if normalized_group_dim == 0:
-                raise RuntimeError('Cannot remove the grouped dimension through indexing.')
-            metadata_kwargs['group_dim'] = group_dim - 1 if group_dim > 0 else group_dim
-            if self.dequant_shape is not None:
-                metadata_kwargs['dequant_shape'] = tuple(self.dequant_shape[1:])
-        elif self.dequant_shape is not None:
-            metadata_kwargs['dequant_shape'] = tuple(self.value[index].shape)
-        return metadata_kwargs
 
 
 class IntMixin:
