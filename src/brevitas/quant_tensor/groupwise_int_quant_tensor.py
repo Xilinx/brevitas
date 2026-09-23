@@ -11,15 +11,16 @@ from brevitas.quant_tensor.base_quant_tensor import QuantTensor
 
 class GroupwiseIntQuantTensor(GroupwiseQuantTensorMixin, IntMixin, QuantTensor):
 
-    _constructor_metadata = {
-        'scale': '_scale',
-        'zero_point': '_zero_point',
-        'group_size': '_group_size',
-        'group_dim': '_group_dim',
-        'bit_width': '_bit_width',
-        'signed': '_signed',
-        'training': '_training',
-        'dequant_shape': '_dequant_shape'}
+    _quant_tensor_metadata = (
+        '_scale',
+        '_zero_point',
+        '_group_size',
+        '_group_dim',
+        '_bit_width',
+        '_signed',
+        '_training',
+        '_dequant_shape',
+    )
 
     def __init__(
             self,
