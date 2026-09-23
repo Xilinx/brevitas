@@ -7,7 +7,6 @@ from torch import nn
 
 from brevitas_examples.llm.llm_quant.eval import compute_float_evaluation_metrics
 from brevitas_examples.llm.llm_quant.eval import compute_quantized_evaluation_metrics
-from brevitas_examples.llm.llm_quant.eval import ProbabilityCache
 
 
 class FixedLogitsModel(nn.Module):
@@ -103,16 +102,15 @@ class TestEvaluation:
 
         assert metrics.ppl is not None
         assert metrics.probabilities is not None
-        assert metrics.probabilities.chunks[0].token_ids.dtype == torch.int32
-        assert metrics.probabilities.chunks[0].token_ids.device.type == "cpu"
-        assert metrics.probabilities.chunks[0].probabilities.dtype == torch.float32
-        assert metrics.probabilities.chunks[0].probabilities.device.type == "cpu"
+        assert metrics.probabilities[0].token_ids.dtype == torch.int32
+        assert metrics.probabilities[0].token_ids.device.type == "cpu"
+        assert metrics.probabilities[0].probabilities.dtype == torch.float32
+        assert metrics.probabilities[0].probabilities.device.type == "cpu"
         # Verify that one model call computes all metrics for the data chunk.
         assert model.forward_count == 1
 
     def test_expected_acceptance_rate_rejects_cache_with_fewer_chunks(self):
         model = FixedLogitsModel(self.reference_logits)
-        empty_cache = ProbabilityCache(chunks=[])
 
         with pytest.raises(AssertionError, match="same length"):
             compute_quantized_evaluation_metrics(
@@ -120,4 +118,4 @@ class TestEvaluation:
                 data=self.data,
                 context_length=2,
                 tokenizer=None,
-                reference_probabilities=empty_cache)
+                reference_probabilities=[])

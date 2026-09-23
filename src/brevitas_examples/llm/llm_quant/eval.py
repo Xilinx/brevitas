@@ -27,13 +27,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-from dataclasses import dataclass
 import random
 from typing import Any
 from typing import Dict
 from typing import Iterable
 from typing import Iterator
 from typing import List
+from typing import NamedTuple
 from typing import Optional
 from typing import Tuple
 
@@ -57,32 +57,20 @@ def create_validation_dataloader(data, seqlen, device):
     return val_dataloader
 
 
-@dataclass(frozen=True)
-class ProbabilityChunk:
+class ProbabilityChunk(NamedTuple):
     """Store probabilities for one evaluation chunk."""
 
     token_ids: torch.Tensor
     probabilities: torch.Tensor
 
 
-@dataclass(frozen=True)
-class ProbabilityCache:
-    """Store list of probability chunks."""
-
-    chunks: List[ProbabilityChunk]
-
-    def __len__(self) -> int:
-        return len(self.chunks)
-
-
-@dataclass(frozen=True)
-class EvaluationResults:
+class EvaluationResults(NamedTuple):
     """Store metrics and probabilities."""
 
     ppl: Optional[float] = None
     ear: Optional[float] = None
     kld: Optional[float] = None
-    probabilities: Optional[ProbabilityCache] = None
+    probabilities: Optional[List[ProbabilityChunk]] = None
 
 
 def _set_eval_seed(seed: int) -> None:
@@ -155,7 +143,7 @@ def compute_float_evaluation_metrics(
                 token_ids=top_ids.to(device="cpu", dtype=torch.int32),
                 probabilities=top_probabilities.to(device="cpu", dtype=torch.float32)))
 
-    return EvaluationResults(ppl=ppl.finalize(), probabilities=ProbabilityCache(chunks=chunks))
+    return EvaluationResults(ppl=ppl.finalize(), probabilities=chunks)
 
 
 @torch.no_grad()
@@ -164,7 +152,7 @@ def compute_quantized_evaluation_metrics(
         data: Iterable[Dict],
         context_length: int,
         tokenizer: Any,
-        reference_probabilities: ProbabilityCache,
+        reference_probabilities: List[ProbabilityChunk],
         normalize: bool = True,
         seed: int = 0,
         dtype: torch.dtype = torch.float32) -> EvaluationResults:
@@ -182,7 +170,7 @@ def compute_quantized_evaluation_metrics(
         "Evaluation data and reference probabilities must have the same length."
     logits_and_labels = _get_shifted_logits_and_labels(
         model, data, context_length, tokenizer, seed=seed, dtype=dtype)
-    for (logits, labels), reference_chunk in zip(logits_and_labels, reference_probabilities.chunks):
+    for (logits, labels), reference_chunk in zip(logits_and_labels, reference_probabilities):
         ppl.update(logits, labels)
 
         # Token IDs are stored as int32 in the cache. We convert them to int64 here because
