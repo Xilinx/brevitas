@@ -21,6 +21,9 @@ _MISSING = object()
 # Quantization metadata (scale, zero_point, bit_width, etc.) are stored as regular attributes.
 class QuantTensor(Tensor):
 
+    # Private metadata attributes used to reconstruct concrete QuantTensor types.
+    _quant_tensor_metadata = ()
+
     @staticmethod
     def __new__(cls, value, *args, **kwargs):
         if cls is QuantTensor:
@@ -48,22 +51,19 @@ class QuantTensor(Tensor):
         # Use as_subclass to preserve grad_fn and requires_grad.
         return self._value
 
-    # Private metadata attributes used to reconstruct concrete QuantTensor types.
-    _quant_tensor_metadata = ()
-
     @staticmethod
     def _as_tensor(value, dtype, device):
         """Convert metadata literals without moving tensor-valued metadata."""
         return value if isinstance(value, Tensor) else torch.tensor(
             value, dtype=dtype, device=device)
 
-    def _get_constructor_kwargs(self):
+    def _get_metadata_kwargs(self):
         """Return constructor metadata from its private backing attributes."""
         # Private metadata attributes map to constructor keyword names without the prefix.
         return {
             attribute[1:]: getattr(self, attribute) for attribute in self._quant_tensor_metadata}
 
-    def _reconstruct(self, value, ctor_kwargs=None):
+    def _reconstruct(self, value, metadata_kwargs=None):
         """
         Rebuild this type from constructor-form value and metadata.
 
@@ -71,19 +71,19 @@ class QuantTensor(Tensor):
         constructor: dequantized for regular QuantTensors and grouped for
         groupwise QuantTensors.
         """
-        if ctor_kwargs is None:
-            ctor_kwargs = self._get_constructor_kwargs()
+        if metadata_kwargs is None:
+            metadata_kwargs = self._get_metadata_kwargs()
         else:
-            ctor_kwargs = dict(ctor_kwargs)
-        return type(self)(value, **ctor_kwargs)
+            metadata_kwargs = dict(metadata_kwargs)
+        return type(self)(value, **metadata_kwargs)
 
     def _apply_and_reconstruct(self, tensor_op, *args, **kwargs):
         """Apply a Tensor operation to the constructor value and tensor metadata."""
-        ctor_kwargs = self._get_constructor_kwargs()
-        for parameter, metadata in ctor_kwargs.items():
+        metadata_kwargs = self._get_metadata_kwargs()
+        for parameter, metadata in metadata_kwargs.items():
             if isinstance(metadata, Tensor):
-                ctor_kwargs[parameter] = tensor_op(metadata, *args, **kwargs)
-        return self._reconstruct(tensor_op(self._value, *args, **kwargs), ctor_kwargs)
+                metadata_kwargs[parameter] = tensor_op(metadata, *args, **kwargs)
+        return self._reconstruct(tensor_op(self._value, *args, **kwargs), metadata_kwargs)
 
     def _metadata_on_device(self, device):
         """Return whether every tensor-backed metadata field is on ``device``."""
@@ -99,12 +99,12 @@ class QuantTensor(Tensor):
         ``value`` replaces the raw constructor value.
         """
         value = kwargs.pop('value', _MISSING)
-        ctor_kwargs = self._get_constructor_kwargs()
-        ctor_kwargs.update(kwargs)
+        metadata_kwargs = self._get_metadata_kwargs()
+        metadata_kwargs.update(kwargs)
         if value is None:
             raise TypeError('QuantTensor value must be a Tensor, not None.')
         new_value = self._value if value is _MISSING else value
-        return self._reconstruct(new_value, ctor_kwargs)
+        return self._reconstruct(new_value, metadata_kwargs)
 
     def detach_(self):
         super().detach_()
@@ -120,15 +120,15 @@ class QuantTensor(Tensor):
     def contiguous(self):
         return self._apply_and_reconstruct(Tensor.contiguous)
 
-    def _slice_constructor_kwargs(self, index):
+    def _slice_metadata_kwargs(self, index):
         """Slice tensor metadata that is aligned with the leading value dimension."""
         original_shape = self.value.shape
-        ctor_kwargs = self._get_constructor_kwargs()
-        for name, metadata in tuple(ctor_kwargs.items()):
+        metadata_kwargs = self._get_metadata_kwargs()
+        for name, metadata in tuple(metadata_kwargs.items()):
             if (isinstance(metadata, Tensor) and metadata.dim() > 0 and
                     metadata.shape[0] == original_shape[0]):
-                ctor_kwargs[name] = metadata[index]
-        return ctor_kwargs
+                metadata_kwargs[name] = metadata[index]
+        return metadata_kwargs
 
     def __getitem__(self, index):
         """Index the leading dimension while preserving aligned quantization metadata."""
@@ -140,7 +140,7 @@ class QuantTensor(Tensor):
         if not isinstance(index, (int, slice)):
             raise TypeError('QuantTensor indexing supports an integer or slice.')
 
-        return self._reconstruct(self._value[index], self._slice_constructor_kwargs(index))
+        return self._reconstruct(self._value[index], self._slice_metadata_kwargs(index))
 
     @property
     def shape(self):
@@ -154,15 +154,15 @@ class QuantTensor(Tensor):
 
     def to(self, *args, **kwargs):
         new_value = Tensor.to(self._value, *args, **kwargs)
-        ctor_kwargs = self._get_constructor_kwargs()
-        for parameter, metadata in ctor_kwargs.items():
+        metadata_kwargs = self._get_metadata_kwargs()
+        for parameter, metadata in metadata_kwargs.items():
             if not isinstance(metadata, Tensor):
                 continue
             if metadata.dtype == torch.bool:
-                ctor_kwargs[parameter] = metadata.to(device=new_value.device)
+                metadata_kwargs[parameter] = metadata.to(device=new_value.device)
             else:
-                ctor_kwargs[parameter] = metadata.to(*args, **kwargs)
-        return self._reconstruct(new_value, ctor_kwargs)
+                metadata_kwargs[parameter] = metadata.to(*args, **kwargs)
+        return self._reconstruct(new_value, metadata_kwargs)
 
     def cuda(self, *args, **kwargs):
         return self._apply_and_reconstruct(Tensor.cuda, *args, **kwargs)
@@ -328,21 +328,21 @@ class GroupwiseQuantTensorMixin:
             return self.value / other.value
         return self.value / other
 
-    def _slice_constructor_kwargs(self, index):
+    def _slice_metadata_kwargs(self, index):
         """Update group geometry after indexing the dequantized leading dimension."""
-        ctor_kwargs = super()._slice_constructor_kwargs(index)
+        metadata_kwargs = super()._slice_metadata_kwargs(index)
         if isinstance(index, int):
             group_dim = self.group_dim
             original_shape = self.value.shape
             normalized_group_dim = group_dim if group_dim >= 0 else group_dim + len(original_shape)
             if normalized_group_dim == 0:
                 raise RuntimeError('Cannot remove the grouped dimension through indexing.')
-            ctor_kwargs['group_dim'] = group_dim - 1 if group_dim > 0 else group_dim
+            metadata_kwargs['group_dim'] = group_dim - 1 if group_dim > 0 else group_dim
             if self.dequant_shape is not None:
-                ctor_kwargs['dequant_shape'] = tuple(self.dequant_shape[1:])
+                metadata_kwargs['dequant_shape'] = tuple(self.dequant_shape[1:])
         elif self.dequant_shape is not None:
-            ctor_kwargs['dequant_shape'] = tuple(self.value[index].shape)
-        return ctor_kwargs
+            metadata_kwargs['dequant_shape'] = tuple(self.value[index].shape)
+        return metadata_kwargs
 
 
 class IntMixin:
