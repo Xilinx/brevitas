@@ -10,20 +10,21 @@ from brevitas.quant_tensor.base_quant_tensor import QuantTensor
 
 class GroupwiseFloatQuantTensor(GroupwiseQuantTensorMixin, FloatMixin, QuantTensor):
 
-    _constructor_metadata = {
-        'scale': '_scale',
-        'zero_point': '_zero_point',
-        'group_size': '_group_size',
-        'group_dim': '_group_dim',
-        'exponent_bit_width': '_exponent_bit_width',
-        'mantissa_bit_width': '_mantissa_bit_width',
-        'exponent_bias': '_exponent_bias',
-        'saturating': '_saturating',
-        'inf_values': '_inf_values',
-        'nan_values': '_nan_values',
-        'signed': '_signed',
-        'training': '_training',
-        'dequant_shape': '_dequant_shape'}
+    _quant_tensor_metadata = (
+        '_scale',
+        '_zero_point',
+        '_group_size',
+        '_group_dim',
+        '_exponent_bit_width',
+        '_mantissa_bit_width',
+        '_exponent_bias',
+        '_saturating',
+        '_inf_values',
+        '_nan_values',
+        '_signed',
+        '_training',
+        '_dequant_shape',
+    )
 
     def __init__(
             self,

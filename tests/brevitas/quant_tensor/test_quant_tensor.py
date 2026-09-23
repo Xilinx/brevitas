@@ -80,12 +80,13 @@ def test_qt_structure():
     assert isinstance(qt, IntQuantTensor)
     assert isinstance(qt, QuantTensor)
     assert isinstance(qt, torch.Tensor)
-    assert qt._constructor_metadata == {
-        'scale': '_scale',
-        'zero_point': '_zero_point',
-        'bit_width': '_bit_width',
-        'signed': '_signed',
-        'training': '_training'}
+    assert qt._quant_tensor_metadata == (
+        '_scale',
+        '_zero_point',
+        '_bit_width',
+        '_signed',
+        '_training',
+    )
 
 
 def test_quant_tensor_init():

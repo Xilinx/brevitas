@@ -13,17 +13,18 @@ from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
 class FloatQuantTensor(FloatMixin, QuantTensor):
 
-    _constructor_metadata = {
-        'scale': '_scale',
-        'zero_point': '_zero_point',
-        'exponent_bit_width': '_exponent_bit_width',
-        'mantissa_bit_width': '_mantissa_bit_width',
-        'exponent_bias': '_exponent_bias',
-        'saturating': '_saturating',
-        'inf_values': '_inf_values',
-        'nan_values': '_nan_values',
-        'signed': '_signed',
-        'training': '_training'}
+    _quant_tensor_metadata = (
+        '_scale',
+        '_zero_point',
+        '_exponent_bit_width',
+        '_mantissa_bit_width',
+        '_exponent_bias',
+        '_saturating',
+        '_inf_values',
+        '_nan_values',
+        '_signed',
+        '_training',
+    )
 
     def __new__(
             cls,
