@@ -26,6 +26,7 @@ from torch.fx import GraphModule as TorchGraphModule
 import torch.nn as nn
 import torch.nn.utils.parametrize as parametrize
 
+from brevitas import config as brevitas_config
 from brevitas import torch_version
 from brevitas.fx import GraphModule
 from brevitas.fx import Node
@@ -1769,12 +1770,33 @@ def _untie_parameters_with_parametrizations(model: torch.nn.Module):
     return model
 
 
-def fuse_parametrizations(model: nn.Module) -> nn.Module:
+def fuse_parametrizations(model: nn.Module, device: Optional[torch.device] = None) -> nn.Module:
+    """Materialize parametrized weights, optionally one layer at a time on ``device``."""
     # First of all, parameters that have parametrizations need to be untied
     model = _untie_parameters_with_parametrizations(model)
-    # Then, parametrizations can be safely removed
-    for module in model.modules():
-        if parametrize.is_parametrized(module):
+    parametrized_modules = [(name, module) for name,
+                            module in model.named_modules() if parametrize.is_parametrized(module)]
+
+    # Move complete decoder layers so their projections are not repeatedly
+    # transferred between CPU and GPU during fusion.
+    fusion_units = {}
+    for name, module in parametrized_modules:
+        parts = name.split('.')
+        if len(parts) >= 3 and parts[0] == 'model' and parts[1] == 'layers' and parts[2].isdigit():
+            unit_name = '.'.join(parts[:3])
+            unit = recurse_getattr(model, unit_name)
+        else:
+            unit_name = name
+            unit = module
+        if unit_name not in fusion_units:
+            fusion_units[unit_name] = (unit, [])
+        fusion_units[unit_name][1].append(module)
+
+    # Then, parametrizations can be safely removed.
+    for unit, modules in fusion_units.values():
+        if device is not None:
+            unit.to(device)
+        for module in modules:
             # Names of the tensors that can potentially be parametrized
             tensor_names = list(module.parametrizations.keys())
             # Remove parametrizations from each tensor
@@ -1800,9 +1822,14 @@ def fuse_parametrizations(model: nn.Module) -> nn.Module:
                             # Compile adds extra "._orig_mod" which we need to remove
                             state_dict = {
                                 k.replace("._orig_mod", ""): v for (k, v) in state_dict.items()}
-                        submodule.load_state_dict(state_dict)
+                        with brevitas_config.disable_reinit_on_state_dict_load():
+                            submodule.load_state_dict(state_dict)
                     if is_proxy_compiled:
                         submodule.compile_quant()
+        if device is not None:
+            unit.cpu()
+    if device is not None and device.type == "cuda":
+        torch.cuda.empty_cache()
     return model
 
 
