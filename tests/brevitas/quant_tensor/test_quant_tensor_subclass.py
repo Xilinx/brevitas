@@ -577,41 +577,43 @@ class TestRightHandOperators:
 
 
 # ---------------------------------------------------------------------------
-# 9. Constructor metadata
+# 9. Quant-tensor metadata
 # ---------------------------------------------------------------------------
 
 
-class TestConstructorMetadata:
+class TestQuantTensorMetadata:
 
-    def test_int_qt_constructor_metadata(self):
+    def test_int_qt_quant_tensor_metadata(self):
         qt = _make_int_qt()
-        assert qt._constructor_metadata == {
-            'scale': '_scale',
-            'zero_point': '_zero_point',
-            'bit_width': '_bit_width',
-            'signed': '_signed',
-            'training': '_training'}
+        assert qt._quant_tensor_metadata == (
+            '_scale',
+            '_zero_point',
+            '_bit_width',
+            '_signed',
+            '_training',
+        )
 
-    def test_float_qt_constructor_metadata(self):
+    def test_float_qt_quant_tensor_metadata(self):
         qt = _make_float_qt()
-        expected = {
-            'scale': '_scale',
-            'zero_point': '_zero_point',
-            'exponent_bit_width': '_exponent_bit_width',
-            'mantissa_bit_width': '_mantissa_bit_width',
-            'exponent_bias': '_exponent_bias',
-            'saturating': '_saturating',
-            'inf_values': '_inf_values',
-            'nan_values': '_nan_values',
-            'signed': '_signed',
-            'training': '_training'}
-        assert qt._constructor_metadata == expected
+        expected = (
+            '_scale',
+            '_zero_point',
+            '_exponent_bit_width',
+            '_mantissa_bit_width',
+            '_exponent_bias',
+            '_saturating',
+            '_inf_values',
+            '_nan_values',
+            '_signed',
+            '_training',
+        )
+        assert qt._quant_tensor_metadata == expected
 
-    def test_groupwise_float_qt_constructor_metadata(self):
+    def test_groupwise_float_qt_quant_tensor_metadata(self):
         qt = _make_mx_qt()
-        assert qt._constructor_metadata['scale'] == '_scale'
-        assert qt._constructor_metadata['group_size'] == '_group_size'
-        assert qt._constructor_metadata['group_dim'] == '_group_dim'
+        assert '_scale' in qt._quant_tensor_metadata
+        assert '_group_size' in qt._quant_tensor_metadata
+        assert '_group_dim' in qt._quant_tensor_metadata
 
 
 # ---------------------------------------------------------------------------

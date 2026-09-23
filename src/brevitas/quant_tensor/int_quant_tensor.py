@@ -17,12 +17,13 @@ from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
 class IntQuantTensor(IntMixin, QuantTensor):
 
-    _constructor_metadata = {
-        'scale': '_scale',
-        'zero_point': '_zero_point',
-        'bit_width': '_bit_width',
-        'signed': '_signed',
-        'training': '_training'}
+    _quant_tensor_metadata = (
+        '_scale',
+        '_zero_point',
+        '_bit_width',
+        '_signed',
+        '_training',
+    )
 
     def __new__(cls, value, scale, zero_point, bit_width, signed, training):
         if not isinstance(value, torch.Tensor):

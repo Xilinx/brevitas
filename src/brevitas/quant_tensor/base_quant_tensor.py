@@ -48,8 +48,8 @@ class QuantTensor(Tensor):
         # Use as_subclass to preserve grad_fn and requires_grad.
         return self._value
 
-    # Constructor parameter names mapped to private metadata attributes.
-    _constructor_metadata = {}
+    # Private metadata attributes used to reconstruct concrete QuantTensor types.
+    _quant_tensor_metadata = ()
 
     @staticmethod
     def _as_tensor(value, dtype, device):
@@ -59,9 +59,9 @@ class QuantTensor(Tensor):
 
     def _get_constructor_kwargs(self):
         """Return constructor metadata from its private backing attributes."""
+        # Private metadata attributes map to constructor keyword names without the prefix.
         return {
-            parameter: getattr(self, attribute) for parameter,
-            attribute in self._constructor_metadata.items()}
+            attribute[1:]: getattr(self, attribute) for attribute in self._quant_tensor_metadata}
 
     def _reconstruct(self, value, ctor_kwargs=None):
         """
@@ -89,7 +89,7 @@ class QuantTensor(Tensor):
         """Return whether every tensor-backed metadata field is on ``device``."""
         return all(
             device == getattr(self, attribute).device
-            for attribute in self._constructor_metadata.values()
+            for attribute in self._quant_tensor_metadata
             if isinstance(getattr(self, attribute), Tensor))
 
     def set(self, **kwargs):
@@ -108,7 +108,7 @@ class QuantTensor(Tensor):
 
     def detach_(self):
         super().detach_()
-        for attribute in self._constructor_metadata.values():
+        for attribute in self._quant_tensor_metadata:
             val = getattr(self, attribute)
             if isinstance(val, Tensor):
                 val.detach_()
