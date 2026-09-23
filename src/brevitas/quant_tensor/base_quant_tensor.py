@@ -158,6 +158,7 @@ class QuantTensor(Tensor):
         for parameter, metadata in metadata_kwargs.items():
             if not isinstance(metadata, Tensor):
                 continue
+            # Unlike cpu/cuda, to() may change dtype; boolean metadata must remain boolean.
             if metadata.dtype == torch.bool:
                 metadata_kwargs[parameter] = metadata.to(device=new_value.device)
             else:
