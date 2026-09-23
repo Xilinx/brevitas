@@ -667,6 +667,10 @@ def quantize_llm(args, extra_args=None):
                     return results, None
                 if is_main_process and fsdp_state_dict is not None:
                     with brevitas_config.disable_reinit_on_state_dict_load():
+                        prepare_state = getattr(
+                            custom_trainer_cls, "prepare_state_dict_for_inference", None)
+                        if prepare_state is not None:
+                            prepare_state(copied_model, fsdp_state_dict)
                         copied_model.load_state_dict(fsdp_state_dict, assign=True)
                     del fsdp_state_dict
                     del model
@@ -683,6 +687,9 @@ def quantize_llm(args, extra_args=None):
                     torch.device("cuda", torch.cuda.current_device())
                     if torch.cuda.is_available() else None)
                 model = fuse_parametrizations(model, device=fusion_device)
+            finalize = getattr(custom_trainer_cls, "finalize_model_for_inference", None)
+            if finalize is not None:
+                finalize(model)
             gpu_device_map = (
                 calc_gpu_device_map(
                     device_ids=range(torch.cuda.device_count())) if fsdp_enabled else None)
