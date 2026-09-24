@@ -8,7 +8,6 @@ from brevitas.quant_tensor import QuantTensor
 from brevitas.quant_tensor.base_quant_tensor import FloatMixin
 
 from .float_torch_handler import FLOAT_QUANT_TENSOR_FN_HANDLER
-from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
 
 class FloatQuantTensor(FloatMixin, QuantTensor):
@@ -134,14 +133,6 @@ class FloatQuantTensor(FloatMixin, QuantTensor):
         self._nan_values = value
 
     @property
-    def signed(self):
-        return self._signed.item()
-
-    @property
-    def training(self):
-        return self._training.item()
-
-    @property
     def saturating(self):
         return self._saturating.item()
 
@@ -155,12 +146,7 @@ class FloatQuantTensor(FloatMixin, QuantTensor):
             kwargs = {}
         if func in FLOAT_QUANT_TENSOR_FN_HANDLER:
             return FLOAT_QUANT_TENSOR_FN_HANDLER[func](*args, **kwargs)
-        elif func in QUANT_TENSOR_FN_HANDLER:
-            return QUANT_TENSOR_FN_HANDLER[func](*args, **kwargs)
-        else:
-            args = _unpack_quant_tensor(args)
-            kwargs = _unpack_quant_tensor(kwargs)
-            return func(*args, **kwargs)
+        return super().__torch_function__(func, types, args, kwargs)
 
     @staticmethod
     def check_input_type(tensor):
