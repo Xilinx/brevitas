@@ -165,86 +165,69 @@ class IntQuantTensor(IntMixin, QuantTensor):
                 training=self.training)
 
     def __add__(self, other):
-        if isinstance(other, IntQuantTensor):
-            self.check_scaling_factors_same(other)
-            output_value = self.value + other.value
-            output_scale = (self.scale + other.scale) / 2
-            output_zero_point = self.zero_point + other.zero_point
-            max_val = max_int(signed=self.signed, narrow_range=False, bit_width=self.bit_width)
-            max_val += max_int(signed=other.signed, narrow_range=False, bit_width=other.bit_width)
-            min_val = min_int(signed=self.signed, narrow_range=False, bit_width=self.bit_width)
-            min_val += min_int(signed=other.signed, narrow_range=False, bit_width=other.bit_width)
-            output_bit_width = ceil_ste(torch.log2(max_val - min_val))
-            output_signed = self.signed or other.signed
-            output_training = self.training or other.training
-            output = IntQuantTensor(
-                value=output_value,
-                scale=output_scale,
-                zero_point=output_zero_point,
-                bit_width=output_bit_width,
-                signed=output_signed,
-                training=output_training)
-        elif isinstance(other, QuantTensor):
-            output = self.value + _unpack_quant_tensor(other)
-        else:
-            # When adding a QT with a normal Tensor, we use the zero_point as a way to preserve
-            # and return a QT.
-            output = IntQuantTensor(
-                value=self.value + _unpack_quant_tensor(other),
-                scale=self.scale,
-                zero_point=self.zero_point - _unpack_quant_tensor(other) / self.scale,
-                bit_width=self.bit_width,
-                signed=self.signed,
-                training=self.training)
-        return output
+        if not isinstance(other, IntQuantTensor):
+            return super().__add__(other)
+
+        self.check_scaling_factors_same(other)
+        output_value = self.value + other.value
+        output_scale = (self.scale + other.scale) / 2
+        output_zero_point = self.zero_point + other.zero_point
+        max_val = max_int(signed=self.signed, narrow_range=False, bit_width=self.bit_width)
+        max_val += max_int(signed=other.signed, narrow_range=False, bit_width=other.bit_width)
+        min_val = min_int(signed=self.signed, narrow_range=False, bit_width=self.bit_width)
+        min_val += min_int(signed=other.signed, narrow_range=False, bit_width=other.bit_width)
+        output_bit_width = ceil_ste(torch.log2(max_val - min_val))
+        output_signed = self.signed or other.signed
+        output_training = self.training or other.training
+        return IntQuantTensor(
+            value=output_value,
+            scale=output_scale,
+            zero_point=output_zero_point,
+            bit_width=output_bit_width,
+            signed=output_signed,
+            training=output_training)
 
     def __mul__(self, other):
-        if isinstance(other, IntQuantTensor):
-            output_value = self.value * other.value
-            output_scale = self.scale * other.scale
-            output_bit_width = self.bit_width + other.bit_width
-            output_signed = self.signed or other.signed
-            output_training = self.training or other.training
-            if self.is_zero_zero_point(self) and self.is_zero_zero_point(other):
-                output_zero_point = self.zero_point * other.zero_point
-            else:
-                raise RuntimeError("Zero-points of mul operands are non-zero, not supported.")
-            output = IntQuantTensor(
-                value=output_value,
-                scale=output_scale,
-                zero_point=output_zero_point,
-                bit_width=output_bit_width,
-                signed=output_signed,
-                training=output_training)
-        else:
-            output = self.value * _unpack_quant_tensor(other)
-        return output
+        if not isinstance(other, IntQuantTensor):
+            return super().__mul__(other)
+
+        output_value = self.value * other.value
+        output_scale = self.scale * other.scale
+        output_bit_width = self.bit_width + other.bit_width
+        output_signed = self.signed or other.signed
+        output_training = self.training or other.training
+        if not self.is_zero_zero_point(self) or not self.is_zero_zero_point(other):
+            raise RuntimeError("Zero-points of mul operands are non-zero, not supported.")
+        return IntQuantTensor(
+            value=output_value,
+            scale=output_scale,
+            zero_point=self.zero_point * other.zero_point,
+            bit_width=output_bit_width,
+            signed=output_signed,
+            training=output_training)
 
     def __str__(self):
         return f"IntQuantTensor(value={self.value}, scale={self.scale}, zero_point={self.zero_point}, bit_width={self.bit_width}, signed={self._signed}, training={self._training})"
 
     def __truediv__(self, other):
-        if isinstance(other, IntQuantTensor):
-            output_tensor = self.value / other.value  # Note, output tensor not guaranteed to pass self.is_valid()
-            max_int_denominator = 2 ** (other.bit_width - int(other.signed))
-            output_scale = self.scale / (other.scale * max_int_denominator)
-            output_bit_width = self.bit_width + other.bit_width
-            output_signed = self.signed or other.signed
-            output_training = self.training or other.training
-            if self.is_zero_zero_point(self) and self.is_zero_zero_point(other):
-                output_zero_point = self.zero_point * other.zero_point  # Output zero_point is a new, zero-valued tensor
-            else:
-                raise RuntimeError("Zero-points of div operands are non-zero, not supported.")
-            output = IntQuantTensor(
-                value=output_tensor,
-                scale=output_scale,
-                zero_point=output_zero_point,
-                bit_width=output_bit_width,
-                signed=output_signed,
-                training=output_training)
-        else:
-            output = self.value / _unpack_quant_tensor(other)
-        return output
+        if not isinstance(other, IntQuantTensor):
+            return super().__truediv__(other)
+
+        output_value = self.value / other.value
+        max_int_denominator = 2 ** (other.bit_width - int(other.signed))
+        output_scale = self.scale / (other.scale * max_int_denominator)
+        output_bit_width = self.bit_width + other.bit_width
+        output_signed = self.signed or other.signed
+        output_training = self.training or other.training
+        if not self.is_zero_zero_point(self) or not self.is_zero_zero_point(other):
+            raise RuntimeError("Zero-points of div operands are non-zero, not supported.")
+        return IntQuantTensor(
+            value=output_value,
+            scale=output_scale,
+            zero_point=self.zero_point * other.zero_point,
+            bit_width=output_bit_width,
+            signed=output_signed,
+            training=output_training)
 
     def __abs__(self):
         if self.signed:

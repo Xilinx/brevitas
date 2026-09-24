@@ -149,6 +149,21 @@ class QuantTensor(Tensor):
     def cpu(self, *args, **kwargs):
         return self._apply_and_reconstruct(Tensor.cpu, *args, **kwargs)
 
+    def __add__(self, other):
+        if isinstance(other, QuantTensor):
+            return self.value + other.value
+        return self.value + other
+
+    def __mul__(self, other):
+        if isinstance(other, QuantTensor):
+            return self.value * other.value
+        return self.value * other
+
+    def __truediv__(self, other):
+        if isinstance(other, QuantTensor):
+            return self.value / other.value
+        return self.value / other
+
     def __radd__(self, other):
         return self.__add__(other)
 
@@ -291,21 +306,6 @@ class GroupwiseQuantTensorMixin:
 
     def permute(self, *args, **kwargs):
         return self.value.permute(*args, **kwargs)
-
-    def __add__(self, other):
-        if isinstance(other, QuantTensor):
-            return self.value + other.value
-        return self.value + other
-
-    def __mul__(self, other):
-        if isinstance(other, QuantTensor):
-            return self.value * other.value
-        return self.value * other
-
-    def __truediv__(self, other):
-        if isinstance(other, QuantTensor):
-            return self.value / other.value
-        return self.value / other
 
 
 class IntMixin:
