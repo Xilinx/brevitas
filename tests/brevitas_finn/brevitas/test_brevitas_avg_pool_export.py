@@ -77,7 +77,7 @@ def test_brevitas_avg_pool_export(
     model = model.transform(InferDataTypes())
 
     # reference brevitas output
-    ref_output_array = model_brevitas(inp).tensor.detach().numpy()
+    ref_output_array = model_brevitas(inp).value.detach().numpy()
     # finn output
     idict = {model.graph.input[0].name: inp.detach().numpy()}
     odict = oxe.execute_onnx(model, idict, True)

@@ -19,7 +19,7 @@ class _CachedIO:
         self.shape = quant_tensor.value.shape
         if metadata_only:
             self.value = None
-            self.quant_tensor = quant_tensor.set(value=None)
+            self.quant_tensor = quant_tensor.set(value=quant_tensor._value.new_empty(0))
         else:
             self.quant_tensor = quant_tensor
             # torch.compile compatibility
@@ -46,7 +46,7 @@ class _CachedIOFloat:
         self.shape = quant_tensor.value.shape
         if metadata_only:
             self.value = None
-            self.quant_tensor = quant_tensor.set(value=None)
+            self.quant_tensor = quant_tensor.set(value=quant_tensor._value.new_empty(0))
         else:
             self.quant_tensor = quant_tensor
             # torch.compile compatibility
@@ -93,14 +93,14 @@ class _CachedIOGroupwiseFloat:
         self.shape = quant_tensor.value.shape
         if metadata_only:
             self.value = None
-            self.quant_tensor = quant_tensor.set(value_=None)
+            self.quant_tensor = quant_tensor.set(value=quant_tensor._value.new_empty(0))
         else:
             self.quant_tensor = quant_tensor
             # torch.compile compatibility
             self.value = quant_tensor.value
         # torch.compile compatibility
-        self.scale_ = quant_tensor.scale_
-        self.zero_point_ = quant_tensor.zero_point_
+        self._scale = quant_tensor._scale
+        self._zero_point = quant_tensor._zero_point
 
     @property
     def exponent_bit_width(self):
@@ -145,14 +145,14 @@ class _CachedIOGroupwiseInt:
         self.shape = quant_tensor.value.shape
         if metadata_only:
             self.value = None
-            self.quant_tensor = quant_tensor.set(value_=None)
+            self.quant_tensor = quant_tensor.set(value=quant_tensor._value.new_empty(0))
         else:
             self.quant_tensor = quant_tensor
             # torch.compile compatibility
             self.value = quant_tensor.value
         # torch.compile compatibility
-        self.scale_ = quant_tensor.scale_
-        self.zero_point_ = quant_tensor.zero_point_
+        self._scale = quant_tensor._scale
+        self._zero_point = quant_tensor._zero_point
 
     @property
     def bit_width(self):

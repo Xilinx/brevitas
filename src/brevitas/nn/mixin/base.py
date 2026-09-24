@@ -22,11 +22,8 @@ from brevitas.common import LayerProtocol
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import Injector
 from brevitas.quant_tensor import _unpack_quant_tensor
-from brevitas.quant_tensor import FloatQuantTensor
 from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
-from brevitas.quant_tensor.groupwise_float_quant_tensor import GroupwiseFloatQuantTensor
-from brevitas.quant_tensor.groupwise_int_quant_tensor import GroupwiseIntQuantTensor
 from brevitas.utils.torch_utils import rename_tensor
 
 from .utils import filter_kwargs
@@ -74,22 +71,7 @@ class QuantLayerMixin(ExportMixin, LayerProtocol):
     def channelwise_separable(self) -> bool:
         pass
 
-    def get_quant_tensor_class(self, inp: Union[Tensor, QuantTensor]):
-        quant_tensor_classes = [
-            IntQuantTensor, FloatQuantTensor, GroupwiseIntQuantTensor, GroupwiseFloatQuantTensor]
-        for qt_class in quant_tensor_classes:
-            if len(inp) == len(qt_class._fields):
-                return qt_class
-        return None
-
     def unpack_input(self, inp: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
-        # Hack to recognize a QuantTensor that has decayed to a tuple
-        # when used as input to tracing (e.g. during ONNX export)
-        if (torch._C._get_tracing_state() is not None and isinstance(inp, tuple) and
-                all([isinstance(t, Tensor) for t in inp])):
-            qt_class = self.get_quant_tensor_class(inp)
-            if qt_class is not None:
-                inp = qt_class(*inp)
         if not torch._C._get_tracing_state() and not is_dynamo_compiling():
             if isinstance(inp, QuantTensor):
                 inp = inp.set(value=rename_tensor(inp.value, None))

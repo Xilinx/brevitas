@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from typing import List
-from typing import NamedTuple
 from typing import Optional
 from typing import Tuple
 
@@ -13,40 +12,141 @@ from brevitas.function.ops_ste import round_ste
 from brevitas.utils.torch_utils import float_internal_scale
 
 TOLERANCE = {torch.float64: 1e-1, torch.float32: 2e-1, torch.float16: 0.5, torch.bfloat16: 0.5}
+_MISSING = object()
 
 
-# Base class for all QuantTensor.
-# Only assumptions made by these methods are:
-# - `self` is a NamedTuple with a `_fields` attribute
-# - `self` has a `value` attribute
-class QuantTensor:
+# Base class for all QuantTensor types.
+# Subclasses torch.Tensor, where the underlying data is raw storage: dequantized for regular
+# QuantTensors and grouped for groupwise QuantTensors.
+# Quantization metadata (scale, zero_point, bit_width, etc.) are stored as regular attributes.
+class QuantTensor(Tensor):
 
-    def detach_(self):
-        for field in self._fields:
-            getattr(self, field).detach_()
+    # Private metadata attributes used to reconstruct concrete QuantTensor types.
+    _quant_tensor_metadata = ()
 
-    def detach(self):
-        qt_type = type(self)
-        values = []
-        for field in self._fields:
-            value = getattr(self, field)
-            if isinstance(value, Tensor):
-                value = value.detach()
-            values.append(value)
-        return qt_type(*values)
+    @staticmethod
+    def __new__(cls, value, *args, **kwargs):
+        if cls is QuantTensor:
+            raise TypeError('QuantTensor is a base class and cannot be instantiated directly.')
+        if not isinstance(value, Tensor):
+            value = torch.tensor(value, dtype=torch.float)
+        # Create tensor subclass wrapping the value data.
+        # Use as_subclass to preserve grad_fn and requires_grad.
+        return value.as_subclass(cls)
 
-    def contiguous(self):
-        qt_type = type(self)
-        values = []
-        for field in self._fields:
-            value = getattr(self, field)
-            if isinstance(value, Tensor):
-                value = value.contiguous()
-            values.append(value)
-        return qt_type(*values)
+    def __init__(self, value, *args, **kwargs):
+        # Subclasses should NOT call super().__init__() with args;
+        # metadata is set by subclass __init__ methods.
+        pass
+
+    @property
+    def _value(self):
+        """Return the raw Tensor representation stored by this Tensor subclass."""
+        return Tensor.as_subclass(self, Tensor)
+
+    @property
+    def value(self):
+        # The tensor itself IS the value.
+        # Return a plain Tensor view to avoid infinite recursion in operations.
+        # Use as_subclass to preserve grad_fn and requires_grad.
+        return self._value
+
+    @property
+    def signed(self):
+        return self._signed.item()
+
+    @property
+    def training(self):
+        return self._training.item()
+
+    @classmethod
+    def __torch_function__(cls, func, types, args=(), kwargs=None):
+        if kwargs is None:
+            kwargs = {}
+        from brevitas.quant_tensor import _unpack_quant_tensor
+
+        from .torch_handler import QUANT_TENSOR_FN_HANDLER
+        if func in QUANT_TENSOR_FN_HANDLER:
+            return QUANT_TENSOR_FN_HANDLER[func](*args, **kwargs)
+        args = _unpack_quant_tensor(args)
+        kwargs = _unpack_quant_tensor(kwargs)
+        return func(*args, **kwargs)
+
+    @staticmethod
+    def _as_tensor(value, dtype, device):
+        """Convert metadata literals without moving tensor-valued metadata."""
+        return value if isinstance(value, Tensor) else torch.tensor(
+            value, dtype=dtype, device=device)
+
+    def _get_metadata_kwargs(self):
+        """Return constructor metadata from its private backing attributes."""
+        # Private metadata attributes map to constructor keyword names without the prefix.
+        return {
+            attribute[1:]: getattr(self, attribute) for attribute in self._quant_tensor_metadata}
+
+    def _reconstruct(self, value, metadata_kwargs=None):
+        """
+        Rebuild this type from constructor-form value and metadata.
+
+        ``value`` must use the representation expected by the concrete
+        constructor: dequantized for regular QuantTensors and grouped for
+        groupwise QuantTensors.
+        """
+        if metadata_kwargs is None:
+            metadata_kwargs = self._get_metadata_kwargs()
+        else:
+            metadata_kwargs = dict(metadata_kwargs)
+        return type(self)(value, **metadata_kwargs)
+
+    def _apply_and_reconstruct(self, tensor_op, *args, **kwargs):
+        """Apply a Tensor operation to the constructor value and tensor metadata."""
+        metadata_kwargs = self._get_metadata_kwargs()
+        for parameter, metadata in metadata_kwargs.items():
+            if isinstance(metadata, Tensor):
+                metadata_kwargs[parameter] = tensor_op(metadata, *args, **kwargs)
+        return self._reconstruct(tensor_op(self._value, *args, **kwargs), metadata_kwargs)
+
+    def _metadata_on_device(self, device):
+        """Return whether every tensor-backed metadata field is on ``device``."""
+        return all(
+            device == getattr(self, attribute).device
+            for attribute in self._quant_tensor_metadata
+            if isinstance(getattr(self, attribute), Tensor))
+
+    @property
+    def device(self):
+        value_device = self._value.device
+        if not self._metadata_on_device(value_device):
+            raise RuntimeError("Value and metadata are on different devices")
+        return value_device
 
     def set(self, **kwargs):
-        return self._replace(**kwargs)
+        """
+        Create a new QuantTensor with some fields replaced.
+
+        ``value`` replaces the raw constructor value.
+        """
+        value = kwargs.pop('value', _MISSING)
+        metadata_kwargs = self._get_metadata_kwargs()
+        metadata_kwargs.update(kwargs)
+        if value is None:
+            raise TypeError('QuantTensor value must be a Tensor, not None.')
+        new_value = self._value if value is _MISSING else value
+        return self._reconstruct(new_value, metadata_kwargs)
+
+    def detach_(self):
+        super().detach_()
+        for attribute in self._quant_tensor_metadata:
+            val = getattr(self, attribute)
+            if isinstance(val, Tensor):
+                val.detach_()
+        return self
+
+    def detach(self):
+        return self._apply_and_reconstruct(Tensor.detach)
+
+    def contiguous(self):
+        return self._apply_and_reconstruct(Tensor.contiguous)
 
     @property
     def shape(self):
@@ -59,34 +159,38 @@ class QuantTensor:
         return self + other
 
     def to(self, *args, **kwargs):
-        qt_type = type(self)
-        values = []
-        for field in self._fields:
-            value = getattr(self, field)
-            if isinstance(value, Tensor):
-                value = value.to(*args, **kwargs)
-            values.append(value)
-        return qt_type(*values)
+        new_value = Tensor.to(self._value, *args, **kwargs)
+        metadata_kwargs = self._get_metadata_kwargs()
+        for parameter, metadata in metadata_kwargs.items():
+            if not isinstance(metadata, Tensor):
+                continue
+            # Unlike cpu/cuda, to() may change dtype; boolean metadata must remain boolean.
+            if metadata.dtype == torch.bool:
+                metadata_kwargs[parameter] = metadata.to(device=new_value.device)
+            else:
+                metadata_kwargs[parameter] = metadata.to(*args, **kwargs)
+        return self._reconstruct(new_value, metadata_kwargs)
 
     def cuda(self, *args, **kwargs):
-        qt_type = type(self)
-        values = []
-        for field in self._fields:
-            value = getattr(self, field)
-            if isinstance(value, Tensor):
-                value = value.cuda(*args, **kwargs)
-            values.append(value)
-        return qt_type(*values)
+        return self._apply_and_reconstruct(Tensor.cuda, *args, **kwargs)
 
     def cpu(self, *args, **kwargs):
-        qt_type = type(self)
-        values = []
-        for field in self._fields:
-            value = getattr(self, field)
-            if isinstance(value, Tensor):
-                value = value.cpu(*args, **kwargs)
-            values.append(value)
-        return qt_type(*values)
+        return self._apply_and_reconstruct(Tensor.cpu, *args, **kwargs)
+
+    def __add__(self, other):
+        if isinstance(other, QuantTensor):
+            return self.value + other.value
+        return self.value + other
+
+    def __mul__(self, other):
+        if isinstance(other, QuantTensor):
+            return self.value * other.value
+        return self.value * other
+
+    def __truediv__(self, other):
+        if isinstance(other, QuantTensor):
+            return self.value / other.value
+        return self.value / other
 
     def __radd__(self, other):
         return self.__add__(other)
@@ -96,6 +200,15 @@ class QuantTensor:
 
     def __sub__(self, other):
         return self.__add__(-other)
+
+    def __iadd__(self, other):
+        return self.__add__(other)
+
+    def __imul__(self, other):
+        return self.__mul__(other)
+
+    def __isub__(self, other):
+        return self.__sub__(other)
 
     def __pos__(self):
         return self
@@ -108,56 +221,91 @@ class QuantTensor:
         return (tensor.zero_point == 0.).all()
 
 
-class IntQuantTensorBase(NamedTuple):
-    value: Tensor
-    scale: Tensor
-    zero_point: Tensor
-    bit_width: Tensor
-    signed_t: Tensor
-    training_t: Tensor
+class GroupwiseQuantTensorMixin:
+    """Implement behavior shared by QuantTensors with compressed groupwise storage."""
 
+    def _set_groupwise_metadata(
+            self, scale, zero_point, group_size, group_dim, signed, training, dequant_shape):
+        """Store groupwise metadata shared by integer and floating-point formats."""
+        self._scale = scale
+        self._zero_point = zero_point
+        self._group_size = group_size
+        self._group_dim = group_dim
+        self._signed = signed
+        self._training = training
+        self._dequant_shape = dequant_shape
 
-class FloatQuantTensorBase(NamedTuple):
-    value: Tensor
-    scale: Tensor
-    zero_point: Tensor
-    exponent_bit_width: Tensor
-    mantissa_bit_width: Tensor
-    exponent_bias: Tensor
-    saturating_t: Tensor
-    inf_values: List[str]
-    nan_values: List[str]
-    signed_t: Tensor
-    training_t: Tensor
+    @property
+    def group_size(self):
+        return self._group_size
 
+    @property
+    def group_dim(self):
+        return self._group_dim
 
-class GroupwiseFloatQuantTensorBase(NamedTuple):
-    value_: Tensor
-    scale_: Tensor
-    zero_point_: Tensor
-    group_size: Tensor
-    group_dim: Tensor
-    exponent_bit_width: Tensor
-    mantissa_bit_width: Tensor
-    exponent_bias: Tensor
-    saturating_t: Tensor
-    inf_values: List[str]
-    nan_values: List[str]
-    signed_t: Tensor
-    training_t: Tensor
-    dequant_shape: Optional[Tuple] = None
+    @property
+    def dequant_shape(self):
+        return self._dequant_shape
 
+    def expand(self, expand_metadata=True):
+        """Expand grouped storage and optionally its quantization metadata."""
+        from brevitas.utils.quant_utils import groupwise_dequant_expand
 
-class GroupwisIntQuantTensorBase(NamedTuple):
-    value_: Tensor
-    scale_: Tensor
-    zero_point_: Tensor
-    group_size: Tensor
-    group_dim: Tensor
-    bit_width: Tensor
-    signed_t: Tensor
-    training_t: Tensor
-    dequant_shape: Optional[Tuple] = None
+        return groupwise_dequant_expand(
+            self._value,
+            self._scale,
+            self._zero_point,
+            self.group_dim,
+            self.dequant_shape,
+            expand_metadata=expand_metadata)
+
+    @staticmethod
+    def from_expanded(value, group_size, group_dim, compress=False):
+        """Convert an expanded value or metadata tensor to grouped storage."""
+        group_dim = group_dim if group_dim >= 0 else group_dim - 1
+        size = list(value.shape)
+        assert size[group_dim] % group_size == 0, 'Input channel is not divisible by group size'
+        if compress:
+            size[group_dim] = 1
+        else:
+            size[group_dim] = size[group_dim] // group_size
+        size.insert(group_dim + 1, group_size)
+        return value.view(size)
+
+    @property
+    def value(self):
+        value, _, _ = self.expand(expand_metadata=False)
+        return value
+
+    @property
+    def scale(self):
+        _, scale, _ = self.expand()
+        return scale
+
+    @property
+    def zero_point(self):
+        _, _, zero_point = self.expand()
+        return zero_point
+
+    @classmethod
+    def check_input_type(cls, tensor):
+        if not isinstance(tensor, cls):
+            raise RuntimeError(f"Tensor is not a {cls.__name__}")
+
+    def view(self, *args, **kwargs):
+        return self.value.view(*args, **kwargs)
+
+    def reshape(self, *args, **kwargs):
+        return self.value.reshape(*args, **kwargs)
+
+    def flatten(self, *args, **kwargs):
+        return self.value.flatten(*args, **kwargs)
+
+    def transpose(self, *args, **kwargs):
+        return self.value.transpose(*args, **kwargs)
+
+    def permute(self, *args, **kwargs):
+        return self.value.permute(*args, **kwargs)
 
 
 class IntMixin:
@@ -210,9 +358,9 @@ class IntMixin:
                 else:
                     return int_value.type(torch.float32)
             else:
-                if self.bit_width <= 8. and self.signed_t.item():
+                if self.bit_width <= 8. and self._signed.item():
                     return int_value.to(torch.int8)
-                elif self.bit_width <= 8. and not self.signed_t.item():
+                elif self.bit_width <= 8. and not self._signed.item():
                     return int_value.to(torch.uint8)
                 else:
                     return int_value.to(torch.int32)
@@ -370,20 +518,6 @@ class FloatMixin:
             if len(value.shape) == len(tm.shape):
                 tensor_meta[k] = tm.permute(*args, **kwargs)
         return self.set(value=value, **tensor_meta)
-
-    @property
-    def device(self):
-        value_device = self.value_.device
-        is_same_device = True
-        for t in [self.scale,
-                  self.zero_point,
-                  self.exponent_bit_width,
-                  self.mantissa_bit_width,
-                  self.exponent_bias]:
-            is_same_device &= value_device == t.device
-        if not is_same_device:
-            raise RuntimeError("Value and metadata are on different devices")
-        return value_device
 
     def int(self):
         value = torch.round(self._pre_round_float_value)
