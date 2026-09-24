@@ -273,6 +273,9 @@ class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFr
         x: torch.Tensor,
         quant_input: Optional[Union[Tensor,
                                     IntQuantTensor]] = None) -> Union[Tensor, IntQuantTensor]:
+        if isinstance(quant_input, QuantTensor):
+            assert isinstance(quant_input, IntQuantTensor), \
+                "Only IntQuantTensor quant inputs are supported."
         if isinstance(quant_input,
                       IntQuantTensor) and not self.training and self.cache_inference_quant_act:
             cached_inp = _CachedIO(quant_input.detach(), self.cache_quant_io_metadata_only)
