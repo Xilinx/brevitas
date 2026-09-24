@@ -49,6 +49,16 @@ def transpose_handler(inp, *args, **kwargs):
     return inp.transpose(*args, **kwargs)
 
 
+@implements(torch.squeeze)
+def squeeze_handler(inp, *args, **kwargs):
+    return inp.squeeze(*args, **kwargs)
+
+
+@implements(torch.unsqueeze)
+def unsqueeze_handler(inp, *args, **kwargs):
+    return inp.unsqueeze(*args, **kwargs)
+
+
 @implements(F.pad)
 def pad_handler(*args, **kwargs):
     # TODO check padding value is legal
