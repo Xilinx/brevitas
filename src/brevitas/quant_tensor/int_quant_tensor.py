@@ -12,7 +12,6 @@ from brevitas.quant_tensor import QuantTensor
 from brevitas.quant_tensor.base_quant_tensor import IntMixin
 
 from .int_torch_handler import INT_QUANT_TENSOR_FN_HANDLER
-from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
 
 class IntQuantTensor(IntMixin, QuantTensor):
@@ -68,33 +67,13 @@ class IntQuantTensor(IntMixin, QuantTensor):
     def bit_width(self, value):
         self._bit_width = value
 
-    @property
-    def signed(self):
-        return self._signed.item()
-
-    @property
-    def training(self):
-        return self._training.item()
-
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
         if kwargs is None:
             kwargs = {}
         if func in INT_QUANT_TENSOR_FN_HANDLER:
             return INT_QUANT_TENSOR_FN_HANDLER[func](*args, **kwargs)
-        elif func in QUANT_TENSOR_FN_HANDLER:
-            return QUANT_TENSOR_FN_HANDLER[func](*args, **kwargs)
-        else:
-            args = _unpack_quant_tensor(args)
-            kwargs = _unpack_quant_tensor(kwargs)
-            return func(*args, **kwargs)
-
-    @property
-    def device(self):
-        value_device = self.value.device
-        if not self._metadata_on_device(value_device):
-            raise RuntimeError("Value and metadata are on different devices")
-        return value_device
+        return super().__torch_function__(func, types, args, kwargs)
 
     @staticmethod
     def check_input_type(tensor):

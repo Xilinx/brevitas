@@ -51,6 +51,27 @@ class QuantTensor(Tensor):
         # Use as_subclass to preserve grad_fn and requires_grad.
         return self._value
 
+    @property
+    def signed(self):
+        return self._signed.item()
+
+    @property
+    def training(self):
+        return self._training.item()
+
+    @classmethod
+    def __torch_function__(cls, func, types, args=(), kwargs=None):
+        if kwargs is None:
+            kwargs = {}
+        from brevitas.quant_tensor import _unpack_quant_tensor
+
+        from .torch_handler import QUANT_TENSOR_FN_HANDLER
+        if func in QUANT_TENSOR_FN_HANDLER:
+            return QUANT_TENSOR_FN_HANDLER[func](*args, **kwargs)
+        args = _unpack_quant_tensor(args)
+        kwargs = _unpack_quant_tensor(kwargs)
+        return func(*args, **kwargs)
+
     @staticmethod
     def _as_tensor(value, dtype, device):
         """Convert metadata literals without moving tensor-valued metadata."""
@@ -91,6 +112,13 @@ class QuantTensor(Tensor):
             device == getattr(self, attribute).device
             for attribute in self._quant_tensor_metadata
             if isinstance(getattr(self, attribute), Tensor))
+
+    @property
+    def device(self):
+        value_device = self._value.device
+        if not self._metadata_on_device(value_device):
+            raise RuntimeError("Value and metadata are on different devices")
+        return value_device
 
     def set(self, **kwargs):
         """
@@ -219,27 +247,6 @@ class GroupwiseQuantTensorMixin:
     def dequant_shape(self):
         return self._dequant_shape
 
-    @property
-    def signed(self):
-        return self._signed.item()
-
-    @property
-    def training(self):
-        return self._training.item()
-
-    @classmethod
-    def __torch_function__(cls, func, types, args=(), kwargs=None):
-        if kwargs is None:
-            kwargs = {}
-        from brevitas.quant_tensor import _unpack_quant_tensor
-
-        from .torch_handler import QUANT_TENSOR_FN_HANDLER
-        if func in QUANT_TENSOR_FN_HANDLER:
-            return QUANT_TENSOR_FN_HANDLER[func](*args, **kwargs)
-        args = _unpack_quant_tensor(args)
-        kwargs = _unpack_quant_tensor(kwargs)
-        return func(*args, **kwargs)
-
     def expand(self, expand_metadata=True):
         """Expand grouped storage and optionally its quantization metadata."""
         from brevitas.utils.quant_utils import groupwise_dequant_expand
@@ -279,13 +286,6 @@ class GroupwiseQuantTensorMixin:
     def zero_point(self):
         _, _, zero_point = self.expand()
         return zero_point
-
-    @property
-    def device(self):
-        value_device = self._value.device
-        if not self._metadata_on_device(value_device):
-            raise RuntimeError("Value and metadata are on different devices")
-        return value_device
 
     @classmethod
     def check_input_type(cls, tensor):
@@ -518,13 +518,6 @@ class FloatMixin:
             if len(value.shape) == len(tm.shape):
                 tensor_meta[k] = tm.permute(*args, **kwargs)
         return self.set(value=value, **tensor_meta)
-
-    @property
-    def device(self):
-        value_device = self.value.device
-        if not self._metadata_on_device(value_device):
-            raise RuntimeError("Value and metadata are on different devices")
-        return value_device
 
     def int(self):
         value = torch.round(self._pre_round_float_value)
