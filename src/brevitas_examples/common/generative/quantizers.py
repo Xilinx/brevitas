@@ -81,6 +81,19 @@ class BaseQuantizer:
         return quantizers_dict
 
     @classmethod
+    def configure_quantizers_dict(
+            cls: "BaseQuantizer",
+            quantizers_dict: Dict[str, Optional[QuantInjector]],
+            *,
+            scaling_min_val: Optional[float] = None) -> Dict[str, Optional[QuantInjector]]:
+        """Apply runtime configuration before quantizers are attached to layers.
+
+        Existing plugins that only override ``override_quantizers_dict`` remain
+        compatible through this default implementation.
+        """
+        return cls.override_quantizers_dict(quantizers_dict)
+
+    @classmethod
     def post_process_quant_model(cls: "BaseQuantizer", model: nn.Module) -> nn.Module:
         return model
 

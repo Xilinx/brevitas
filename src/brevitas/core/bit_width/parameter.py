@@ -73,7 +73,7 @@ class BitWidthParameter(brevitas.jit.ScriptModule):
         bit_width = restrict_bit_width_impl.restrict_init_float(bit_width)
         bit_width_offset_init = bit_width - bit_width_base
         self.bit_width_offset = Parameter(
-            torch.tensor(bit_width_offset_init, dtype=dtype, device=device))
+            torch.tensor([bit_width_offset_init], dtype=dtype, device=device))
         self.bit_width_base = bit_width_base
         self.restrict_clamp_bit_width_impl = _RestrictClampValue(
             min_val=bit_width_offset_min_val,
@@ -97,6 +97,15 @@ class BitWidthParameter(brevitas.jit.ScriptModule):
             bit_width = state_dict[bit_width_const_key]
             state_dict[bit_width_offset_key] = bit_width - self.bit_width_base
             del state_dict[bit_width_const_key]
+
+        # Bit-width offsets were historically saved as scalar tensors. Keep
+        # those checkpoints loadable after making the parameter FSDP2-safe.
+        if bit_width_offset_key in state_dict:
+            bit_width_offset = state_dict[bit_width_offset_key]
+            if (bit_width_offset.numel() == self.bit_width_offset.numel() and
+                    bit_width_offset.shape != self.bit_width_offset.shape):
+                state_dict[bit_width_offset_key] = bit_width_offset.reshape_as(
+                    self.bit_width_offset)
 
         if self.override_pretrained and bit_width_offset_key in state_dict:
             del state_dict[bit_width_offset_key]
