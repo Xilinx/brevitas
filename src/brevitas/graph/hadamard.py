@@ -155,10 +155,6 @@ def matmul_hadU_cuda(X, hadK, K):
     return input.reshape(X.shape)
 
 
-def matmul_hadUt_cuda(X, hadK, K):
-    return matmul_hadU_cuda(X, hadK, K, transpose=True)
-
-
 def apply_exact_had_to_linear(module, had_dim=-1, output=False):
     assert isinstance(module, torch.nn.Linear)
     in_features, out_features = module.in_features, module.out_features
