@@ -449,24 +449,20 @@ class ModelBase:
 
         weight_quant = module.weight_quant
 
-        if isinstance(weight_quant, GGUFGroupwiseWeightQuantProxyFromInjector):
-            if weight_quant._cached_weight is None:
-                raise ValueError(f"{name!r}: GGUF export cache is missing")
-            # The quantizer qtype overrides the file ftype.
-            data_qtype = weight_quant.gguf_qtype
-            scale = _modify_if_tensor(weight_quant.scale)
-            zero_point = _modify_if_tensor(weight_quant.zero_point)
-            # K-quants use the nested values. Other types return None.
-            scale_of_scale = _modify_if_tensor(weight_quant.scale_of_scale)
-            scale_of_zero_point = _modify_if_tensor(weight_quant.scale_of_zero_point)
-        else:
-            # A non-GGUF proxy has no K-quant metadata.
-            scale = quant_weight.scale_ if hasattr(quant_weight, 'scale_') else quant_weight.scale
-            zero_point = quant_weight.zero_point_ if hasattr(
-                quant_weight, 'zero_point_') else quant_weight.zero_point
-            scale = _modify_if_tensor(scale)
-            zero_point = _modify_if_tensor(zero_point)
-            scale_of_scale = scale_of_zero_point = None
+        if not isinstance(weight_quant, GGUFGroupwiseWeightQuantProxyFromInjector):
+            raise ValueError(f"{name!r}: weight quantizer is not a GGUF export proxy")
+
+        if weight_quant._cached_weight is None:
+            raise ValueError(f"{name!r}: GGUF export cache is missing")
+
+        # The quantizer qtype overrides the file ftype.
+        data_qtype = weight_quant.gguf_qtype
+        scale = _modify_if_tensor(weight_quant.scale)
+        zero_point = _modify_if_tensor(weight_quant.zero_point)
+
+        # K-quants use the nested values. Other types return None.
+        scale_of_scale = _modify_if_tensor(weight_quant.scale_of_scale)
+        scale_of_zero_point = _modify_if_tensor(weight_quant.scale_of_zero_point)
 
         data = ggml_quant(
             quant_data,
@@ -475,6 +471,7 @@ class ModelBase:
             zero_point=zero_point,
             scale_of_scale=scale_of_scale,
             scale_of_zero_point=scale_of_zero_point)
+
         return data, data_qtype
 
     def _is_brevitas_quantized(self, name: str) -> bool:
