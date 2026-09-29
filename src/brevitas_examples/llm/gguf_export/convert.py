@@ -3419,6 +3419,22 @@ class Qwen2MoeModel(TextModel):
 class Qwen3Model(Qwen2Model):
     model_arch = gguf.MODEL_ARCH.QWEN3
 
+    def set_vocab(self):
+        super().set_vocab()
+
+        # Copy the Qwen3 BOS setting to GGUF metadata.
+        # This keeps llama.cpp tokenization consistent with Transformers.
+        tokenizer_config_file = self.dir_model / "tokenizer_config.json"
+        if not tokenizer_config_file.is_file():
+            return
+
+        with open(tokenizer_config_file, "r", encoding="utf-8") as f:
+            tokenizer_config = json.load(f)
+
+        add_bos_token = tokenizer_config.get("add_bos_token")
+        if isinstance(add_bos_token, bool):
+            self.gguf_writer.add_add_bos_token(add_bos_token)
+
 
 @ModelBase.register("Qwen3MoeForCausalLM")
 class Qwen3MoeModel(Qwen2MoeModel):
