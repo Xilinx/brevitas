@@ -182,6 +182,11 @@ def set_seed(seed):
 
 
 def model_export(model, tokenizer, ref_input, args, config=None):
+    # Use a float32 container by default; preserve the dtype for GGUF export.
+    # Observed issues with llama.cpp and Qwen3 when upcasting to float32.
+    if 'gguf' not in args.export_target:
+        model = model.to(dtype=torch.float32)
+
     if args.export_target == 'onnx_qcdq':
         export_device = torch.device('cpu')
         model = model.to(export_device)
@@ -774,8 +779,6 @@ def quantize_llm(args, extra_args=None):
 
         if args.export_target:
             print(f"Export to {args.export_target}")
-            # Currently we always export with a float32 container to avoid float16 CPU errors
-            model = model.to(dtype=torch.float32)
             model_export(model, tokenizer, next(iter(calibration_loader)), args, config)
 
     return {"float_ppl": float_ppl, "quant_ppl": quant_ppl, **few_shot_eval_results}, model
