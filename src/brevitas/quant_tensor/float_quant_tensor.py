@@ -92,54 +92,6 @@ class FloatQuantTensor(FloatMixin, QuantTensor):
     def zero_point(self, value):
         self._zero_point = value
 
-    @property
-    def exponent_bit_width(self):
-        return self._exponent_bit_width
-
-    @exponent_bit_width.setter
-    def exponent_bit_width(self, value):
-        self._exponent_bit_width = value
-
-    @property
-    def mantissa_bit_width(self):
-        return self._mantissa_bit_width
-
-    @mantissa_bit_width.setter
-    def mantissa_bit_width(self, value):
-        self._mantissa_bit_width = value
-
-    @property
-    def exponent_bias(self):
-        return self._exponent_bias
-
-    @exponent_bias.setter
-    def exponent_bias(self, value):
-        self._exponent_bias = value
-
-    @property
-    def inf_values(self):
-        return self._inf_values
-
-    @inf_values.setter
-    def inf_values(self, value):
-        self._inf_values = value
-
-    @property
-    def nan_values(self):
-        return self._nan_values
-
-    @nan_values.setter
-    def nan_values(self, value):
-        self._nan_values = value
-
-    @property
-    def saturating(self):
-        return self._saturating.item()
-
-    @property
-    def eps(self):
-        return torch.finfo(self.scale.dtype).tiny
-
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
         if kwargs is None:

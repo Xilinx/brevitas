@@ -60,50 +60,6 @@ class GroupwiseFloatQuantTensor(GroupwiseQuantTensorMixin, FloatMixin, QuantTens
         self._set_groupwise_metadata(
             scale, zero_point, group_size, group_dim, signed, training, dequant_shape)
 
-    @property
-    def exponent_bit_width(self):
-        return self._exponent_bit_width
-
-    @exponent_bit_width.setter
-    def exponent_bit_width(self, value):
-        self._exponent_bit_width = value
-
-    @property
-    def mantissa_bit_width(self):
-        return self._mantissa_bit_width
-
-    @mantissa_bit_width.setter
-    def mantissa_bit_width(self, value):
-        self._mantissa_bit_width = value
-
-    @property
-    def exponent_bias(self):
-        return self._exponent_bias
-
-    @exponent_bias.setter
-    def exponent_bias(self, value):
-        self._exponent_bias = value
-
-    @property
-    def inf_values(self):
-        return self._inf_values
-
-    @inf_values.setter
-    def inf_values(self, value):
-        self._inf_values = value
-
-    @property
-    def nan_values(self):
-        return self._nan_values
-
-    @nan_values.setter
-    def nan_values(self, value):
-        self._nan_values = value
-
-    @property
-    def saturating(self):
-        return self._saturating.item()
-
     # Reference: https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
 
     def __neg__(self):
