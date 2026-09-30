@@ -404,8 +404,23 @@ class GeneralizedTrainer(Trainer):
             if not self.accelerator.is_fsdp2:
                 raise RuntimeError("LLM distributed fine-tuning supports FSDP2 only.")
             from accelerate.utils import fsdp2_prepare_model
+
+            from brevitas_examples.llm.llm_quant.fsdp_utils import \
+                refresh_parameter_quantization_references
+
             self.teacher_model = fsdp2_prepare_model(self.accelerator, self.teacher_model)
+            refresh_parameter_quantization_references(self.teacher_model)
         return wrapped
+
+    def _prepare_for_training(self, max_steps, train_dataloader, resume_from_checkpoint):
+        model, train_dataloader = super()._prepare_for_training(
+            max_steps, train_dataloader, resume_from_checkpoint)
+        if self.is_fsdp_enabled and self.accelerator.is_fsdp2:
+            from brevitas_examples.llm.llm_quant.fsdp_utils import \
+                refresh_parameter_quantization_references
+
+            refresh_parameter_quantization_references(model)
+        return model, train_dataloader
 
     @staticmethod
     def forward_kl_loss(

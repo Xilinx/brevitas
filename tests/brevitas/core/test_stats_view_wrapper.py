@@ -3,6 +3,7 @@
 
 import warnings
 
+import torch
 import torch.nn as nn
 
 from brevitas.core.stats.view_wrapper import _ViewCatParameterWrapper
@@ -41,3 +42,16 @@ def test_scaling_state_dict_viewcatparameterwrapper():
         mod.state_dict()
         for w in wlist:
             assert "Positional args are being deprecated" not in str(w.message)
+
+
+def test_view_parameter_wrappers_refresh_replaced_parameter():
+    parameter = nn.Parameter(torch.ones(2, 2))
+    replacement = nn.Parameter(torch.zeros_like(parameter))
+    view_wrapper = _ViewParameterWrapper(parameter, nn.Identity())
+    cat_wrapper = _ViewCatParameterWrapper(parameter, nn.Identity(), 0)
+
+    view_wrapper.refresh_parameter(replacement)
+    cat_wrapper.refresh_parameter(replacement)
+
+    assert view_wrapper.parameter is replacement
+    assert cat_wrapper.parameter is replacement
