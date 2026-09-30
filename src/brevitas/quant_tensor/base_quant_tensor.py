@@ -311,6 +311,14 @@ class GroupwiseQuantTensorMixin:
 class IntMixin:
 
     @property
+    def bit_width(self):
+        return self._bit_width
+
+    @bit_width.setter
+    def bit_width(self, value):
+        self._bit_width = value
+
+    @property
     def _pre_round_int_value(self):
         value = self.value
         scale = self.scale
@@ -416,6 +424,50 @@ class IntMixin:
 
 
 class FloatMixin:
+
+    @property
+    def exponent_bit_width(self):
+        return self._exponent_bit_width
+
+    @exponent_bit_width.setter
+    def exponent_bit_width(self, value):
+        self._exponent_bit_width = value
+
+    @property
+    def mantissa_bit_width(self):
+        return self._mantissa_bit_width
+
+    @mantissa_bit_width.setter
+    def mantissa_bit_width(self, value):
+        self._mantissa_bit_width = value
+
+    @property
+    def exponent_bias(self):
+        return self._exponent_bias
+
+    @exponent_bias.setter
+    def exponent_bias(self, value):
+        self._exponent_bias = value
+
+    @property
+    def inf_values(self):
+        return self._inf_values
+
+    @inf_values.setter
+    def inf_values(self, value):
+        self._inf_values = value
+
+    @property
+    def nan_values(self):
+        return self._nan_values
+
+    @nan_values.setter
+    def nan_values(self, value):
+        self._nan_values = value
+
+    @property
+    def saturating(self):
+        return self._saturating.item()
 
     @property
     def _pre_round_float_value(self):
