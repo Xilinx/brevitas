@@ -43,14 +43,6 @@ class GroupwiseIntQuantTensor(GroupwiseQuantTensorMixin, IntMixin, QuantTensor):
         self._set_groupwise_metadata(
             scale, zero_point, group_size, group_dim, signed, training, dequant_shape)
 
-    @property
-    def bit_width(self):
-        return self._bit_width
-
-    @bit_width.setter
-    def bit_width(self, value):
-        self._bit_width = value
-
     @staticmethod
     def is_zero_zero_point(tensor):
         GroupwiseIntQuantTensor.check_input_type(tensor)

@@ -59,14 +59,6 @@ class IntQuantTensor(IntMixin, QuantTensor):
     def zero_point(self, value):
         self._zero_point = value
 
-    @property
-    def bit_width(self):
-        return self._bit_width
-
-    @bit_width.setter
-    def bit_width(self, value):
-        self._bit_width = value
-
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
         if kwargs is None:
