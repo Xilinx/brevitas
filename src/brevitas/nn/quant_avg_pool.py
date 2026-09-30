@@ -25,6 +25,11 @@ from .mixin.acc import TruncMixin
 from .mixin.base import QuantLayerMixin
 
 
+def _max_acc_bit_width(input_bit_width, avg_scaling):
+    max_uint_input = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
+    return ceil_ste(torch.log2(max_uint_input * avg_scaling))
+
+
 class TruncAvgPool2d(TruncMixin, QuantLayerMixin, AvgPool2d):
     """
     Quantized AvgPool2d variant that replaces the division step in the average with a right shift
@@ -80,10 +85,15 @@ class TruncAvgPool2d(TruncMixin, QuantLayerMixin, AvgPool2d):
                 self.cache_class is not None) and self.is_trunc_quant_enabled:
             if self.cache_inference_quant_act:
                 self.cache_class = _CachedIO(x, self.cache_quant_io_metadata_only)
-            if not isinstance(x, QuantTensor):
-                x = self.cache_class.quant_tensor.set(value=x)
-            y = AvgPool2d.forward(self, x)
-            y = self.trunc_quant(y)
+            quant_input = x if isinstance(x, QuantTensor) else self.cache_class.quant_tensor
+            y = AvgPool2d.forward(self, _unpack_quant_tensor(x))
+            avg_scaling = self.divisor_override if self.divisor_override is not None else self._avg_scaling
+            y = self.trunc_quant.forward_from_metadata(
+                y,
+                quant_input.scale / avg_scaling,
+                quant_input.zero_point,
+                _max_acc_bit_width(quant_input.bit_width, avg_scaling),
+                quant_input.signed)
         else:
             y = AvgPool2d.forward(self, _unpack_quant_tensor(x))
 
@@ -146,10 +156,17 @@ class TruncAdaptiveAvgPool2d(TruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
                 self.cache_class is not None) and self.is_trunc_quant_enabled:
             if self.cache_inference_quant_act:
                 self.cache_class = _CachedIO(x, self.cache_quant_io_metadata_only)
-            if not isinstance(x, QuantTensor):
-                x = self.cache_class.quant_tensor.set(value=x)
-            y = AdaptiveAvgPool2d.forward(self, x)
-            y = self.trunc_quant(y)
+            quant_input = x if isinstance(x, QuantTensor) else self.cache_class.quant_tensor
+            value = _unpack_quant_tensor(x)
+            y = AdaptiveAvgPool2d.forward(self, value)
+            kernel_size, _ = self.compute_kernel_size_stride(value.shape[2:], y.shape[2:])
+            avg_scaling = reduce(mul, kernel_size, 1)
+            y = self.trunc_quant.forward_from_metadata(
+                y,
+                quant_input.scale / avg_scaling,
+                quant_input.zero_point,
+                _max_acc_bit_width(quant_input.bit_width, avg_scaling),
+                quant_input.signed)
         else:
             y = AdaptiveAvgPool2d.forward(self, _unpack_quant_tensor(x))
 

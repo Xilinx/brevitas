@@ -302,24 +302,24 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
     def bit_width(self):
         return self.retrieve_attribute('bit_width')
 
-    def forward(self, x: IntQuantTensor) -> Union[Tensor, IntQuantTensor]:
-        if self.is_quant_enabled:
-            if self.export_mode:
-                out_tuple = self.export_handler(
-                    x.value, x.scale, x.zero_point, x.bit_width, x.signed)
-            else:
-                out_tuple = self.tensor_quant(x.value, x.scale, x.zero_point, x.bit_width, x.signed)
-            out_value, out_scale, out_zp, out_bit_width = out_tuple
-            if self.skip_create_quant_tensor:
-                return out_value
-            out = IntQuantTensor(
-                out_value, out_scale, out_zp, out_bit_width, x.signed, self.training)
-            if not self.training and self.cache_inference_quant_act:
-                cached_out = self.cache_class(out.detach(), self.cache_quant_io_metadata_only)
-                self._cached_act = cached_out
-            return out
+    def forward_from_metadata(self, value, scale, zero_point, bit_width, signed):
+        if self.export_mode:
+            out_tuple = self.export_handler(value, scale, zero_point, bit_width, signed)
         else:
+            out_tuple = self.tensor_quant(value, scale, zero_point, bit_width, signed)
+        out_value, out_scale, out_zp, out_bit_width = out_tuple
+        if self.skip_create_quant_tensor:
+            return out_value
+        out = IntQuantTensor(out_value, out_scale, out_zp, out_bit_width, signed, self.training)
+        if not self.training and self.cache_inference_quant_act:
+            cached_out = self.cache_class(out.detach(), self.cache_quant_io_metadata_only)
+            self._cached_act = cached_out
+        return out
+
+    def forward(self, x: IntQuantTensor) -> Union[Tensor, IntQuantTensor]:
+        if not self.is_quant_enabled:
             return x
+        return self.forward_from_metadata(x.value, x.scale, x.zero_point, x.bit_width, x.signed)
 
     def _load_from_state_dict(
             self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
