@@ -730,7 +730,8 @@ def quantize_llm(args, extra_args=None):
                 block_name=args.gpxq_block_name,
                 buffer_device=args.gpxq_buffer_device,
                 max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
-                max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
+                max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size,
+                functional_state=fq_state)
             print("GPFQ applied.")
 
         if args.qronos and not args.load_checkpoint:
@@ -741,7 +742,8 @@ def quantize_llm(args, extra_args=None):
                 alpha=args.qronos_alpha,
                 act_order=args.gpxq_act_order,
                 block_name=args.gpxq_block_name,
-                buffer_device=args.gpxq_buffer_device)
+                buffer_device=args.gpxq_buffer_device,
+                functional_state=fq_state)
             print("Qronos applied.")
 
         if args.bias_corr and not args.load_checkpoint:

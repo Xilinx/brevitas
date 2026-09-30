@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.utils.data import TensorDataset
 
@@ -17,6 +18,8 @@ from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.magr import magr_mode
 from brevitas.graph.qronos import Qronos
+from brevitas.graph.quantize import functional_quantization_mode
+from brevitas.graph.quantize import prepare_functional_quantization
 import brevitas.nn as qnn
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas_examples.common.axe import a2gpfq_mode
@@ -24,6 +27,43 @@ from brevitas_examples.common.axe import a2gptq_mode
 from brevitas_examples.common.axe import AXEMixin
 
 from .equalization_fixtures import *
+
+
+class _RoutedFunctionalExperts(nn.Module):
+    """Functional RTN experts followed by an ordinary Qronos target."""
+
+    def __init__(self):
+        super().__init__()
+        self.weight = nn.Parameter(torch.randn(2, 3, 4))
+        self.routes_seen = []
+
+    def forward(self, x, selected_experts):
+        selected_experts = selected_experts.flatten()
+        self.routes_seen.append(selected_experts.detach().clone())
+        output = x.new_empty(x.shape[0], self.weight.shape[1])
+        for expert in range(self.weight.shape[0]):
+            mask = selected_experts == expert
+            if mask.any():
+                output[mask] = F.linear(x[mask], self.weight[expert])
+        return output
+
+
+class _RoutedFunctionalMoE(nn.Module):
+    """Change routes between paired forwards to verify Qronos replay."""
+
+    def __init__(self):
+        super().__init__()
+        self.experts = _RoutedFunctionalExperts()
+        self.output = qnn.QuantLinear(3, 2, bias=False, weight_quant=Int8WeightPerTensorFloat)
+        self.forward_count = 0
+
+    def forward(self, x):
+        self.forward_count += 1
+        if self.forward_count % 2:
+            route = torch.tensor([0, 0, 0, 0, 1, 1, 1, 1], device=x.device)
+        else:
+            route = torch.tensor([0, 1, 0, 1, 0, 1, 0, 1], device=x.device)
+        return self.output(self.experts(x, route))
 
 
 def _a2q_layer_filter_fnc(layer: nn.Module) -> bool:
@@ -179,6 +219,32 @@ def apply_gptq(
 
 
 apply_gpxq_func_map = {"gpfq": apply_gpfq, "gptq": apply_gptq, "qronos": apply_qronos}
+
+
+@torch.no_grad()
+def test_qronos_replays_routes_for_rtn_only_functional_experts():
+    """Qronos pairs ordinary-layer inputs while functional experts stay RTN-only."""
+    model = _RoutedFunctionalMoE().eval()
+    inputs = torch.randn(8, 4)
+    weight_spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 1, 'group_dim': 2})
+    state = prepare_functional_quantization(
+        model, {F.linear: (None, None, weight_spec)}, example_inputs=(inputs,))
+    model.forward_count = 0
+    model.experts.routes_seen.clear()
+    experts_before = model.experts.weight.detach().clone()
+    output_before = model.output.weight.detach().clone()
+
+    with functional_quantization_mode(state):
+        with gpfq_mode(model, algorithm_impl=Qronos, functional_state=state) as mode:
+            assert mode.num_layers == 1
+            mode.model(inputs)
+            mode.update()
+
+    assert len(model.experts.routes_seen) == 2
+    torch.testing.assert_close(model.experts.routes_seen[0], model.experts.routes_seen[1])
+    torch.testing.assert_close(model.experts.weight, experts_before)
+    assert not torch.equal(model.output.weight, output_before)
+    state.cleanup()
 
 
 class TestQronosUpdateBatch:

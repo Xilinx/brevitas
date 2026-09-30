@@ -155,7 +155,8 @@ def _dual_optimization_callback(
         max_accumulator_bit_width=None,
         max_accumulator_tile_size=None,
         device='cpu',
-        dtype=torch.float32):
+        dtype=torch.float32,
+        functional_state=None):
     """
     This wraps gpfq_mode, which can be used for any layerwise PTQ algorithm that
     optimizes the mismatched objective function || XW - \tilde{X}Q ||, where
@@ -170,9 +171,12 @@ def _dual_optimization_callback(
         'create_weight_orig': True,
         'algorithm_impl': algorithm_impl,
         'device': device,
-        'dtype': dtype}
+        'dtype': dtype,
+        'functional_state': functional_state}
     context_manager_func = gpfq_mode
     if max_accumulator_bit_width is not None:
+        if functional_state is not None:
+            raise RuntimeError('AXE GPxQ modes do not support functional quantization state.')
         context_manager_func = a2gpfq_mode
         context_manager_kwargs.update(
             max_accumulator_bit_width=max_accumulator_bit_width,
@@ -199,7 +203,8 @@ def apply_gpfq(
         max_accumulator_bit_width=None,
         max_accumulator_tile_size=None,
         buffer_device='cpu',
-        buffer_dtype=torch.float32):
+        buffer_dtype=torch.float32,
+        functional_state=None):
     # We use the dual optimization callback, which uses two forward passes to correct
     # quantization error in both the weights and activations from previous layers
     _dual_optimization_callback(
@@ -212,7 +217,8 @@ def apply_gpfq(
         max_accumulator_bit_width=max_accumulator_bit_width,
         max_accumulator_tile_size=max_accumulator_tile_size,
         device=buffer_device,
-        dtype=buffer_dtype)
+        dtype=buffer_dtype,
+        functional_state=functional_state)
 
 
 @torch.no_grad()
@@ -224,7 +230,8 @@ def apply_qronos(
         block_name=None,
         alpha=1e-6,
         buffer_device='cpu',
-        buffer_dtype=torch.float32):
+        buffer_dtype=torch.float32,
+        functional_state=None):
     assert alpha > 0, "Error: alpha needs to be strictly positive"
     # We use the dual optimization callback, which uses two forward passes to correct
     # quantization error in both the weights and activations from previous layers
@@ -236,7 +243,8 @@ def apply_qronos(
         group_of_parallel_layers=group_of_parallel_layers,
         algorithm_impl=partial(Qronos, alpha=alpha),
         device=buffer_device,
-        dtype=buffer_dtype)
+        dtype=buffer_dtype,
+        functional_state=functional_state)
 
 
 @torch.no_grad()

@@ -16,6 +16,7 @@ from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.utils import is_conv_transposed
+from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.utils.torch_utils import StopFwdException
 
 
@@ -221,6 +222,8 @@ class gpfq_mode(gpxq_mode):
             Default: `brevitas.graph.gpfq.GPFQ`
         device (str): Device the buffers are stored on. Default: cpu
         dtype (torch.dtype): Datatype the buffers are stored in. Default: torch.float32
+        functional_state: Optional functional quantization state used to replay MoE routes
+            during the reference pass. Functional experts are not GPxQ targets.
 
     Example:
         >>> with torch.no_grad():
@@ -244,7 +247,12 @@ class gpfq_mode(gpxq_mode):
             act_order: bool = False,
             algorithm_impl: GPFQ = GPFQ,
             device: str = 'cpu',
-            dtype: torch.dtype = torch.float32) -> None:
+            dtype: torch.dtype = torch.float32,
+            functional_state=None) -> None:
+        if functional_state is not None and not inplace:
+            raise ValueError(
+                'Functional route replay requires inplace=True because the functional state '
+                'owns model modules.')
         if not inplace:
             model = deepcopy(model)
         super().__init__(
@@ -259,9 +267,104 @@ class gpfq_mode(gpxq_mode):
             dtype)
 
         self.algorithm_impl = algorithm_impl
+        self.functional_state = functional_state
+        self._routing_phase = None
+        self._routing_cache = {}
+        self._routing_replay_index = {}
+        self._routing_hook_handles = []
+
+    def __enter__(self):
+        mode = super().__enter__()
+        if self.functional_state is not None:
+            owners = set(self.functional_state.registered_parametrizations)
+            owners.update(
+                owner for owner,
+                _,
+                _,
+                _ in self.functional_state.parameter_view_quantizers.values())
+            for owner, _ in owners:
+                self._routing_hook_handles.append(
+                    owner.register_forward_pre_hook(self._routing_hook, with_kwargs=True))
+        return mode
+
+    def __exit__(self, type, value, traceback):
+        for handle in self._routing_hook_handles:
+            handle.remove()
+        self._routing_hook_handles.clear()
+        self._routing_phase = None
+        self._routing_cache.clear()
+        self._routing_replay_index.clear()
+        return super().__exit__(type, value, traceback)
+
+    @staticmethod
+    def _route_location(args, kwargs):
+        """Return the supported route argument location and value, if present."""
+        for name in ('selected_experts', 'top_k_index', 'expert_index'):
+            route = kwargs.get(name)
+            if isinstance(route, Tensor):
+                return name, route
+        if len(args) > 1 and isinstance(args[1], Tensor):
+            return 1, args[1]
+        return None, None
+
+    def _routing_hook(self, module, args, kwargs):
+        """Replay expert assignments during the paired floating-point pass."""
+        route_location, route = self._route_location(args, kwargs)
+        if route is None or route.dim() == 0 or route.dtype not in (
+                torch.int8, torch.int16, torch.int32, torch.int64, torch.uint8):
+            return args, kwargs
+
+        token_input = _unpack_quant_tensor(args[0]) if args else None
+        if (token_input is None or not isinstance(token_input, Tensor) or token_input.dim() < 2 or
+                token_input.shape[-1] == 0):
+            return args, kwargs
+        token_count = token_input.numel() // token_input.shape[-1]
+        route_matches_tokens = route.shape[0] == token_count
+        route_matches_tokens |= route.dim() == token_input.dim() - 1 and tuple(
+            route.shape) == tuple(token_input.shape[:-1])
+        route_matches_tokens |= route.dim() == token_input.dim() and tuple(
+            route.shape[:-1]) == tuple(token_input.shape[:-1])
+        if not route_matches_tokens:
+            return args, kwargs
+
+        key = id(module)
+        if self._routing_phase == 'capture':
+            self._routing_cache.setdefault(key, []).append(route.detach().clone())
+            return args, kwargs
+        if self._routing_phase != 'replay':
+            return args, kwargs
+
+        index = self._routing_replay_index.get(key, 0)
+        cached_routes = self._routing_cache.get(key, ())
+        if index >= len(cached_routes):
+            raise RuntimeError('Functional GPxQ reference pass has no matching expert route.')
+        replay_route = cached_routes[index].to(route.device)
+        if replay_route.shape != route.shape:
+            raise RuntimeError(
+                'Functional GPxQ expert routing shape changed between paired passes.')
+        self._routing_replay_index[key] = index + 1
+
+        if isinstance(route_location, str):
+            kwargs = dict(kwargs)
+            kwargs[route_location] = replay_route
+            return args, kwargs
+        args = list(args)
+        args[route_location] = replay_route
+        return tuple(args), kwargs
+
+    def _validate_routing_replay(self):
+        """Ensure the reference pass consumed the same routed calls as pass one."""
+        for key, cached_routes in self._routing_cache.items():
+            consumed = self._routing_replay_index.get(key, 0)
+            if consumed != len(cached_routes):
+                raise RuntimeError(
+                    'Functional GPxQ reference pass did not consume all captured expert routes.')
 
     def catch_stopfwd(self, *args, **kwargs):
         # Collect quant input
+        self._routing_cache.clear()
+        self._routing_replay_index.clear()
+        self._routing_phase = 'capture'
         try:
             self.orig_forward(*args, **kwargs)
         except StopFwdException:
@@ -270,17 +373,22 @@ class gpfq_mode(gpxq_mode):
         # Disable quantization
         # TODO: Ensure that removing is_training=False does not cause any regression and remove,
         # if that is the case
-        with quantization_status_manager(
-                self.model,
-                disable_act_quant=True,
-                disable_weight_quant=True,
-                disable_bias_quant=True,
-                is_training=False,
-        ):
-            try:
-                self.orig_forward(*args, **kwargs)
-            except StopFwdException:
-                pass
+        self._routing_phase = 'replay'
+        try:
+            with quantization_status_manager(
+                    self.model,
+                    disable_act_quant=True,
+                    disable_weight_quant=True,
+                    disable_bias_quant=True,
+                    is_training=False,
+            ):
+                try:
+                    self.orig_forward(*args, **kwargs)
+                except StopFwdException:
+                    pass
+            self._validate_routing_replay()
+        finally:
+            self._routing_phase = None
 
         if self.return_forward_output:
             # If we want to return the output of the network, we need to disable all hooks
