@@ -26,7 +26,7 @@ from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.nn import QuantLinear
 from brevitas_examples.common.generative.quantizers import QuantScaleMXFloat8e4m3Weight
 from brevitas_examples.common.generative.quantizers import QuantScaleMXFloat8e4m3WeightMSE
-from brevitas_examples.common.quantizer_builder import default_scale_quantizer_config
+from brevitas_examples.common.quantizer_builder import create_base_scale_quantizer_config
 from brevitas_examples.common.quantizer_builder import FloatFormat
 from brevitas_examples.common.quantizer_builder import FloatFormatConfig
 from brevitas_examples.common.quantizer_builder import ParamMethod
@@ -67,9 +67,9 @@ def _make_outer_config(spec) -> QuantScaleQuantizerConfig:
         scaling_impl_type=spec["scaling_impl_type"],
         restrict_scaling_type=RestrictValueType.QUANT,
         scaling_param_method=spec["scaling_param_method"],
-        extra={
+        attr_overrides={
             "group_size": GROUP_SIZE, "group_dim": GROUP_DIM},
-        scale_config=default_scale_quantizer_config())
+        scale_config=create_base_scale_quantizer_config())
 
 
 def _make_quant_linear(weight_quant):

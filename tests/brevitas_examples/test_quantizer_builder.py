@@ -48,7 +48,7 @@ from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPWeightSymme
 from brevitas_examples.common.generative.quantizers import Fp8e4m3WeightSymmetricGroupQuant
 from brevitas_examples.common.generative.quantizers import IntWeightSymmetricGroupQuant
 from brevitas_examples.common.generative.quantizers import ShiftedUint8WeightGroupQuantFloatMSE
-from brevitas_examples.common.quantizer_builder import build_quantizer
+from brevitas_examples.common.quantizer_builder import create_quantizer_builder
 from brevitas_examples.common.quantizer_builder import FloatFormat
 from brevitas_examples.common.quantizer_builder import ParamMethod
 from brevitas_examples.common.quantizer_builder import QuantParamType
@@ -72,7 +72,7 @@ BIT_WIDTH = 8
 #   - ``layer_kwargs``: extra kwargs for the QuantLinear wrapping the quantizer
 #     (e.g. group_size for groupwise quantization)
 #
-# The ``kwargs`` entry of ``builder_args`` carries the directives that are not
+# The ``attr_overrides`` entry of ``builder_args`` carries the directives that are not
 # first-class builder parameters but are still required to match the reference
 # quantizer (e.g. narrow_range / quantize_zero_point overrides for MX).
 #
@@ -92,7 +92,7 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.STATS,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "kwargs": {},},
+            "attr_overrides": {},},
         "layer_kwargs": {},},
     "int_per_tensor_asym": {
         "ref": ShiftedUint8WeightPerTensorFloat,
@@ -103,7 +103,7 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.STATS,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "kwargs": {},},
+            "attr_overrides": {},},
         "layer_kwargs": {},},
     "int_per_channel_sym": {
         "ref": Int8WeightPerChannelFloat,
@@ -114,7 +114,7 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.STATS,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
-            "kwargs": {},},
+            "attr_overrides": {},},
         "layer_kwargs": {},},
     "int_per_channel_asym": {
         "ref": ShiftedUint8WeightPerChannelFloat,
@@ -125,7 +125,7 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.STATS,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
-            "kwargs": {},},
+            "attr_overrides": {},},
         "layer_kwargs": {},},
     "int_per_group_sym": {
         "ref": IntWeightSymmetricGroupQuant,
@@ -136,7 +136,7 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.STATS,
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.FP,
-            "kwargs": {
+            "attr_overrides": {
                 "group_size": GROUP_SIZE,},},
         "layer_kwargs": {
             "weight_group_size": GROUP_SIZE},},
@@ -149,7 +149,7 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.STATS,
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.FP,
-            "kwargs": {
+            "attr_overrides": {
                 "group_size": GROUP_SIZE,},},
         "layer_kwargs": {
             "weight_group_size": GROUP_SIZE},},
@@ -170,7 +170,7 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "kwargs": {},},
+            "attr_overrides": {},},
         "layer_kwargs": {},},
     "int_per_channel_sym_mse": {
         "ref": Int8WeightPerChannelFloatMSE,
@@ -182,7 +182,7 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
-            "kwargs": {},},
+            "attr_overrides": {},},
         "layer_kwargs": {},},
     "int_per_tensor_asym_mse": {
         "ref": ShiftedUint8WeightPerTensorFloatMSE,
@@ -195,7 +195,7 @@ BUILDER_SPECS = {
             "zero_point_param_method": ParamMethod.MSE,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "kwargs": {},},
+            "attr_overrides": {},},
         "layer_kwargs": {},},
     "int_per_channel_asym_mse": {
         "ref": ShiftedUint8WeightPerChannelFloatMSE,
@@ -208,7 +208,7 @@ BUILDER_SPECS = {
             "zero_point_param_method": ParamMethod.MSE,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
-            "kwargs": {},},
+            "attr_overrides": {},},
         "layer_kwargs": {},},
     # Per-group asymmetric int MSE. NOTE: the reference
     # ShiftedUint8WeightGroupQuantFloatMSE is defined as
@@ -229,7 +229,7 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.FP,
-            "kwargs": {
+            "attr_overrides": {
                 "group_size": GROUP_SIZE,
                 # Symmetric MSE scale init (AbsMax) on an asymmetric quantizer.
                 "scaling_stats_op": StatsOp.MAX,},},
@@ -265,7 +265,7 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "kwargs": {},},
+            "attr_overrides": {},},
         "layer_kwargs": {},},
     "int_per_channel_sym_hqo": {
         "ref": Int8WeightPerChannelFloatHQO,
@@ -277,7 +277,7 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
-            "kwargs": {},},
+            "attr_overrides": {},},
         "layer_kwargs": {},},
     "int_per_tensor_asym_hqo": {
         "ref": ShiftedUint8WeightPerTensorFloatHQO,
@@ -290,7 +290,7 @@ BUILDER_SPECS = {
             "restrict_scaling_type": RestrictValueType.FP,
             # asym+HQO keeps a plain STATS scale, so the zero-point storage cannot
             # be mirrored from scaling_impl_type; request it explicitly.
-            "kwargs": {
+            "attr_overrides": {
                 "quantize_zero_point": False,
                 "zero_point_impl_type": ZeroPointImplType.PARAMETER_FROM_STATS,},},
         "layer_kwargs": {},},
@@ -305,7 +305,7 @@ BUILDER_SPECS = {
             "restrict_scaling_type": RestrictValueType.FP,
             # asym+HQO keeps a plain STATS scale, so the zero-point storage cannot
             # be mirrored from scaling_impl_type; request it explicitly.
-            "kwargs": {
+            "attr_overrides": {
                 "quantize_zero_point": False,
                 "zero_point_impl_type": ZeroPointImplType.PARAMETER_FROM_STATS,},},
         "layer_kwargs": {},},
@@ -320,7 +320,7 @@ BUILDER_SPECS = {
             "restrict_scaling_type": RestrictValueType.FP,
             # asym+HQO keeps a plain STATS scale, so the zero-point storage cannot
             # be mirrored from scaling_impl_type; request it explicitly.
-            "kwargs": {
+            "attr_overrides": {
                 "quantize_zero_point": False,
                 "group_size": GROUP_SIZE,
                 "zero_point_impl_type": ZeroPointImplType.PARAMETER_FROM_STATS,},},
@@ -341,7 +341,7 @@ BUILDER_SPECS = {
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "kwargs": {},},
+            "attr_overrides": {},},
         "layer_kwargs": {},},
     "int_po2_per_channel_sym": {
         "ref": Int8WeightPerChannelFixedPoint,
@@ -351,7 +351,7 @@ BUILDER_SPECS = {
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "kwargs": {},},
+            "attr_overrides": {},},
         "layer_kwargs": {},},
     "int_po2_per_tensor_sym_mse": {
         "ref": Int8WeightPerTensorFixedPointMSE,
@@ -363,7 +363,7 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "kwargs": {},},
+            "attr_overrides": {},},
         "layer_kwargs": {},},
     "int_po2_per_channel_sym_mse": {
         "ref": Int8WeightPerChannelFixedPointMSE,
@@ -375,7 +375,7 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "kwargs": {},},
+            "attr_overrides": {},},
         "layer_kwargs": {},},  # MX (groupwise po2) quantizers:
     # WEIGHT_QUANT_MAP['int']['po2_scale'][...]['per_group'].
     "int_po2_per_group_sym": {
@@ -386,7 +386,7 @@ BUILDER_SPECS = {
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "kwargs": {
+            "attr_overrides": {
                 # MX int uses IntQuant (narrow_range=False), unlike the
                 # NarrowIntQuant-based per_tensor/per_channel sym quantizers.
                 "narrow_range": False,
@@ -401,7 +401,7 @@ BUILDER_SPECS = {
             "bit_width": BIT_WIDTH,
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "kwargs": {
+            "attr_overrides": {
                 "group_size": GROUP_SIZE,},},
         "layer_kwargs": {
             "weight_group_size": GROUP_SIZE},},
@@ -415,7 +415,7 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "kwargs": {
+            "attr_overrides": {
                 # MX int uses IntQuant (narrow_range=False).
                 "narrow_range": False,
                 "group_size": GROUP_SIZE,},},
@@ -433,7 +433,7 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "kwargs": {
+            "attr_overrides": {
                 "group_size": GROUP_SIZE,},},
         "layer_kwargs": {
             "weight_group_size": GROUP_SIZE},
@@ -462,7 +462,7 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "kwargs": {},},
+            "attr_overrides": {},},
         "layer_kwargs": {},},
     "float_per_channel_sym": {
         "ref": Fp8e4m3WeightPerChannelFloat,
@@ -473,7 +473,7 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
-            "kwargs": {},},
+            "attr_overrides": {},},
         "layer_kwargs": {},},
     "float_per_group_sym": {
         "ref": Fp8e4m3WeightSymmetricGroupQuant,
@@ -484,7 +484,7 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.FP,
-            "kwargs": {
+            "attr_overrides": {
                 "group_size": GROUP_SIZE,},},
         "layer_kwargs": {
             "weight_group_size": GROUP_SIZE},},
@@ -499,7 +499,7 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
-            "kwargs": {},},
+            "attr_overrides": {},},
         "layer_kwargs": {},},
     # ----------------------------------------------------------------------
     # float_ocp / float_scale: WEIGHT_QUANT_MAP['float_ocp']['float_scale'].
@@ -513,7 +513,7 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "kwargs": {},},
+            "attr_overrides": {},},
         "layer_kwargs": {},},
     "float_ocp_per_channel_sym": {
         "ref": Fp8e4m3OCPWeightPerChannelFloat,
@@ -524,7 +524,7 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
-            "kwargs": {},},
+            "attr_overrides": {},},
         "layer_kwargs": {},},
     "float_ocp_per_group_sym": {
         "ref": Fp8e4m3OCPWeightSymmetricGroupQuant,
@@ -535,7 +535,7 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.FP,
-            "kwargs": {
+            "attr_overrides": {
                 "group_size": GROUP_SIZE,},},
         "layer_kwargs": {
             "weight_group_size": GROUP_SIZE},},
@@ -550,7 +550,7 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
-            "kwargs": {},},
+            "attr_overrides": {},},
         "layer_kwargs": {},},
     # ----------------------------------------------------------------------
     # float_ocp / po2_scale (MX float):
@@ -567,7 +567,7 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "kwargs": {
+            "attr_overrides": {
                 "group_size": GROUP_SIZE,},},
         "layer_kwargs": {
             "weight_group_size": GROUP_SIZE},},
@@ -582,7 +582,7 @@ BUILDER_SPECS = {
             "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
-            "kwargs": {
+            "attr_overrides": {
                 "group_size": GROUP_SIZE,},},
         "layer_kwargs": {
             "weight_group_size": GROUP_SIZE},},
@@ -601,7 +601,7 @@ BUILDER_SPECS = {
             # PerChannelPoTScaling8bit mixin layered on a float quant. The
             # generic builder path reproduces it; any attribute that resolves
             # differently from the reference is overridden here.
-            "kwargs": {},},
+            "attr_overrides": {},},
         "layer_kwargs": {},},
     # ----------------------------------------------------------------------
     # float_fnuz / float_scale: WEIGHT_QUANT_MAP['float_fnuz']['float_scale'].
@@ -615,7 +615,7 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
-            "kwargs": {},},
+            "attr_overrides": {},},
         "layer_kwargs": {},},
     "float_fnuz_per_channel_sym": {
         "ref": Fp8e4m3FNUZWeightPerChannelFloat,
@@ -626,7 +626,7 @@ BUILDER_SPECS = {
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
-            "kwargs": {},},
+            "attr_overrides": {},},
         "layer_kwargs": {},},}
 
 
@@ -685,7 +685,7 @@ def test_builder_weight_quant_matches_reference(spec_name):
     ref_linear = _make_quant_linear(ref_quant, **layer_kwargs)
 
     # Builder layer built from the generic QuantizerBuilder.
-    builder = build_quantizer(WeightQuantizerBuilder, **spec["builder_args"])
+    builder = create_quantizer_builder(WeightQuantizerBuilder, **spec["builder_args"])
     builder_quant = builder.build_quant_injector()
     builder_linear = _make_quant_linear(builder_quant, **layer_kwargs)
 

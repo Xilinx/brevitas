@@ -1,12 +1,8 @@
 """
 Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
-
-The :class:`QuantizerBuilder` director. Each concrete (kind-specific) builder
-provides its full, ordered component list via :meth:`base_components`; callers may
-additionally pass ``extra_components`` to expand or override behaviour. The
-director folds every component's contribution into a brevitas injector.
 """
+
 from abc import ABC
 from abc import abstractmethod
 from typing import Any
@@ -22,7 +18,7 @@ from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
 from brevitas_examples.common.quantizer_builder.core import Component
-from brevitas_examples.common.quantizer_builder.core import config_from_flat_args
+from brevitas_examples.common.quantizer_builder.core import config_from_args
 from brevitas_examples.common.quantizer_builder.core import Contribution
 from brevitas_examples.common.quantizer_builder.core import QuantizerConfig
 from brevitas_examples.common.quantizer_builder.mixins import FloatFormat
@@ -31,14 +27,6 @@ from brevitas_examples.common.quantizer_builder.mixins import QuantParamType
 
 
 class QuantizerBuilder(ABC):
-    """Director of the Builder pattern.
-
-    Concrete (kind-specific) builders return the complete, ordered list of
-    components from :meth:`base_components`; the order is authoritative and owned
-    by each builder. Callers can pass ``extra_components`` to append extra
-    components (folded last, so they override attributes and append bases) without
-    subclassing.
-    """
 
     def __init__(
             self,
@@ -49,18 +37,18 @@ class QuantizerBuilder(ABC):
 
     @abstractmethod
     def base_components(self) -> List[Component]:
-        """The complete, ordered list of components for this quantizer kind.
+        """The ordered list of components to build a specific class of quantizers.
 
         Order is authoritative: later contributions' ``attrs`` override earlier
         ones, and their ``bases`` are appended after earlier ones (so earlier
         components sit first in the MRO). It encodes the precedence constraints
-        (param-method injectors before the solver / zero-point; kind tuning last)
-        and is guarded by the reference module-hierarchy tests.
+        (MSE/HQO injectors before the solver / zero-point).
         """
         ...
 
     def build_quant_injector(self) -> Type:
-        """Fold every component's contribution into a brevitas injector class.
+        """Fold every component's contribution into a ExtendedInjector that describes
+        a quantizer.
 
         The builder's :meth:`base_components` run first, then any caller-supplied
         :attr:`extra_components` (last, lowest MRO priority / final attribute
@@ -76,22 +64,24 @@ class QuantizerBuilder(ABC):
         return Contribution.merge(component.build(self.config) for component in components)
 
     def _assembled_bases(self, merged: Contribution) -> Tuple[Type, ...]:
-        # ``config.extra_bases`` are appended after every component's bases, so they
+        # ``config.base_overrides`` are appended after every component's bases, so they
         # sit last in the MRO (lowest priority).
-        return merged.bases + tuple(self.config.extra_bases)
+        return merged.bases + tuple(self.config.base_overrides)
 
     def _assembled_attrs(self, merged: Contribution) -> Dict[str, Any]:
         attrs: Dict[str, Any] = dict(merged.attrs)
-        attrs.update(self.config.extra)
+        attrs.update(self.config.attr_overrides)
+        # TODO (pml): Remove drops as they complicate the builder and are not used in practice
         # Drops are applied last so a component can remove an attribute regardless
         # of whether the component that set it ran before or after it.
         for key in merged.drop:
             attrs.pop(key, None)
         return attrs
 
+    # TODO (pml): Remove the following three methods and implement in a separate PR
     def format_build(self) -> str:
         """Return the merged component output -- the base classes and the assembled
-        namespace attributes (after ``config.extra`` and ``drop``) -- as a string,
+        namespace attributes (after ``config.attr_overrides`` and ``drop``) -- as a string,
         without resolving any injector dependency."""
         from brevitas_examples.common.quantizer_builder.injector_utils import format_contribution
         merged = self._merged_contribution()
@@ -108,7 +98,7 @@ class QuantizerBuilder(ABC):
         describe_injector(self.build_quant_injector(), resolve=resolve)
 
 
-def build_quantizer(
+def create_quantizer_builder(
         builder_cls: Type[QuantizerBuilder],
         quant_type: Union[str, QuantType],
         *,
@@ -122,12 +112,11 @@ def build_quantizer(
         float_format: Optional[FloatFormat] = None,
         float_quant_format: Optional[str] = None,
         extra_components: Optional[List[Component]] = None,
-        kwargs: Optional[dict] = None) -> QuantizerBuilder:
-    """Assemble a :class:`QuantizerConfig` from the legacy flat quantizer arguments
-    and return an instance of ``builder_cls`` (e.g. :class:`WeightQuantizerBuilder`
-    / :class:`InputQuantizerBuilder`). ``extra_components`` are folded after the
-    builder's own components (see :class:`QuantizerBuilder`)."""
-    config = config_from_flat_args(
+        attr_overrides: Optional[Dict] = None) -> QuantizerBuilder:
+    """
+    Minimal inteface to instantiate a :class:`QuantizerBuilder` from a subset of quantizer arguments.
+    """
+    config = config_from_args(
         quant_type,
         quant_param_type=quant_param_type,
         bit_width=bit_width,
@@ -138,5 +127,5 @@ def build_quantizer(
         zero_point_param_method=zero_point_param_method,
         float_format=float_format,
         float_quant_format=float_quant_format,
-        kwargs=kwargs)
+        attr_overrides=attr_overrides)
     return builder_cls(config, extra_components=extra_components)
