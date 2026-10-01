@@ -39,13 +39,13 @@ from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.nn import QuantIdentity
 from brevitas.nn import QuantLinear
-from brevitas_examples.common.quantizer_builder import build_quantizer
+from brevitas_examples.common.quantizer_builder import create_quantizer_builder
 from brevitas_examples.common.quantizer_builder import FloatFormat
 from brevitas_examples.common.quantizer_builder import InputQuantizerBuilder
 from brevitas_examples.common.quantizer_builder import ParamMethod
 from brevitas_examples.common.quantizer_builder import QuantParamType
 from brevitas_examples.common.quantizer_builder import WeightQuantizerBuilder
-from brevitas_examples.common.quantizer_builder.core import config_from_flat_args
+from brevitas_examples.common.quantizer_builder.core import config_from_args
 
 torch.manual_seed(0)
 
@@ -141,7 +141,7 @@ def _iter_all_combos():
 def _config_valid(combo: Combo) -> bool:
     """True iff ``QuantizerConfig.__post_init__`` accepts this combination."""
     try:
-        config_from_flat_args(
+        config_from_args(
             combo.quant_type,
             quant_param_type=combo.quant_param_type,
             bit_width=BIT_WIDTH,
@@ -209,7 +209,7 @@ def _build_injector(builder_cls, combo: Combo):
     kwargs = {}
     if combo.is_group:
         kwargs["group_size"] = GROUP_SIZE
-    return build_quantizer(
+    return create_quantizer_builder(
         builder_cls,
         combo.quant_type,
         quant_param_type=combo.quant_param_type,
@@ -221,7 +221,7 @@ def _build_injector(builder_cls, combo: Combo):
         zero_point_param_method=combo.zero_point_param_method,
         float_format=combo.float_format,
         float_quant_format=combo.float_quant_format,
-        kwargs=kwargs).build_quant_injector()
+        attr_overrides=kwargs).build_quant_injector()
 
 
 def _apply_input_granularity(injector, combo: Combo):
@@ -243,9 +243,7 @@ def _apply_input_granularity(injector, combo: Combo):
                 stats_reduce_dim=1,
                 per_channel_broadcastable_shape=(1, IN_FEATURES))
         return injector.let(
-            permute_dims=None,
-            stats_reduce_dim=0,
-            per_channel_broadcastable_shape=(1, IN_FEATURES))
+            permute_dims=None, stats_reduce_dim=0, per_channel_broadcastable_shape=(1, IN_FEATURES))
     if combo.scaling_per_output_type == ScalingPerOutputType.GROUP:
         return injector.let(group_dim=-1, group_size=GROUP_SIZE)
     return injector

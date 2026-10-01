@@ -15,7 +15,7 @@ from brevitas.inject.enum import QuantType
 from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
-from brevitas_examples.common.quantizer_builder.builder import build_quantizer
+from brevitas_examples.common.quantizer_builder.builder import create_quantizer_builder
 from brevitas_examples.common.quantizer_builder.input import InputQuantizerBuilder
 from brevitas_examples.common.quantizer_builder.mixins import FloatFormat
 from brevitas_examples.common.quantizer_builder.mixins import ParamMethod
@@ -97,14 +97,14 @@ def _header(title: str) -> None:
 
 
 def _build(builder_cls, builder_args: dict):
-    # scaling_min_val / narrow_range are not explicit build_quantizer args; route
-    # them through the injector kwargs (config.extra).
+    # scaling_min_val / narrow_range are not explicit create_quantizer_builder args;
+    # route them through the injector kwargs (config.attr_overrides).
     builder_args = dict(builder_args)
     kwargs = dict(builder_args.pop("kwargs", None) or {})
     for key in ("scaling_min_val", "narrow_range"):
         if key in builder_args:
             kwargs[key] = builder_args.pop(key)
-    return build_quantizer(builder_cls, **builder_args, kwargs=kwargs)
+    return create_quantizer_builder(builder_cls, **builder_args, attr_overrides=kwargs)
 
 
 def main() -> None:

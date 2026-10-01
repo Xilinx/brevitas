@@ -4,7 +4,7 @@ Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
 
 Input/activation quantizer builder (v2): the concrete
 :class:`InputQuantizerBuilder` with its ordered component list. Instantiate it via
-the shared ``build_quantizer(InputQuantizerBuilder, ...)`` factory (see
+the shared ``create_quantizer_builder(InputQuantizerBuilder, ...)`` factory (see
 :mod:`.builder`).
 """
 from typing import List

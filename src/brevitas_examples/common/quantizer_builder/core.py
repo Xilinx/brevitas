@@ -1,15 +1,6 @@
 """
 Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
-
-Foundational abstractions for the quantizer builder: the immutable configuration
-(:class:`QuantizerConfig` and its discriminated :data:`FormatConfig`), the
-component contract (:class:`Component`) and its output (:class:`Contribution`).
-
-These are the leaf definitions of the builder package: both the concrete
-components and the :class:`~.builder.QuantizerBuilder` depend on them, so keeping
-them here (rather than in the builder module) makes the dependency
-one-directional and avoids circular imports.
 """
 from abc import ABC
 from abc import abstractmethod
@@ -35,17 +26,12 @@ from brevitas_examples.common.quantizer_builder.mixins import QuantParamType
 @dataclass(frozen=True)
 class IntFormatConfig:
     bit_width: int = 8
-    # None = use the kind-specific default (weights are narrow, activations are not);
-    # set explicitly to override. Only meaningful for symmetric int (asymmetric int
-    # is never narrow). Float formats have no narrow-range concept.
     narrow_range: Optional[bool] = None
 
 
 @dataclass(frozen=True)
 class FloatFormatConfig:
     float_quant_format: str  # e.g. "e4m3"; required, no default
-    # AutoName enums are unhashable (they define __eq__ without __hash__), which
-    # dataclass rejects as a plain default; use default_factory instead.
     float_format: FloatFormat = field(default_factory=lambda: FloatFormat.FLOAT)
 
 
@@ -55,10 +41,8 @@ FormatConfig = Union[IntFormatConfig, FloatFormatConfig]
 @dataclass(frozen=True)
 class QuantizerConfig:
     """
-    Immutable description of a quantizer along its orthogonal axes.
+    Minimal description of a quantizer along its orthogonal axes.
     """
-    # AutoName enums are unhashable, so enum defaults use default_factory (a plain
-    # default is rejected by dataclass as "mutable").
     format: FormatConfig
     quant_param_type: QuantParamType = field(default_factory=lambda: QuantParamType.SYM)
     scaling_granularity: ScalingPerOutputType = field(
@@ -73,8 +57,8 @@ class QuantizerConfig:
     # Caller-supplied namespace overrides (highest precedence, applied over every
     # component's attrs) and base classes (lowest MRO priority, appended after
     # every component's bases).
-    extra: Dict[str, Any] = field(default_factory=dict)
-    extra_bases: Tuple[Type, ...] = ()
+    attr_overrides: Dict[str, Any] = field(default_factory=dict)
+    base_overrides: Tuple[Type, ...] = ()
 
     @property
     def is_int(self) -> bool:
@@ -133,6 +117,8 @@ class QuantizerConfig:
             raise ValueError("no_scale quantization is only supported for float quant_type.")
         # Groupwise power-of-two scaled float (MX) is only defined for the OCP
         # format (it relies on FpOCPMixin's inf/nan values for the mantissa bias).
+        # TODO (pml): This constraint might be relaxed by not including the `midmax` calculation
+        # to the groupwise power-of-two mixin.
         if (self.is_float and self.is_power_of_two and self.is_groupwise and
                 self.format.float_format != FloatFormat.OCP):
             raise ValueError(
@@ -158,30 +144,13 @@ class QuantizerConfig:
                 self.zero_point_param_method == ParamMethod.HQO):
             raise ValueError(
                 "MSE scaling_param_method is incompatible with an HQO zero_point_param_method.")
-        # For groupwise quantization, `group_dim` and `group_size` must be specified in `extra`
-        if self.is_groupwise and ('group_dim' not in self.extra or 'group_size' not in self.extra):
+        # For groupwise quantization, `group_dim` and `group_size` must be specified in
+        # `attr_overrides`
+        if self.is_groupwise and ('group_dim' not in self.attr_overrides or
+                                  'group_size' not in self.attr_overrides):
             raise ValueError(
-                "For groupwise quantization, `group_dim` and `group_size` must be specified in `extra`."
-            )
-
-
-@dataclass(frozen=True)
-class QuantScaleQuantizerConfig(QuantizerConfig):
-    """A :class:`QuantizerConfig` whose scale is itself quantized by a *nested*
-    quantizer, described by ``scale_config``.
-
-    Used together with ``restrict_scaling_type == RestrictValueType.QUANT``. It is
-    passed to the builder like any other config, so the quant-scale component reads
-    the nested config from ``build(config)`` without holding any state.
-    """
-    scale_config: Optional[QuantizerConfig] = None
-
-    def __post_init__(self) -> None:
-        super().__post_init__()
-        if self.restrict_scaling_type == RestrictValueType.QUANT and self.scale_config is None:
-            raise ValueError(
-                "QuantScaleQuantizerConfig requires a `scale_config` when "
-                "`restrict_scaling_type == RestrictValueType.QUANT`.")
+                "For groupwise quantization, `group_dim` and `group_size` must be "
+                "specified in `attr_overrides`.")
 
 
 @dataclass(frozen=True)
@@ -193,14 +162,12 @@ class Contribution:
     bases: Tuple[Type, ...] = ()
     # Namespace keys to remove after applying ``attrs`` (rare; e.g. no_scale float
     # drops the scale-related attributes carried by earlier components).
+    # TODO (pml): Remove `drop`, double-checking whether it is used in practice
     drop: Tuple[str, ...] = ()
 
     def __add__(self, other: "Contribution") -> "Contribution":
         """Fold ``other`` on top of ``self``: later ``attrs`` win, ``bases`` are
-        appended (so ``self``'s bases sit first in the MRO) and ``drop`` sets are
-        unioned. ``drop`` is *not* applied here (the builder applies it last, after
-        every contribution is folded and ``config.extra`` is merged), so a
-        component can remove an attribute regardless of ordering."""
+        appended (so ``self``'s bases sit first in the MRO)."""
         return Contribution(
             attrs={
                 **self.attrs, **other.attrs},
@@ -217,8 +184,8 @@ class Contribution:
 
 
 class Component(ABC):
-    """One axis of the quantizer. Reads what it needs from the config (Context
-    Object) and returns a :class:`Contribution`."""
+    """One axis of the quantizer. Reads what it needs from the config
+    and returns a :class:`Contribution`."""
 
     @abstractmethod
     def build(self, config: QuantizerConfig) -> Contribution:
@@ -226,11 +193,11 @@ class Component(ABC):
 
     def validate(self, config: QuantizerConfig) -> None:
         """Raise ``ValueError`` on unsupported axis combinations for this component
-        (default: no constraints). Run by the builder before assembly."""
+        (default: no constraints)."""
         pass
 
 
-def config_from_flat_args(
+def config_from_args(
         quant_type: Union[str, QuantType],
         *,
         quant_param_type: QuantParamType = QuantParamType.SYM,
@@ -242,18 +209,8 @@ def config_from_flat_args(
         zero_point_param_method: Optional[ParamMethod] = None,
         float_format: Optional[FloatFormat] = None,
         float_quant_format: Optional[str] = None,
-        kwargs: Optional[Dict[str, Any]] = None) -> QuantizerConfig:
-    """Assemble a :class:`QuantizerConfig` from the legacy flat quantizer arguments.
-
-    Shared by the weight / input factory shims. For inputs the activation scale
-    mode is carried by ``scaling_impl_type`` (PARAMETER_FROM_STATS=static,
-    DYNAMIC=dynamic, None=no_scale). The ``format`` axis is discriminated on
-    ``quant_type`` into an :class:`IntFormatConfig` or :class:`FloatFormatConfig`.
-
-    Only the common axes are exposed as explicit arguments; less-common knobs
-    (e.g. ``narrow_range``, ``scaling_min_val``) are passed through ``kwargs`` and
-    applied to the injector as-is.
-    """
+        attr_overrides: Optional[Dict[str, Any]] = None) -> QuantizerConfig:
+    """Assemble a :class:`QuantizerConfig` from a minimal set of quantizer arguments."""
     if QuantType(quant_type) == QuantType.INT:
         fmt: FormatConfig = IntFormatConfig(bit_width=bit_width)
     else:
@@ -268,4 +225,4 @@ def config_from_flat_args(
         restrict_scaling_type=restrict_scaling_type,
         scaling_param_method=scaling_param_method,
         zero_point_param_method=zero_point_param_method,
-        extra=kwargs or {})
+        attr_overrides=attr_overrides or {})
