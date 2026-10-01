@@ -46,6 +46,7 @@ class RotationWeightParametrization(torch.nn.Module):
         self.hidden_dim = hidden_dim
 
     def forward(self, tensor: torch.Tensor) -> torch.Tensor:
+        rot_mat = self.rot_mat.to(dtype=tensor.dtype)
         if self.axis == 0:
             tensor = tensor.t()
             init_shape = tensor.shape
@@ -54,7 +55,7 @@ class RotationWeightParametrization(torch.nn.Module):
                 # If init_shape[-1] == had_shape, the next reshape+squeeze is a no-op
                 tensor = tensor.reshape(
                     *init_shape[:-1], init_shape[-1] // self.hidden_dim, self.hidden_dim).squeeze()
-            tensor = self.rot_func(tensor, self.rot_mat, self.K)
+            tensor = self.rot_func(tensor, rot_mat, self.K)
             tensor = tensor.reshape(init_shape).t()
         elif self.axis == 1:
             init_shape = tensor.shape
@@ -63,7 +64,7 @@ class RotationWeightParametrization(torch.nn.Module):
                 # If init_shape[-1] == had_shape, the next reshape+squeeze is a no-op
                 tensor = tensor.reshape(
                     *init_shape[:-1], init_shape[-1] // self.hidden_dim, self.hidden_dim).squeeze()
-            tensor = self.rot_func(tensor, self.rot_mat, self.K)
+            tensor = self.rot_func(tensor, rot_mat, self.K)
             tensor = tensor.reshape(init_shape)
         else:
             raise RuntimeError("Not supported yet")

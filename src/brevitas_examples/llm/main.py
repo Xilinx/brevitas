@@ -104,7 +104,7 @@ def filter_results(results, tasks):
     return eval_results
 
 
-def fused_rotation_no_fx(model, calibration_loader, args):
+def fused_rotation_no_fx(model, calibration_loader, args, rotation_dtype):
     with torch.no_grad(), rmsnorm_patch(model, model.config) as patcher:
         rmsnorm_classes = patcher.rmsnorm_classes
         with make_dynamo_compatible(model) as dynamo_comp, dynamo_export_ctx():
@@ -145,6 +145,7 @@ def fused_rotation_no_fx(model, calibration_loader, args):
         layers_to_expand=layers_to_expand,
         rotation_block_size=args.rotation_block_size,
         disable_block_rotation_for_fused=args.disable_block_rotation_for_fused,
+        rotation_dtype=rotation_dtype,
         extra_state_kwargs=extra_state_kwargs)
 
     if args.permute_fn is not None:
@@ -280,6 +281,8 @@ def quantize_llm(args, extra_args=None):
     print("Model loading...")
     model = AutoModelForCausalLM.from_pretrained(args.model, **kwargs)
     dtype = next(model.parameters()).dtype
+    rotation_dtype = getattr(
+        torch, args.rotation_dtype) if args.rotation_dtype is not None else None
     config = model.config
     print("Model loaded.")
     model.eval()
@@ -406,6 +409,7 @@ def quantize_llm(args, extra_args=None):
             layers_to_expand=layers_to_expand,
             rotation_block_size=args.rotation_block_size,
             disable_block_rotation_for_fused=args.disable_block_rotation_for_fused,
+            rotation_dtype=rotation_dtype,
             extra_state_kwargs={'scale_invariant_layers': rmsnorm_classes})
         model = eq.apply(model)
         remove_hooks(model)
@@ -415,14 +419,15 @@ def quantize_llm(args, extra_args=None):
     # If args.rotation == 'layerwise', then the rotations will not be applied in
     # fused_rotation_no_fx(). Rotations will be added in the layerwise block below.
     if args.rotation == 'fused_no_fx' or args.permute_fn is not None:
-        fused_rotation_no_fx(model, calibration_loader, args)
+        fused_rotation_no_fx(model, calibration_loader, args, rotation_dtype)
 
     if args.rotation == 'layerwise':
         model = offload_model(model)
         eq = LayerwiseActivationRotation(
             layers_to_expand=layers_to_expand,
             expansion_step=args.expansion_step,
-            rotation_block_size=args.rotation_block_size)
+            rotation_block_size=args.rotation_block_size,
+            rotation_dtype=rotation_dtype)
         model = eq.apply(model)
         remove_hooks(model)
 
@@ -611,22 +616,13 @@ def quantize_llm(args, extra_args=None):
             print("Act calibration applied.")
 
         if args.fine_tune:
-            # Load custom training plugin if specified. The registered Trainer class
-            # carries its own ``training_args_cls`` class attribute (which in turn
-            # defines the optimizer setup via ``optimizer_scheduler_args``), consumed
-            # inside apply_fine_tuning.
             custom_trainer_cls = None
-
             if args.custom_trainer is not None:
                 custom_trainer_config_name = parse_custom_trainer(args.custom_trainer)
                 custom_trainer_cls = TRAINER_REGISTRY.get(custom_trainer_config_name)
 
-            fine_tune_extra_args = extra_args if extra_args is not None else []
+            fine_tune_extra_args = list(extra_args) if extra_args is not None else []
             if args.load_checkpoint:
-                # Skip training when loading from a checkpoint by forcing
-                # max_steps to 0 through the training arguments. Appended last so
-                # that it overrides any user-provided --max_steps (the argument
-                # parser keeps the last value for a repeated flag).
                 fine_tune_extra_args += ["--max_steps", "0"]
             apply_fine_tuning(
                 model=model,

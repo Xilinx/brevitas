@@ -373,6 +373,12 @@ def create_args_parser() -> ArgumentParser:
         'If GraphRotation is enabled, decide how to compute the random rotation matrix that is fully fused. Online or partial rotation will always be Hadamard'
     )
     parser.add_argument(
+        '--rotation-dtype',
+        type=str,
+        default=None,
+        choices=['float32', 'float16', 'bfloat16'],
+        help='Data type for rotation matrices. Default: model dtype.')
+    parser.add_argument(
         '--rotation-orphan-sink',
         action="store_true",
         help=

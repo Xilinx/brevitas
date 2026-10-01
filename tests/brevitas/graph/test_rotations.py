@@ -30,6 +30,7 @@ from brevitas.graph.hadamard import get_hadK
 from brevitas.graph.quantize import LAYERWISE_COMPUTE_LAYER_MAP
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.nn.equalized_layer import RotatedModule
+from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
 from brevitas.utils.parametrization_utils import RotationWeightParametrization
 from brevitas.utils.python_utils import recurse_getattr
 from tests.marker import requires_pt_ge
@@ -122,6 +123,26 @@ def test_composition_unfused_rotations(N):
 
         # Verify that the rotation operations were computed correctly
         assert torch.allclose(gt_output, rot_output, atol=ATOL)
+
+
+def test_compute_rotations_preserves_rotation_dtype(rotation_model):
+    model = rotation_model().to(dtype=torch.bfloat16)
+    region = _instantiate_region(RESIDUAL_MODEL_REGION_DICTS[0], model)
+    rewriters = _compute_rotations(
+        model, [region],
+        full_rotation_method='ort',
+        fuse_rotations=False,
+        rotation_dtype=torch.float32)
+    apply_rewriters(model, rewriters)
+
+    rotations = extract_trainable_rotation_matrices(model)
+    assert rotations and all(rotation.dtype == torch.float32 for rotation in rotations)
+
+    output = model(torch.ones(1, IN_FEATURES, dtype=torch.bfloat16))
+    output.sum().backward()
+
+    assert output.dtype == torch.bfloat16
+    assert all(rotation.grad.dtype == torch.float32 for rotation in rotations)
 
 
 # Auxiliar method to convert a dictionary of sources/sinks into a valid region
