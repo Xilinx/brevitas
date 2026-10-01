@@ -47,7 +47,7 @@ from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTens
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerGroupFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerRowFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
-from brevitas_examples.common.quantizer_builder import build_quantizer
+from brevitas_examples.common.quantizer_builder import create_quantizer_builder
 from brevitas_examples.common.quantizer_builder import FloatFormat
 from brevitas_examples.common.quantizer_builder import InputQuantizerBuilder
 from brevitas_examples.common.quantizer_builder import ParamMethod
@@ -472,8 +472,8 @@ def test_builder_input_quant_matches_reference(spec_name):
     # per_group builders need the group_size directly in the injector namespace.
     if granularity == "per_group":
         builder_kwargs["group_size"] = GROUP_SIZE
-    builder_quant = build_quantizer(
-        InputQuantizerBuilder, **builder_args, kwargs=builder_kwargs).build_quant_injector()
+    builder_quant = create_quantizer_builder(
+        InputQuantizerBuilder, **builder_args, attr_overrides=builder_kwargs).build_quant_injector()
 
     # All granularities are hosted by QuantIdentity; per_row / per_group inject the
     # otherwise layer-supplied attributes via .let() (see _apply_granularity_overrides).

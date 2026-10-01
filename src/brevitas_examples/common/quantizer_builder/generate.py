@@ -9,7 +9,7 @@ This is a leaner take on ``brevitas_examples.common.generative.quantize.
 generate_quantizers``: instead of indexing the static ``WEIGHT_QUANT_MAP`` /
 ``INPUT_QUANT_MAP`` tables and threading string keys around, the injectors are
 assembled directly from their quantization axes via
-``build_quantizer(WeightQuantizerBuilder / InputQuantizerBuilder, ...)``. The two
+``create_quantizer_builder(WeightQuantizerBuilder / InputQuantizerBuilder, ...)``. The two
 concerns are split into two functions -- :func:`generate_weight_quantizer` and
 :func:`generate_input_quantizers` -- and every argument is a brevitas / builder
 enum rather than a string.
@@ -28,8 +28,8 @@ from brevitas.inject.enum import QuantType
 from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
-from brevitas_examples.common.quantizer_builder import build_quantizer
 from brevitas_examples.common.quantizer_builder import Component
+from brevitas_examples.common.quantizer_builder import create_quantizer_builder
 from brevitas_examples.common.quantizer_builder import FloatFormat
 from brevitas_examples.common.quantizer_builder import InputQuantizerBuilder
 from brevitas_examples.common.quantizer_builder import ParamMethod
@@ -116,7 +116,7 @@ def generate_weight_quantizer(
         elif param_method == ParamMethod.MSE:
             zero_point_param_method = ParamMethod.MSE
 
-    return build_quantizer(
+    return create_quantizer_builder(
         WeightQuantizerBuilder,
         quant_type,
         quant_param_type=quant_param_type,
@@ -129,7 +129,7 @@ def generate_weight_quantizer(
         float_format=float_format,
         float_quant_format=float_quant_format,
         extra_components=extra_components,
-        kwargs=kwargs).build_quant_injector()
+        attr_overrides=kwargs).build_quant_injector()
 
 
 def _build_input_quant(
@@ -153,7 +153,7 @@ def _build_input_quant(
     if extra_kwargs:
         kwargs.update(extra_kwargs)
 
-    return build_quantizer(
+    return create_quantizer_builder(
         InputQuantizerBuilder,
         quant_type,
         quant_param_type=quant_param_type,
@@ -164,7 +164,7 @@ def _build_input_quant(
         scaling_param_method=param_method,
         float_format=float_format,
         float_quant_format=float_quant_format,
-        kwargs=kwargs).build_quant_injector()
+        attr_overrides=kwargs).build_quant_injector()
 
 
 def generate_input_quantizers(
