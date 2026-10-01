@@ -41,6 +41,7 @@ from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
 from brevitas_examples.llm.gguf_export.base_quantizers import GGUFQ2_KWeightQuant
 from brevitas_examples.llm.gguf_export.base_quantizers import GGUFQ3_KWeightQuant
 from brevitas_examples.llm.gguf_export.base_quantizers import GGUFQ4_0WeightQuant
+from brevitas_examples.llm.gguf_export.base_quantizers import GGUFQ4_1WeightQuant
 from brevitas_examples.llm.gguf_export.base_quantizers import GGUFQ4_KWeightQuant
 from brevitas_examples.llm.gguf_export.base_quantizers import GGUFQ5_KWeightQuant
 from brevitas_examples.llm.gguf_export.base_quantizers import GGUFQ6_KWeightQuant
@@ -55,6 +56,10 @@ _ALL_LAYERS = list(range(_N_LAYER))
 def _bump_layers(layers, module_suffix, weight_quant):
     return {f"model.layers.{i}.{module_suffix}": weight_quant for i in layers}
 
+
+# Q4_0: llama.cpp bumps early down projections when an I-matrix is available.
+# This recipe reproduces those bumps without necessarily using an I-matrix.
+_Q4_0_RECIPE = _bump_layers(_ALL_LAYERS[:_N_LAYER // 8], "mlp.down_proj", GGUFQ4_1WeightQuant)
 
 # Q4_K_S: bump attn_v and ffn_down on layers 0-3 to Q5_K.
 _Q4_K_S_RECIPE = {
@@ -94,7 +99,7 @@ class GGUFQ4_0(RecipeMixin, BaseQuantizer):
     expected_model_name = _MODEL_NAME
     weight_quant = lambda module, name: (
         GGUFQ6_KWeightQuant
-        if is_first_or_last_layer(module, name) else GGUFQ4_0WeightQuant)
+        if is_first_or_last_layer(module, name) else _Q4_0_RECIPE.get(name, GGUFQ4_0WeightQuant))
 
 
 @Registry.register(QUANTIZERS_REGISTRY, "gguf_q4_k_s")

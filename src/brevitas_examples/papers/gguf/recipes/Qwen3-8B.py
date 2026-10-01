@@ -65,6 +65,10 @@ def _bump_layers(layers, module_suffix, weight_quant):
     return {f"model.layers.{i}.{module_suffix}": weight_quant for i in layers}
 
 
+# Q4_0: llama.cpp bumps early down projections when an I-matrix is available.
+# This recipe reproduces those bumps without necessarily using an I-matrix.
+_Q4_0_RECIPE = _bump_layers(_ALL_LAYERS[:_N_LAYER // 8], "mlp.down_proj", GGUFQ4_1WeightQuant)
+
 # Q4_K_S: bump attn_v and ffn_down on layers 0-3 to Q5_K.
 _Q4_K_S_RECIPE = {
     **_bump_layers([0, 1, 2, 3], "self_attn.v_proj", GGUFQ5_KWeightQuant),
@@ -103,7 +107,7 @@ class GGUFQ4_0(RecipeMixin, BaseQuantizer):
     expected_model_name = _MODEL_NAME
     weight_quant = lambda module, name: (
         GGUFQ6_KWeightQuant
-        if _is_last_layer(name) else GGUFQ4_0WeightQuant)
+        if _is_last_layer(name) else _Q4_0_RECIPE.get(name, GGUFQ4_0WeightQuant))
 
 
 @Registry.register(QUANTIZERS_REGISTRY, "gguf_q4_1")
