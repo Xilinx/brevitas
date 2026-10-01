@@ -46,6 +46,7 @@ class RotationWeightParametrization(torch.nn.Module):
         self.hidden_dim = hidden_dim
 
     def forward(self, tensor: torch.Tensor) -> torch.Tensor:
+        rot_mat = self.rot_mat.to(dtype=tensor.dtype)
         if self.axis == 0:
             tensor = tensor.t()
             init_shape = tensor.shape
@@ -54,7 +55,7 @@ class RotationWeightParametrization(torch.nn.Module):
                 # If init_shape[-1] == had_shape, the next reshape+squeeze is a no-op
                 tensor = tensor.reshape(
                     *init_shape[:-1], init_shape[-1] // self.hidden_dim, self.hidden_dim).squeeze()
-            tensor = self.rot_func(tensor, self.rot_mat, self.K)
+            tensor = self.rot_func(tensor, rot_mat, self.K)
             tensor = tensor.reshape(init_shape).t()
         elif self.axis == 1:
             init_shape = tensor.shape
@@ -63,7 +64,7 @@ class RotationWeightParametrization(torch.nn.Module):
                 # If init_shape[-1] == had_shape, the next reshape+squeeze is a no-op
                 tensor = tensor.reshape(
                     *init_shape[:-1], init_shape[-1] // self.hidden_dim, self.hidden_dim).squeeze()
-            tensor = self.rot_func(tensor, self.rot_mat, self.K)
+            tensor = self.rot_func(tensor, rot_mat, self.K)
             tensor = tensor.reshape(init_shape)
         else:
             raise RuntimeError("Not supported yet")
@@ -141,20 +142,3 @@ def extract_trainable_rotation_matrices(model: nn.Module) -> List[nn.Parameter]:
                 ids_rot.add(id(module.rot_mat))
                 trainable_rotations.append(module.rot_mat)
     return trainable_rotations
-
-
-def cast_parameters_(parameters: List[nn.Parameter], dtype: Optional[torch.dtype] = None) -> None:
-    """In-place change the storage ``dtype`` of ``parameters``.
-
-    The underlying ``Parameter`` objects are preserved (only ``.data`` is
-    replaced), so any sharing/tying between modules is maintained. This is used
-    to keep trainable state (e.g. rotation matrices) in a higher precision than
-    the surrounding model without altering the forward path, which casts back to
-    the operating dtype at the point of use.
-    """
-    if dtype is None:
-        return
-    with torch.no_grad():
-        for param in parameters:
-            if param.dtype != dtype:
-                param.data = param.data.to(dtype=dtype)

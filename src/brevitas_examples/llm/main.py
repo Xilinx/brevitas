@@ -74,7 +74,6 @@ from brevitas_examples.llm.llm_quant.prepare_for_quantize import make_dynamo_com
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
     replace_sdpa_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.rotation_optimization import apply_fine_tuning
-from brevitas_examples.llm.llm_quant.rotation_optimization import prepare_fine_tuning
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
 from brevitas_examples.llm.llm_quant.trainer_utils import TRAINER_REGISTRY
@@ -104,7 +103,7 @@ def filter_results(results, tasks):
     return eval_results
 
 
-def fused_rotation_no_fx(model, calibration_loader, args):
+def fused_rotation_no_fx(model, calibration_loader, args, rotation_dtype):
     with torch.no_grad(), rmsnorm_patch(model, model.config) as patcher:
         rmsnorm_classes = patcher.rmsnorm_classes
         with make_dynamo_compatible(model) as dynamo_comp, dynamo_export_ctx():
@@ -145,6 +144,7 @@ def fused_rotation_no_fx(model, calibration_loader, args):
         layers_to_expand=layers_to_expand,
         rotation_block_size=args.rotation_block_size,
         disable_block_rotation_for_fused=args.disable_block_rotation_for_fused,
+        rotation_dtype=rotation_dtype,
         extra_state_kwargs=extra_state_kwargs)
 
     if args.permute_fn is not None:
@@ -280,6 +280,8 @@ def quantize_llm(args, extra_args=None):
     print("Model loading...")
     model = AutoModelForCausalLM.from_pretrained(args.model, **kwargs)
     dtype = next(model.parameters()).dtype
+    rotation_dtype = getattr(
+        torch, args.rotation_dtype) if args.rotation_dtype is not None else None
     config = model.config
     print("Model loaded.")
     model.eval()
@@ -397,6 +399,7 @@ def quantize_llm(args, extra_args=None):
             layers_to_expand=layers_to_expand,
             rotation_block_size=args.rotation_block_size,
             disable_block_rotation_for_fused=args.disable_block_rotation_for_fused,
+            rotation_dtype=rotation_dtype,
             extra_state_kwargs={'scale_invariant_layers': rmsnorm_classes})
         model = eq.apply(model)
         remove_hooks(model)
@@ -406,14 +409,15 @@ def quantize_llm(args, extra_args=None):
     # If args.rotation == 'layerwise', then the rotations will not be applied in
     # fused_rotation_no_fx(). Rotations will be added in the layerwise block below.
     if args.rotation == 'fused_no_fx' or args.permute_fn is not None:
-        fused_rotation_no_fx(model, calibration_loader, args)
+        fused_rotation_no_fx(model, calibration_loader, args, rotation_dtype)
 
     if args.rotation == 'layerwise':
         model = offload_model(model)
         eq = LayerwiseActivationRotation(
             layers_to_expand=layers_to_expand,
             expansion_step=args.expansion_step,
-            rotation_block_size=args.rotation_block_size)
+            rotation_block_size=args.rotation_block_size,
+            rotation_dtype=rotation_dtype)
         model = eq.apply(model)
         remove_hooks(model)
 
@@ -561,25 +565,6 @@ def quantize_llm(args, extra_args=None):
     if args.bias_corr:
         model = add_zero_bias_to_linear(model)
 
-    # Resolve the fine-tuning trainer and prepare the model before quant-proxy
-    # compilation. This gives the trainer a chance to establish parameter
-    # sharing/storage dtypes before compilation captures parameter identities.
-    custom_trainer_cls = None
-    training_args = None
-    fine_tune_extra_args = list(extra_args) if extra_args is not None else []
-    if args.fine_tune:
-        if args.custom_trainer is not None:
-            custom_trainer_config_name = parse_custom_trainer(args.custom_trainer)
-            custom_trainer_cls = TRAINER_REGISTRY.get(custom_trainer_config_name)
-        if args.load_checkpoint:
-            # Skip training when loading from a checkpoint by forcing max_steps to
-            # 0 through the training arguments. Appended last so that it overrides
-            # any user-provided --max_steps (the argument parser keeps the last
-            # value for a repeated flag).
-            fine_tune_extra_args += ["--max_steps", "0"]
-        custom_trainer_cls, training_args = prepare_fine_tuning(
-            model=model, trainer_cls=custom_trainer_cls, extra_args=fine_tune_extra_args)
-
     model = offload_model(model)
 
     dict_hooks = dict()
@@ -621,17 +606,21 @@ def quantize_llm(args, extra_args=None):
             print("Act calibration applied.")
 
         if args.fine_tune:
-            # The trainer and training arguments were resolved (and the model
-            # prepared) before compilation. Pass them straight through so that
-            # neither is re-parsed nor re-prepared here.
+            custom_trainer_cls = None
+            if args.custom_trainer is not None:
+                custom_trainer_config_name = parse_custom_trainer(args.custom_trainer)
+                custom_trainer_cls = TRAINER_REGISTRY.get(custom_trainer_config_name)
+
+            fine_tune_extra_args = list(extra_args) if extra_args is not None else []
+            if args.load_checkpoint:
+                fine_tune_extra_args += ["--max_steps", "0"]
             apply_fine_tuning(
                 model=model,
                 tokenizer=tokenizer,
                 train_dataset=finetune_dataset,
                 collate_fn=collate_fn,
                 trainer_cls=custom_trainer_cls,
-                extra_args=fine_tune_extra_args,
-                training_args=training_args)
+                extra_args=fine_tune_extra_args)
             # Remove hooks from training
             remove_hooks(model)
             model = offload_model(model)
