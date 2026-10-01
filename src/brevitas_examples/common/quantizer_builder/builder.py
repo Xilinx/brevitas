@@ -78,25 +78,6 @@ class QuantizerBuilder(ABC):
             attrs.pop(key, None)
         return attrs
 
-    # TODO (pml): Remove the following three methods and implement in a separate PR
-    def format_build(self) -> str:
-        """Return the merged component output -- the base classes and the assembled
-        namespace attributes (after ``config.attr_overrides`` and ``drop``) -- as a string,
-        without resolving any injector dependency."""
-        from brevitas_examples.common.quantizer_builder.injector_utils import format_contribution
-        merged = self._merged_contribution()
-        return format_contribution(self._assembled_bases(merged), self._assembled_attrs(merged))
-
-    def describe_build(self) -> None:
-        """Print :meth:`format_build`."""
-        print(self.format_build())
-
-    def describe_quantizer(self, resolve: bool = True) -> None:
-        """Build the quant injector and print its attributes, dependency kinds,
-        and (for ``@value`` functions) the args they require and resolve to."""
-        from brevitas_examples.common.quantizer_builder.injector_utils import describe_injector
-        describe_injector(self.build_quant_injector(), resolve=resolve)
-
 
 def create_quantizer_builder(
         builder_cls: Type[QuantizerBuilder],
