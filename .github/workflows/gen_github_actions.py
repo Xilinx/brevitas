@@ -175,14 +175,12 @@ def examples_cache_step(asset_family):
         ('name', 'Cache brevitas {} assets'.format(asset_family)), ('uses', 'actions/cache@v4'),
         (
             'with',
-            od([('path', 'data'),
+            od([
+                ('path', 'data'),
                 (
                     'key',
-                    "${{{{ runner.os }}}}-brevitas-test-assets-{}-v1-${{{{ hashFiles('tests/brevitas_examples/conftest.py', 'tests/brevitas_examples/test_assets.py', 'noxfile.py', 'requirements/requirements-lighteval.txt', 'src/brevitas_examples/bnn_pynq/cfg/*.ini') }}}}"
-                    .format(asset_family)),
-                (
-                    'restore-keys',
-                    '${{{{ runner.os }}}}-brevitas-test-assets-{}-v1-'.format(asset_family))]))])
+                    "${{{{ runner.os }}}}-brevitas-test-assets-{}-${{{{ hashFiles('tests/brevitas_examples/conftest.py', 'tests/brevitas_examples/assets_for_tests.py', 'noxfile.py', 'requirements/requirements-lighteval.txt', 'src/brevitas_examples/bnn_pynq/cfg/*.ini') }}}}"
+                    .format(asset_family)),]))])
 
 
 EXAMPLES_PYTEST_STEP_LIST = [

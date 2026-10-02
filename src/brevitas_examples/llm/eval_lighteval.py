@@ -247,7 +247,6 @@ def run_lighteval(
     model: nn.Module,
     tasks: list[str],
     output_dir: str = "./results",
-    cache_dir: str | None = None,
     dtype: str | None = None,
     batch_size: int | None = None,
     max_samples: int | None = None,
@@ -257,6 +256,13 @@ def run_lighteval(
     Returns:
         results (dict): Evaluation results containing metrics and scores for all tasks.
     """
+
+    test_dir = os.environ.get('BREVITAS_TEST_LIGHTEVAL_DIR')
+    if test_dir:
+        output_dir = os.path.join(test_dir, 'results')
+        cache_dir = os.path.join(test_dir, 'cache')
+    else:
+        cache_dir = None
 
     evaluation_tracker = EvaluationTracker(output_dir=output_dir, save_details=True)
     parent_folder = pathlib.Path(os.path.abspath(__file__)).parent

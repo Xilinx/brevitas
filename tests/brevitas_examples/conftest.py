@@ -7,8 +7,8 @@ from pathlib import Path
 from filelock import FileLock
 import pytest
 
-from tests.brevitas_examples.test_assets import get_test_cache_dir
-from tests.brevitas_examples.test_assets import TEST_CACHE_VERSION
+from tests.brevitas_examples.assets_for_tests import get_test_cache_dir
+from tests.brevitas_examples.assets_for_tests import TEST_CACHE_VERSION
 
 # Default dataset location used by brevitas_examples.bnn_pynq.bnn_pynq_train.launch
 # (resolved relative to the current working directory, i.e. the repo root under nox).
