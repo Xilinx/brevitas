@@ -70,6 +70,7 @@ def install_torchvision_cmd(pytorch):
 
 def configure_hf_test_cache(session):
     cache_dir = os.path.abspath(os.environ.get('BREVITAS_TEST_CACHE_DIR', 'data'))
+    # Keep third-party caches under data/ so actions/cache restores one tree.
     session.env['BREVITAS_TEST_CACHE_DIR'] = cache_dir
     session.env['HF_HOME'] = os.path.join(cache_dir, 'huggingface')
     session.env['HF_HUB_CACHE'] = os.path.join(cache_dir, 'huggingface', 'hub')
@@ -193,7 +194,7 @@ def tests_brevitas_examples_llm_lighteval(session, pytorch, jit_status):
     session.run(
         'python',
         '-c',
-        'from tests.brevitas_examples.test_assets import prepare_lighteval_assets; '
+        'from tests.brevitas_examples.assets_for_tests import prepare_lighteval_assets; '
         'prepare_lighteval_assets()')
     session.env['HF_HUB_OFFLINE'] = '1'
     session.env['HF_DATASETS_OFFLINE'] = '1'

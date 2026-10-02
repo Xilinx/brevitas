@@ -59,8 +59,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: data
-        key: ${{ runner.os }}-brevitas-test-assets-diffusion-v1-${{ hashFiles('tests/brevitas_examples/conftest.py', 'tests/brevitas_examples/test_assets.py', 'noxfile.py', 'requirements/requirements-lighteval.txt', 'src/brevitas_examples/bnn_pynq/cfg/*.ini') }}
-        restore-keys: ${{ runner.os }}-brevitas-test-assets-diffusion-v1-
+        key: ${{ runner.os }}-brevitas-test-assets-diffusion-${{ hashFiles('tests/brevitas_examples/conftest.py', 'tests/brevitas_examples/assets_for_tests.py', 'noxfile.py', 'requirements/requirements-lighteval.txt', 'src/brevitas_examples/bnn_pynq/cfg/*.ini') }}
 
     - name: Run Nox session for brevitas_examples pytest
       shell: bash
