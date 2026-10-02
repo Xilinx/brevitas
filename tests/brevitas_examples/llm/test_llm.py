@@ -163,13 +163,25 @@ def main(parser) -> Callable:
                     f"{tr_ver}")
 
             lighteval_dir = None
-            lighteval_env = {}
             if args.few_shot_eval == 'lighteval':
                 lighteval_dir = tempfile.mkdtemp(prefix='brevitas-lighteval-')
-                lighteval_env['BREVITAS_TEST_LIGHTEVAL_DIR'] = lighteval_dir
             try:
-                with patch.dict(os.environ, lighteval_env):
+                if lighteval_dir is None:
                     results, model = quantize_llm(args, extra_args=extra_args)
+                else:
+                    from brevitas_examples.llm import eval_lighteval
+
+                    run_lighteval = eval_lighteval.run_lighteval
+
+                    def run_lighteval_isolated(*run_args, **run_kwargs):
+                        run_kwargs['output_dir'] = os.path.join(lighteval_dir, 'results')
+                        run_kwargs['cache_dir'] = os.path.join(lighteval_dir, 'cache')
+                        return run_lighteval(*run_args, **run_kwargs)
+
+                    with patch.object(eval_lighteval,
+                                      'run_lighteval',
+                                      side_effect=run_lighteval_isolated):
+                        results, model = quantize_llm(args, extra_args=extra_args)
             finally:
                 if lighteval_dir is not None:
                     shutil.rmtree(lighteval_dir, ignore_errors=True)
