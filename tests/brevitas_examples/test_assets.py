@@ -7,17 +7,12 @@ from pathlib import Path
 
 from filelock import FileLock
 
+from tests.brevitas_examples._cache import get_hf_cache_dir
+from tests.brevitas_examples._cache import get_lock_dir
+
 
 def _env_enabled(name: str) -> bool:
     return os.environ.get(name, "").lower() in {"1", "true", "yes", "on"}
-
-
-def get_hf_cache_dir() -> str:
-    """Return the explicit cache used by network-backed example tests."""
-    cache_dir = os.environ.get("BREVITAS_TEST_HF_CACHE_DIR")
-    if cache_dir:
-        return cache_dir
-    return str(Path.home() / ".cache" / "brevitas" / "test-huggingface")
 
 
 def resolve_hf_asset(repo_id: str, revision: str | None = None) -> str:
@@ -33,7 +28,7 @@ def resolve_hf_asset(repo_id: str, revision: str | None = None) -> str:
     from huggingface_hub import snapshot_download
     from huggingface_hub.errors import LocalEntryNotFoundError
 
-    cache_dir = Path(get_hf_cache_dir())
+    cache_dir = get_hf_cache_dir()
     cache_dir.mkdir(parents=True, exist_ok=True)
     common_args = {
         "repo_id": repo_id,
@@ -47,7 +42,9 @@ def resolve_hf_asset(repo_id: str, revision: str | None = None) -> str:
             raise
 
     lock_id = hashlib.sha256(f"{repo_id}\n{revision}".encode()).hexdigest()
-    with FileLock(cache_dir / f".{lock_id}.lock"):
+    lock_dir = get_lock_dir()
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    with FileLock(lock_dir / f"hf-{lock_id}.lock"):
         try:
             return snapshot_download(**common_args, local_files_only=True)
         except LocalEntryNotFoundError:

@@ -169,15 +169,24 @@ PYTEST_STEP_LIST = [
             r'nox -v -s tests_brevitas_cpu-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)'
         )]),]
 
-EXAMPLES_PYTEST_STEP_LIST = [
-    od([('name', 'Cache bnn_pynq datasets'), ('uses', 'actions/cache@v4'),
+
+def examples_cache_step(asset_family):
+    return od([
+        ('name', 'Cache brevitas {} assets'.format(asset_family)), ('uses', 'actions/cache@v4'),
         (
             'with',
             od([('path', 'data'),
                 (
                     'key',
-                    "${{ runner.os }}-bnn-pynq-datasets-${{ hashFiles('src/brevitas_examples/bnn_pynq/cfg/*.ini') }}"
-                ), ('restore-keys', '${{ runner.os }}-bnn-pynq-datasets-')]))]),
+                    "${{{{ runner.os }}}}-brevitas-test-assets-{}-v1-${{{{ hashFiles('tests/brevitas_examples/_cache.py', 'tests/brevitas_examples/conftest.py', 'tests/brevitas_examples/test_assets.py', 'src/brevitas_examples/bnn_pynq/cfg/*.ini') }}}}"
+                    .format(asset_family)),
+                (
+                    'restore-keys',
+                    '${{{{ runner.os }}}}-brevitas-test-assets-{}-v1-'.format(asset_family))]))])
+
+
+EXAMPLES_PYTEST_STEP_LIST = [
+    examples_cache_step('datasets'),
     od([('name', 'Run Nox session for brevitas_examples pytest'), ('shell', 'bash'),
         (
             'run',
@@ -185,6 +194,7 @@ EXAMPLES_PYTEST_STEP_LIST = [
         )]),]
 
 EXAMPLES_LLM_PYTEST_STEP_LIST = [
+    examples_cache_step('llm'),
     od([('name', 'Run Nox session for brevitas_examples LLM'), ('shell', 'bash'),
         (
             'run',
@@ -207,6 +217,7 @@ EXAMPLES_LLM_PYTEST_STEP_LIST = [
         )]),]
 
 EXAMPLES_DIFFUSION_PYTEST_STEP_LIST = [
+    examples_cache_step('diffusion'),
     od([('name', 'Run Nox session for brevitas_examples pytest'), ('shell', 'bash'),
         (
             'run',
