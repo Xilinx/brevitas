@@ -7,10 +7,12 @@ from pathlib import Path
 from filelock import FileLock
 import pytest
 
+from tests.brevitas_examples._cache import get_test_cache_dir
+from tests.brevitas_examples._cache import TEST_CACHE_VERSION
+
 # Default dataset location used by brevitas_examples.bnn_pynq.bnn_pynq_train.launch
 # (resolved relative to the current working directory, i.e. the repo root under nox).
-DATADIR = os.path.abspath(os.path.join(os.getcwd(), 'data'))
-DATASET_CACHE_VERSION = '1'
+DATADIR = str(get_test_cache_dir())
 
 
 def _datasets_available(datadir):
@@ -61,12 +63,12 @@ def bnn_pynq_datasets():
     sentinel_path = os.path.join(DATADIR, '.download.done')
     with FileLock(lock_path):
         sentinel = Path(sentinel_path)
-        cache_valid = sentinel.is_file() and sentinel.read_text() == DATASET_CACHE_VERSION
+        cache_valid = sentinel.is_file() and sentinel.read_text() == TEST_CACHE_VERSION
         if not cache_valid or not _datasets_available(DATADIR):
             _download_datasets(DATADIR)
             if not _datasets_available(DATADIR):
                 raise RuntimeError(f'Incomplete dataset cache at {DATADIR}')
             sentinel_tmp = sentinel.with_suffix('.tmp')
-            sentinel_tmp.write_text(DATASET_CACHE_VERSION)
+            sentinel_tmp.write_text(TEST_CACHE_VERSION)
             os.replace(sentinel_tmp, sentinel)
     yield
