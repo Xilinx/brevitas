@@ -178,7 +178,7 @@ def examples_cache_step(asset_family):
             od([('path', 'data'),
                 (
                     'key',
-                    "${{{{ runner.os }}}}-brevitas-test-assets-{}-v1-${{{{ hashFiles('tests/brevitas_examples/_cache.py', 'tests/brevitas_examples/conftest.py', 'tests/brevitas_examples/test_assets.py', 'src/brevitas_examples/bnn_pynq/cfg/*.ini') }}}}"
+                    "${{{{ runner.os }}}}-brevitas-test-assets-{}-v1-${{{{ hashFiles('tests/brevitas_examples/_cache.py', 'tests/brevitas_examples/conftest.py', 'tests/brevitas_examples/test_assets.py', 'noxfile.py', 'requirements/requirements-lighteval.txt', 'src/brevitas_examples/bnn_pynq/cfg/*.ini') }}}}"
                     .format(asset_family)),
                 (
                     'restore-keys',

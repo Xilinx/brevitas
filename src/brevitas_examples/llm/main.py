@@ -783,10 +783,14 @@ def quantize_llm(args, extra_args=None):
                 remove_hooks(model)
 
                 from brevitas_examples.llm.eval_lighteval import run_lighteval
+                lighteval_output_dir = getattr(args, 'lighteval_output_dir', './results')
+                lighteval_cache_dir = getattr(args, 'lighteval_cache_dir', None)
                 few_shot_eval_results = run_lighteval(
                     model_name=args.model,
                     model=model,
                     tasks=args.few_shot_tasks,
+                    output_dir=lighteval_output_dir,
+                    cache_dir=lighteval_cache_dir,
                     dtype=args.dtype,
                     batch_size=args.few_shot_override_batch_size,
                     max_samples=args.few_shot_limit,
