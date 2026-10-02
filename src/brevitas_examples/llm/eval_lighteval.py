@@ -247,6 +247,7 @@ def run_lighteval(
     model: nn.Module,
     tasks: list[str],
     output_dir: str = "./results",
+    cache_dir: str | None = None,
     dtype: str | None = None,
     batch_size: int | None = None,
     max_samples: int | None = None,
@@ -266,8 +267,14 @@ def run_lighteval(
         max_samples=max_samples,
         custom_tasks_directory=full_path)
 
-    model_config = TransformersModelConfig(
-        model_name=model_name, dtype=dtype, batch_size=batch_size, model_parallel=True)
+    model_config_args = {
+        'model_name': model_name,
+        'dtype': dtype,
+        'batch_size': batch_size,
+        'model_parallel': True,}
+    if cache_dir is not None:
+        model_config_args['cache_dir'] = cache_dir
+    model_config = TransformersModelConfig(**model_config_args)
 
     # Pipeline expects a comma-separated list of tasks
     tasks = ",".join(tasks)

@@ -7,6 +7,7 @@ import logging
 import os
 import platform
 import shutil
+import tempfile
 from typing import Callable
 from typing import Dict
 from typing import List
@@ -161,7 +162,16 @@ def main(parser) -> Callable:
                     f"torch {torch_version} and transformers "
                     f"{tr_ver}")
 
-            results, model = quantize_llm(args, extra_args=extra_args)
+            lighteval_dir = None
+            if args.few_shot_eval == 'lighteval':
+                lighteval_dir = tempfile.mkdtemp(prefix='brevitas-lighteval-')
+                args.lighteval_output_dir = os.path.join(lighteval_dir, 'results')
+                args.lighteval_cache_dir = os.path.join(lighteval_dir, 'cache')
+            try:
+                results, model = quantize_llm(args, extra_args=extra_args)
+            finally:
+                if lighteval_dir is not None:
+                    shutil.rmtree(lighteval_dir, ignore_errors=True)
         # Return the results along with the model
         return results, model
 
