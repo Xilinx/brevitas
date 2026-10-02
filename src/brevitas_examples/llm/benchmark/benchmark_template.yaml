@@ -149,9 +149,9 @@ qronos_alpha:
 - 1.0e-06
 quant_sdpa:
 - null
-quantize_input_zero_point:
+quantize_first_last_layer:
 - false
-quantize_last_layer:
+quantize_input_zero_point:
 - false
 quantize_weight_zero_point:
 - false

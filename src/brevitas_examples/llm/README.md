@@ -24,7 +24,7 @@ usage: main.py [-h] [--config CONFIG] [--model MODEL] [--dtype {auto,float32,flo
                [--attn-bit-width ATTN_BIT_WIDTH] [--attn-quant-format ATTN_QUANT_FORMAT] [--attn-param-method {stats,mse}] [--attn-scale-precision {float_scale,po2_scale}]
                [--attn-scale-type {static,dynamic,no_scale}] [--attn-quant-type {sym,asym}] [--attn-quant-granularity {per_tensor,per_row,per_group}] [--attn-group-size ATTN_GROUP_SIZE]
                [--learned-round-lr LEARNED_ROUND_LR] [--learned-round-scale-lr LEARNED_ROUND_SCALE_LR] [--learned-round-scale-momentum LEARNED_ROUND_SCALE_MOMENTUM]
-               [--learned-round-iters LEARNED_ROUND_ITERS] [--learned-round-scale] [--quantize-input-zero-point] [--quantize-last-layer] [--magr] [--magr-alpha MAGR_ALPHA] [--qronos]
+               [--learned-round-iters LEARNED_ROUND_ITERS] [--learned-round-scale] [--quantize-input-zero-point] [--quantize-first-last-layer] [--magr] [--magr-alpha MAGR_ALPHA] [--qronos]
                [--qronos-alpha QRONOS_ALPHA] [--gptq] [--gpfq] [--gpxq-act-order] [--gpxq-use-quant-activations] [--disable-create-weight-orig]
                [--gpxq-max-accumulator-bit-width GPXQ_MAX_ACCUMULATOR_BIT_WIDTH] [--gpxq-max-accumulator-tile-size GPXQ_MAX_ACCUMULATOR_TILE_SIZE] [--act-calibration] [--bias-corr] [--ln-affine-merge]
                [--convert-layernorm-to-rmsnorm] [--replace-rmsnorm] [--no-quantize] [--scaling-min-val SCALING_MIN_VAL] [--quant-sdpa {eager,functional,fx}] [--eager-quant-sdpa-class EAGER_QUANT_SDPA_CLASS]
@@ -119,8 +119,11 @@ options:
                         Learned scale factor together with round.
   --quantize-input-zero-point
                         Quantize input zero-point.
-  --quantize-last-layer
-                        Quantize last nn.Linear layer.
+  --quantize-first-last-layer
+                        Quantize the first (embedding) and last nn.Linear
+                        layer. When not set, the embedding is left unquantized
+                        and the last layer weight quantizer is forced to None,
+                        overriding any definition from a custom quantizer.
   --magr                Apply MagR.
   --magr-alpha MAGR_ALPHA
                         Alpha for MagR. Default: 0.01.

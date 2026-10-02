@@ -16,35 +16,53 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
+from pathlib import Path
 import re
 import shutil
-import sys
+import tempfile
+import time
 
 import torch
 
 from brevitas.utils.logging import setup_logger
 
-from .convert import GGUF_OVERRIDE_MODEL_TENSORS
+# Imported for its side effect: registers the GGUF custom quantizers (gguf_q4_0,
+# gguf_q4_k, ...) in QUANTIZERS_REGISTRY so they are selectable via --custom-quantizer.
+from . import custom_quantizers  # noqa: F401
 from .convert import ModelBase
+from .proxy import GGUFGroupwiseWeightQuantProxyFromInjector
+from .targets import FTYPE_MAP
+from .targets import GGUF_EXPORT_TARGETS
 
 logger = setup_logger(__name__)
-from pathlib import Path
-import time
 
-import gguf
 
-FTYPE_MAP: dict[str, gguf.LlamaFileType] = {
-    "f32": gguf.LlamaFileType.ALL_F32,
-    "f16": gguf.LlamaFileType.MOSTLY_F16,
-    "bf16": gguf.LlamaFileType.MOSTLY_BF16,
-    "q8_0": gguf.LlamaFileType.MOSTLY_Q8_0,
-    "q4_0": gguf.LlamaFileType.MOSTLY_Q4_0,
-    "q4_1": gguf.LlamaFileType.MOSTLY_Q4_1,
-    "q4_k_s": gguf.LlamaFileType.MOSTLY_Q4_K_S,
-    "q2_k_s": gguf.LlamaFileType.MOSTLY_Q2_K_S,
-    "q8_0": gguf.LlamaFileType.MOSTLY_Q8_0,
-    "auto": gguf.LlamaFileType.GUESSED,}
+def _gguf_proxies(model):
+    """Yield every GGUF-aware weight-quant proxy reachable from ``model``."""
+    for m in model.modules():
+        if isinstance(m, GGUFGroupwiseWeightQuantProxyFromInjector):
+            yield m
+
+
+def _enable_gguf_export_caching(model):
+    """Enable metadata-only weight caching on each GGUF proxy."""
+    prior_settings = {}
+    for wq in _gguf_proxies(model):
+        prior_settings[wq] = (
+            wq.cache_inference_quant_weight, wq.cache_inference_quant_weight_metadata_only)
+        # NOTE: quant_inference_mode enables metadata-only weight caching by default.
+        # It does not clear this cache on exit; clear against to avoid stale metadata.
+        wq._cached_weight = None
+        wq.cache_inference_quant_weight_metadata_only = True
+        wq.cache_inference_quant_weight = True
+    return prior_settings
+
+
+def _restore_gguf_export_caching(prior_settings):
+    """Restore the cache settings for each GGUF proxy."""
+    for wq, (prior_enabled, prior_metadata_only) in prior_settings.items():
+        wq.cache_inference_quant_weight_metadata_only = prior_metadata_only
+        wq.cache_inference_quant_weight = prior_enabled
 
 
 def _resolve_model_name(name_or_path: str) -> str:
@@ -58,55 +76,88 @@ def _resolve_model_name(name_or_path: str) -> str:
 
 
 def save_quantized_as_gguf(
-        output_dir,
         model,
         tokenizer,
         backend="gguf:q4_0",
-        override_model_tensors=GGUF_OVERRIDE_MODEL_TENSORS,
-        override_qtype=gguf.GGMLQuantizationType.Q6_K):
-    """Export the model to gguf format."""
-    st = time.time()
+        override_model_tensors=None,
+        override_qtype=None,
+        export_path=None):
+    """Export the model to gguf format.
 
+    When ``override_model_tensors``/``override_qtype`` are None, no tensor qtype is
+    overridden at export time: every tensor follows the quantization it already
+    has (or the file type otherwise).
+
+    ``export_path`` controls where the ``.gguf`` file is written:
+
+    * ``None`` (default): write to the current working directory, using gguf-py's
+      auto-derived ``<name>-<size_label>-<ftype>.gguf`` naming.
+    * a path ending in ``.gguf``: treated as the exact file to write (parent
+      directories are created if needed).
+    * any other path: treated as a directory to write into (created if needed),
+      using the same auto-derived naming as the ``None`` case.
+    """
+    st = time.time()
     config = model.config
 
-    tmp_work_dir = Path(os.path.join(output_dir, 'tmp_dir'))
-    tokenizer.save_pretrained(tmp_work_dir)
-    config.save_pretrained(tmp_work_dir)
-    if getattr(model, 'generation_config', None) is not None:
-        model.generation_config.save_pretrained(tmp_work_dir)
+    # TODO: every tensor now carries its own qtype via
+    # GGUFGroupwiseWeightQuantProxyFromInjector.gguf_qtype, so `ftype` (derived
+    # from `backend` below) no longer determines how already-quantized tensors are
+    # packed. It's still used for the `general.file_type` header, the fallback
+    # qtype applied to any untagged tensor, and `{ftype}`-based auto-naming --
+    # worth revisiting whether `ftype` can be simplified or dropped for those.
+    assert backend in GGUF_EXPORT_TARGETS, f"{backend} is not supported"
+    output_type = backend.split(":")[-1].lower()
+    output_type = FTYPE_MAP.get(output_type)
 
-    with torch.no_grad():
-        hparams = ModelBase.load_hparams(tmp_work_dir)
-        model_architecture = hparams["architectures"][0]
-        try:
+    if export_path is None:
+        fname_out = Path('.')
+    elif str(export_path).endswith('.gguf'):
+        fname_out = Path(export_path)
+        fname_out.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        fname_out = Path(export_path)
+        fname_out.mkdir(parents=True, exist_ok=True)
+
+    tmp_work_dir = Path(tempfile.mkdtemp(prefix='brevitas_gguf_export_'))
+    is_training = model.training
+    prior_gguf_cache_settings = dict()
+    try:
+        tokenizer.save_pretrained(tmp_work_dir)
+        config.save_pretrained(tmp_work_dir)
+        if getattr(model, 'generation_config', None) is not None:
+            model.generation_config.save_pretrained(tmp_work_dir)
+
+        with torch.no_grad():
+            hparams = ModelBase.load_hparams(tmp_work_dir)
+            model_architecture = hparams["architectures"][0]
             model_class = ModelBase.from_model_architecture(model_architecture)
-        except NotImplementedError:
-            logger.error(f"Model {model_architecture} is not supported")
-            sys.exit(1)
-        model_class = ModelBase.from_model_architecture(model_architecture)
-        model_name = _resolve_model_name(model.name_or_path)
+            model_name = _resolve_model_name(model.name_or_path)
 
-        output_type = backend.split(":")[-1]
-        assert output_type.lower() in FTYPE_MAP, f"{output_type} is not supported"
-        output_type = FTYPE_MAP.get(output_type.lower())
+            model_instance = model_class(
+                model,
+                dir_model=tmp_work_dir,
+                ftype=output_type,
+                fname_out=fname_out,
+                is_big_endian=False,
+                model_name=model_name,
+                split_max_tensors=False,
+                split_max_size=0,
+                dry_run=False,
+                small_first_shard=False,
+                override_model_tensors=override_model_tensors,
+                override_qtype=override_qtype)
 
-        model_instance = model_class(
-            model,
-            dir_model=tmp_work_dir,
-            ftype=output_type,
-            fname_out=Path(output_dir),
-            is_big_endian=False,
-            model_name=model_name,
-            split_max_tensors=False,
-            split_max_size=0,
-            dry_run=False,
-            small_first_shard=False,
-            override_model_tensors=override_model_tensors,
-            override_qtype=override_qtype)
-        model_instance.write()
-        rt = time.time() - st
-        logger.info(f"Model successfully exported to {model_instance.fname_out}, running time={rt}")
+            model.eval()
+            prior_gguf_cache_settings = _enable_gguf_export_caching(model)
+            model_instance.write()
+    # Restore model state and remove temporary files after success or failure.
+    finally:
+        _restore_gguf_export_caching(prior_gguf_cache_settings)
+        model.train(is_training)
+        shutil.rmtree(tmp_work_dir, ignore_errors=True)
 
-    shutil.rmtree(tmp_work_dir, ignore_errors=True)
+    rt = time.time() - st
+    logger.info(f"Model successfully exported to {model_instance.fname_out}, running time={rt}")
 
     return model
