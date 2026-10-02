@@ -41,6 +41,7 @@ from brevitas_examples.llm.llm_quant.trainer_utils import GeneralizedTrainer
 from brevitas_examples.llm.llm_quant.trainer_utils import TRAINER_REGISTRY
 from brevitas_examples.llm.main import main as llm_main
 from brevitas_examples.llm.main import quantize_llm
+from tests.brevitas_examples.assets_for_tests import resolve_hf_asset
 from tests.brevitas_examples.common import assert_layer_types
 from tests.brevitas_examples.common import assert_layer_types_count
 from tests.brevitas_examples.common import assert_metrics
@@ -53,7 +54,6 @@ from tests.brevitas_examples.llm.test_cases import LLMQuantLayerCountCases
 from tests.brevitas_examples.llm.test_cases import LLMQuantLayerTypeCases
 from tests.brevitas_examples.llm.test_cases import LLMRotationOptimizationCases
 from tests.brevitas_examples.llm.test_cases import LLMRunCases
-from tests.brevitas_examples.test_assets import resolve_hf_asset
 from tests.conftest import SEED
 from tests.marker import jit_disabled_for_dynamic_quant_act
 from tests.marker import jit_disabled_for_export
@@ -163,12 +163,13 @@ def main(parser) -> Callable:
                     f"{tr_ver}")
 
             lighteval_dir = None
+            lighteval_env = {}
             if args.few_shot_eval == 'lighteval':
                 lighteval_dir = tempfile.mkdtemp(prefix='brevitas-lighteval-')
-                args.lighteval_output_dir = os.path.join(lighteval_dir, 'results')
-                args.lighteval_cache_dir = os.path.join(lighteval_dir, 'cache')
+                lighteval_env['BREVITAS_TEST_LIGHTEVAL_DIR'] = lighteval_dir
             try:
-                results, model = quantize_llm(args, extra_args=extra_args)
+                with patch.dict(os.environ, lighteval_env):
+                    results, model = quantize_llm(args, extra_args=extra_args)
             finally:
                 if lighteval_dir is not None:
                     shutil.rmtree(lighteval_dir, ignore_errors=True)

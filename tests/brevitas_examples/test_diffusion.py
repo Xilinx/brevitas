@@ -20,11 +20,11 @@ import torch
 
 from brevitas_examples.stable_diffusion.main import quantize_sd
 from brevitas_examples.stable_diffusion.stable_diffusion_args import create_args_parser
+from tests.brevitas_examples.assets_for_tests import resolve_hf_asset
 from tests.brevitas_examples.common import assert_metrics
 from tests.brevitas_examples.common import get_default_args
 from tests.brevitas_examples.common import process_args_and_metrics
 from tests.brevitas_examples.common import UpdatableNamespace
-from tests.brevitas_examples.test_assets import resolve_hf_asset
 from tests.conftest import SEED
 
 random.seed(SEED)
