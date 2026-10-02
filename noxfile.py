@@ -68,6 +68,16 @@ def install_torchvision_cmd(pytorch):
     return cmd
 
 
+def configure_hf_test_cache(session):
+    cache_dir = os.path.abspath(os.environ.get('BREVITAS_TEST_CACHE_DIR', 'data'))
+    session.env['BREVITAS_TEST_CACHE_DIR'] = cache_dir
+    session.env['HF_HOME'] = os.path.join(cache_dir, 'huggingface')
+    session.env['HF_HUB_CACHE'] = os.path.join(cache_dir, 'huggingface', 'hub')
+    session.env['HF_DATASETS_CACHE'] = os.path.join(cache_dir, 'huggingface', 'datasets')
+    session.env['HF_XET_CACHE'] = os.path.join(cache_dir, 'huggingface', 'xet')
+    session.env['NLTK_DATA'] = os.path.join(cache_dir, 'nltk')
+
+
 @nox.session(python=PYTHON_VERSIONS)
 @nox.parametrize('pytorch', PYTORCH_VERSIONS, ids=PYTORCH_IDS)
 @nox.parametrize('jit_status', JIT_STATUSES, ids=JIT_IDS)
@@ -174,11 +184,20 @@ def tests_brevitas_examples_llm_export(session, pytorch, jit_status):
 @nox.parametrize("jit_status", JIT_STATUSES, ids=JIT_IDS)
 def tests_brevitas_examples_llm_lighteval(session, pytorch, jit_status):
     session.env['BREVITAS_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
+    configure_hf_test_cache(session)
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)  # Optim um seems to require torchvision
 
     session.install('-e', '.[test, llm, export, lighteval]', *cmd)
+    session.run(
+        'python',
+        '-c',
+        'from tests.brevitas_examples.test_assets import prepare_lighteval_assets; '
+        'prepare_lighteval_assets()')
+    session.env['HF_HUB_OFFLINE'] = '1'
+    session.env['HF_DATASETS_OFFLINE'] = '1'
+    session.env['TRANSFORMERS_OFFLINE'] = '1'
     session.run(
         'pytest', '-n', 'logical', '-m', 'few_shot', 'tests/brevitas_examples/llm/test_llm.py')
 
