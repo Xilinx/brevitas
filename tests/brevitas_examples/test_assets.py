@@ -9,9 +9,34 @@ import zipfile
 
 from filelock import FileLock
 
-from tests.brevitas_examples._cache import get_hf_cache_dir
-from tests.brevitas_examples._cache import get_lock_dir
-from tests.brevitas_examples._cache import get_nltk_cache_dir
+TEST_CACHE_VERSION = '1'
+
+
+def get_test_cache_dir() -> Path:
+    cache_dir = os.environ.get('BREVITAS_TEST_CACHE_DIR')
+    if cache_dir:
+        return Path(cache_dir)
+    return Path.cwd() / 'data'
+
+
+def get_hf_cache_dir() -> Path:
+    return get_test_cache_dir() / 'huggingface' / 'hub'
+
+
+def get_hf_datasets_cache_dir() -> Path:
+    return get_test_cache_dir() / 'huggingface' / 'datasets'
+
+
+def get_hf_xet_cache_dir() -> Path:
+    return get_test_cache_dir() / 'huggingface' / 'xet'
+
+
+def get_nltk_cache_dir() -> Path:
+    return get_test_cache_dir() / 'nltk'
+
+
+def get_lock_dir() -> Path:
+    return get_test_cache_dir() / '.locks'
 
 
 def _env_enabled(name: str) -> bool:
