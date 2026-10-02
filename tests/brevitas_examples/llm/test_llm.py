@@ -52,6 +52,7 @@ from tests.brevitas_examples.llm.test_cases import LLMQuantLayerCountCases
 from tests.brevitas_examples.llm.test_cases import LLMQuantLayerTypeCases
 from tests.brevitas_examples.llm.test_cases import LLMRotationOptimizationCases
 from tests.brevitas_examples.llm.test_cases import LLMRunCases
+from tests.brevitas_examples.test_assets import resolve_hf_asset
 from tests.conftest import SEED
 from tests.marker import jit_disabled_for_dynamic_quant_act
 from tests.marker import jit_disabled_for_export
@@ -140,6 +141,8 @@ def main(parser) -> Callable:
     def wrapper_main(
             args: UpdatableNamespace,
             extra_args: Optional[List[str]] = None) -> Tuple[torch.nn.Module, Dict[str, float]]:
+        if args.model and not os.path.isdir(args.model):
+            args.model = resolve_hf_asset(args.model)
         with patch('brevitas_examples.llm.llm_quant.data_utils.load_raw_dataset',
                    mock_load_raw_dataset):
             # Validate the arguments before running the entrypoint
@@ -672,7 +675,8 @@ def test_rmsnorm_patch_context_manager(caplog):
     caplog.set_level(logging.INFO)
 
     model_id = "hf-internal-testing/tiny-random-LlamaForCausalLM"
-    model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.float32)
+    model = AutoModelForCausalLM.from_pretrained(
+        resolve_hf_asset(model_id), torch_dtype=torch.float32, local_files_only=True)
     config = model.config
 
     # Discover what RMSNorm classes the model uses before patching
