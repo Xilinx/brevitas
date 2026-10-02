@@ -250,19 +250,13 @@ def run_lighteval(
     dtype: str | None = None,
     batch_size: int | None = None,
     max_samples: int | None = None,
+    **model_config_kwargs,
 ):
     """Evaluate model using HuggingFace Lighteval with accelerate as backend.
 
     Returns:
         results (dict): Evaluation results containing metrics and scores for all tasks.
     """
-
-    test_dir = os.environ.get('BREVITAS_TEST_LIGHTEVAL_DIR')
-    if test_dir:
-        output_dir = os.path.join(test_dir, 'results')
-        cache_dir = os.path.join(test_dir, 'cache')
-    else:
-        cache_dir = None
 
     evaluation_tracker = EvaluationTracker(output_dir=output_dir, save_details=True)
     parent_folder = pathlib.Path(os.path.abspath(__file__)).parent
@@ -277,9 +271,8 @@ def run_lighteval(
         'model_name': model_name,
         'dtype': dtype,
         'batch_size': batch_size,
-        'model_parallel': True,}
-    if cache_dir is not None:
-        model_config_args['cache_dir'] = cache_dir
+        'model_parallel': True,
+        **model_config_kwargs,}
     model_config = TransformersModelConfig(**model_config_args)
 
     # Pipeline expects a comma-separated list of tasks
