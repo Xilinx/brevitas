@@ -142,6 +142,12 @@ def main(parser) -> Callable:
     def wrapper_main(
             args: UpdatableNamespace,
             extra_args: Optional[List[str]] = None) -> Tuple[torch.nn.Module, Dict[str, float]]:
+        # LightEval uses model_name in its cache path, so keep it separate from
+        # the absolute local snapshot used for loading.
+        lighteval_model_name = args.model
+        if os.path.isabs(lighteval_model_name) and os.path.isdir(lighteval_model_name):
+            # Strip the directory so it cannot override LightEval's cache root.
+            lighteval_model_name = os.path.basename(os.path.normpath(lighteval_model_name))
         if args.model and not os.path.isdir(args.model):
             args.model = resolve_hf_asset(args.model)
         with patch('brevitas_examples.llm.llm_quant.data_utils.load_raw_dataset',
@@ -174,6 +180,10 @@ def main(parser) -> Callable:
                     run_lighteval = eval_lighteval.run_lighteval
 
                     def run_lighteval_isolated(*run_args, **run_kwargs):
+                        # Keep the local snapshot for tokenizer loading, but use
+                        # a non-absolute name for LightEval's cache path.
+                        run_kwargs['model_name'] = lighteval_model_name
+                        run_kwargs['tokenizer'] = args.model
                         run_kwargs['output_dir'] = os.path.join(lighteval_dir, 'results')
                         run_kwargs['cache_dir'] = os.path.join(lighteval_dir, 'cache')
                         return run_lighteval(*run_args, **run_kwargs)
