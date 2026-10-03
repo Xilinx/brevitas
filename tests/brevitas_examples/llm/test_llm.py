@@ -7,6 +7,7 @@ import logging
 import os
 import platform
 import shutil
+import tempfile
 from typing import Callable
 from typing import Dict
 from typing import List
@@ -40,6 +41,7 @@ from brevitas_examples.llm.llm_quant.trainer_utils import GeneralizedTrainer
 from brevitas_examples.llm.llm_quant.trainer_utils import TRAINER_REGISTRY
 from brevitas_examples.llm.main import main as llm_main
 from brevitas_examples.llm.main import quantize_llm
+from tests.brevitas_examples.assets_for_tests import resolve_hf_asset
 from tests.brevitas_examples.common import assert_layer_types
 from tests.brevitas_examples.common import assert_layer_types_count
 from tests.brevitas_examples.common import assert_metrics
@@ -140,6 +142,14 @@ def main(parser) -> Callable:
     def wrapper_main(
             args: UpdatableNamespace,
             extra_args: Optional[List[str]] = None) -> Tuple[torch.nn.Module, Dict[str, float]]:
+        # LightEval uses model_name in its cache path, so keep it separate from
+        # the absolute local snapshot used for loading.
+        lighteval_model_name = args.model
+        if os.path.isabs(lighteval_model_name) and os.path.isdir(lighteval_model_name):
+            # Strip the directory so it cannot override LightEval's cache root.
+            lighteval_model_name = os.path.basename(os.path.normpath(lighteval_model_name))
+        if args.model and not os.path.isdir(args.model):
+            args.model = resolve_hf_asset(args.model)
         with patch('brevitas_examples.llm.llm_quant.data_utils.load_raw_dataset',
                    mock_load_raw_dataset):
             # Validate the arguments before running the entrypoint
@@ -158,7 +168,33 @@ def main(parser) -> Callable:
                     f"torch {torch_version} and transformers "
                     f"{tr_ver}")
 
-            results, model = quantize_llm(args, extra_args=extra_args)
+            lighteval_dir = None
+            if args.few_shot_eval == 'lighteval':
+                lighteval_dir = tempfile.mkdtemp(prefix='brevitas-lighteval-')
+            try:
+                if lighteval_dir is None:
+                    results, model = quantize_llm(args, extra_args=extra_args)
+                else:
+                    from brevitas_examples.llm import eval_lighteval
+
+                    run_lighteval = eval_lighteval.run_lighteval
+
+                    def run_lighteval_isolated(*run_args, **run_kwargs):
+                        # Keep the local snapshot for tokenizer loading, but use
+                        # a non-absolute name for LightEval's cache path.
+                        run_kwargs['model_name'] = lighteval_model_name
+                        run_kwargs['tokenizer'] = args.model
+                        run_kwargs['output_dir'] = os.path.join(lighteval_dir, 'results')
+                        run_kwargs['cache_dir'] = os.path.join(lighteval_dir, 'cache')
+                        return run_lighteval(*run_args, **run_kwargs)
+
+                    with patch.object(eval_lighteval,
+                                      'run_lighteval',
+                                      side_effect=run_lighteval_isolated):
+                        results, model = quantize_llm(args, extra_args=extra_args)
+            finally:
+                if lighteval_dir is not None:
+                    shutil.rmtree(lighteval_dir, ignore_errors=True)
         # Return the results along with the model
         return results, model
 
@@ -672,7 +708,8 @@ def test_rmsnorm_patch_context_manager(caplog):
     caplog.set_level(logging.INFO)
 
     model_id = "hf-internal-testing/tiny-random-LlamaForCausalLM"
-    model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.float32)
+    model = AutoModelForCausalLM.from_pretrained(
+        resolve_hf_asset(model_id), torch_dtype=torch.float32, local_files_only=True)
     config = model.config
 
     # Discover what RMSNorm classes the model uses before patching
