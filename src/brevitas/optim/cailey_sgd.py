@@ -132,14 +132,12 @@ class CaileySGD(Optimizer):
             momentum = group["momentum"]
             stiefel = group["stiefel"]
             iters = group["iters"]
-
             for p in group["params"]:
                 if p.grad is None:
                     continue
 
                 param = p.data
                 param_state = self.state[p]
-                # Store a copy of weights in desired dtype if it is different from param dtype
                 if self.dtype is not None and self.dtype != param.dtype:
                     if "weight_buffer" not in param_state:
                         param_state["weight_buffer"] = param.clone().to(self.dtype)

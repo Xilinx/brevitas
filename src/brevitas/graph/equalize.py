@@ -1613,6 +1613,7 @@ def _compute_rotations(
         expansion_step: int = 1,
         rotation_block_size: Optional[int] = None,
         disable_block_rotation_for_fused: bool = False,
+        rotation_dtype: Optional[torch.dtype] = None,
         generator: Optional[torch.Generator] = None):
 
     rewriters = []
@@ -1673,9 +1674,14 @@ def _compute_rotations(
                     logging.info("Skipping region")
                     continue
 
-        # Cast rotation matrix to the weight dtype
+        # Keep trainable rotations at their requested precision. Their
+        # parametrizations cast them to the tensor dtype only for forward execution.
         if rot_mat is not None:
-            dtype = next(model.parameters()).dtype
+            if rotation_dtype is None:
+                module_name = next(iter(region.srcs or region.sinks))
+                dtype = next(region.get_module_from_name(module_name).parameters()).dtype
+            else:
+                dtype = rotation_dtype
             rot_mat = rot_mat.to(dtype=dtype)
         # If the rotation is not fused, redefine as a Parameter, to enable its optimization
         if not insert_rotation_module and not fuse_rotations:
@@ -1943,6 +1949,7 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
             full_rotation_method: str = 'had',
             rotation_block_size: Optional[int] = None,
             disable_block_rotation_for_fused: bool = False,
+            rotation_dtype: Optional[torch.dtype] = None,
             layers_to_expand: Optional[List[str]] = None,
             expansion_step: int = None,
             delay_rewriters: bool = False,
@@ -1969,6 +1976,7 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
         self.delay_rewriters = delay_rewriters
         self.rotation_block_size = rotation_block_size
         self.disable_block_rotation_for_fused = disable_block_rotation_for_fused
+        self.rotation_dtype = rotation_dtype
         self.regions = []
 
         if self.delay_rewriters:
@@ -2152,7 +2160,8 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
                     fuse_rotations=not self.use_parametrized_rotations,
                     expansion_step=first_exp_step,
                     rotation_block_size=self.rotation_block_size,
-                    disable_block_rotation_for_fused=self.disable_block_rotation_for_fused))
+                    disable_block_rotation_for_fused=self.disable_block_rotation_for_fused,
+                    rotation_dtype=self.rotation_dtype))
             rewriters.extend(
                 _compute_rotations(
                     graph_model,
@@ -2161,7 +2170,8 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
                     fuse_rotations=not self.use_parametrized_rotations,
                     expansion_step=second_exp_step,
                     rotation_block_size=self.rotation_block_size,
-                    disable_block_rotation_for_fused=self.disable_block_rotation_for_fused))
+                    disable_block_rotation_for_fused=self.disable_block_rotation_for_fused,
+                    rotation_dtype=self.rotation_dtype))
             if len(expanded_regions) > 0:
                 parameter_number_post = 0
                 for m in graph_model.parameters():
@@ -2273,11 +2283,13 @@ class LayerwiseActivationRotation(RotationEqualization):
             layers_to_expand: Optional[List] = None,
             expansion_step: int = 0,
             rotation_block_size: Optional[int] = None,
+            rotation_dtype: Optional[torch.dtype] = None,
             extra_state_kwargs: Optional[Dict[str, Tuple]] = None):
 
         RotationEqualization.__init__(self, blacklist_layer, layers_to_expand)
         self.expansion_step = expansion_step
         self.rotation_block_size = rotation_block_size
+        self.rotation_dtype = rotation_dtype
         self.supported_sinks = (nn.Linear,)
 
     def apply(self, model: nn.Module) -> nn.Module:
@@ -2298,6 +2310,7 @@ class LayerwiseActivationRotation(RotationEqualization):
                     model,
                     regions,
                     expansion_step=self.expansion_step,
-                    rotation_block_size=self.rotation_block_size))
+                    rotation_block_size=self.rotation_block_size,
+                    rotation_dtype=self.rotation_dtype))
         model = self.transform_model(model, rewriters, delay_rewriters=False)
         return model

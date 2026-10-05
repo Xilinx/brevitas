@@ -49,8 +49,7 @@ class RotationTrainingArguments(TrainingArguments):
                     "get_param_fn": _select_rotation_params,
                     "optimizer_kwargs": {
                         "lr": self.learning_rate,
-                        "stiefel": True,
-                        "dtype": self.optimizer_dtype,},}],}]
+                        "stiefel": True,},}],}]
 
 
 def _select_rotation_params(
@@ -159,11 +158,6 @@ def apply_fine_tuning(
         dataclass (see :func:`parse_rotation_optimization_args`).
     """
 
-    # Resolve the trainer class up front so that its ``training_args_cls`` (which
-    # sets the ``optimizer_scheduler_args`` default) is used when parsing the
-    # training arguments. When no custom trainer is given but the model has
-    # trainable rotation matrices, default to RotationTrainer (CaileySGD on the
-    # rotations, expressed through the standard optimizer_scheduler_args mechanism).
     if trainer_cls is None:
         if len(extract_trainable_rotation_matrices(model)) == 0:
             raise RuntimeError(
@@ -173,8 +167,6 @@ def apply_fine_tuning(
     else:
         trainer_cls = trainer_cls
 
-    # Parse the training arguments, resolving the training-args class from the
-    # (possibly defaulted) trainer.
     training_args = parse_rotation_optimization_args(extra_args=extra_args, trainer_cls=trainer_cls)
 
     # Prepare model for training
