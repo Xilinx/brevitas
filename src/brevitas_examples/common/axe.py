@@ -446,7 +446,7 @@ class A2GPFQ(AXEMixin, GPFQ):
             raise ValueError(
                 "Expected self.quant_metadata to calculate accumulator bounds, but recevied None. "
                 "Make sure that either the input to the model is an IntQuantTensor or the layer has an input quant enabled. "
-                "Also, check if `use_quant_activations=True` in `gpfq_mode` when `max_accumulator_bit_width` is specified. "
+                "Also, check that the orchestration layer enables activation quantization during the quantized pass. "
             )
         if hasattr(self.layer, "allocate_params"):
             self.layer.allocate_params(self.layer)
@@ -652,8 +652,6 @@ class a2gpfq_mode(axe_mode_mixin, gpfq_mode):
             group_of_parallel_layers: Optional[List[str]] = None,
             inplace: bool = True,
             create_weight_orig: bool = True,
-            use_quant_activations: bool = True,
-            return_forward_output: bool = False,
             act_order: bool = False,
             algorithm_impl: GPFQ = GPFQ,
             device: str = 'cpu',
@@ -667,8 +665,6 @@ class a2gpfq_mode(axe_mode_mixin, gpfq_mode):
             group_of_parallel_layers=group_of_parallel_layers,
             inplace=inplace,
             create_weight_orig=create_weight_orig,
-            use_quant_activations=use_quant_activations,
-            return_forward_output=return_forward_output,
             act_order=act_order,
             algorithm_impl=algorithm_impl,
             device=device,

@@ -10,6 +10,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.utils.data import TensorDataset
 
+from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gptq import gptq_mode
@@ -72,11 +73,7 @@ def _dual_optimization_callback(
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
-    context_manager_kwargs = dict(
-        model=model,
-        use_quant_activations=use_quant_activations,
-        act_order=act_order,
-        algorithm_impl=algorithm_impl)
+    context_manager_kwargs = dict(model=model, act_order=act_order, algorithm_impl=algorithm_impl)
     context_manager = gpfq_mode
     if max_accumulator_bit_width is not None:
         context_manager = a2gpfq_mode
@@ -84,13 +81,26 @@ def _dual_optimization_callback(
             a2q_layer_filter_fnc=_a2q_layer_filter_fnc,
             max_accumulator_bit_width=max_accumulator_bit_width,
             max_accumulator_tile_size=max_accumulator_tile_size)
+    quant_context_manager = quantization_status_manager(
+        model=model,
+        disable_act_quant=not use_quant_activations,
+        disable_bias_quant=not use_quant_activations)
+    float_context_manager = quantization_status_manager(
+        model=model,
+        disable_act_quant=True,
+        disable_weight_quant=True,
+        disable_bias_quant=True,
+        is_training=False)
     with context_manager(**context_manager_kwargs) as algo:
         algo_model = algo.model
         for _ in range(algo.num_layers):
             for _, (images, _) in enumerate(calib_loader):
                 images = images.to(device)
                 images = images.to(dtype)
-                algo_model(images)
+                with quant_context_manager:
+                    algo_model(images)
+                with float_context_manager:
+                    algo_model(images)
             algo.update()
         if max_accumulator_bit_width is not None:
             # gpxq_layers mixes AXE and plain GPxQ instances (layers failing the a2q filter fall
@@ -214,11 +224,19 @@ class TestQronosUpdateBatch:
     def _calibrate(model, calib_loader):
         """Run Qronos calibration, return {layer_name: (H, G)} for each layer."""
         results = {}
+        float_context_manager = quantization_status_manager(
+            model=model,
+            disable_act_quant=True,
+            disable_weight_quant=True,
+            disable_bias_quant=True,
+            is_training=False)
         with torch.no_grad():
             with gpfq_mode(model, act_order=False, algorithm_impl=Qronos) as algo:
                 for _ in range(algo.num_layers):
                     for data, _ in calib_loader:
                         algo.model(data)
+                        with float_context_manager:
+                            algo.model(data)
                     for name in algo.current_layer.layer_names:
                         layer = algo.gpxq_layers[name]
                         results[name] = (layer.H.clone(), layer.G.clone())
@@ -282,12 +300,20 @@ class TestQronosUpdateBatch:
         catching any in-place normalization (e.g. /=) in update_batch that would
         corrupt inputs."""
         model = self._init_model()
+        float_context_manager = quantization_status_manager(
+            model=model,
+            disable_act_quant=True,
+            disable_weight_quant=True,
+            disable_bias_quant=True,
+            is_training=False)
         with torch.no_grad():
             with gpfq_mode(model, act_order=False, algorithm_impl=Qronos) as algo:
                 for _ in range(algo.num_layers):
                     for data, _ in self._make_loader(batch_size=2):
                         data_before = data.clone()
                         algo.model(data)
+                        with float_context_manager:
+                            algo.model(data)
                         torch.testing.assert_close(data, data_before)
 
 

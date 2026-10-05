@@ -14,6 +14,7 @@ from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.calibrate import norm_correction_mode
+from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.equalize import activation_equalization_mode
 from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
@@ -621,7 +622,7 @@ def apply_gptq(
 
 
 @torch.no_grad()
-def _dual_optimization_callback(
+def _apply_gpfq_or_qronos(
         model,
         calib_loader,
         device,
@@ -646,13 +647,28 @@ def _dual_optimization_callback(
             a2q_layer_filter_fnc=_a2q_layer_filter_fnc,
             max_accumulator_bit_width=max_accumulator_bit_width,
             max_accumulator_tile_size=max_accumulator_tile_size)
+    quant_context_manager = quantization_status_manager(
+        model=model,
+        disable_act_quant=False,
+        disable_weight_quant=False,
+        disable_bias_quant=False,
+        is_training=False)
+    float_context_manager = quantization_status_manager(
+        model=model,
+        disable_act_quant=True,
+        disable_weight_quant=True,
+        disable_bias_quant=True,
+        is_training=False)
     with context_manager(**context_manager_kwargs) as algo:
         algo_model = algo.model
         for i in tqdm(range(algo.num_layers)):
             for i, (images, target) in enumerate(calib_loader):
                 images = images.to(device)
                 images = images.to(dtype)
-                algo_model(images)
+                with quant_context_manager:
+                    algo_model(images)
+                with float_context_manager:
+                    algo_model(images)
             algo.update()
 
 
@@ -667,7 +683,7 @@ def apply_gpfq(
     device = next(model.parameters()).device
     # We use the dual optimization callback, which uses two forward passes to correct
     # quantization error in both the weights and activations from previous layers
-    _dual_optimization_callback(
+    _apply_gpfq_or_qronos(
         model,
         calib_loader,
         device=device,
@@ -685,7 +701,7 @@ def apply_qronos(model, calib_loader, act_order=True, alpha=1e-6):
     device = next(model.parameters()).device
     # We use the dual optimization callback, which uses two forward passes to correct
     # quantization error in both the weights and activations from previous layers
-    _dual_optimization_callback(
+    _apply_gpfq_or_qronos(
         model,
         calib_loader,
         device=device,
