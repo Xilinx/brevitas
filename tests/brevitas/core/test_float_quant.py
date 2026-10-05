@@ -34,7 +34,8 @@ class BitwidthWrapper(brevitas.jit.ScriptModule):
         super().__init__()
         # We need to cast the bitwidth to a float to ensure correct computation
         # This is also done throughout the codebase
-        self.value = torch.tensor(float(value))
+        self.value = value.float() if isinstance(value, torch.Tensor) else torch.tensor(
+            float(value))
 
     @brevitas.jit.script_method
     def forward(self):
@@ -100,6 +101,26 @@ def test_float_quant_defaults(minifloat_format):
         assert isinstance(float_quant.float_to_int_impl, RoundSte)
         assert isinstance(float_quant.float_scaling_impl, FloatScaling)
         assert isinstance(float_quant.scaling_impl, ConstScaling)
+
+
+def test_float_quant_per_channel_bit_width():
+    exponent_bit_width = torch.tensor([[2.], [4.]])
+    mantissa_bit_width = torch.tensor([[3.], [1.]])
+    exponent_bias = 2. ** (exponent_bit_width - 1.) - 1.
+    float_quant = FloatQuant(
+        exponent_bit_width_impl=BitwidthWrapper(exponent_bit_width),
+        mantissa_bit_width_impl=BitwidthWrapper(mantissa_bit_width),
+        exponent_bias_impl=BitwidthWrapper(exponent_bias),
+        compute_max_mantissa=ComputeMaxMantissa(),
+        signed=True,
+        input_view_impl=Identity(),
+        float_clamp_impl=FloatClamp(tensor_clamp_impl=TensorClamp(), signed=True, saturating=True))
+
+    output = float_quant(torch.randn(2, 4))
+
+    assert output[0].shape == (2, 4)
+    assert torch.equal(output[3], exponent_bit_width)
+    assert torch.equal(output[4], mantissa_bit_width)
 
 
 @given(minifloat_format=random_minifloat_format())

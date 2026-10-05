@@ -43,8 +43,8 @@ class FloatQuant(brevitas.jit.ScriptModule):
         self.exponent_bias_impl = exponent_bias_impl
         self.exponent_bit_width_impl = exponent_bit_width_impl
         self.mantissa_bit_width_impl = mantissa_bit_width_impl
-        if exponent_bit_width_impl() == 0:
-            raise RuntimeError("Exponent bit width cannot be 0.")
+        if (exponent_bit_width_impl() <= 0).any().item():
+            raise RuntimeError("Exponent bit width must be positive.")
         if scaling_impl is None:
             scaling_impl = ConstScaling(1., device=device, dtype=dtype)
 
