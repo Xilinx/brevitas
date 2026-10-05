@@ -18,6 +18,12 @@ from brevitas_examples.common.benchmark.utils import RandomSearchUtils
 from brevitas_examples.llm.benchmark.llm_benchmark import LLMEntryPointUtils
 from brevitas_examples.llm.benchmark.llm_benchmark import LLMGridBenchmark
 from brevitas_examples.llm.benchmark.llm_rand_benchmark import LLMRandomBenchmark
+from brevitas_examples.llm.metric_report import FLOAT_PPL
+from brevitas_examples.llm.metric_report import LogMetric
+from brevitas_examples.llm.metric_report import QUANT_EAR
+from brevitas_examples.llm.metric_report import QUANT_KLD
+from brevitas_examples.llm.metric_report import QUANT_PPL
+from brevitas_examples.llm.metric_report import result_keys
 from tests.brevitas_examples.common import MockProcess
 from tests.marker import skip_on_macos_nox
 
@@ -79,6 +85,40 @@ class TestLLMEntryPointUtils:
         assert result["quant_ppl"] == pytest.approx(30.456)
         assert result["quant_ear"] == pytest.approx(0.987654)
         assert result["quant_kld"] == pytest.approx(0.012345)
+        # No standard error in the log -> the std fields are None
+        assert result["float_ppl_std"] is None
+        assert result["quant_ppl_std"] is None
+        assert result["quant_ear_std"] is None
+        assert result["quant_kld_std"] is None
+
+    def test_parse_log_metrics_with_standard_error(self):
+        log = (
+            "Loading model...\n"
+            "Float perplexity (wikitext2): 25.123 +/- 0.456\n"
+            "Running quantization...\n"
+            "Quantized perplexity (wikitext2): 30.456 +/- 1.234\n"
+            "Quantized expected acceptance rate (wikitext2): 0.987654 +/- 0.001234\n"
+            "Quantized KL divergence (wikitext2): -0.012345 +/- 0.000456\n")
+        result = LLMEntryPointUtils.parse_log(log)
+        assert result["float_ppl"] == pytest.approx(25.123)
+        assert result["float_ppl_std"] == pytest.approx(0.456)
+        assert result["quant_ppl"] == pytest.approx(30.456)
+        assert result["quant_ppl_std"] == pytest.approx(1.234)
+        assert result["quant_ear"] == pytest.approx(0.987654)
+        assert result["quant_ear_std"] == pytest.approx(0.001234)
+        assert result["quant_kld"] == pytest.approx(-0.012345)
+        assert result["quant_kld_std"] == pytest.approx(0.000456)
+
+    def test_parse_log_mixed_standard_error(self):
+        # Only the float line carries a standard error; the quant line does not.
+        log = (
+            "Float perplexity (wikitext2): 25.123 +/- 0.456\n"
+            "Quantized perplexity (wikitext2): 30.456\n")
+        result = LLMEntryPointUtils.parse_log(log)
+        assert result["float_ppl"] == pytest.approx(25.123)
+        assert result["float_ppl_std"] == pytest.approx(0.456)
+        assert result["quant_ppl"] == pytest.approx(30.456)
+        assert result["quant_ppl_std"] is None
 
     def test_parse_log_missing_ppl(self):
         log = "Loading model...\nDone.\n"
@@ -87,6 +127,10 @@ class TestLLMEntryPointUtils:
         assert result["quant_ppl"] is None
         assert result["quant_ear"] is None
         assert result["quant_kld"] is None
+        assert result["float_ppl_std"] is None
+        assert result["quant_ppl_std"] is None
+        assert result["quant_ear_std"] is None
+        assert result["quant_kld_std"] is None
 
     def test_parse_log_with_few_shot_dict(self):
         log = (
@@ -98,6 +142,68 @@ class TestLLMEntryPointUtils:
         assert result["quant_ppl"] == pytest.approx(30.0)
         assert result["task_a"] == pytest.approx(0.85)
         assert result["task_b"] == pytest.approx(0.72)
+
+    def test_parse_log_standard_error_with_few_shot_dict(self):
+        log = (
+            "Float perplexity (wikitext2): 25.0 +/- 0.5\n"
+            "Quantized perplexity (wikitext2): 30.0 +/- 0.75\n"
+            "Few-shot results: {'task_a': 0.85, 'task_b': 0.72}\n")
+        result = LLMEntryPointUtils.parse_log(log)
+        assert result["float_ppl"] == pytest.approx(25.0)
+        assert result["float_ppl_std"] == pytest.approx(0.5)
+        assert result["quant_ppl"] == pytest.approx(30.0)
+        assert result["quant_ppl_std"] == pytest.approx(0.75)
+        assert result["task_a"] == pytest.approx(0.85)
+        assert result["task_b"] == pytest.approx(0.72)
+
+    def test_eval_metrics_derived_from_log_metrics(self):
+        # The order defines the benchmark result column order, so it is pinned.
+        assert LLMEntryPointUtils.eval_metrics == [
+            "float_ppl",
+            "float_ppl_std",
+            "quant_ppl",
+            "quant_ppl_std",
+            "quant_ear",
+            "quant_ear_std",
+            "quant_kld",
+            "quant_kld_std"]
+        # A log without metrics still reports every declared key.
+        assert list(LLMEntryPointUtils.parse_log("")) == LLMEntryPointUtils.eval_metrics
+
+    def test_parse_log_round_trips_reported_metrics(self):
+        # Guards the entrypoint (producer) against the benchmark (consumer): a
+        # label changed on one side alone would break this.
+        measured = {
+            FLOAT_PPL: (25.123, 0.456),
+            QUANT_PPL: (30.456, 1.234),
+            QUANT_EAR: (0.987654, 0.001234),
+            QUANT_KLD: (-0.012345, 0.000456),}
+        log = "\n".join(
+            metric.report("wikitext2", value, std) for metric, (value, std) in measured.items())
+
+        result = LLMEntryPointUtils.parse_log(log)
+
+        for metric, (value, standard_error) in measured.items():
+            assert result[metric.name] == pytest.approx(value, abs=10 ** -metric.precision)
+            assert result[metric.std_name] == pytest.approx(
+                standard_error, abs=10 ** -metric.precision)
+
+    def test_subclass_can_extend_log_metrics(self):
+
+        class ExtendedEntryPointUtils(LLMEntryPointUtils):
+            log_metrics = LLMEntryPointUtils.log_metrics + (
+                LogMetric("quant_extra", "Quantized extra metric"),)
+            eval_metrics = result_keys(log_metrics)
+
+        assert ExtendedEntryPointUtils.eval_metrics[-2:] == ["quant_extra", "quant_extra_std"]
+        result = ExtendedEntryPointUtils.parse_log(
+            "Float perplexity (wikitext2): 25.0\n"
+            "Quantized extra metric (wikitext2): 1.5 +/- 0.25\n")
+        assert result["float_ppl"] == pytest.approx(25.0)
+        assert result["quant_extra"] == pytest.approx(1.5)
+        assert result["quant_extra_std"] == pytest.approx(0.25)
+        # The base class is unaffected by the subclass' extra metric.
+        assert "quant_extra" not in LLMEntryPointUtils.eval_metrics
 
     def test_validate_valid_default_args(self):
         """Default args from the parser should be valid."""
