@@ -26,7 +26,6 @@ Reference: "Optimal Post-Training Quantization Scales and Where to Find Them"
 from functools import partial
 import math
 from typing import Callable
-from typing import List
 from typing import Optional
 from typing import Tuple
 import warnings
@@ -901,35 +900,14 @@ class _PiSOQronosMixin(PiSOMixin):
 
     def _prepare_input_scale_optimizer(
             self, perm: torch.Tensor) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
-        # Qronos also tracks G; undo the act_order permutation on both. G is
-        # transposed to match the ScaleOptimizer's convention (G = X_tilde^T X).
+        # Qronos keeps H and G in the natural column order until the hook runs
+        # (only the inverse Hessian is permuted), so perm needs no undoing here.
+        # G is transposed to match the ScaleOptimizer's convention (G = X_tilde^T X).
         if self.groups != 1:
             raise ValueError("scale optimization inside qronos requires groups == 1")
-        inv_perm = torch.empty_like(perm, device=self.H.device)
-        inv_perm[perm] = torch.arange(len(perm), device=self.H.device)
-        H = self.H.squeeze()[:, inv_perm][inv_perm, :]
-        G = self.G.squeeze()[:, inv_perm][inv_perm, :].T
+        H = self.H.squeeze()
+        G = self.G.squeeze().T
         return H, G
-
-    def _step2_block_ranges(self) -> List[Tuple[int, int]]:
-        """Column blocks for Qronos step-2+, aligned to quantization groups.
-
-        Group-interleaved PiSO optimizes a group's scale via _on_column_reached
-        just before Qronos quantizes that group's weights. For that to be correct
-        each error-correction block must cover exactly one group, so the block
-        boundaries have to fall on group boundaries. blocksize already equals
-        group_size here (PiSOMixin._resolve_blocksize), so we iterate groups from
-        column 0 but keep the first block starting at column 1 (column 0 is done in
-        Qronos step 1). This reproduces the original group-interleaved partition.
-
-        Only the group-wise updater needs this alignment; a layer-level updater
-        optimizes all scales once before error correction and imposes no ordering
-        constraint, so it defers to the base (reference) Qronos partition.
-        """
-        if not isinstance(self.scale_optimizer, ScaleOptimizerGroupInterleaved):
-            return super()._step2_block_ranges()
-        return [(1 if i1 == 0 else i1, min(i1 + self.blocksize, self.columns))
-                for i1 in range(0, self.columns, self.blocksize)]
 
 
 class PiSOLayerInterleavedGPTQ(_PiSOGPTQMixin, GPTQ):
