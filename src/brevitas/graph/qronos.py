@@ -23,6 +23,9 @@ from brevitas.utils.torch_utils import StopFwdException
 class Qronos(GPFQ):
     """
     Implementation of Qronos as proposed in: https://openreview.net/pdf?id=7axclBCYul
+
+    The layer update follows Remark 5.2 in `Provable Post-Training Quantization:
+    Theoretical Analysis of OPTQ and Qronos` (https://arxiv.org/abs/2508.04853).
     """
 
     def __init__(
@@ -108,9 +111,8 @@ class Qronos(GPFQ):
         dev = weight.device
         weight_orig = weight_orig.to(dev)
 
-        # Store the original dtype of the weights
-        # During computation, everything is converted to float32.
-        # When the weights are updated, we cast everything back to the original dtype
+        # Store the original dtype of the weights.
+        # Convert computations to self.dtype and cast weight updates back to this dtype.
         dtype = weight.dtype
 
         if isinstance(self.layer, SUPPORTED_CONV_OP):
@@ -123,145 +125,96 @@ class Qronos(GPFQ):
         weight_orig = weight_orig.view(
             self.groups, -1, weight_orig.shape[-1])  # [Groups, OC/Groups, IC]
 
-        # Get the diagonals of the covariance matrices here
-        permutation_list = []
-        for group_index in range(self.groups):
-            # If a diagonal element on either covariance matrix is zero, we can set to 0
-            # the corresponding column in the weight matrix.
-            dead = self.H[group_index].diag() == 0
-            weight[group_index, :, dead] = 0
-            # Re-order so that weights associated to higher magnitude activations
-            # are quantized first if self.act_order is True
-            if self.act_order:
-                # order w.r.t. the quantized inputs
-                perm = torch.argsort(torch.diag(self.H[group_index]), descending=True)
-                # Re-order covariance matrices so that weights associated to
-                # higher magnitude activations are quantized first
-                self.G[group_index] = self.G[group_index, perm, :][:, perm]
-                self.H[group_index] = self.H[group_index, perm, :][:, perm]
-            else:
-                # No permutation, permutation tensor is a ordered index
-                perm = torch.tensor(range(self.H.shape[-1]), device=dev)
-            perm = perm.to(weight.device)
-            permutation_list.append(perm)
-
         assert not torch.isnan(self.H).any(), f"Error in {self.name}"
         assert not torch.isnan(self.G).any(), f"Error in {self.name}"
 
-        Dh: Tensor = torch.zeros((self.groups, self.columns), device=self.device, dtype=self.dtype)
-        for group_index in range(self.groups):
-            Dh[group_index].copy_(self.H[group_index].diag())
-        Dhi = torch.where(Dh != 0, 1. / Dh, torch.zeros_like(Dh)).to(dev)  # D^{-1}
-
-        Uh: Tensor = torch.zeros((self.groups, self.columns, self.columns),
-                                 device=dev,
-                                 dtype=self.dtype)
-        for group_index in range(self.groups):
-            Uh[group_index].copy_(torch.triu(self.H[group_index], 1))  # upper (for future)
-
-        # Try/Except in case the inverse cannot be computed
+        # Compute the regularized inverse once for the projection and GPTQ.
         self.iH = self.H.clone()
         diag = torch.arange(self.columns, device=self.device)
-        damp = torch.zeros(self.groups, device=self.device)
+        damp = torch.zeros(self.groups, device=self.device, dtype=self.dtype)
+
+        # Try to compute the inverse of the regularized Hessian.
         try:
             for group_index in range(self.groups):
-                # using power iteration to estimate the maximum singular value
+                # Estimate the maximum eigenvalue with power iteration.
                 damp[group_index] = self.alpha * power_iteration(self.H[group_index], 30)
                 self.iH[group_index, diag, diag] += damp[group_index]
                 self.iH[group_index] = torch.linalg.cholesky(self.iH[group_index])
                 self.iH[group_index] = torch.cholesky_inverse(self.iH[group_index])
+                # Apply the same ridge term to the cross-covariance.
+                self.G[group_index, diag, diag] += damp[group_index]
         except LinAlgError:
             warnings.warn(
-                f'Failed to compute the inverse of H for layer {self.name} '
-                f'Forward error correction will be a null operation. '
+                f'Failed to compute the inverse of H for layer {self.name}. '
+                f'Qronos will not be applied. '
                 f'Increasing the number of samples might fix this issue.')
             return
 
         self.iH = self.iH.to(dev)
         self.G = self.G.to(dev)
-        self.H = self.H.to(dev)
 
-        dtype_min = torch.finfo(dtype).min
-        dtype_max = torch.finfo(dtype).max
-
-        # Qronos - step 1
-        q_groups = self.get_quant_weights(0, 0, permutation_list, with_quant_history=True)
+        # Apply the regularized least-squares projection from Remark 5.2.
         for group_index in range(self.groups):
-            perm = permutation_list[group_index]
-            q: Tensor = q_groups[group_index].to(self.dtype)
-            v: Tensor = weight[group_index, :, perm].to(self.dtype)
-            w: Tensor = weight_orig[group_index, :, perm].to(self.dtype)
-            Gw = w.matmul(self.G[group_index, :, 0] * Dhi[group_index, 0])
-            Uv = v.matmul(Uh[group_index, 0, :] * Dhi[group_index, 0])
-            q_arg = Gw - Uv
-            assert (q_arg >= dtype_min).all() and (q_arg <= dtype_max).all()
-            weight[group_index, :, perm[0]] = q_arg.to(dtype)
+            weight[group_index].copy_((
+                weight_orig[group_index].to(self.dtype).matmul(self.G[group_index]).matmul(
+                    self.iH[group_index])).to(dtype))
 
-        # Sherman-Morrison-Woodbury update rule
-        A = self.iH[:, 1:, 1:]
+        # List the permutations for the inverse Hessian and weight matrix.
+        # Keep one permutation for each convolution group.
+        permutation_list = []
         for group_index in range(self.groups):
-            c = self.iH[group_index, 0, 0]
-            b = self.iH[group_index, 1:, [0]]
-            A[group_index] -= (b.matmul(b.T)) / c
-        self.iH = A
-
-        q_groups = self.get_quant_weights(0, 1, permutation_list, with_quant_history=True)
-        for group_index in range(self.groups):
-            perm = permutation_list[group_index]
-            q: Tensor = q_groups[group_index].to(self.dtype)
-            w: Tensor = weight_orig[group_index, :, perm].to(self.dtype)
-            Ih = torch.diag(torch.full((self.columns,), damp[group_index], device=dev))
-            Gh = self.G[group_index] + Ih
-            Gw = w.matmul(Gh[:, 1:] @ self.iH[group_index])
-            Hq = q.matmul(self.H[group_index, :1, 1:] @ self.iH[group_index])
-            weight[group_index, :, perm[1:]] = (Gw - Hq).to(dtype)
+            if self.act_order:
+                # Quantize weights with larger activation magnitudes first.
+                perm = torch.argsort(self.H[group_index].diag(), descending=True)
+            else:
+                # Keep the original order.
+                perm = torch.arange(self.columns, device=dev)
+            permutation_list.append(perm.to(dev))
+            self.iH[group_index] = self.iH[group_index, perm, :][:, perm]
 
         del self.G, self.H  # memory management
 
-        self.L = self.iH.clone()
+        # Compute the upper Cholesky factor used by GPTQ error diffusion.
         try:
             for group_index in range(self.groups):
-                # stabilizing the Cholesky decomposition with a fairly large constant, beta
-                self.L[group_index] = torch.linalg.cholesky(
+                # Scale the inverse before factorization for numerical stability.
+                self.iH[group_index] = torch.linalg.cholesky(
                     self.iH[group_index] * beta, upper=True) / math.sqrt(beta)
         except LinAlgError:
             warnings.warn(
-                f'Failed to compute Cholesky decomposition for layer {self.name} '
-                f'Forward error correction will be a null operation. '
+                f'Failed to compute Cholesky decomposition for layer {self.name}. '
+                f'Qronos will not be applied. '
                 f'Increasing the number of samples might fix this issue.')
             return
-        del self.iH  # memory management
 
-        # Qronos - step 2+
-        for i1 in range(1, self.columns, self.blocksize):
+        for i1 in range(0, self.columns, self.blocksize):
             i2 = min(i1 + self.blocksize, self.columns)
             count = i2 - i1
             error_block = torch.zeros_like(
-                weight[:, :, perm[i1:i2]], dtype=self.dtype)  # [groups, OC/groups, i2-i1]
-            # we need to decrement once because of the Sherman-Morrison-Woodbury update
-            h_inv_block = self.L[:, i1 - 1:i2 - 1, i1 - 1:i2 - 1]
-            # correct error within the block
+                weight[:, :, :count], dtype=self.dtype)  # [groups, OC/groups, i2-i1]
+            h_inv_block = self.iH[:, i1:i2, i1:i2]
+
+            # Correct the quantization error within the block.
             for i in range(count):
-                # error diffusion
                 q_groups = self.get_quant_weights(i, i1, permutation_list)  # [groups, OC/groups]
                 for group_index in range(self.groups):
                     perm = permutation_list[group_index]
                     q = q_groups[group_index].to(self.dtype)  # [OC/groups]
-                    w = weight[group_index, :, perm[i1:i2][i]].to(self.dtype)  # [OC/groups]
-                    d = h_inv_block[group_index, i, i].to(self.dtype)  # [1]
+                    w = weight[group_index, :, perm[i1 + i]].to(self.dtype)  # [OC/groups]
+                    d = h_inv_block[group_index, i, i]  # [1]
                     error = (w - q) / d  # [OC/groups]
                     error_block[group_index, :, i] = error
-                    # update the weights
-                    weight[group_index, :, perm[i1:i2][i:]] -= (
+                    # Update the remaining weights in the block.
+                    weight[group_index, :, perm[i1 + i:i2]] -= (
                         error.unsqueeze(1).matmul(h_inv_block[group_index, i,
                                                               i:].unsqueeze(0))).to(dtype)
-            # correct error outside the block
+
+            # Correct the quantization error outside the block.
             for group_index in range(self.groups):
                 perm = permutation_list[group_index]
                 weight[group_index, :, perm[i2:]] -= (
-                    error_block[group_index].matmul(self.L[group_index, i1 - 1:i2 - 1,
-                                                           i2 - 1:])).to(dtype)
-        del self.L  # memory management
+                    error_block[group_index].matmul(self.iH[group_index, i1:i2, i2:])).to(dtype)
+        del self.iH  # memory management
 
         if hasattr(self.layer, 'offload_params'):
             self.layer.offload_params(self.layer)
