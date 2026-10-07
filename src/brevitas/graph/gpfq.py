@@ -217,6 +217,10 @@ class gpfq_mode(gpxq_mode):
 
     """
 
+    # Algorithms such as GPFQ and Qronos aim to solve the mismatched objective by using
+    # float inputs and (possibly quantized) inputs from the previously quantized layers.
+    solves_mismatched_objective = True
+
     def __init__(
             self,
             model: nn.Module,
