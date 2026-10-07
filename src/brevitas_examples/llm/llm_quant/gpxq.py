@@ -20,13 +20,13 @@ from brevitas_examples.common.axe import a2gpfq_mode
 from brevitas_examples.common.axe import a2gptq_mode
 
 
-def _gpxq_block_optimization_callback(block, gpxq, cached_args, cached_kwargs):
-    for _ in tqdm(range(gpxq.num_layers), desc="Layers", leave=False):
+def _gptq_block_optimization_callback(block, gptq, cached_args, cached_kwargs):
+    for _ in tqdm(range(gptq.num_layers), desc="Layers", leave=False):
         for args, kwargs in zip(cached_args, cached_kwargs):
             args = send_to_device(args, 'cuda')
             kwargs = send_to_device(kwargs, 'cuda')
             block(*args, **kwargs)
-        gpxq.update()
+        gptq.update()
 
 
 def _magr_block_optimization_callback(block, magr, cached_args, cached_kwargs):
@@ -59,7 +59,7 @@ def block_optimization(
         block_name,
         context_manager_func,
         context_manager_kwargs,
-        block_optimization_callback=_gpxq_block_optimization_callback):
+        block_optimization_callback=_gptq_block_optimization_callback):
     disable_quantization_cm = quantization_status_manager(
         model=model,
         disable_act_quant=not context_manager_kwargs.get('use_quant_activations', True),
@@ -148,7 +148,7 @@ def apply_gptq(
 
 
 @torch.no_grad()
-def _dual_optimization_callback(
+def _gpfq_or_qronos_block_optimization_callback(
         block,
         gpxq,
         quant_cached_args,
@@ -175,12 +175,13 @@ def _dual_optimization_callback(
         gpxq.update()
 
 
-def dual_block_optimization(
+def mismatched_block_optimization(
         model,
         dataloader,
         block_name,
         context_manager_func,
         context_manager_kwargs,
+        block_optimization_callback=_gpfq_or_qronos_block_optimization_callback,
         reset_float_cache_every=None):
     if reset_float_cache_every is not None:
         if not isinstance(reset_float_cache_every, int) or reset_float_cache_every <= 0:
@@ -231,7 +232,7 @@ def dual_block_optimization(
         # The context manager installs hooks for the current block.
         # The callback runs the two passes expected by these hooks.
         with context_manager_func(block, **context_manager_kwargs) as gpxq:
-            _dual_optimization_callback(
+            block_optimization_callback(
                 block,
                 gpxq,
                 quant_cached_args,
@@ -308,7 +309,7 @@ def _apply_gpfq_or_qronos(
             max_accumulator_bit_width=max_accumulator_bit_width,
             max_accumulator_tile_size=max_accumulator_tile_size)
     if block_name is not None:
-        dual_block_optimization(
+        mismatched_block_optimization(
             model,
             dataloader,
             block_name,
