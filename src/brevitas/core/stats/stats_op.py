@@ -578,7 +578,8 @@ class MSE(torch.nn.Module):
             mse_base_op: torch.nn.Module,
             stats_reduce_dim: Optional[int] = None,
             mse_search_method: str = 'fibonacci',
-            bipolar_search: bool = False):
+            bipolar_search: bool = False,
+            keepdim: bool = False):
         super(MSE, self).__init__()
         self.mse_init_op = mse_init_op
         self.input_view_shape_impl = inner_stats_input_view_shape_impl
@@ -597,13 +598,18 @@ class MSE(torch.nn.Module):
         self.local_loss_mode: bool = False
         self.bipolar_search = bipolar_search
         self.mse_base_op = mse_base_op
+        # Must match the reduction of mse_init_op: the per-candidate loss is
+        # compared against the candidate (which comes from mse_init_op) via
+        # torch.where, so the reduced (group) dim has to be kept or dropped
+        # identically on both or the shapes mismatch.
+        self.keepdim = keepdim
 
     def mse_loss_fn(self, x, quant_value):
         loss = torch.nn.functional.mse_loss(x, quant_value, reduction='none')
         if self.stats_reduce_dim is not None:
             # stats_reduce_dim applies to the permuted and reshaped tensor
             loss = self.input_view_shape_impl(loss)
-            loss = torch.sum(loss, dim=self.stats_reduce_dim)
+            loss = torch.sum(loss, dim=self.stats_reduce_dim, keepdim=self.keepdim)
         else:
             loss = torch.sum(loss)
         return loss
@@ -752,10 +758,11 @@ class HalfQuadraticOptimizerScale(torch.nn.Module):
         return best_candidate
 
     def optimize(self, x):
-        x_view = self.input_view_shape_impl(x)
-
-        init = self.hqo_init_op(x_view).detach()
-        best_candidate = self.parameter_search(init, x_view)
+        # parameter_search compares against the (un-viewed) proxy output and
+        # applies input_view_shape_impl itself, so it receives the raw tensor.
+        # Only the init op needs the viewed tensor.
+        init = self.hqo_init_op(self.input_view_shape_impl(x)).detach()
+        best_candidate = self.parameter_search(init, x)
 
         # Save for evaluation by other modules (e.g. zp) invoking local loss mode
         self.internal_candidate = best_candidate.detach()
@@ -813,6 +820,9 @@ class HalfQuadraticOptimizerZeroPoint(torch.nn.Module):
         best_loss = torch.tensor(float('inf'), device=x.device, dtype=x.dtype)
         candidate = xl
         best_candidate = candidate
+        # x is the raw (un-viewed) tensor; the proxy output is likewise un-viewed,
+        # so view both once here and work entirely in the viewed domain.
+        x_view = self.input_view_shape_impl(x)
         with torch.no_grad():
             for i in range(0, self.hqo_iters):
                 self.internal_candidate = candidate
@@ -825,17 +835,17 @@ class HalfQuadraticOptimizerZeroPoint(torch.nn.Module):
                 qt_scale = self.input_view_shape_impl(quant_tensor.scale)
                 qt_zp = self.input_view_shape_impl(quant_tensor.zero_point)
                 qt_int = qt_value / qt_scale + qt_zp
-                loss = torch.abs(qt_value - x).mean()
+                loss = torch.abs(qt_value - x_view).mean()
                 best_candidate = torch.where(loss < best_loss, candidate, best_candidate)
                 if loss >= best_loss:
                     break
                 best_loss = torch.min(loss, best_loss)
-                W_e = shrink_lp_op(x - qt_value, self.beta, self.lp_norm)
+                W_e = shrink_lp_op(x_view - qt_value, self.beta, self.lp_norm)
 
                 # Compared to the original formulation, the value we're looking for is:
                 # - scaled by qt_scale
                 # - opposite sign
-                val = self.input_view_shape_impl((x - W_e) - qt_int * qt_scale)
+                val = (x_view - W_e) - qt_int * qt_scale
 
                 if self.stats_reduce_dim is None:
                     candidate = torch.mean(val)
@@ -845,9 +855,7 @@ class HalfQuadraticOptimizerZeroPoint(torch.nn.Module):
         return best_candidate
 
     def optimize(self, x):
-        x_view = self.input_view_shape_impl(x)
-
-        init = self.hqo_init_op_zp(x_view).detach()
+        init = self.hqo_init_op_zp(self.input_view_shape_impl(x)).detach()
 
         best_candidate = self.parameter_search(init, x)
 

@@ -56,12 +56,24 @@ class _ScaleShiftZeroPoint(brevitas.jit.ScriptModule):
         self.quantize_zero_point = quantize_zero_point
 
     @brevitas.jit.script_method
-    def forward(self, zero_point: Tensor, scale: Tensor, bit_width: Tensor) -> Tensor:
+    def zero_point_to_int(self, zero_point: Tensor, scale: Tensor, bit_width: Tensor) -> Tensor:
+        # IntQuant.to_int without input_view_impl. The zero point is already in
+        # the quantizer's view domain (zero_point_shape == scaling_shape,
+        # broadcastable against scale), so grouping it a second time is never
+        # correct.
         min_int = self.int_quant.min_int(bit_width)
+        y = zero_point / scale + min_int
+        y = self.int_quant.float_to_int_impl(y)
+        y = self.int_quant.tensor_clamp_impl(
+            y, min_val=min_int, max_val=self.int_quant.max_int(bit_width))
+        return y
+
+    @brevitas.jit.script_method
+    def forward(self, zero_point: Tensor, scale: Tensor, bit_width: Tensor) -> Tensor:
         if self.quantize_zero_point:
-            out = self.int_quant.to_int(scale, min_int, bit_width, zero_point)
+            out = self.zero_point_to_int(zero_point, scale, bit_width)
         else:
-            out = zero_point / scale + min_int
+            out = zero_point / scale + self.int_quant.min_int(bit_width)
         return out
 
 

@@ -25,7 +25,6 @@ from dependencies import value
 from torch import nn
 
 from brevitas.core.function_wrapper.ops_ste import FloorSte
-from brevitas.core.function_wrapper.shape import StatsInputViewShapeImpl
 from brevitas.core.restrict_val import PowerOfTwoRestrictValue
 from brevitas.core.stats import MSE
 from brevitas.core.stats.stats_op import HalfQuadraticOptimizerScale
@@ -44,7 +43,9 @@ from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.inject.enum import StatsOp
 from brevitas.quant.float_quant_fnuz import FpFNUZMixin
 from brevitas.quant.float_quant_ocp import FpOCPMixin
+from brevitas.quant.solver.common import inner_stats_input_view_shape_impl
 from brevitas.quant.solver.common import solve_stats_impl
+from brevitas.quant.solver.common import zero_point_stats_input_view_shape_impl
 from brevitas.utils.float_quant_utils import get_midmax_mantissa_bit_bias
 from brevitas.utils.python_utils import AutoName
 from brevitas_examples.common.generative.quant_blocks import RuntimeDynamicStatsZeroPoint
@@ -105,8 +106,8 @@ class ZeroPointImplType(AutoName):
 class AsymmetricZeroPointMixin(ExtendedInjector):
     zero_point_stats_op = StatsOp.NEG_MIN_OR_ZERO
     zero_point_shape = this.scaling_shape
-    zero_point_stats_input_view_shape_impl = this.scaling_stats_input_view_shape_impl
     zero_point_stats_input_concat_dim = this.scaling_stats_input_concat_dim
+    zero_point_stats_input_view_shape_impl = zero_point_stats_input_view_shape_impl
 
     @value
     def zero_point_stats_impl(zero_point_stats_op=None):
@@ -207,16 +208,6 @@ class GroupwisePoTMixin(ExtendedInjector):
         return get_midmax_mantissa_bit_bias(mantissa_bit_width, nan_values, inf_values)
 
 
-@value
-def inner_stats_input_view_shape_impl(scaling_per_output):
-    if scaling_per_output == ScalingPerOutputType.CHANNEL:
-        return StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
-    elif scaling_per_output == ScalingPerOutputType.TENSOR:
-        return StatsInputViewShapeImpl.OVER_TENSOR
-    elif scaling_per_output == ScalingPerOutputType.GROUP:
-        return StatsInputViewShapeImpl.OVER_SUBCHANNEL_BLOCK
-
-
 class Target(AutoName):
     SCALE = auto()
     ZERO_POINT = auto()
@@ -303,9 +294,16 @@ def _make_mse_injector(
     # (NegativeMinOrZero for asym quantizers). See the mse_init_op clash note.
     init_op = scale_init_op if target == Target.SCALE else zero_point_init_op
     init_op_name = f"{target.prefix}_mse_init_op"
+    # The init op is built in the parent scope, so it takes the parent's keepdim
+    # (True for groupwise). MSE must use the *same* keepdim in mse_loss_fn: the
+    # per-candidate loss is compared against the candidate -- which comes from
+    # mse_init_op -- via torch.where, so the reduced (group) dim has to be kept or
+    # dropped identically on both. Pulling keepdim from the parent here keeps them
+    # in lockstep regardless of granularity / scale method.
     MSESubInjector = type(
         f'MSE{target.capitalize()}SubInjector', (MSESubInjectorMixin,), {
-            "mse_init_op": getattr(this << 1, init_op_name),})
+            "mse_init_op": getattr(this << 1, init_op_name),
+            "keepdim": (this << 1).keepdim,})
 
     namespace = {
         f"mse_{target}": MSESubInjector,
@@ -331,21 +329,20 @@ def _make_hqo_injector(
     init_op = scale_init_op if target == Target.SCALE else zero_point_init_op
 
     namespace = {
-        f"hqo_{target}":
-            HQOClass,
-        f"{target.prefix}_stats_impl":
-            getattr(this, f"hqo_{target}"),
-        f"hqo_init_op_{target.suffix}":
-            init_op,
-        "inner_stats_input_view_shape_impl":
-            getattr(this, f"{target.prefix}_stats_input_view_shape_impl"),}
+        f"hqo_{target}": HQOClass,
+        f"{target.prefix}_stats_impl": getattr(this, f"hqo_{target}"),
+        f"hqo_init_op_{target.suffix}": init_op,
+        # Same convention as the MSE injector: the outer view is Identity and the
+        # HQO search applies inner_stats_input_view_shape_impl itself, exactly once.
+        f"{target.prefix}_stats_input_view_shape_impl": nn.Identity(),
+        "inner_stats_input_view_shape_impl": inner_stats_input_view_shape_impl,}
     return type(f'HQO{target.capitalize()}Injector', (ExtendedInjector,), namespace)
 
 
 # The init op is derived at the parent injector level from the requested enums
 # (scaling_stats_op / zero_point_stats_op) and pulled into the sub-injector via
 # `(this << 1)`, with a distinct name per target to avoid the mse_init_op clash.
-MSEScaleInjectorMixin = _make_mse_injector(target=Target.SCALE, overrides={'keepdim': False})
+MSEScaleInjectorMixin = _make_mse_injector(target=Target.SCALE)
 MSEZeroPointInjectorMixin = _make_mse_injector(target=Target.ZERO_POINT)
 
 HQOScaleInjectorMixin = _make_hqo_injector(target=Target.SCALE)

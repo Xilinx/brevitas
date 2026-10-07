@@ -16,6 +16,78 @@ from torch.nn import Module
 
 from brevitas_examples.common.parse_utils import parse_args as parse_args_utils
 
+# Scalar attribute types worth comparing between two modules of the same class.
+# Tensors are covered by state_dict parity; callables (lambdas such as
+# proxy_forward / dynamic_scaling_broadcastable_fn) differ by identity and are
+# noise, so both are excluded.
+_FINGERPRINT_SCALARS = (bool, int, float, str, type(None))
+
+
+def _normalize_attr(value: Any) -> Any:
+    """Normalize a scalar attribute for comparison: enums by their value,
+    everything else unchanged. 'absent' is represented by the caller as None."""
+    # Enum members expose `.value`; use it so two equal enums compare equal
+    # regardless of identity / repr.
+    enum_value = getattr(value, "value", None)
+    if enum_value is not None and not isinstance(value, _FINGERPRINT_SCALARS):
+        return enum_value
+    return value
+
+
+# Attributes excluded from the fingerprint:
+#   training          - execution state, flips with .train()/.eval()
+#   stats_output_shape - a derived scalar-stats shape that is represented
+#                        interchangeably as () or (1,); the actual stored shapes
+#                        are already compared via state_dict parity.
+_FINGERPRINT_IGNORE = {"training", "stats_output_shape"}
+
+
+def _module_scalar_attrs(module: Module) -> Dict[str, Any]:
+    """Public scalar (and scalar-tuple) attributes set on a module instance.
+
+    None-valued attributes are dropped so that 'absent' and 'explicitly None'
+    compare equal (e.g. update_state_dict_impl, present as None on one side and
+    unset on the other, carry the same meaning)."""
+    out: Dict[str, Any] = {}
+    for key, value in vars(module).items():
+        if key.startswith("_") or value is None or key in _FINGERPRINT_IGNORE:
+            continue
+        if isinstance(value, Module):
+            continue
+        if isinstance(value, _FINGERPRINT_SCALARS):
+            out[key] = _normalize_attr(value)
+        elif isinstance(value, tuple) and all(isinstance(e, _FINGERPRINT_SCALARS) for e in value):
+            out[key] = value
+    return out
+
+
+def module_fingerprint(model: Module) -> List[Tuple[str, str, Tuple]]:
+    """Ordered, comparable description of a model: for every submodule its name,
+    fully-qualified type, and sorted scalar attributes.
+
+    Tighter than a (name, type) hierarchy: two models match 1-to-1 only if they
+    have the same submodules, in the same order, of the same types *and* with the
+    same scalar attribute values (e.g. keepdim, quantize_zero_point, narrow_range).
+    Tensor state is compared separately via state_dict parity.
+    """
+    fingerprint = []
+    for name, module in model.named_modules():
+        type_ = type(module)
+        attrs = tuple(sorted(_module_scalar_attrs(module).items()))
+        fingerprint.append((name, f"{type_.__module__}.{type_.__qualname__}", attrs))
+    return fingerprint
+
+
+def assert_state_dict_parity(ref: Module, built: Module) -> None:
+    """Assert two models carry identical persistent state (keys + tensor values)."""
+    ref_sd, built_sd = ref.state_dict(), built.state_dict()
+    assert set(ref_sd) == set(built_sd), (
+        f"state_dict keys differ: only in ref {sorted(set(ref_sd) - set(built_sd))}, "
+        f"only in built {sorted(set(built_sd) - set(ref_sd))}")
+    for key in ref_sd:
+        assert ref_sd[key].shape == built_sd[key].shape and torch.equal(
+            ref_sd[key], built_sd[key]), f"state_dict['{key}'] differs"
+
 
 class MockProcess:
     """Mock multiprocessing.Process that runs the target synchronously.

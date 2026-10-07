@@ -4,6 +4,7 @@
 import warnings
 
 from dependencies import this
+from torch import nn
 
 from brevitas.core.bit_width import *
 from brevitas.core.bit_width.float import ComputeMaxMantissa
@@ -41,7 +42,41 @@ __all__ = [
     'SolveStatsReduceDimFromEnum',
     'SolveScalingStatsInputViewShapeImplFromEnum',
     'SolveDtypeDeviceFromTrackedParameterList',
-    'SolveRestrictScaleSign']
+    'SolveRestrictScaleSign',
+    'stats_input_view_shape_impl_from_granularity',
+    'inner_stats_input_view_shape_impl',
+    'zero_point_stats_input_view_shape_impl']
+
+
+def stats_input_view_shape_impl_from_granularity(scaling_per_output):
+    """Map the scaling granularity to the matching stats-input view module."""
+    if scaling_per_output == ScalingPerOutputType.CHANNEL:
+        return StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
+    elif scaling_per_output == ScalingPerOutputType.TENSOR:
+        return StatsInputViewShapeImpl.OVER_TENSOR
+    elif scaling_per_output == ScalingPerOutputType.GROUP:
+        return StatsInputViewShapeImpl.OVER_SUBCHANNEL_BLOCK
+    raise RuntimeError(f"Unsupported scaling_per_output: {scaling_per_output}")
+
+
+@value
+def inner_stats_input_view_shape_impl(scaling_per_output):
+    # Inner view for local-loss searches (MSE / HQO): their outer
+    # *_stats_input_view_shape_impl is Identity, so the reshaping is done here,
+    # once, inside the search.
+    return stats_input_view_shape_impl_from_granularity(scaling_per_output)
+
+
+@value
+def zero_point_stats_input_view_shape_impl(scaling_per_output, scaling_stats_input_view_shape_impl):
+    # Mirror the scale's view, but derive it from the granularity when the scale is
+    # Identity (a local-loss scale reshapes inside its own search, so its view is
+    # Identity yet these plain min/max zero-point stats still need a real view).
+    # Return the class, not the built scale instance, so the zero point gets its
+    # own view submodule.
+    if isinstance(scaling_stats_input_view_shape_impl, (nn.Identity, Identity)):
+        return stats_input_view_shape_impl_from_granularity(scaling_per_output)
+    return type(scaling_stats_input_view_shape_impl)
 
 
 def solve_float_to_int_impl_from_enum(impl_type):
@@ -292,7 +327,7 @@ class SolveStatsReduceDimFromEnum(ExtendedInjector):
             return reduce_dim
 
     @value
-    def keepdim(scaling_per_output, mse_scale=None):
+    def keepdim(scaling_per_output):
         if scaling_per_output == ScalingPerOutputType.GROUP:
             return True
         else:
@@ -310,6 +345,9 @@ class SolveStatsReduceDimFromEnum(ExtendedInjector):
 
 class SolveScalingStatsInputViewShapeImplFromEnum(ExtendedInjector):
 
+    # NOTE: intentionally not delegating to stats_input_view_shape_impl_from_granularity:
+    # this one also forces OVER_OUTPUT_CHANNELS for the MAX_AVE stats op and keeps
+    # a tolerant fall-through for the scale, so it is kept separate on purpose.
     @value
     def scaling_stats_input_view_shape_impl(scaling_stats_op, scaling_per_output):
         if scaling_per_output == ScalingPerOutputType.CHANNEL or scaling_stats_op == StatsOp.MAX_AVE:

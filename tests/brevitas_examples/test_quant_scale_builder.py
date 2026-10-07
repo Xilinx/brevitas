@@ -33,6 +33,8 @@ from brevitas_examples.common.quantizer_builder import ParamMethod
 from brevitas_examples.common.quantizer_builder import QuantParamType
 from brevitas_examples.common.quantizer_builder import QuantScaleQuantizerConfig
 from brevitas_examples.common.quantizer_builder import QuantScaleWeightQuantizerBuilder
+from tests.brevitas_examples.common import assert_state_dict_parity
+from tests.brevitas_examples.common import module_fingerprint
 
 torch.manual_seed(0)
 
@@ -82,11 +84,6 @@ def _make_quant_linear(weight_quant):
         weight_group_size=GROUP_SIZE)
 
 
-def _module_hierarchy(model):
-    return [
-        (name, f"{type(m).__module__}.{type(m).__qualname__}") for name, m in model.named_modules()]
-
-
 @pytest.mark.parametrize("spec_name", list(BUILDER_SPECS.keys()))
 def test_builder_quant_scale_weight_matches_reference(spec_name):
     spec = BUILDER_SPECS[spec_name]
@@ -99,9 +96,9 @@ def test_builder_quant_scale_weight_matches_reference(spec_name):
     builder = QuantScaleWeightQuantizerBuilder(_make_outer_config(spec))
     builder_linear = _make_quant_linear(builder.build_quant_injector())
 
-    # 1) Module hierarchy must match 1-to-1 (structural parity of the injector,
-    # including the nested scale quantizer).
-    assert _module_hierarchy(ref_linear) == _module_hierarchy(builder_linear)
+    # 1) Module hierarchy + scalar attributes must match 1-to-1 (structural parity
+    # of the injector, including the nested scale quantizer).
+    assert module_fingerprint(ref_linear) == module_fingerprint(builder_linear)
 
     # 2) Identical float weights so only the quantization path can differ.
     builder_linear.weight.data.copy_(ref_linear.weight.data)
@@ -121,6 +118,9 @@ def test_builder_quant_scale_weight_matches_reference(spec_name):
     assert torch.equal(ref_weight.exponent_bit_width, builder_weight.exponent_bit_width)
     assert torch.equal(ref_weight.mantissa_bit_width, builder_weight.mantissa_bit_width)
 
-    # 4) Quantized layer outputs (the full forward) must match exactly.
+    # 4) Persistent state must match.
+    assert_state_dict_parity(ref_linear, builder_linear)
+
+    # 5) Quantized layer outputs (the full forward) must match exactly.
     x = torch.randn(4, IN_FEATURES)
     assert torch.equal(ref_linear(x), builder_linear(x))
