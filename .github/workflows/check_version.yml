@@ -1,0 +1,43 @@
+name: Check version
+
+on:
+  push:
+    branches: [ master ]
+    tags: [ '*' ]
+
+jobs:
+  check_version:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0   # setuptools-scm needs the tag history
+
+    - name: Install Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+
+    - name: Install brevitas without dependencies
+      run: pip install --no-deps .
+
+    - name: Fail if the version is not derived from a git tag
+      run: |
+        # Mirrors the describe command setuptools-scm runs for tag.prefix = v.
+        # When no version tag is reachable, setuptools-scm silently invents a
+        # version instead of raising, so probe for the tag explicitly.
+        if ! describe=$(git describe --dirty --tags --long --match 'v*[0-9]*' 2>&1); then
+          echo "::error::no version tag reachable from HEAD ($describe)"
+          exit 1
+        fi
+        echo "git describe: $describe"
+        # The fallback_version set in setup.py, and the marker setuptools-scm
+        # adds to the local segment when it could not resolve a tag.
+        version=$(python -c "from importlib.metadata import version; print(version('brevitas'))")
+        echo "Installed version: $version"
+        case "$version" in
+          *+unknown*)
+            echo "::error::brevitas installed as '$version', which is not derived from a git tag"
+            exit 1 ;;
+        esac
