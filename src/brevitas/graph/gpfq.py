@@ -208,6 +208,8 @@ class gpfq_mode(gpxq_mode):
         create_weight_orig (bool): If True, store the original floating point weights before
             applying gpfq. These weights will be used anytime quantization is disabled.
             Default: True
+        return_forward_output (bool): If True, returns the output of the forward pass. Otherwise
+            the forward call inside the context manager returns None. Default: False
         act_order (bool): Whether to order greedy path following by Hessian approximation.
             Default: False
         algorithm_impl (GPFQ): The uninitialized class to execute the algorithm.
@@ -227,6 +229,7 @@ class gpfq_mode(gpxq_mode):
             group_of_parallel_layers: Optional[List[str]] = None,
             inplace: bool = True,
             create_weight_orig: bool = True,
+            return_forward_output: bool = False,
             act_order: bool = False,
             algorithm_impl: GPFQ = GPFQ,
             device: str = 'cpu',
@@ -238,9 +241,9 @@ class gpfq_mode(gpxq_mode):
             group_of_parallel_layers,
             inplace,
             create_weight_orig,
-            True,
+            True,  # GPFQ requires quantized activations.
             act_order,
-            False,
+            return_forward_output,
             device,
             dtype)
 
@@ -251,6 +254,14 @@ class gpfq_mode(gpxq_mode):
             self.orig_forward(*args, **kwargs)
         except StopFwdException:
             pass
+        if self.return_forward_output:
+            # If we want to return the output of the network, we need to disable all hooks
+            for name, gpxq_class in self.gpxq_layers.items():
+                gpxq_class.disable_pre_forward_hook = True
+            out = self.orig_forward(*args, **kwargs)
+            for name, gpxq_class in self.gpxq_layers.items():
+                gpxq_class.disable_pre_forward_hook = False
+            return out
 
     def initialize_module_optimizer(self, layer, name, len_parallel_layers, create_weight_orig):
         return self.algorithm_impl(
