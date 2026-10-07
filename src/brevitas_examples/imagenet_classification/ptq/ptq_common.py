@@ -647,7 +647,7 @@ def _apply_gpfq_or_qronos(
             a2q_layer_filter_fnc=_a2q_layer_filter_fnc,
             max_accumulator_bit_width=max_accumulator_bit_width,
             max_accumulator_tile_size=max_accumulator_tile_size)
-    float_context_manager = quantization_status_manager(
+    disable_quantization_cm = quantization_status_manager(
         model=model,
         disable_act_quant=True,
         disable_weight_quant=True,
@@ -664,7 +664,7 @@ def _apply_gpfq_or_qronos(
                 # Run the quantized pass first. GPFQ and Qronos store its input.
                 algo_model(images)
                 # Run the float pass second. GPFQ and Qronos use the input pair to update G.
-                with float_context_manager:
+                with disable_quantization_cm:
                     algo_model(images)
             # Update after all input pairs are available for the current layer.
             algo.update()

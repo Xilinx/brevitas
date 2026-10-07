@@ -224,7 +224,7 @@ class TestQronosUpdateBatch:
     def _calibrate(model, calib_loader):
         """Run Qronos calibration, return {layer_name: (H, G)} for each layer."""
         results = {}
-        float_context_manager = quantization_status_manager(
+        disable_quantization_cm = quantization_status_manager(
             model=model,
             disable_act_quant=True,
             disable_weight_quant=True,
@@ -235,7 +235,7 @@ class TestQronosUpdateBatch:
                 for _ in range(algo.num_layers):
                     for data, _ in calib_loader:
                         algo.model(data)
-                        with float_context_manager:
+                        with disable_quantization_cm:
                             algo.model(data)
                     for name in algo.current_layer.layer_names:
                         layer = algo.gpxq_layers[name]
@@ -300,7 +300,7 @@ class TestQronosUpdateBatch:
         catching any in-place normalization (e.g. /=) in update_batch that would
         corrupt inputs."""
         model = self._init_model()
-        float_context_manager = quantization_status_manager(
+        disable_quantization_cm = quantization_status_manager(
             model=model,
             disable_act_quant=True,
             disable_weight_quant=True,
@@ -312,7 +312,7 @@ class TestQronosUpdateBatch:
                     for data, _ in self._make_loader(batch_size=2):
                         data_before = data.clone()
                         algo.model(data)
-                        with float_context_manager:
+                        with disable_quantization_cm:
                             algo.model(data)
                         torch.testing.assert_close(data, data_before)
 
