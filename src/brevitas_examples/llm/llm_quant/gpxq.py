@@ -296,7 +296,7 @@ def _apply_gpfq_or_qronos(
             block_optimization_callback=_gpfq_or_qronos_block_optimization_callback,
             reset_float_cache_every=1)
     else:
-        float_context_manager = quantization_status_manager(
+        disable_quantization_cm = quantization_status_manager(
             model=model,
             disable_act_quant=True,
             disable_weight_quant=True,
@@ -310,7 +310,7 @@ def _apply_gpfq_or_qronos(
                     # Run the quantized pass first. GPFQ and Qronos store its input.
                     algo.model(**inps)
                     # Run the float pass second. GPFQ and Qronos use the input pair to update G.
-                    with float_context_manager:
+                    with disable_quantization_cm:
                         algo.model(**inps)
                 algo.update()
 
