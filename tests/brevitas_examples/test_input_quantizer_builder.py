@@ -52,6 +52,8 @@ from brevitas_examples.common.quantizer_builder import FloatFormat
 from brevitas_examples.common.quantizer_builder import InputQuantizerBuilder
 from brevitas_examples.common.quantizer_builder import ParamMethod
 from brevitas_examples.common.quantizer_builder import QuantParamType
+from tests.brevitas_examples.common import assert_state_dict_parity
+from tests.brevitas_examples.common import module_fingerprint
 
 torch.manual_seed(0)
 
@@ -409,14 +411,6 @@ def _make_quant_identity(act_quant, **kwargs):
     return QuantIdentity(act_quant=act_quant, return_quant_tensor=True, **kwargs)
 
 
-def _module_hierarchy(model):
-    hierarchy = []
-    for name, module in model.named_modules():
-        type_ = type(module)
-        hierarchy.append((name, f"{type_.__module__}.{type_.__qualname__}"))
-    return hierarchy
-
-
 # generate_quantizers applies these runtime .let() overrides to the per_row /
 # per_group dynamic activation quantizers (they are not baked into the reference
 # classes). A bare QuantIdentity cannot auto-resolve the per-channel broadcastable
@@ -473,7 +467,8 @@ def test_builder_input_quant_matches_reference(spec_name):
     if granularity == "per_group":
         builder_kwargs["group_size"] = GROUP_SIZE
     builder_quant = create_quantizer_builder(
-        InputQuantizerBuilder, **builder_args, attr_overrides=builder_kwargs).build_quant_injector()
+        InputQuantizerBuilder, **builder_args,
+        attr_overrides=builder_kwargs).build_quant_injector()
 
     # All granularities are hosted by QuantIdentity; per_row / per_group inject the
     # otherwise layer-supplied attributes via .let() (see _apply_granularity_overrides).
@@ -482,8 +477,8 @@ def test_builder_input_quant_matches_reference(spec_name):
     ref_act = _make_quant_identity(ref_quant, **spec.get("ref_kwargs", {}))
     builder_act = _make_quant_identity(builder_quant)
 
-    # Module hierarchy must match 1-to-1.
-    assert _module_hierarchy(ref_act) == _module_hierarchy(builder_act)
+    # Module hierarchy + scalar attributes must match 1-to-1.
+    assert module_fingerprint(ref_act) == module_fingerprint(builder_act)
 
     # Collect identical runtime statistics on both, then compare the quantized
     # activations. Static scaling learns its scale from runtime stats, so we run
@@ -495,3 +490,4 @@ def test_builder_input_quant_matches_reference(spec_name):
         act(x)
         act.eval()
     _run_and_compare(ref_act(x), builder_act(x))
+    assert_state_dict_parity(ref_act, builder_act)

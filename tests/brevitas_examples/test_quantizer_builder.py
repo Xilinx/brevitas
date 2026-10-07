@@ -54,6 +54,8 @@ from brevitas_examples.common.quantizer_builder import ParamMethod
 from brevitas_examples.common.quantizer_builder import QuantParamType
 from brevitas_examples.common.quantizer_builder import WeightQuantizerBuilder
 from brevitas_examples.common.quantizer_builder import ZeroPointImplType
+from tests.brevitas_examples.common import assert_state_dict_parity
+from tests.brevitas_examples.common import module_fingerprint
 
 # Keep the model small and deterministic so that weight-quant outputs are
 # directly comparable between the reference quantizer and the builder.
@@ -647,20 +649,6 @@ def _make_quant_linear(weight_quant, **layer_kwargs):
     return linear
 
 
-def _module_hierarchy(model):
-    """Return an ordered, comparable description of the module hierarchy.
-
-    Each entry is a (name, fully-qualified-type) pair, so two models match
-    1-to-1 only if they have exactly the same submodules, in the same order,
-    of the same types.
-    """
-    hierarchy = []
-    for name, module in model.named_modules():
-        type_ = type(module)
-        hierarchy.append((name, f"{type_.__module__}.{type_.__qualname__}"))
-    return hierarchy
-
-
 @pytest.mark.parametrize("spec_name", list(BUILDER_SPECS.keys()))
 def test_builder_weight_quant_matches_reference(spec_name):
     spec = BUILDER_SPECS[spec_name]
@@ -689,12 +677,10 @@ def test_builder_weight_quant_matches_reference(spec_name):
     builder_quant = builder.build_quant_injector()
     builder_linear = _make_quant_linear(builder_quant, **layer_kwargs)
 
-    # 1) Module hierarchy must match 1-to-1. Checked before syncing weights so a
-    # structural mismatch is reported as a clear hierarchy diff rather than an
-    # opaque "Missing key(s) in state_dict" error.
-    # if _module_hierarchy(ref_linear) != _module_hierarchy(builder_linear):
-    #     breakpoint()
-    assert _module_hierarchy(ref_linear) == _module_hierarchy(builder_linear)
+    # 1) Module hierarchy + scalar attributes must match 1-to-1. Checked before
+    # syncing weights so a structural mismatch is reported as a clear diff rather
+    # than an opaque "Missing key(s) in state_dict" error.
+    assert module_fingerprint(ref_linear) == module_fingerprint(builder_linear)
 
     # Make both layers carry identical float weights so the only difference that
     # could appear is in the quantization path itself. We copy only the float
@@ -731,7 +717,10 @@ def test_builder_weight_quant_matches_reference(spec_name):
         assert torch.equal(ref_weight.exponent_bit_width, builder_weight.exponent_bit_width)
         assert torch.equal(ref_weight.mantissa_bit_width, builder_weight.mantissa_bit_width)
 
-    # 3) Quantized layer output tensors must match exactly. With
+    # 3) Persistent state must match.
+    assert_state_dict_parity(ref_linear, builder_linear)
+
+    # 4) Quantized layer output tensors must match exactly. With
     # return_quant_tensor=False the layers return plain Tensors.
     x = torch.randn(1, IN_FEATURES)
     ref_out = ref_linear(x)
