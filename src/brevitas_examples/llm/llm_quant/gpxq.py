@@ -37,6 +37,21 @@ def _magr_block_optimization_callback(block, magr, cached_args, cached_kwargs):
     magr.update()
 
 
+def _intercept_input(module, args, kwargs, cached_args, cached_kwargs):
+    """Cache a block input on the CPU and stop the forward pass."""
+    cached_args.append(send_to_device(args, 'cpu'))
+    cached_kwargs.append(send_to_device(kwargs, 'cpu'))
+    raise StopFwdException
+
+
+def _intercept_output(module, args, kwargs, output, cached_args):
+    """Cache a block output on the CPU and stop the forward pass."""
+    if isinstance(output, tuple):
+        output = output[0]
+    cached_args.append((send_to_device(output, 'cpu'),))
+    raise StopFwdException
+
+
 @torch.no_grad()
 def block_optimization(
         model,
@@ -57,24 +72,10 @@ def block_optimization(
     first_block = blocks[0]
     cached_args, cached_kwargs = [], []
 
-    # Intercept input to first block
-    def intercept_input(module, args, kwargs):
-        args = send_to_device(args, 'cpu')
-        kwargs = send_to_device(kwargs, 'cpu')
-        cached_args.append(args)
-        cached_kwargs.append(kwargs)
-        raise StopFwdException
-
-    # Intercept output from block N-1 to set it as input to block N
-    def intercept_output(module, args, kwargs, output):
-        if isinstance(output, tuple):
-            output = output[0]
-        output = send_to_device(output, 'cpu')
-        cached_args.append((output,))
-        raise StopFwdException
-
     # Collect input to first block
-    hook = first_block.register_forward_pre_hook(intercept_input, with_kwargs=True)
+    hook = first_block.register_forward_pre_hook(
+        partial(_intercept_input, cached_args=cached_args, cached_kwargs=cached_kwargs),
+        with_kwargs=True)
     with disable_quantization_cm:
         for inps in dataloader:
             try:
@@ -92,7 +93,8 @@ def block_optimization(
             # Once the block is done, we need to update the input to the next block
             past_cached_args, past_cached_kwargs = deepcopy(cached_args), deepcopy(cached_kwargs)
             cached_args = []
-            hook = block.register_forward_hook(intercept_output, with_kwargs=True)
+            hook = block.register_forward_hook(
+                partial(_intercept_output, cached_args=cached_args), with_kwargs=True)
 
             with disable_quantization_cm:
                 for args, kwargs in zip(past_cached_args, past_cached_kwargs):
@@ -196,21 +198,10 @@ def dual_block_optimization(
     quant_cached_args, quant_cached_kwargs = [], []
     float_cached_args, float_cached_kwargs = [], []
 
-    # Cache separate quantized and float trajectories.
-    # The trajectories diverge after a block updates its weights.
-    def intercept_input(module, args, kwargs, cached_args, cached_kwargs):
-        cached_args.append(send_to_device(args, 'cpu'))
-        cached_kwargs.append(send_to_device(kwargs, 'cpu'))
-        raise StopFwdException
-
-    def intercept_output(module, args, kwargs, output, cached_args):
-        if isinstance(output, tuple):
-            output = output[0]
-        cached_args.append((send_to_device(output, 'cpu'),))
-        raise StopFwdException
+    # Cache separate inputs for quantized and float models.
 
     hook = first_block.register_forward_pre_hook(
-        partial(intercept_input, cached_args=quant_cached_args, cached_kwargs=quant_cached_kwargs),
+        partial(_intercept_input, cached_args=quant_cached_args, cached_kwargs=quant_cached_kwargs),
         with_kwargs=True)
     for inps in dataloader:
         try:
@@ -220,7 +211,7 @@ def dual_block_optimization(
     hook.remove()
 
     hook = first_block.register_forward_pre_hook(
-        partial(intercept_input, cached_args=float_cached_args, cached_kwargs=float_cached_kwargs),
+        partial(_intercept_input, cached_args=float_cached_args, cached_kwargs=float_cached_kwargs),
         with_kwargs=True)
     with float_context_manager:
         for inps in dataloader:
@@ -253,7 +244,7 @@ def dual_block_optimization(
             past_quant_cached_args = deepcopy(quant_cached_args)
             quant_cached_args = []
             hook = block.register_forward_hook(
-                partial(intercept_output, cached_args=quant_cached_args), with_kwargs=True)
+                partial(_intercept_output, cached_args=quant_cached_args), with_kwargs=True)
             for args, kwargs in zip(past_quant_cached_args, quant_cached_kwargs):
                 try:
                     args = send_to_device(args, 'cuda')
@@ -270,7 +261,7 @@ def dual_block_optimization(
             past_float_cached_args = deepcopy(float_cached_args)
             float_cached_args = []
             hook = block.register_forward_hook(
-                partial(intercept_output, cached_args=float_cached_args), with_kwargs=True)
+                partial(_intercept_output, cached_args=float_cached_args), with_kwargs=True)
             with float_context_manager:
                 for args, kwargs in zip(past_float_cached_args, float_cached_kwargs):
                     try:
