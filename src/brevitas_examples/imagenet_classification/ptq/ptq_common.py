@@ -647,28 +647,26 @@ def _apply_gpfq_or_qronos(
             a2q_layer_filter_fnc=_a2q_layer_filter_fnc,
             max_accumulator_bit_width=max_accumulator_bit_width,
             max_accumulator_tile_size=max_accumulator_tile_size)
-    quant_context_manager = quantization_status_manager(
-        model=model,
-        disable_act_quant=False,
-        disable_weight_quant=False,
-        disable_bias_quant=False,
-        is_training=False)
     float_context_manager = quantization_status_manager(
         model=model,
         disable_act_quant=True,
         disable_weight_quant=True,
         disable_bias_quant=True,
         is_training=False)
+    # The context manager installs the hooks used by GPFQ or Qronos.
+    # The orchestration layer controls the two-pass protocol required by these hooks.
     with context_manager(**context_manager_kwargs) as algo:
         algo_model = algo.model
         for i in tqdm(range(algo.num_layers)):
             for i, (images, target) in enumerate(calib_loader):
                 images = images.to(device)
                 images = images.to(dtype)
-                with quant_context_manager:
-                    algo_model(images)
+                # Run the quantized pass first. GPFQ and Qronos store its input.
+                algo_model(images)
+                # Run the float pass second. GPFQ and Qronos use the input pair to update G.
                 with float_context_manager:
                     algo_model(images)
+            # Update after all input pairs are available for the current layer.
             algo.update()
 
 

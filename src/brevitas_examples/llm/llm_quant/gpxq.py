@@ -153,7 +153,6 @@ def _dual_optimization_callback(
         quant_cached_kwargs,
         float_cached_args,
         float_cached_kwargs,
-        quant_context_manager,
         float_context_manager):
     for _ in tqdm(range(gpxq.num_layers), desc="Layers", leave=False):
         for quant_args, quant_kwargs, float_args, float_kwargs in zip(
@@ -161,14 +160,16 @@ def _dual_optimization_callback(
                 quant_cached_kwargs,
                 float_cached_args,
                 float_cached_kwargs):
-            with quant_context_manager:
-                quant_args = send_to_device(quant_args, 'cuda')
-                quant_kwargs = send_to_device(quant_kwargs, 'cuda')
-                gpxq.model(*quant_args, **quant_kwargs)
+            # Run the quantized pass first. GPFQ and Qronos store its input.
+            quant_args = send_to_device(quant_args, 'cuda')
+            quant_kwargs = send_to_device(quant_kwargs, 'cuda')
+            gpxq.model(*quant_args, **quant_kwargs)
+            # Run the float pass second. GPFQ and Qronos use the input pair to update G.
             with float_context_manager:
                 float_args = send_to_device(float_args, 'cuda')
                 float_kwargs = send_to_device(float_kwargs, 'cuda')
                 gpxq.model(*float_args, **float_kwargs)
+        # Update after all input pairs are available for the current layer.
         gpxq.update()
 
 
@@ -182,12 +183,6 @@ def dual_block_optimization(
     if reset_float_cache_every is not None:
         if not isinstance(reset_float_cache_every, int) or reset_float_cache_every <= 0:
             raise ValueError("reset_float_cache_every must be None or a positive integer.")
-    quant_context_manager = quantization_status_manager(
-        model=model,
-        disable_act_quant=False,
-        disable_weight_quant=False,
-        disable_bias_quant=False,
-        is_training=False)
     float_context_manager = quantization_status_manager(
         model=model,
         disable_act_quant=True,
@@ -201,6 +196,8 @@ def dual_block_optimization(
     quant_cached_args, quant_cached_kwargs = [], []
     float_cached_args, float_cached_kwargs = [], []
 
+    # Cache separate quantized and float trajectories.
+    # The trajectories diverge after a block updates its weights.
     def intercept_input(module, args, kwargs, cached_args, cached_kwargs):
         cached_args.append(send_to_device(args, 'cpu'))
         cached_kwargs.append(send_to_device(kwargs, 'cpu'))
@@ -215,12 +212,11 @@ def dual_block_optimization(
     hook = first_block.register_forward_pre_hook(
         partial(intercept_input, cached_args=quant_cached_args, cached_kwargs=quant_cached_kwargs),
         with_kwargs=True)
-    with quant_context_manager:
-        for inps in dataloader:
-            try:
-                model(**inps)
-            except StopFwdException:
-                pass
+    for inps in dataloader:
+        try:
+            model(**inps)
+        except StopFwdException:
+            pass
     hook.remove()
 
     hook = first_block.register_forward_pre_hook(
@@ -235,18 +231,14 @@ def dual_block_optimization(
     hook.remove()
 
     for index, block in tqdm(enumerate(blocks), desc="Blocks", total=len(blocks)):
-        quant_context_manager = quantization_status_manager(
-            model=block,
-            disable_act_quant=False,
-            disable_weight_quant=False,
-            disable_bias_quant=False,
-            is_training=False)
         float_context_manager = quantization_status_manager(
             model=block,
             disable_act_quant=True,
             disable_weight_quant=True,
             disable_bias_quant=True,
             is_training=False)
+        # The context manager installs hooks for the current block.
+        # The callback runs the two passes expected by these hooks.
         with context_manager_func(block, **context_manager_kwargs) as gpxq:
             _dual_optimization_callback(
                 block,
@@ -255,7 +247,6 @@ def dual_block_optimization(
                 quant_cached_kwargs,
                 float_cached_args,
                 float_cached_kwargs,
-                quant_context_manager,
                 float_context_manager)
 
         if index < len(blocks) - 1:
@@ -263,14 +254,13 @@ def dual_block_optimization(
             quant_cached_args = []
             hook = block.register_forward_hook(
                 partial(intercept_output, cached_args=quant_cached_args), with_kwargs=True)
-            with quant_context_manager:
-                for args, kwargs in zip(past_quant_cached_args, quant_cached_kwargs):
-                    try:
-                        args = send_to_device(args, 'cuda')
-                        kwargs = send_to_device(kwargs, 'cuda')
-                        block(*args, **kwargs)
-                    except StopFwdException:
-                        pass
+            for args, kwargs in zip(past_quant_cached_args, quant_cached_kwargs):
+                try:
+                    args = send_to_device(args, 'cuda')
+                    kwargs = send_to_device(kwargs, 'cuda')
+                    block(*args, **kwargs)
+                except StopFwdException:
+                    pass
             hook.remove()
 
             if reset_float_cache_every is not None and (index + 1) % reset_float_cache_every == 0:
@@ -335,23 +325,20 @@ def _apply_gpfq_or_qronos(
             context_manager_kwargs,
             reset_float_cache_every=1)
     else:
-        quant_context_manager = quantization_status_manager(
-            model=model,
-            disable_act_quant=False,
-            disable_weight_quant=False,
-            disable_bias_quant=False,
-            is_training=False)
         float_context_manager = quantization_status_manager(
             model=model,
             disable_act_quant=True,
             disable_weight_quant=True,
             disable_bias_quant=True,
             is_training=False)
+        # The context manager installs hooks used by GPFQ or Qronos.
+        # Run both passes before update consumes their collected inputs.
         with context_manager_func(model, **context_manager_kwargs) as algo:
             for _ in tqdm(range(algo.num_layers)):
                 for inps in dataloader:
-                    with quant_context_manager:
-                        algo.model(**inps)
+                    # Run the quantized pass first. GPFQ and Qronos store its input.
+                    algo.model(**inps)
+                    # Run the float pass second. GPFQ and Qronos use the input pair to update G.
                     with float_context_manager:
                         algo.model(**inps)
                 algo.update()
