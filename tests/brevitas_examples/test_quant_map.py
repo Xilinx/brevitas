@@ -33,12 +33,12 @@ import torch
 from brevitas import config
 from brevitas.nn import QuantIdentity
 from brevitas.nn import QuantLinear
-from brevitas_examples.common.generative.quantize import INPUT_QUANT_MAP
-from brevitas_examples.common.generative.quantize import WEIGHT_QUANT_MAP
 from brevitas_examples.common.quantizer_builder import create_input_quantizer
 from brevitas_examples.common.quantizer_builder import create_weight_quantizer
 from tests.brevitas_examples.common import assert_state_dict_parity
 from tests.brevitas_examples.common import module_fingerprint
+from tests.brevitas_examples.quant_map_reference import INPUT_QUANT_MAP
+from tests.brevitas_examples.quant_map_reference import WEIGHT_QUANT_MAP
 
 torch.manual_seed(0)
 

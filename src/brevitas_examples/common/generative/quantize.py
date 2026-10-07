@@ -7,7 +7,6 @@ from typing import Any
 from typing import Dict
 from typing import Tuple
 
-from dependencies import this
 import torch
 from torch import nn
 
@@ -16,249 +15,14 @@ from brevitas.core.function_wrapper import CeilSte
 from brevitas.core.function_wrapper import FloorSte
 from brevitas.core.restrict_val import RoundSte
 from brevitas.core.scaling import RoundMidMaxSte
-from brevitas.core.stats import NegativeMinOrZero
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import StatsOp
-from brevitas.quant.base import ParameterFromRuntimeZeroPoint
-from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
-from brevitas.quant.fixed_point import Int8ActPerTensorFixedPointMSE
-from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPoint
-from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPointMSE
-from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPoint
-from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPointMSE
-from brevitas.quant.float import Fp8e4m3Act
-from brevitas.quant.float import Fp8e4m3ActPerTensorFloat
-from brevitas.quant.float import Fp8e4m3WeightPerChannelFloat
-from brevitas.quant.float import Fp8e4m3WeightPerTensorFloat
-from brevitas.quant.float_quant_fnuz import Fp8e4m3FNUZActPerTensorFloat
-from brevitas.quant.float_quant_fnuz import Fp8e4m3FNUZWeightPerChannelFloat
-from brevitas.quant.float_quant_fnuz import Fp8e4m3FNUZWeightPerTensorFloat
-from brevitas.quant.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
-from brevitas.quant.float_quant_ocp import Fp8e4m3OCPWeightPerChannelFloat
-from brevitas.quant.float_quant_ocp import Fp8e4m3OCPWeightPerTensorFloat
-from brevitas.quant.mx_quant_ocp import MXFloat8e4m3Act
-from brevitas.quant.mx_quant_ocp import MXFloat8e4m3Weight
-from brevitas.quant.mx_quant_ocp import MXFloat8e4m3WeightMSE
-from brevitas.quant.mx_quant_ocp import MXInt8Act
-from brevitas.quant.mx_quant_ocp import MXInt8Weight
-from brevitas.quant.mx_quant_ocp import MXInt8WeightMSE
-from brevitas.quant.mx_quant_ocp import ShiftedMXUInt8Weight
-from brevitas.quant.mx_quant_ocp import ShiftedMXUInt8WeightMSE
-from brevitas.quant.scaled_int import Int8ActPerTensorFloat
-from brevitas.quant.scaled_int import Int8ActPerTensorFloatMSE
-from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
-from brevitas.quant.scaled_int import Int8WeightPerChannelFloatHQO
-from brevitas.quant.scaled_int import Int8WeightPerChannelFloatMSE
-from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
-from brevitas.quant.scaled_int import Int8WeightPerTensorFloatHQO
-from brevitas.quant.scaled_int import Int8WeightPerTensorFloatMSE
-from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
-from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloatMSE
-from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightGroupQuantFloat
-from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
-from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloatHQO
-from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloatMSE
-from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerGroupFloatHQO
-from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
-from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatHQO
-from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMSE
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantConv2d
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantLinear
-from brevitas_examples.common.generative.quantizers import Fp8e4m3DynamicActPerGroupFloat
-from brevitas_examples.common.generative.quantizers import FP8e4m3FNUZDynamicActPerRowFloat
-from brevitas_examples.common.generative.quantizers import Fp8e4m3FNUZDynamicActPerTensorFloat
-from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPDynamicActPerGroupFloat
-from brevitas_examples.common.generative.quantizers import FP8e4m3OCPDynamicActPerRowFixedPoint
-from brevitas_examples.common.generative.quantizers import FP8e4m3OCPDynamicActPerRowFloat
-from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPDynamicActPerTensorFloat
-from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPWeightPerChannelFixedPointMSE
-from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPWeightPerChannelFloatMSE
-from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPWeightSymmetricGroupQuant
-from brevitas_examples.common.generative.quantizers import Fp8e4m3WeightPerChannelFloatMSE
-from brevitas_examples.common.generative.quantizers import Fp8e4m3WeightSymmetricGroupQuant
-from brevitas_examples.common.generative.quantizers import Int8DynamicActPerGroupFloat
-from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowFixedPoint
-from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowFloat
-from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTensorFloat
-from brevitas_examples.common.generative.quantizers import IntWeightSymmetricGroupQuant
-from brevitas_examples.common.generative.quantizers import IntWeightSymmetricGroupQuantMSE
-from brevitas_examples.common.generative.quantizers import RuntimeDynamicStatsZeroPoint
-from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerGroupFloat
-from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerRowFloat
-from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
-from brevitas_examples.common.generative.quantizers import ShiftedUint8WeightGroupQuantFloatMSE
-
-WEIGHT_QUANT_MAP = {
-    'int': {
-        'float_scale': {
-            'stats': {
-                'per_tensor': {
-                    'sym': Int8WeightPerTensorFloat, 'asym': ShiftedUint8WeightPerTensorFloat},
-                'per_channel': {
-                    'sym': Int8WeightPerChannelFloat, 'asym': ShiftedUint8WeightPerChannelFloat},
-                'per_group': {
-                    'sym': IntWeightSymmetricGroupQuant,
-                    'asym': ShiftedUint8WeightGroupQuantFloat}},
-            'mse': {
-                'per_tensor': {
-                    'sym': Int8WeightPerTensorFloatMSE,
-                    'asym': ShiftedUint8WeightPerTensorFloatMSE},
-                'per_channel': {
-                    'sym': Int8WeightPerChannelFloatMSE,
-                    'asym': ShiftedUint8WeightPerChannelFloatMSE},
-                'per_group': {
-                    'sym': IntWeightSymmetricGroupQuantMSE,
-                    'asym': ShiftedUint8WeightGroupQuantFloatMSE}},
-            'hqo': {
-                'per_tensor': {
-                    'sym': Int8WeightPerTensorFloatHQO,
-                    'asym': ShiftedUint8WeightPerTensorFloatHQO},
-                'per_channel': {
-                    'sym': Int8WeightPerChannelFloatHQO,
-                    'asym': ShiftedUint8WeightPerChannelFloatHQO},
-                'per_group': {
-                    'asym': ShiftedUint8WeightPerGroupFloatHQO}},},
-        'po2_scale': {
-            'stats': {
-                'per_tensor': {
-                    'sym': Int8WeightPerTensorFixedPoint},
-                'per_channel': {
-                    'sym': Int8WeightPerChannelFixedPoint},
-                'per_group': {
-                    'sym': MXInt8Weight, 'asym': ShiftedMXUInt8Weight}},
-            'mse': {
-                'per_tensor': {
-                    'sym': Int8WeightPerTensorFixedPointMSE},
-                'per_channel': {
-                    'sym': Int8WeightPerChannelFixedPointMSE},
-                'per_group': {
-                    'sym': MXInt8WeightMSE, 'asym': ShiftedMXUInt8WeightMSE}}}},
-    'float': {
-        'float_scale': {
-            'stats': {
-                'per_tensor': {
-                    'sym': Fp8e4m3WeightPerTensorFloat},
-                'per_channel': {
-                    'sym': Fp8e4m3WeightPerChannelFloat},
-                'per_group': {
-                    'sym': Fp8e4m3WeightSymmetricGroupQuant}},
-            'mse': {
-                'per_channel': {
-                    'sym': Fp8e4m3WeightPerChannelFloatMSE}}}},
-    'float_ocp': {
-        'float_scale': {
-            'stats': {
-                'per_tensor': {
-                    'sym': Fp8e4m3OCPWeightPerTensorFloat},
-                'per_channel': {
-                    'sym': Fp8e4m3OCPWeightPerChannelFloat},
-                'per_group': {
-                    'sym': Fp8e4m3OCPWeightSymmetricGroupQuant}},
-            'mse': {
-                'per_channel': {
-                    'sym': Fp8e4m3OCPWeightPerChannelFloatMSE}}},
-        'po2_scale': {
-            'stats': {
-                'per_group': {
-                    'sym': MXFloat8e4m3Weight}},
-            'mse': {
-                'per_channel': {
-                    'sym': Fp8e4m3OCPWeightPerChannelFixedPointMSE},
-                'per_group': {
-                    'sym': MXFloat8e4m3WeightMSE}}}},
-    'float_fnuz': {
-        'float_scale': {
-            'stats': {
-                'per_tensor': {
-                    'sym': Fp8e4m3FNUZWeightPerTensorFloat},
-                'per_channel': {
-                    'sym': Fp8e4m3FNUZWeightPerChannelFloat}}}}}
-
-INPUT_QUANT_MAP = {
-    'int': {
-        'static': {
-            'float_scale': {
-                'stats': {
-                    'per_tensor': {
-                        'sym': Int8ActPerTensorFloat, 'asym': ShiftedUint8ActPerTensorFloat}},
-                'mse': {
-                    'per_tensor': {
-                        'sym': Int8ActPerTensorFloatMSE,
-                        'asym': ShiftedUint8ActPerTensorFloatMSE}}},
-            'po2_scale': {
-                'stats': {
-                    'per_tensor': {
-                        'sym': Int8ActPerTensorFixedPoint}},
-                'mse': {
-                    'per_tensor': {
-                        'sym': Int8ActPerTensorFixedPointMSE}}}},
-        'dynamic': {
-            'float_scale': {
-                'stats': {
-                    'per_tensor': {
-                        'sym': Int8DynamicActPerTensorFloat,
-                        'asym': ShiftedUint8DynamicActPerTensorFloat},
-                    'per_row': {
-                        'sym': Int8DynamicActPerRowFloat,
-                        'asym': ShiftedUint8DynamicActPerRowFloat},
-                    'per_group': {
-                        'sym': Int8DynamicActPerGroupFloat,
-                        'asym': ShiftedUint8DynamicActPerGroupFloat}}},
-            'po2_scale': {
-                'stats': {
-                    'per_row': {
-                        'sym': Int8DynamicActPerRowFixedPoint,},
-                    'per_group': {
-                        'sym': MXInt8Act}}}}},
-    'float': {
-        'static': {
-            'float_scale': {
-                'stats': {
-                    'per_tensor': {
-                        'sym': Fp8e4m3ActPerTensorFloat}}}},
-        'dynamic': {
-            'float_scale': {
-                'stats': {
-                    'per_group': {
-                        'sym': Fp8e4m3DynamicActPerGroupFloat}}}},
-        'no_scale': {
-            'sym': Fp8e4m3Act,}},
-    'float_ocp': {
-        'static': {
-            'float_scale': {
-                'stats': {
-                    'per_tensor': {
-                        'sym': Fp8e4m3OCPActPerTensorFloat}}}},
-        'dynamic': {
-            'float_scale': {
-                'stats': {
-                    'per_tensor': {
-                        'sym': Fp8e4m3OCPDynamicActPerTensorFloat},
-                    'per_row': {
-                        'sym': FP8e4m3OCPDynamicActPerRowFloat},
-                    'per_group': {
-                        'sym': Fp8e4m3OCPDynamicActPerGroupFloat}}},
-            'po2_scale': {
-                'stats': {
-                    'per_row': {
-                        'sym': FP8e4m3OCPDynamicActPerRowFixedPoint},
-                    'per_group': {
-                        'sym': MXFloat8e4m3Act}}}}},
-    'float_fnuz': {
-        'dynamic': {
-            'float_scale': {
-                'stats': {
-                    'per_tensor': {
-                        'sym': Fp8e4m3FNUZDynamicActPerTensorFloat},
-                    'per_row': {
-                        'sym': FP8e4m3FNUZDynamicActPerRowFloat}}}},
-        'static': {
-            'float_scale': {
-                'stats': {
-                    'per_tensor': {
-                        'sym': Fp8e4m3FNUZActPerTensorFloat}}}}}}
+from brevitas_examples.common.quantizer_builder import create_input_quantizer
+from brevitas_examples.common.quantizer_builder import create_weight_quantizer
 
 
 def maybe_inject_signed_scale_kwargs(
@@ -338,8 +102,12 @@ def generate_quantizers(
     weight_scale_precision, weight_scale_quant_kwargs = scale_quant_format_from_string(weight_scale_precision)
     input_scale_precision, input_scale_quant_kwargs = scale_quant_format_from_string(input_scale_precision)
 
-    weight_quant = WEIGHT_QUANT_MAP[weight_quant_format][weight_scale_precision][
-        weight_param_method][weight_quant_granularity][weight_quant_type]
+    weight_quant = create_weight_quantizer(
+        weight_quant_format,
+        weight_scale_precision,
+        weight_param_method,
+        weight_quant_granularity,
+        weight_quant_type)
 
     if input_kwargs is None:
         input_kwargs = dict()
@@ -355,14 +123,19 @@ def generate_quantizers(
     if scaling_min_val is not None:
         input_kwargs = {**input_kwargs, **{'scaling_min_val': scaling_min_val}}
 
-    if input_bit_width is not None:
-        if input_scale_type == 'no_scale':
-            input_quant = linear_input_quant = INPUT_QUANT_MAP[input_quant_format][
-                input_scale_type][input_quant_type]
-        else:
-            input_quant = linear_input_quant = INPUT_QUANT_MAP[input_quant_format][
-                input_scale_type][input_scale_precision][input_param_method][
-                    input_quant_granularity][input_quant_type]
+    if input_bit_width is not None and input_scale_type == 'no_scale':
+        input_quant = linear_input_quant = create_input_quantizer(
+            input_quant_format, input_scale_type, input_quant_type)
+    elif input_bit_width is not None:
+        # input_quant and linear_input_quant start as the same injector and only
+        # diverge through the separate .let(...) chains applied below.
+        input_quant = linear_input_quant = create_input_quantizer(
+            input_quant_format,
+            input_scale_type,
+            input_quant_type,
+            input_scale_precision=input_scale_precision,
+            input_param_method=input_param_method,
+            input_quant_granularity=input_quant_granularity)
 
         attn_quant_format, attn_float_format = quant_format_from_string(attn_quant_format) if attn_quant_format is not None else (input_quant_format, input_float_format)
         attn_scale_precision, attn_scale_quant_kwargs = scale_quant_format_from_string(attn_scale_precision) if attn_scale_precision is not None else (input_scale_precision, input_scale_quant_kwargs)
@@ -372,12 +145,13 @@ def generate_quantizers(
         attn_quant_granularity = attn_quant_granularity if attn_quant_granularity is not None else input_quant_granularity
         attn_quant_type = attn_quant_type if attn_quant_type is not None else input_quant_type
         attn_group_size = attn_group_size if attn_group_size is not None else input_group_size
-        if attn_scale_type == 'no_scale':
-            k_transposed_quant = INPUT_QUANT_MAP[attn_quant_format][attn_scale_type][
-                attn_quant_type]
-        else:
-            k_transposed_quant = INPUT_QUANT_MAP[attn_quant_format][attn_scale_type][
-                attn_scale_precision][attn_param_method][attn_quant_granularity][attn_quant_type]
+        k_transposed_quant = create_input_quantizer(
+            attn_quant_format,
+            attn_scale_type,
+            attn_quant_type,
+            input_scale_precision=attn_scale_precision,
+            input_param_method=attn_param_method,
+            input_quant_granularity=attn_quant_granularity)
 
         extra_kwargs = {
             'bit_width': input_bit_width,
