@@ -62,7 +62,7 @@ def _verify_accumulator_constraints(gpxq_impl, max_accumulator_bit_width):
 
 
 @torch.no_grad()
-def _dual_optimization_callback(
+def _apply_gpfq_or_qronos(
         calib_loader: DataLoader,
         model: nn.Module,
         act_order: bool,
@@ -121,7 +121,7 @@ def apply_gpfq(
         use_quant_activations: bool,
         max_accumulator_bit_width: int = None,
         max_accumulator_tile_size: int = None):
-    _dual_optimization_callback(
+    _apply_gpfq_or_qronos(
         calib_loader=calib_loader,
         model=model,
         act_order=act_order,
@@ -140,7 +140,7 @@ def apply_qronos(
         max_accumulator_tile_size: int = None):
     assert max_accumulator_bit_width is None
     assert max_accumulator_tile_size is None
-    _dual_optimization_callback(
+    _apply_gpfq_or_qronos(
         calib_loader=calib_loader,
         model=model,
         act_order=act_order,

@@ -241,7 +241,7 @@ class gpfq_mode(gpxq_mode):
             group_of_parallel_layers,
             inplace,
             create_weight_orig,
-            True,  # GPFQ requires quantized activations.
+            True,  # GPFQ requires use_quant_activations=True
             act_order,
             return_forward_output,
             device,

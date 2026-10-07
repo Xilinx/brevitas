@@ -679,8 +679,7 @@ def apply_gpfq(
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
-    # We use the dual optimization callback, which uses two forward passes to correct
-    # quantization error in both the weights and activations from previous layers
+    # Use paired quantized and float passes to correct errors from previous layers.
     _apply_gpfq_or_qronos(
         model,
         calib_loader,
@@ -697,8 +696,7 @@ def apply_qronos(model, calib_loader, act_order=True, alpha=1e-6):
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
-    # We use the dual optimization callback, which uses two forward passes to correct
-    # quantization error in both the weights and activations from previous layers
+    # Use paired quantized and float passes to correct errors from previous layers.
     _apply_gpfq_or_qronos(
         model,
         calib_loader,

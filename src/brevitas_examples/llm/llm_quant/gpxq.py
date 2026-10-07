@@ -111,7 +111,7 @@ def _block_optimization(
     use_quant_activations = context_manager_kwargs.get('use_quant_activations', True)
     solves_mismatched_objective = context_manager_func.solves_mismatched_objective
     if solves_mismatched_objective and not use_quant_activations:
-        raise ValueError("Mismatched objective requires quantized activations.")
+        raise ValueError("Mismatched objective requires use_quant_activations=True.")
 
     disable_quantization_cm = quantization_status_manager(
         model=model,
