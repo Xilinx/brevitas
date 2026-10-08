@@ -89,6 +89,23 @@ def assert_state_dict_parity(ref: Module, built: Module) -> None:
             ref_sd[key], built_sd[key]), f"state_dict['{key}'] differs"
 
 
+def compare_quant_tensors(ref, built) -> None:
+    """Assert two quantized tensors match exactly (value / scale / zero_point and
+    bit width, handling both int and float quant tensors)."""
+    assert torch.equal(ref.value, built.value)
+    assert torch.equal(ref.scale, built.scale)
+    assert (ref.zero_point is None) == (built.zero_point is None)
+    if ref.zero_point is not None:
+        assert torch.equal(ref.zero_point, built.zero_point)
+    # Int quant tensors expose `bit_width`; float quant tensors instead expose
+    # `exponent_bit_width` / `mantissa_bit_width`.
+    if hasattr(ref, "bit_width"):
+        assert torch.equal(ref.bit_width, built.bit_width)
+    else:
+        assert torch.equal(ref.exponent_bit_width, built.exponent_bit_width)
+        assert torch.equal(ref.mantissa_bit_width, built.mantissa_bit_width)
+
+
 class MockProcess:
     """Mock multiprocessing.Process that runs the target synchronously.
 
