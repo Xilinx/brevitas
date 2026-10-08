@@ -138,9 +138,13 @@ def solve_restrict_value_impl_from_enum(impl_type):
 
 
 def solve_restrict_value_enum_from_impl(impl: type) -> RestrictValueType:
-    impl_to_enum_dict = {
-        solve_restrict_value_impl_from_enum(enum_value): enum_value
-        for enum_value in RestrictValueType}
+    impl_to_enum_dict = {}
+    for enum_value in RestrictValueType:
+        try:
+            impl_to_enum_dict[solve_restrict_value_impl_from_enum(enum_value)] = enum_value
+        except RuntimeError:
+            # Partial map: some members (e.g. QUANT) have no arg-less impl.
+            continue
     if impl not in impl_to_enum_dict:
         raise RuntimeError(f"{impl} not recognized.")
     return impl_to_enum_dict[impl]
