@@ -126,6 +126,13 @@ def _weight_attr_overrides(
     if is_asym and weight_param_method == 'hqo':
         overrides['quantize_zero_point'] = False
         overrides['zero_point_impl_type'] = ZeroPointImplType.PARAMETER_FROM_STATS
+    # ShiftedUint8Weight...MSE carries MSEWeightZeroPoint: the zero point is a
+    # standalone parameter regardless of how the scale is stored. generate_quantizers
+    # may later override scaling_impl_type (e.g. 'stats' on the AWQ path), which
+    # would otherwise re-derive the zero-point storage from the scale, so request
+    # it explicitly.
+    if is_asym and weight_param_method == 'mse':
+        overrides['zero_point_impl_type'] = ZeroPointImplType.PARAMETER_FROM_STATS
     return overrides
 
 

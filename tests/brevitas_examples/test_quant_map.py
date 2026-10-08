@@ -36,6 +36,7 @@ from brevitas.nn import QuantLinear
 from brevitas_examples.common.quantizer_builder import create_input_quantizer
 from brevitas_examples.common.quantizer_builder import create_weight_quantizer
 from tests.brevitas_examples.common import assert_state_dict_parity
+from tests.brevitas_examples.common import compare_quant_tensors
 from tests.brevitas_examples.common import module_fingerprint
 from tests.brevitas_examples.quant_map_reference import INPUT_QUANT_MAP
 from tests.brevitas_examples.quant_map_reference import WEIGHT_QUANT_MAP
@@ -54,21 +55,6 @@ def _iter_leaves(node, path=()):
             yield from _iter_leaves(child, path + (key,))
     else:
         yield path, node
-
-
-def _compare_quant_tensors(ref, built):
-    assert torch.equal(ref.value, built.value)
-    assert torch.equal(ref.scale, built.scale)
-    assert (ref.zero_point is None) == (built.zero_point is None)
-    if ref.zero_point is not None:
-        assert torch.equal(ref.zero_point, built.zero_point)
-    # Int quant tensors expose `bit_width`; float quant tensors instead expose
-    # `exponent_bit_width` / `mantissa_bit_width`.
-    if hasattr(ref, "bit_width"):
-        assert torch.equal(ref.bit_width, built.bit_width)
-    else:
-        assert torch.equal(ref.exponent_bit_width, built.exponent_bit_width)
-        assert torch.equal(ref.mantissa_bit_width, built.mantissa_bit_width)
 
 
 # ---------------------------------------------------------------------------
@@ -144,7 +130,7 @@ def test_create_weight_quantizer_matches_map_leaf(keys, ref_quant):
     builder_linear(mock_input)
 
     # 2) The quantized weight tensors themselves must match exactly.
-    _compare_quant_tensors(ref_linear.quant_weight(), builder_linear.quant_weight())
+    compare_quant_tensors(ref_linear.quant_weight(), builder_linear.quant_weight())
 
     # 3) Persistent state (learned scales / zero points / buffers) must match.
     assert_state_dict_parity(ref_linear, builder_linear)
@@ -255,7 +241,7 @@ def test_create_input_quantizer_matches_map_leaf(keys, ref_quant):
         act.eval()
 
     # 2) The quantized activation tensors must match exactly.
-    _compare_quant_tensors(ref_act(x), builder_act(x))
+    compare_quant_tensors(ref_act(x), builder_act(x))
 
     # 3) Persistent state must match.
     assert_state_dict_parity(ref_act, builder_act)

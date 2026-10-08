@@ -123,19 +123,20 @@ def generate_quantizers(
     if scaling_min_val is not None:
         input_kwargs = {**input_kwargs, **{'scaling_min_val': scaling_min_val}}
 
-    if input_bit_width is not None and input_scale_type == 'no_scale':
-        input_quant = linear_input_quant = create_input_quantizer(
-            input_quant_format, input_scale_type, input_quant_type)
-    elif input_bit_width is not None:
+    if input_bit_width is not None:
         # input_quant and linear_input_quant start as the same injector and only
         # diverge through the separate .let(...) chains applied below.
-        input_quant = linear_input_quant = create_input_quantizer(
-            input_quant_format,
-            input_scale_type,
-            input_quant_type,
-            input_scale_precision=input_scale_precision,
-            input_param_method=input_param_method,
-            input_quant_granularity=input_quant_granularity)
+        if input_scale_type == 'no_scale':
+            input_quant = linear_input_quant = create_input_quantizer(
+                input_quant_format, input_scale_type, input_quant_type)
+        else:
+            input_quant = linear_input_quant = create_input_quantizer(
+                input_quant_format,
+                input_scale_type,
+                input_quant_type,
+                input_scale_precision=input_scale_precision,
+                input_param_method=input_param_method,
+                input_quant_granularity=input_quant_granularity)
 
         attn_quant_format, attn_float_format = quant_format_from_string(attn_quant_format) if attn_quant_format is not None else (input_quant_format, input_float_format)
         attn_scale_precision, attn_scale_quant_kwargs = scale_quant_format_from_string(attn_scale_precision) if attn_scale_precision is not None else (input_scale_precision, input_scale_quant_kwargs)
@@ -145,13 +146,17 @@ def generate_quantizers(
         attn_quant_granularity = attn_quant_granularity if attn_quant_granularity is not None else input_quant_granularity
         attn_quant_type = attn_quant_type if attn_quant_type is not None else input_quant_type
         attn_group_size = attn_group_size if attn_group_size is not None else input_group_size
-        k_transposed_quant = create_input_quantizer(
-            attn_quant_format,
-            attn_scale_type,
-            attn_quant_type,
-            input_scale_precision=attn_scale_precision,
-            input_param_method=attn_param_method,
-            input_quant_granularity=attn_quant_granularity)
+        if attn_scale_type == 'no_scale':
+            k_transposed_quant = create_input_quantizer(
+                attn_quant_format, attn_scale_type, attn_quant_type)
+        else:
+            k_transposed_quant = create_input_quantizer(
+                attn_quant_format,
+                attn_scale_type,
+                attn_quant_type,
+                input_scale_precision=attn_scale_precision,
+                input_param_method=attn_param_method,
+                input_quant_granularity=attn_quant_granularity)
 
         extra_kwargs = {
             'bit_width': input_bit_width,
