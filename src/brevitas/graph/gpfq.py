@@ -219,7 +219,7 @@ class gpfq_mode(gpxq_mode):
 
     """
 
-    # Algorithms such as GPFQ and Qronos aim to solve the mismatched objective by using
+    # Algorithms such as GPFQ and Qronos solve the mismatched objective by using
     # float inputs and (possibly quantized) inputs from the previously quantized layers.
     solves_mismatched_objective = True
 
@@ -236,12 +236,18 @@ class gpfq_mode(gpxq_mode):
             dtype: torch.dtype = torch.float32) -> None:
         if not inplace:
             model = deepcopy(model)
+        # NOTE: gpxq_mode inherits from quantization_status_manager (see graph/gpxq.py).
+        # Set use_quant_activations=True to make the inherited manager a no-op
+        # (see graph/calibrate.py). This lets the orchestration layer use separate
+        # managers without managing nested quantization state.
+        # TODO: Consider removing quantization_status_manager as a base class of gpxq_mode.
+        use_quant_activations = True
         super().__init__(
             model,
             group_of_parallel_layers,
             inplace,
             create_weight_orig,
-            True,  # GPFQ requires use_quant_activations=True
+            use_quant_activations,
             act_order,
             return_forward_output,
             device,

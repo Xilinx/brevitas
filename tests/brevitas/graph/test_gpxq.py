@@ -86,11 +86,7 @@ def _apply_gpfq_or_qronos(
         disable_act_quant=not use_quant_activations,
         disable_bias_quant=not use_quant_activations)
     float_context_manager = quantization_status_manager(
-        model=model,
-        disable_act_quant=True,
-        disable_weight_quant=True,
-        disable_bias_quant=True,
-        is_training=False)
+        model=model, disable_act_quant=True, disable_weight_quant=True, disable_bias_quant=True)
     with context_manager(**context_manager_kwargs) as algo:
         algo_model = algo.model
         for _ in range(algo.num_layers):
@@ -225,11 +221,7 @@ class TestQronosUpdateBatch:
         """Run Qronos calibration, return {layer_name: (H, G)} for each layer."""
         results = {}
         disable_quantization_cm = quantization_status_manager(
-            model=model,
-            disable_act_quant=True,
-            disable_weight_quant=True,
-            disable_bias_quant=True,
-            is_training=False)
+            model=model, disable_act_quant=True, disable_weight_quant=True, disable_bias_quant=True)
         with torch.no_grad():
             with gpfq_mode(model, act_order=False, algorithm_impl=Qronos) as algo:
                 for _ in range(algo.num_layers):
@@ -301,11 +293,7 @@ class TestQronosUpdateBatch:
         corrupt inputs."""
         model = self._init_model()
         disable_quantization_cm = quantization_status_manager(
-            model=model,
-            disable_act_quant=True,
-            disable_weight_quant=True,
-            disable_bias_quant=True,
-            is_training=False)
+            model=model, disable_act_quant=True, disable_weight_quant=True, disable_bias_quant=True)
         with torch.no_grad():
             with gpfq_mode(model, act_order=False, algorithm_impl=Qronos) as algo:
                 for _ in range(algo.num_layers):

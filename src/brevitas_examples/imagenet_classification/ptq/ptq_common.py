@@ -648,11 +648,7 @@ def _apply_gpfq_or_qronos(
             max_accumulator_bit_width=max_accumulator_bit_width,
             max_accumulator_tile_size=max_accumulator_tile_size)
     disable_quantization_cm = quantization_status_manager(
-        model=model,
-        disable_act_quant=True,
-        disable_weight_quant=True,
-        disable_bias_quant=True,
-        is_training=False)
+        model=model, disable_act_quant=True, disable_weight_quant=True, disable_bias_quant=True)
     # The context manager installs the hooks used by GPFQ or Qronos.
     # The orchestration layer controls the two-pass protocol required by these hooks.
     with context_manager(**context_manager_kwargs) as algo:

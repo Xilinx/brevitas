@@ -21,7 +21,6 @@ from brevitas_examples.common.axe import a2gptq_mode
 
 
 def _gptq_block_optimization_callback(
-        block,
         gptq,
         cached_args,
         cached_kwargs,
@@ -32,12 +31,11 @@ def _gptq_block_optimization_callback(
         for args, kwargs in zip(cached_args, cached_kwargs):
             args = send_to_device(args, 'cuda')
             kwargs = send_to_device(kwargs, 'cuda')
-            block(*args, **kwargs)
+            gptq.model(*args, **kwargs)
         gptq.update()
 
 
 def _magr_block_optimization_callback(
-        block,
         magr,
         cached_args,
         cached_kwargs,
@@ -47,12 +45,11 @@ def _magr_block_optimization_callback(
     for args, kwargs in zip(cached_args, cached_kwargs):
         args = send_to_device(args, 'cuda')
         kwargs = send_to_device(kwargs, 'cuda')
-        block(*args, **kwargs)
+        magr.model(*args, **kwargs)
     magr.update()
 
 
 def _gpfq_or_qronos_block_optimization_callback(
-        block,
         gpxq,
         float_cached_args,
         float_cached_kwargs,
@@ -70,6 +67,9 @@ def _gpfq_or_qronos_block_optimization_callback(
             quant_kwargs = send_to_device(quant_kwargs, 'cuda')
             gpxq.model(*quant_args, **quant_kwargs)
             # Run the float pass second. GPFQ and Qronos use the input pair to update G.
+            # NOTE: gpxq_mode inherits from quantization_status_manager. gpfq_mode makes
+            # the inherited manager a no-op (see graph/gpfq.py), so it does not interact
+            # with this manager. This manager disables quantization only for the float pass.
             with disable_quantization_cm:
                 float_args = send_to_device(float_args, 'cuda')
                 float_kwargs = send_to_device(float_kwargs, 'cuda')
@@ -117,8 +117,7 @@ def _block_optimization(
         model=model,
         disable_act_quant=solves_mismatched_objective or not use_quant_activations,
         disable_weight_quant=solves_mismatched_objective,
-        disable_bias_quant=solves_mismatched_objective or not use_quant_activations,
-        is_training=False)
+        disable_bias_quant=solves_mismatched_objective or not use_quant_activations)
 
     cache_state = model.config.use_cache
     model.config.use_cache = False
@@ -162,13 +161,11 @@ def _block_optimization(
             model=block,
             disable_act_quant=solves_mismatched_objective or not use_quant_activations,
             disable_weight_quant=solves_mismatched_objective,
-            disable_bias_quant=solves_mismatched_objective or not use_quant_activations,
-            is_training=False)
+            disable_bias_quant=solves_mismatched_objective or not use_quant_activations)
         # The context manager installs hooks for the current block.
         # The callback runs the passes expected by these hooks.
         with context_manager_func(block, **context_manager_kwargs) as gpxq:
             block_optimization_callback(
-                block,
                 gpxq,
                 float_cached_args,
                 float_cached_kwargs,
@@ -297,11 +294,7 @@ def _apply_gpfq_or_qronos(
             reset_float_cache_every=1)
     else:
         disable_quantization_cm = quantization_status_manager(
-            model=model,
-            disable_act_quant=True,
-            disable_weight_quant=True,
-            disable_bias_quant=True,
-            is_training=False)
+            model=model, disable_act_quant=True, disable_weight_quant=True, disable_bias_quant=True)
         # The context manager installs hooks used by GPFQ or Qronos.
         # Run both passes before update consumes their collected inputs.
         with context_manager_func(model, **context_manager_kwargs) as algo:
