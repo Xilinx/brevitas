@@ -3,6 +3,8 @@
 
 from copy import deepcopy
 from functools import partial
+from typing import Optional
+from typing import Type
 
 from accelerate.utils.operations import send_to_device
 import torch
@@ -11,8 +13,20 @@ from tqdm import tqdm
 from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
+from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gptq import gptq_mode
+from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.magr import magr_mode
+from brevitas.graph.piso import GroupAwarePermGPTQ
+from brevitas.graph.piso import GroupAwarePermQronos
+from brevitas.graph.piso import GroupAwarePermutationMixin
+from brevitas.graph.piso import PiSOGroupInterleavedGPTQ
+from brevitas.graph.piso import PiSOGroupInterleavedQronos
+from brevitas.graph.piso import PiSOLayerInterleavedGPTQ
+from brevitas.graph.piso import PiSOLayerInterleavedQronos
+from brevitas.graph.piso import PiSOMixin
+from brevitas.graph.piso import ScaleOptimizer
+from brevitas.graph.piso import ScaleOptimizerGroupInterleaved
 from brevitas.graph.qronos import Qronos
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas.utils.torch_utils import StopFwdException
@@ -107,7 +121,28 @@ def block_optimization(
     model.config.use_cache = cache_state
 
 
-@torch.no_grad()
+def _select_gpxq_class(
+        base_class: Type[GPxQ],
+        piso_class: Type[PiSOMixin],
+        groupwise_piso_class: Type[PiSOMixin],
+        group_aware_class: Type[GroupAwarePermutationMixin],
+        scale_optimizer: Optional[ScaleOptimizer],
+        block_sum_act_order: bool) -> Type[GPxQ]:
+    """Pick the GPxQ variant given the requested scale-opt / permutation options.
+
+    - scale optimization on: PiSO class, group-wise variant if the updater is;
+    - scale optimization off but group-aware act_order requested: group-aware class;
+    - otherwise: the plain base class.
+    """
+    if scale_optimizer is not None:
+        if isinstance(scale_optimizer, ScaleOptimizerGroupInterleaved):
+            return partial(groupwise_piso_class, scale_optimizer=scale_optimizer)
+        return partial(piso_class, scale_optimizer=scale_optimizer)
+    if block_sum_act_order:
+        return group_aware_class
+    return base_class
+
+
 def apply_gptq(
         model,
         dataloader,
@@ -119,7 +154,9 @@ def apply_gptq(
         max_accumulator_bit_width=None,
         max_accumulator_tile_size=None,
         buffer_device='cpu',
-        buffer_dtype=torch.float32):
+        buffer_dtype=torch.float32,
+        scale_optimizer=None,
+        block_sum_act_order=False):
     context_manager_kwargs = {
         'act_order': act_order,
         'group_of_parallel_layers': group_of_parallel_layers,
@@ -133,6 +170,14 @@ def apply_gptq(
         context_manager_kwargs.update(
             max_accumulator_bit_width=max_accumulator_bit_width,
             max_accumulator_tile_size=max_accumulator_tile_size)
+    else:
+        context_manager_kwargs['gptq_class'] = _select_gpxq_class(
+            GPTQ,
+            PiSOLayerInterleavedGPTQ,
+            PiSOGroupInterleavedGPTQ,
+            GroupAwarePermGPTQ,
+            scale_optimizer,
+            block_sum_act_order)
     if block_name is not None:
         block_optimization(
             model, dataloader, block_name, context_manager_func, context_manager_kwargs)
@@ -217,15 +262,25 @@ def apply_gpfq(
 
 @torch.no_grad()
 def apply_qronos(
-        model,
-        dataloader,
-        act_order=True,
-        group_of_parallel_layers=None,
-        block_name=None,
-        alpha=1e-6,
-        buffer_device='cpu',
-        buffer_dtype=torch.float32):
+    model,
+    dataloader,
+    act_order=True,
+    group_of_parallel_layers=None,
+    block_name=None,
+    alpha=1e-6,
+    buffer_device='cpu',
+    buffer_dtype=torch.float32,
+    scale_optimizer=None,
+    block_sum_act_order=False,
+):
     assert alpha > 0, "Error: alpha needs to be strictly positive"
+    qronos_class = _select_gpxq_class(
+        Qronos,
+        PiSOLayerInterleavedQronos,
+        PiSOGroupInterleavedQronos,
+        GroupAwarePermQronos,
+        scale_optimizer,
+        block_sum_act_order)
     # We use the dual optimization callback, which uses two forward passes to correct
     # quantization error in both the weights and activations from previous layers
     _dual_optimization_callback(
@@ -234,7 +289,7 @@ def apply_qronos(
         act_order=act_order,
         block_name=block_name,
         group_of_parallel_layers=group_of_parallel_layers,
-        algorithm_impl=partial(Qronos, alpha=alpha),
+        algorithm_impl=partial(qronos_class, alpha=alpha),
         device=buffer_device,
         dtype=buffer_dtype)
 

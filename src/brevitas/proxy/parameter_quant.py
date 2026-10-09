@@ -28,6 +28,7 @@ from brevitas.utils.quant_utils import _CachedIO
 from brevitas.utils.torch_utils import compute_channel_view_shape
 from brevitas.utils.torch_utils import is_broadcastable
 
+from .quant_proxy import _restrict_scale_positive
 from .quant_proxy import QuantProxyFromInjector
 from .quant_proxy import QuantProxyProtocol
 
@@ -117,6 +118,10 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
             return self.tensor_quant.int_quant.input_view_impl
         else:
             return Identity()
+
+    @property
+    def restrict_scale_positive(self):
+        return _restrict_scale_positive(self.quant_injector)
 
     @property
     def cache_inference_quant_weight(self):

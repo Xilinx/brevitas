@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import math
+from typing import List
+from typing import Tuple
 
 import torch
 from torch import Tensor
@@ -38,7 +40,10 @@ class Qronos(GPFQ):
             dtype: torch.dtype = torch.float32) -> None:
         super().__init__(
             layer, name, act_order, len_parallel_layers, create_weight_orig, device, dtype)
-        self.blocksize = math.ceil(self.columns / num_blocks)
+
+        # Mixins may override _resolve_blocksize (e.g. PiSO aligns blocks with groups).
+        self.blocksize = self._resolve_blocksize(num_blocks)
+
         self.alpha = alpha
 
     def update_batch(self, module, input, current_layer):
@@ -93,6 +98,24 @@ class Qronos(GPFQ):
             current_layer.forward_count = 0
             raise StopFwdException
 
+    def _step2_block_ranges(self) -> List[Tuple[int, int]]:
+        """(i1, i2) column blocks for the Qronos step-2+ error-correction loop.
+
+        Column 0 is handled in step 1, so blocks start at column 1. This is the
+        reference Qronos partition: range(1, columns, blocksize).
+
+        This lives in a hook because the group-interleaved PiSO variant needs a
+        different partition (each block must cover exactly one quantization group
+        so a group's scale can be optimized at its boundary). Keeping the base
+        partition here guarantees that plain Qronos and layer-interleaved PiSO
+        reproduce the reference numerics exactly: block boundaries determine how
+        quantization error is diffused, so any change to them changes the result
+        even without scale optimization. Only PiSOGroupInterleavedQronos overrides
+        this (see _PiSOQronosMixin).
+        """
+        return [(i1, min(i1 + self.blocksize, self.columns))
+                for i1 in range(1, self.columns, self.blocksize)]
+
     def single_layer_update(self, beta: int = 1e4):
         assert not self.layer.weight_quant.requires_quant_input, \
             "Error: Qronos does not support weight quantizers that require metadata from input quantizers."
@@ -130,17 +153,15 @@ class Qronos(GPFQ):
             # the corresponding column in the weight matrix.
             dead = self.H[group_index].diag() == 0
             weight[group_index, :, dead] = 0
-            # Re-order so that weights associated to higher magnitude activations
-            # are quantized first if self.act_order is True
             if self.act_order:
-                # order w.r.t. the quantized inputs
-                perm = torch.argsort(torch.diag(self.H[group_index]), descending=True)
-                # Re-order covariance matrices so that weights associated to
-                # higher magnitude activations are quantized first
+                # Re-order covariance matrices so that weights associated to higher
+                # magnitude activations are quantized first. Mixins may override
+                # _act_order_permutation (e.g. group-aware ordering).
+                perm = self._act_order_permutation(self.H[group_index])
                 self.G[group_index] = self.G[group_index, perm, :][:, perm]
                 self.H[group_index] = self.H[group_index, perm, :][:, perm]
             else:
-                # No permutation, permutation tensor is a ordered index
+                # No permutation, permutation tensor is an ordered index
                 perm = torch.tensor(range(self.H.shape[-1]), device=dev)
             perm = perm.to(weight.device)
             permutation_list.append(perm)
@@ -175,27 +196,38 @@ class Qronos(GPFQ):
                 f'Failed to compute the inverse of H for layer {self.name} '
                 f'Forward error correction will be a null operation. '
                 f'Increasing the number of samples might fix this issue.')
+            self._on_layer_finished()
+            if hasattr(self.layer, 'offload_params'):
+                self.layer.offload_params(self.layer)
             return
 
         self.iH = self.iH.to(dev)
         self.G = self.G.to(dev)
         self.H = self.H.to(dev)
 
+        # Hook before error correction (PiSO optimizes the layer scale here);
+        # no-op otherwise.
+        self._on_error_correction_starts(perm)
+
         dtype_min = torch.finfo(dtype).min
         dtype_max = torch.finfo(dtype).max
 
         # Qronos - step 1
-        q_groups = self.get_quant_weights(0, 0, permutation_list, with_quant_history=True)
+        # q_groups = self.get_quant_weights(0, 0, permutation_list, with_quant_history=True)
         for group_index in range(self.groups):
             perm = permutation_list[group_index]
-            q: Tensor = q_groups[group_index].to(self.dtype)
+            # q: Tensor = q_groups[group_index].to(self.dtype)
             v: Tensor = weight[group_index, :, perm].to(self.dtype)
             w: Tensor = weight_orig[group_index, :, perm].to(self.dtype)
             Gw = w.matmul(self.G[group_index, :, 0] * Dhi[group_index, 0])
             Uv = v.matmul(Uh[group_index, 0, :] * Dhi[group_index, 0])
             q_arg = Gw - Uv
             assert (q_arg >= dtype_min).all() and (q_arg <= dtype_max).all()
-            weight[group_index, :, perm[0]] = q_arg.to(dtype)
+            weight[group_index, :, perm[0]] = q_arg.to(dtype)  # weight 0 changes here
+
+        # Optimize scale for group 0 using the Qronos-corrected col 0 value, before
+        # quantization. No-op unless a PiSO mixin is present.
+        self._on_column_reached(0)
 
         # Sherman-Morrison-Woodbury update rule
         A = self.iH[:, 1:, 1:]
@@ -214,6 +246,7 @@ class Qronos(GPFQ):
             Gh = self.G[group_index] + Ih
             Gw = w.matmul(Gh[:, 1:] @ self.iH[group_index])
             Hq = q.matmul(self.H[group_index, :1, 1:] @ self.iH[group_index])
+            # all the weights changed in the following line, does it make sense to re-compute the scales here??
             weight[group_index, :, perm[1:]] = (Gw - Hq).to(dtype)
 
         del self.G, self.H  # memory management
@@ -229,12 +262,14 @@ class Qronos(GPFQ):
                 f'Failed to compute Cholesky decomposition for layer {self.name} '
                 f'Forward error correction will be a null operation. '
                 f'Increasing the number of samples might fix this issue.')
+            self._on_layer_finished()
+            if hasattr(self.layer, 'offload_params'):
+                self.layer.offload_params(self.layer)
             return
         del self.iH  # memory management
 
         # Qronos - step 2+
-        for i1 in range(1, self.columns, self.blocksize):
-            i2 = min(i1 + self.blocksize, self.columns)
+        for i1, i2 in self._step2_block_ranges():
             count = i2 - i1
             error_block = torch.zeros_like(
                 weight[:, :, perm[i1:i2]], dtype=self.dtype)  # [groups, OC/groups, i2-i1]
@@ -242,7 +277,11 @@ class Qronos(GPFQ):
             h_inv_block = self.L[:, i1 - 1:i2 - 1, i1 - 1:i2 - 1]
             # correct error within the block
             for i in range(count):
+                # Let a PiSO mixin optimize a group's scale when column i1+i starts
+                # a new group, before its weights are quantized. No-op otherwise.
+                self._on_column_reached(i1 + i)
                 # error diffusion
+
                 q_groups = self.get_quant_weights(i, i1, permutation_list)  # [groups, OC/groups]
                 for group_index in range(self.groups):
                     perm = permutation_list[group_index]
@@ -262,6 +301,8 @@ class Qronos(GPFQ):
                     error_block[group_index].matmul(self.L[group_index, i1 - 1:i2 - 1,
                                                            i2 - 1:])).to(dtype)
         del self.L  # memory management
+
+        self._on_layer_finished()
 
         if hasattr(self.layer, 'offload_params'):
             self.layer.offload_params(self.layer)

@@ -8,8 +8,10 @@ from typing import List
 from typing import Optional
 from warnings import warn
 
+from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import create_entrypoint_args_parser
 from brevitas_examples.common.parse_utils import quant_format_validator
+from brevitas_examples.llm.llm_quant.piso_args import ScaleOptimizerArgumentParser
 
 # Export targets that do not require the (optional) `gguf` dependency
 BASE_EXPORT_TARGETS = [
@@ -561,6 +563,9 @@ def create_args_parser() -> ArgumentParser:
         default=1,
         help='Batch size for calibration data loader. (default: %(default)s).')
 
+    # Adds Scale Optimization (--sopt-*) flags (PiSO being the current solver instance behind them).
+    ScaleOptimizerArgumentParser.add_arguments(parser)
+
     return parser
 
 
@@ -651,6 +656,9 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
                 assert args.quantize_input_zero_point, "Quantized input zero point required."
         if args.input_bit_width and args.input_scale_type == 'static':
             assert args.act_calibration, "Static input quantization is being applied without activation calibration. Set --act-calibration."
+
+    # Validate Scale Optimization (--sopt-*) flags
+    ScaleOptimizerArgumentParser.validate(args, extra_args)
 
 
 def attn_quant_format_validator(value):

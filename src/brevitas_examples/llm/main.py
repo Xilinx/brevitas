@@ -70,6 +70,8 @@ from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_to_r
 from brevitas_examples.llm.llm_quant.ln_affine_merge import rmsnorm_patch
 from brevitas_examples.llm.llm_quant.parse_utils import parse_custom_quantizer
 from brevitas_examples.llm.llm_quant.parse_utils import parse_custom_trainer
+from brevitas_examples.llm.llm_quant.piso import apply_scale_optimization
+from brevitas_examples.llm.llm_quant.piso import build_scale_optimizer
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_to_linear
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import make_dynamo_compatible
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
@@ -127,7 +129,6 @@ def fused_rotation_no_fx(model, calibration_loader, args):
     for r in rewriters:
         r.apply(model)
     fx_model = offload_model(fx_model)
-
     # Since we apply the rewriters to a different, non-fx model, we need only to compute them
     # And apply them in a second moment on the non-fx model
     delay_rewriters = True
@@ -304,6 +305,7 @@ def quantize_llm(args, extra_args=None):
         seqlen=args.seqlen,
         split="train",
         seed=args.seed)
+
     # Batched data loader to accelerate GPXQ algorithms
     calibration_loader = DataLoader(
         dataset=calibration_dataset, batch_size=args.calibration_batch_size, collate_fn=collate_fn)
@@ -609,6 +611,11 @@ def quantize_llm(args, extra_args=None):
                 if hasattr(m, 'compile_quant'):
                     m.compile_quant()
 
+        if args.sopt_optimize and not args.sopt_optimize_in_gpxq:
+            print("Applying Scale Opt...")
+            apply_scale_optimization(model, calibration_loader, args)
+            print("Scale Optimization applied.")
+
         if args.act_calibration and not args.load_checkpoint:
             print("Apply act calibration...")
             apply_calibration(model, calibration_loader)
@@ -684,6 +691,8 @@ def quantize_llm(args, extra_args=None):
 
         if args.gptq and not args.load_checkpoint:
             print("Applying GPTQ...")
+            scale_optimizer = build_scale_optimizer(
+                args, cross_act_objective=False) if args.sopt_optimize_in_gpxq else None
             apply_gptq(
                 model,
                 calibration_loader,
@@ -693,7 +702,9 @@ def quantize_llm(args, extra_args=None):
                 block_name=args.gpxq_block_name,
                 buffer_device=args.gpxq_buffer_device,
                 max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
-                max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
+                max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size,
+                scale_optimizer=scale_optimizer)
+
             print("GPTQ applied.")
 
         if args.gpfq and not args.load_checkpoint:
@@ -710,13 +721,18 @@ def quantize_llm(args, extra_args=None):
 
         if args.qronos and not args.load_checkpoint:
             print("Applying Qronos...")
+            # Interleaved Qronos always uses the cross-activation objective
+            # (enforced in validate()).
+            scale_optimizer = build_scale_optimizer(
+                args, cross_act_objective=True) if args.sopt_optimize_in_gpxq else None
             apply_qronos(
                 model,
                 calibration_loader,
                 alpha=args.qronos_alpha,
                 act_order=args.gpxq_act_order,
                 block_name=args.gpxq_block_name,
-                buffer_device=args.gpxq_buffer_device)
+                buffer_device=args.gpxq_buffer_device,
+                scale_optimizer=scale_optimizer)
             print("Qronos applied.")
 
         if args.bias_corr and not args.load_checkpoint:

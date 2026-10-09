@@ -101,3 +101,55 @@ def parse_args(parser: ArgumentParser,
             del override_defaults[key]
     parser.set_defaults(**override_defaults)
     return parser.parse_known_args(args)
+
+
+class AlgorithmArgumentParser:
+    """Base class for per-algorithm argument groups.
+
+    Each flag is prefixed so algorithms cannot collide: ``suffix`` becomes the
+    CLI option ``--{prefix}-{suffix}`` and the attribute ``{prefix}_{suffix}``.
+    Subclasses define arguments in :meth:`add_arguments` and cross-argument
+    checks in :meth:`validate`, using the ``_flag``/``_dest``/``_add``/
+    ``_add_bool`` helpers so the prefix is never hardcoded.
+    """
+
+    #: Default prefix; subclasses should override.
+    prefix: str = ""
+
+    # -- naming helpers -------------------------------------------------------
+
+    @staticmethod
+    def _flag(prefix: str, suffix: str) -> str:
+        """CLI flag name (without ``--``): ``{prefix}-{suffix}``."""
+        suffix = suffix.strip('-')
+        return f"{prefix}-{suffix}"
+
+    @staticmethod
+    def _dest(prefix: str, suffix: str) -> str:
+        """Namespace attribute name: ``{prefix}_{suffix}``."""
+        return AlgorithmArgumentParser._flag(prefix, suffix).replace('-', '_')
+
+    @staticmethod
+    def _add_bool(
+            parser: ArgumentParser, prefix: str, suffix: str, default: bool, help: str) -> None:
+        # add_bool_arg derives dest from the flag name, so the prefixed flag
+        # yields the prefixed dest for free.
+        add_bool_arg(
+            parser, AlgorithmArgumentParser._flag(prefix, suffix), default=default, help=help)
+
+    @staticmethod
+    def _add(parser: ArgumentParser, prefix: str, suffix: str, **kwargs) -> None:
+        parser.add_argument(
+            '--' + AlgorithmArgumentParser._flag(prefix, suffix),
+            dest=AlgorithmArgumentParser._dest(prefix, suffix),
+            **kwargs)
+
+    # -- interface ------------------------------------------------------------
+
+    @staticmethod
+    def add_arguments(parser: ArgumentParser, prefix: str) -> None:
+        raise NotImplementedError
+
+    @staticmethod
+    def validate(args: Namespace, extra_args: Optional[List[str]] = None, prefix: str = "") -> None:
+        raise NotImplementedError
