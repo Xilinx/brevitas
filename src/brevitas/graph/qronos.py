@@ -213,10 +213,8 @@ class Qronos(GPFQ):
         dtype_max = torch.finfo(dtype).max
 
         # Qronos - step 1
-        # q_groups = self.get_quant_weights(0, 0, permutation_list, with_quant_history=True)
         for group_index in range(self.groups):
             perm = permutation_list[group_index]
-            # q: Tensor = q_groups[group_index].to(self.dtype)
             v: Tensor = weight[group_index, :, perm].to(self.dtype)
             w: Tensor = weight_orig[group_index, :, perm].to(self.dtype)
             Gw = w.matmul(self.G[group_index, :, 0] * Dhi[group_index, 0])

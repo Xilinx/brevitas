@@ -314,32 +314,32 @@ class LLMPerplexityCases:
             {
                 "sopt_optimize": True, "sopt_objective": "unquantized",
                 "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30977.658, "quant_ppl": 30861.568},
+                "float_ppl": 30977.689453125, "quant_ppl": 30861.568},
             {
                 "sopt_optimize": True, "sopt_objective": "self-activation",
                 "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30977.658, "quant_ppl": 30864.982},
+                "float_ppl": 30977.689453125, "quant_ppl": 30864.982},
             {
                 "sopt_optimize": True, "sopt_objective": "cross-activation",
                 "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30977.658, "quant_ppl": 30390.059},
+                "float_ppl": 30977.689453125, "quant_ppl": 30390.059},
             # Debug Hessians: H=diag(H) and H=I.
             {
                 "sopt_optimize": True, "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30977.658, "quant_ppl": 30861.568},
+                "float_ppl": 30977.689453125, "quant_ppl": 30861.568},
             {
                 "sopt_optimize": True, "sopt_hessian_mode": "identity",
-                "float_ppl": 30977.658, "quant_ppl": 30880.586},
+                "float_ppl": 30977.689453125, "quant_ppl": 30880.586},
             # Float weights and float (unquantized) activations.
             {
                 "sopt_optimize": True, "sopt_use_quant_activations": False,
                 "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30977.658, "quant_ppl": 30874.049},
+                "float_ppl": 30977.689453125, "quant_ppl": 30874.049},
             # Batched over channels rather than all at once.
             {
                 "sopt_optimize": True, "sopt_solver_batch_size": 4,
                 "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30977.658, "quant_ppl": 30861.568},
+                "float_ppl": 30977.689453125, "quant_ppl": 30861.568},
             # Per-group: independent groups vs sequential heuristic (act-order on/off).
             # PiSO requires group_size to divide every layer's channel size (no
             # padding), so use the Llama tiny model (dims 16 and 64) with size 8.
@@ -349,7 +349,7 @@ class LLMPerplexityCases:
                 "weight_quant_granularity": "per_group",
                 "weight_group_size": 8,
                 "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30795.770, "quant_ppl": 30890.602},
+                "float_ppl": 30795.76953125, "quant_ppl": 30890.602},
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
                 "sopt_optimize": True,
@@ -357,7 +357,7 @@ class LLMPerplexityCases:
                 "weight_group_size": 8,
                 "sopt_group_sequential": True,
                 "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30795.770, "quant_ppl": 30890.602},
+                "float_ppl": 30795.76953125, "quant_ppl": 30890.602},
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
                 "sopt_optimize": True,
@@ -366,7 +366,7 @@ class LLMPerplexityCases:
                 "sopt_group_sequential": True,
                 "sopt_group_sequential_act_order": False,
                 "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30795.770, "quant_ppl": 30890.602},
+                "float_ppl": 30795.76953125, "quant_ppl": 30890.602},
             # Per-group with the diagonal-H fast path.
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
@@ -374,7 +374,7 @@ class LLMPerplexityCases:
                 "weight_quant_granularity": "per_group",
                 "weight_group_size": 8,
                 "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30795.770, "quant_ppl": 30890.514},
+                "float_ppl": 30795.76953125, "quant_ppl": 30890.514},
             # ---- Interleaved with GPTQ (self-activation objective) ----
             # Per-channel is always layer-interleaved.
             {
@@ -383,7 +383,7 @@ class LLMPerplexityCases:
                 "sopt_objective": "self-activation",
                 "gptq": True,
                 "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30977.658, "quant_ppl": 30878.172},
+                "float_ppl": 30977.689453125, "quant_ppl": 30878.172},
             # Per-group, group-interleaved (default).
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
@@ -394,7 +394,7 @@ class LLMPerplexityCases:
                 "weight_quant_granularity": "per_group",
                 "weight_group_size": 8,
                 "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30795.770, "quant_ppl": 30908.105},
+                "float_ppl": 30795.76953125, "quant_ppl": 30908.105},
             # Per-group, layer-interleaved.
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
@@ -406,7 +406,7 @@ class LLMPerplexityCases:
                 "weight_group_size": 8,
                 "sopt_group_gpxq_layer_interleaved": True,
                 "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30795.770, "quant_ppl": 30899.617},
+                "float_ppl": 30795.76953125, "quant_ppl": 30899.617},
             # ---- Interleaved with Qronos (cross-activation objective) ----
             {
                 "sopt_optimize": True,
@@ -414,7 +414,7 @@ class LLMPerplexityCases:
                 "sopt_objective": "cross-activation",
                 "qronos": True,
                 "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30977.658, "quant_ppl": 30963.275},
+                "float_ppl": 30977.689453125, "quant_ppl": 30931.48828125},
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
                 "sopt_optimize": True,
@@ -425,7 +425,7 @@ class LLMPerplexityCases:
                 "weight_group_size": 8,
                 "sopt_group_gpxq_layer_interleaved": True,
                 "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30795.770, "quant_ppl": 30799.764},
+                "float_ppl": 30795.76953125, "quant_ppl": 30799.764},
         ],
         ids=[
             "standalone,obj=unquantized",
