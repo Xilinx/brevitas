@@ -9,4 +9,6 @@ pandas
 pydantic
 torch>=2.4
 tqdm
-transformers[sentencepiece]>=4.52
+# transformers 5.19.0 calls torch.accelerator.current_accelerator() at import time
+# (via is_torch_flex_attn_available), which raises on CPU-only torch 2.6.0.
+transformers[sentencepiece]>=4.52,<5.19
