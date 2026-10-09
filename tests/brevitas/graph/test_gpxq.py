@@ -66,7 +66,6 @@ def _apply_gpfq_or_qronos(
         calib_loader: DataLoader,
         model: nn.Module,
         act_order: bool,
-        use_quant_activations: bool,
         algorithm_impl: nn.Module,
         max_accumulator_bit_width: int = None,
         max_accumulator_tile_size: int = None):
@@ -81,11 +80,7 @@ def _apply_gpfq_or_qronos(
             a2q_layer_filter_fnc=_a2q_layer_filter_fnc,
             max_accumulator_bit_width=max_accumulator_bit_width,
             max_accumulator_tile_size=max_accumulator_tile_size)
-    quant_context_manager = quantization_status_manager(
-        model=model,
-        disable_act_quant=not use_quant_activations,
-        disable_bias_quant=not use_quant_activations)
-    float_context_manager = quantization_status_manager(
+    disable_quantization_cm = quantization_status_manager(
         model=model, disable_act_quant=True, disable_weight_quant=True, disable_bias_quant=True)
     with context_manager(**context_manager_kwargs) as algo:
         algo_model = algo.model
@@ -93,9 +88,8 @@ def _apply_gpfq_or_qronos(
             for _, (images, _) in enumerate(calib_loader):
                 images = images.to(device)
                 images = images.to(dtype)
-                with quant_context_manager:
-                    algo_model(images)
-                with float_context_manager:
+                algo_model(images)
+                with disable_quantization_cm:
                     algo_model(images)
             algo.update()
         if max_accumulator_bit_width is not None:
@@ -117,11 +111,11 @@ def apply_gpfq(
         use_quant_activations: bool,
         max_accumulator_bit_width: int = None,
         max_accumulator_tile_size: int = None):
+    assert use_quant_activations
     _apply_gpfq_or_qronos(
         calib_loader=calib_loader,
         model=model,
         act_order=act_order,
-        use_quant_activations=use_quant_activations,
         algorithm_impl=GPFQ,
         max_accumulator_bit_width=max_accumulator_bit_width,
         max_accumulator_tile_size=max_accumulator_tile_size)
@@ -136,12 +130,9 @@ def apply_qronos(
         max_accumulator_tile_size: int = None):
     assert max_accumulator_bit_width is None
     assert max_accumulator_tile_size is None
+    assert use_quant_activations
     _apply_gpfq_or_qronos(
-        calib_loader=calib_loader,
-        model=model,
-        act_order=act_order,
-        use_quant_activations=use_quant_activations,
-        algorithm_impl=Qronos)
+        calib_loader=calib_loader, model=model, act_order=act_order, algorithm_impl=Qronos)
 
 
 @torch.no_grad()
@@ -337,6 +328,9 @@ def test_toy_quant_models(
     if (max_accumulator_bit_width is not None) and (name == "qronos"):
         pytest.skip("No support for AXE + Qronos.")
 
+    if name != "gptq" and not use_quant_activations:
+        pytest.skip("use_quant_activations only changes GPTQ behavior.")
+
     model_class = toy_quant_model
     model = model_class()
 
@@ -431,14 +425,18 @@ def test_magr(toy_model, request):
     apply_magr(model, dataloader)
 
 
-@pytest_cases.parametrize("gpxq_key", ["gptq", "gpfq"])
-def test_gpxq_quant_mha(quant_mha_gpxq_model, gpxq_key):
+@pytest.mark.parametrize("use_quant_activations", [True, False])
+@pytest_cases.parametrize("gpxq_key", ["gptq", "gpfq", "qronos"])
+def test_gpxq_quant_mha(quant_mha_gpxq_model, gpxq_key, use_quant_activations):
     # GPxQ descends into QuantMultiheadAttention and optimizes its internal projection
     # QuantLinear layers, whose inputs are always in (L, N, E) layout. GPxQ preprocessing
     # (transpose + reshape to [tokens, features]) is permutation-invariant w.r.t. the batch
     # dimension, so this is coverage that GPxQ runs correctly on QuantMHA across PyTorch
     # versions (with and without named-tensor support).
     torch.manual_seed(SEED)
+
+    if gpxq_key != "gptq" and not use_quant_activations:
+        pytest.skip("use_quant_activations only changes GPTQ behavior.")
 
     model_class = quant_mha_gpxq_model
     model = model_class()
@@ -455,7 +453,11 @@ def test_gpxq_quant_mha(quant_mha_gpxq_model, gpxq_key):
     dataloader = DataLoader(dataset, batch_size=16, num_workers=0, pin_memory=True, shuffle=False)
 
     apply_gpxq = apply_gpxq_func_map[gpxq_key]
-    apply_gpxq(calib_loader=dataloader, model=model, act_order=False, use_quant_activations=False)
+    apply_gpxq(
+        calib_loader=dataloader,
+        model=model,
+        act_order=False,
+        use_quant_activations=use_quant_activations)
 
     with torch.no_grad():
         out = model(inp[:MHA_BATCH_SIZE])
