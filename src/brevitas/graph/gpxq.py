@@ -68,6 +68,11 @@ class gpxq_mode(quantization_status_manager):
         >>>             gpxq.update()
     """
 
+    # Algorithms such as GPFQ and Qronos aim to solve the mismatched objective by using
+    # float inputs and (possibly quantized) inputs from the previously quantized layers.
+    # By default, we assume that the algorithm does not solve the mismatched objective.
+    solves_mismatched_objective = False
+
     def __init__(
             self,
             model,

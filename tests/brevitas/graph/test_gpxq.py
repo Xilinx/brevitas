@@ -10,6 +10,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.utils.data import TensorDataset
 
+from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gptq import gptq_mode
@@ -61,22 +62,17 @@ def _verify_accumulator_constraints(gpxq_impl, max_accumulator_bit_width):
 
 
 @torch.no_grad()
-def _dual_optimization_callback(
+def _apply_gpfq_or_qronos(
         calib_loader: DataLoader,
         model: nn.Module,
         act_order: bool,
-        use_quant_activations: bool,
         algorithm_impl: nn.Module,
         max_accumulator_bit_width: int = None,
         max_accumulator_tile_size: int = None):
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
-    context_manager_kwargs = dict(
-        model=model,
-        use_quant_activations=use_quant_activations,
-        act_order=act_order,
-        algorithm_impl=algorithm_impl)
+    context_manager_kwargs = dict(model=model, act_order=act_order, algorithm_impl=algorithm_impl)
     context_manager = gpfq_mode
     if max_accumulator_bit_width is not None:
         context_manager = a2gpfq_mode
@@ -84,6 +80,8 @@ def _dual_optimization_callback(
             a2q_layer_filter_fnc=_a2q_layer_filter_fnc,
             max_accumulator_bit_width=max_accumulator_bit_width,
             max_accumulator_tile_size=max_accumulator_tile_size)
+    disable_quantization_cm = quantization_status_manager(
+        model=model, disable_act_quant=True, disable_weight_quant=True, disable_bias_quant=True)
     with context_manager(**context_manager_kwargs) as algo:
         algo_model = algo.model
         for _ in range(algo.num_layers):
@@ -91,6 +89,8 @@ def _dual_optimization_callback(
                 images = images.to(device)
                 images = images.to(dtype)
                 algo_model(images)
+                with disable_quantization_cm:
+                    algo_model(images)
             algo.update()
         if max_accumulator_bit_width is not None:
             # gpxq_layers mixes AXE and plain GPxQ instances (layers failing the a2q filter fall
@@ -111,11 +111,11 @@ def apply_gpfq(
         use_quant_activations: bool,
         max_accumulator_bit_width: int = None,
         max_accumulator_tile_size: int = None):
-    _dual_optimization_callback(
+    assert use_quant_activations
+    _apply_gpfq_or_qronos(
         calib_loader=calib_loader,
         model=model,
         act_order=act_order,
-        use_quant_activations=use_quant_activations,
         algorithm_impl=GPFQ,
         max_accumulator_bit_width=max_accumulator_bit_width,
         max_accumulator_tile_size=max_accumulator_tile_size)
@@ -130,12 +130,9 @@ def apply_qronos(
         max_accumulator_tile_size: int = None):
     assert max_accumulator_bit_width is None
     assert max_accumulator_tile_size is None
-    _dual_optimization_callback(
-        calib_loader=calib_loader,
-        model=model,
-        act_order=act_order,
-        use_quant_activations=use_quant_activations,
-        algorithm_impl=Qronos)
+    assert use_quant_activations
+    _apply_gpfq_or_qronos(
+        calib_loader=calib_loader, model=model, act_order=act_order, algorithm_impl=Qronos)
 
 
 @torch.no_grad()
@@ -214,11 +211,15 @@ class TestQronosUpdateBatch:
     def _calibrate(model, calib_loader):
         """Run Qronos calibration, return {layer_name: (H, G)} for each layer."""
         results = {}
+        disable_quantization_cm = quantization_status_manager(
+            model=model, disable_act_quant=True, disable_weight_quant=True, disable_bias_quant=True)
         with torch.no_grad():
             with gpfq_mode(model, act_order=False, algorithm_impl=Qronos) as algo:
                 for _ in range(algo.num_layers):
                     for data, _ in calib_loader:
                         algo.model(data)
+                        with disable_quantization_cm:
+                            algo.model(data)
                     for name in algo.current_layer.layer_names:
                         layer = algo.gpxq_layers[name]
                         results[name] = (layer.H.clone(), layer.G.clone())
@@ -282,12 +283,16 @@ class TestQronosUpdateBatch:
         catching any in-place normalization (e.g. /=) in update_batch that would
         corrupt inputs."""
         model = self._init_model()
+        disable_quantization_cm = quantization_status_manager(
+            model=model, disable_act_quant=True, disable_weight_quant=True, disable_bias_quant=True)
         with torch.no_grad():
             with gpfq_mode(model, act_order=False, algorithm_impl=Qronos) as algo:
                 for _ in range(algo.num_layers):
                     for data, _ in self._make_loader(batch_size=2):
                         data_before = data.clone()
                         algo.model(data)
+                        with disable_quantization_cm:
+                            algo.model(data)
                         torch.testing.assert_close(data, data_before)
 
 
@@ -322,6 +327,9 @@ def test_toy_quant_models(
 
     if (max_accumulator_bit_width is not None) and (name == "qronos"):
         pytest.skip("No support for AXE + Qronos.")
+
+    if name != "gptq" and not use_quant_activations:
+        pytest.skip("use_quant_activations only changes GPTQ behavior.")
 
     model_class = toy_quant_model
     model = model_class()
@@ -417,14 +425,18 @@ def test_magr(toy_model, request):
     apply_magr(model, dataloader)
 
 
-@pytest_cases.parametrize("gpxq_key", ["gptq", "gpfq"])
-def test_gpxq_quant_mha(quant_mha_gpxq_model, gpxq_key):
+@pytest.mark.parametrize("use_quant_activations", [True, False])
+@pytest_cases.parametrize("gpxq_key", ["gptq", "gpfq", "qronos"])
+def test_gpxq_quant_mha(quant_mha_gpxq_model, gpxq_key, use_quant_activations):
     # GPxQ descends into QuantMultiheadAttention and optimizes its internal projection
     # QuantLinear layers, whose inputs are always in (L, N, E) layout. GPxQ preprocessing
     # (transpose + reshape to [tokens, features]) is permutation-invariant w.r.t. the batch
     # dimension, so this is coverage that GPxQ runs correctly on QuantMHA across PyTorch
     # versions (with and without named-tensor support).
     torch.manual_seed(SEED)
+
+    if gpxq_key != "gptq" and not use_quant_activations:
+        pytest.skip("use_quant_activations only changes GPTQ behavior.")
 
     model_class = quant_mha_gpxq_model
     model = model_class()
@@ -441,7 +453,11 @@ def test_gpxq_quant_mha(quant_mha_gpxq_model, gpxq_key):
     dataloader = DataLoader(dataset, batch_size=16, num_workers=0, pin_memory=True, shuffle=False)
 
     apply_gpxq = apply_gpxq_func_map[gpxq_key]
-    apply_gpxq(calib_loader=dataloader, model=model, act_order=False, use_quant_activations=False)
+    apply_gpxq(
+        calib_loader=dataloader,
+        model=model,
+        act_order=False,
+        use_quant_activations=use_quant_activations)
 
     with torch.no_grad():
         out = model(inp[:MHA_BATCH_SIZE])

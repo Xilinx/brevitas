@@ -11,7 +11,6 @@ import torch
 from torch import Tensor
 import torch.nn as nn
 
-from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
@@ -74,9 +73,7 @@ class GPFQ(GPxQ):
         # Normalizing for numerical stability
         inp_processed = math.sqrt(1 / batch_size) * inp_processed.to(self.dtype)
 
-        # NOTE: in the gpfq_mode context manager, we first collect quant inputs, then
-        # we collect float inputs for the same batch. We assume this pattern here, but
-        # will add a check just in case.
+        # The orchestration layer collects the quant input before the float input.
 
         # if quant is not enabled, then it is the float input; if it is a float input
         # then a quant input has already happened and we can update G
@@ -211,8 +208,6 @@ class gpfq_mode(gpxq_mode):
         create_weight_orig (bool): If True, store the original floating point weights before
             applying gpfq. These weights will be used anytime quantization is disabled.
             Default: True
-        use_quant_activations (bool): Wheter to leave quantize activations enabled while
-            performing GPFQ. Default: False
         return_forward_output (bool): If True, returns the output of the forward pass. Otherwise
             the forward call inside the context manager returns None. Default: False
         act_order (bool): Whether to order greedy path following by Hessian approximation.
@@ -222,16 +217,11 @@ class gpfq_mode(gpxq_mode):
         device (str): Device the buffers are stored on. Default: cpu
         dtype (torch.dtype): Datatype the buffers are stored in. Default: torch.float32
 
-    Example:
-        >>> with torch.no_grad():
-        >>>     with gpfq_mode(model) as gpfq:
-        >>>         gpfq_model = gpfq.model
-        >>>         for i in tqdm(range(gpfq.num_layers)):
-        >>>             for img, t in calib_loader:
-        >>>                 img = img.cuda()
-        >>>                 gpfq_model(img)
-        >>>             gpfq.update()
     """
+
+    # Algorithms such as GPFQ and Qronos solve the mismatched objective by using
+    # float inputs and (possibly quantized) inputs from the previously quantized layers.
+    solves_mismatched_objective = True
 
     def __init__(
             self,
@@ -239,7 +229,6 @@ class gpfq_mode(gpxq_mode):
             group_of_parallel_layers: Optional[List[str]] = None,
             inplace: bool = True,
             create_weight_orig: bool = True,
-            use_quant_activations: bool = True,
             return_forward_output: bool = False,
             act_order: bool = False,
             algorithm_impl: GPFQ = GPFQ,
@@ -247,6 +236,12 @@ class gpfq_mode(gpxq_mode):
             dtype: torch.dtype = torch.float32) -> None:
         if not inplace:
             model = deepcopy(model)
+        # NOTE: gpxq_mode inherits from quantization_status_manager (see graph/gpxq.py).
+        # Set use_quant_activations=True to make the inherited manager a no-op
+        # (see graph/calibrate.py). This lets the orchestration layer use separate
+        # managers without managing nested quantization state.
+        # TODO: Consider removing quantization_status_manager as a base class of gpxq_mode.
+        use_quant_activations = True
         super().__init__(
             model,
             group_of_parallel_layers,
@@ -261,27 +256,10 @@ class gpfq_mode(gpxq_mode):
         self.algorithm_impl = algorithm_impl
 
     def catch_stopfwd(self, *args, **kwargs):
-        # Collect quant input
         try:
             self.orig_forward(*args, **kwargs)
         except StopFwdException:
             pass
-
-        # Disable quantization
-        # TODO: Ensure that removing is_training=False does not cause any regression and remove,
-        # if that is the case
-        with quantization_status_manager(
-                self.model,
-                disable_act_quant=True,
-                disable_weight_quant=True,
-                disable_bias_quant=True,
-                is_training=False,
-        ):
-            try:
-                self.orig_forward(*args, **kwargs)
-            except StopFwdException:
-                pass
-
         if self.return_forward_output:
             # If we want to return the output of the network, we need to disable all hooks
             for name, gpxq_class in self.gpxq_layers.items():
