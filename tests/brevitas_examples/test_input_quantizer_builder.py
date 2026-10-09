@@ -458,6 +458,14 @@ def test_builder_input_quant_matches_reference(spec_name):
     if config.JIT_ENABLED and any(m in local_loss_methods for m in param_methods):
         pytest.skip(reason="Local loss param methods (MSE, HQO) require JIT to be disabled")
 
+    # Per-tensor / per-row dynamic scaling (RuntimeDynamicStatsScaling) takes the
+    # broadcastable reshape as a plain Callable, which TorchScript cannot compile.
+    # Per-group (RuntimeDynamicGroupStatsScaling) is a ScriptModule and is fine.
+    if (config.JIT_ENABLED and
+            spec["builder_args"].get("scaling_impl_type") == ScalingImplType.DYNAMIC and
+            granularity != "per_group"):
+        pytest.skip(reason="Per-tensor/per-row dynamic act scaling requires JIT to be disabled")
+
     if "xfail" in spec:
         pytest.xfail(reason=spec["xfail"])
 
