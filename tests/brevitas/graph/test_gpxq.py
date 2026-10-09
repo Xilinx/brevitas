@@ -93,10 +93,10 @@ def _apply_gpfq_or_qronos(
                     algo_model(images)
             algo.update()
         if max_accumulator_bit_width is not None:
-            # gpxq_layers mixes AXE and plain GPxQ instances (layers failing the a2q filter fall
+            # .layers mixes AXE and plain GPxQ instances (layers failing the a2q filter fall
             # back to the base class); only the AXE instances carry accumulator constraints.
             n_verified = 0
-            for gpxq_impl in algo.gpxq_layers.values():
+            for gpxq_impl in algo.layers.values():
                 if isinstance(gpxq_impl, AXEMixin):
                     _verify_accumulator_constraints(gpxq_impl, max_accumulator_bit_width)
                     n_verified += 1
@@ -164,10 +164,10 @@ def apply_gptq(
                 gptq_model(images)
             gptq.update()
         if max_accumulator_bit_width is not None:
-            # gpxq_layers mixes AXE and plain GPxQ instances (layers failing the a2q filter fall
+            # .layers mixes AXE and plain GPxQ instances (layers failing the a2q filter fall
             # back to the base class); only the AXE instances carry accumulator constraints.
             n_verified = 0
-            for gpxq_impl in gptq.gpxq_layers.values():
+            for gpxq_impl in gptq.layers.values():
                 if isinstance(gpxq_impl, AXEMixin):
                     _verify_accumulator_constraints(gpxq_impl, max_accumulator_bit_width)
                     n_verified += 1
@@ -221,7 +221,7 @@ class TestQronosUpdateBatch:
                         with disable_quantization_cm:
                             algo.model(data)
                     for name in algo.current_layer.layer_names:
-                        layer = algo.gpxq_layers[name]
+                        layer = algo.layers[name]
                         results[name] = (layer.H.clone(), layer.G.clone())
                     algo.update()
         return results
