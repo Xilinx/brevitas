@@ -206,12 +206,19 @@ def test_input_map_leaves_collected():
 
 @pytest.mark.parametrize("keys, ref_quant", INPUT_LEAVES, ids=INPUT_LEAF_IDS)
 def test_create_input_quantizer_matches_map_leaf(keys, ref_quant):
+    scale_type = keys[1]
     param_method = keys[3] if len(keys) == 6 else 'stats'
     granularity = keys[4] if len(keys) == 6 else 'per_tensor'
 
     # Local-loss param methods (MSE) require JIT to be disabled.
     if config.JIT_ENABLED and param_method == 'mse':
         pytest.skip("Local loss param methods (MSE) require JIT to be disabled")
+
+    # Per-tensor / per-row dynamic scaling (RuntimeDynamicStatsScaling) takes the
+    # broadcastable reshape as a plain Callable, which TorchScript cannot compile.
+    # Per-group (RuntimeDynamicGroupStatsScaling) is a ScriptModule and is fine.
+    if config.JIT_ENABLED and scale_type == 'dynamic' and granularity != 'per_group':
+        pytest.skip("Per-tensor/per-row dynamic act scaling requires JIT to be disabled")
 
     if keys in _INPUT_XFAIL:
         pytest.xfail(_INPUT_XFAIL[keys])
