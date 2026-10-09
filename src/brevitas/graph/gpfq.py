@@ -284,10 +284,10 @@ class gpfq_mode(gpxq_mode):
 
         if self.return_forward_output:
             # If we want to return the output of the network, we need to disable all hooks
-            for name, gpxq_class in self.gpxq_layers.items():
+            for name, gpxq_class in self.layers.items():
                 gpxq_class.disable_pre_forward_hook = True
             out = self.orig_forward(*args, **kwargs)
-            for name, gpxq_class in self.gpxq_layers.items():
+            for name, gpxq_class in self.layers.items():
                 gpxq_class.disable_pre_forward_hook = False
             return out
 

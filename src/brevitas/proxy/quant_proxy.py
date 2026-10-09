@@ -31,6 +31,12 @@ def _is_narrow_range(quant_injector):
     return None
 
 
+def _restrict_scale_positive(quant_injector):
+    if 'restrict_scale_positive' in quant_injector:
+        return quant_injector.restrict_scale_positive
+    return None
+
+
 def _rounding_mode(quant_injector):
     if 'float_to_int_impl_type' in quant_injector:
         return str(quant_injector.float_to_int_impl_type)

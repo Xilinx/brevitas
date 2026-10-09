@@ -42,6 +42,8 @@ convert_layernorm_to_rmsnorm:
 - false
 custom_quantizer:
 - null
+custom_trainer:
+- null
 dataset:
 - wikitext2
 dataset_eval_split:
@@ -74,6 +76,8 @@ few_shot_tasks:
   - winogrande
   - piqa
 few_shot_zeroshot:
+- false
+fine_tune:
 - false
 gpfq:
 - false
@@ -177,6 +181,26 @@ seed:
 - 0
 seqlen:
 - 2048
+sopt_group_gpxq_layer_interleaved:
+- false
+sopt_group_sequential:
+- false
+sopt_group_sequential_act_order:
+- true
+sopt_hessian_mode:
+- dense
+sopt_objective:
+- unquantized
+sopt_optimize:
+- false
+sopt_optimize_in_gpxq:
+- false
+sopt_solver:
+- piso
+sopt_solver_batch_size:
+- null
+sopt_use_quant_activations:
+- true
 svd_quant:
 - false
 svd_quant_iters:
