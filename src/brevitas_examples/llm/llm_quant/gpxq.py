@@ -93,6 +93,8 @@ def _intercept_output(module, args, kwargs, output, cached_args):
     raise StopFwdException
 
 
+# TODO: consider refactoring this into a class where GPTQ, MagR, GPFQ, Qronos, etc.
+# can each inherit from and implement/override their own logic.
 def _block_optimization(
         model,
         dataloader,
