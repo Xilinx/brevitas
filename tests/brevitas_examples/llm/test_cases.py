@@ -127,6 +127,132 @@ class LLMRunCases:
             weight_quant = Int8WeightPerTensorFloat
         yield process_args_and_metrics(default_run_args, run_dict)
 
+    @pytest_cases.parametrize(
+        "run_dict",
+        [
+            # ---- Standalone scale optimization (--sopt-optimize) ----
+            # Per-channel, one entry per objective.
+            {
+                "sopt_optimize": True, "sopt_objective": "unquantized",
+                "sopt_hessian_mode": "diagonal"},
+            {
+                "sopt_optimize": True, "sopt_objective": "self-activation",
+                "sopt_hessian_mode": "diagonal"},
+            {
+                "sopt_optimize": True, "sopt_objective": "cross-activation",
+                "sopt_hessian_mode": "diagonal"},
+            # Debug Hessians: H=diag(H) and H=I.
+            {
+                "sopt_optimize": True, "sopt_hessian_mode": "diagonal"},
+            {
+                "sopt_optimize": True, "sopt_hessian_mode": "identity"},
+            # Float weights and float (unquantized) activations.
+            {
+                "sopt_optimize": True, "sopt_use_quant_activations": False,
+                "sopt_hessian_mode": "diagonal"},
+            # Batched over channels rather than all at once.
+            {
+                "sopt_optimize": True, "sopt_solver_batch_size": 4,
+                "sopt_hessian_mode": "diagonal"},
+            # Per-group: independent groups vs sequential heuristic (act-order on/off).
+            # PiSO requires group_size to divide every layer's channel size (no
+            # padding), so use the Llama tiny model (dims 16 and 64) with size 8.
+            {
+                "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+                "sopt_optimize": True,
+                "weight_quant_granularity": "per_group",
+                "weight_group_size": 8,
+                "sopt_hessian_mode": "diagonal"},
+            {
+                "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+                "sopt_optimize": True,
+                "weight_quant_granularity": "per_group",
+                "weight_group_size": 8,
+                "sopt_group_sequential": True,
+                "sopt_hessian_mode": "diagonal"},
+            {
+                "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+                "sopt_optimize": True,
+                "weight_quant_granularity": "per_group",
+                "weight_group_size": 8,
+                "sopt_group_sequential": True,
+                "sopt_group_sequential_act_order": False,
+                "sopt_hessian_mode": "diagonal"},
+            # Per-group with the diagonal-H fast path.
+            {
+                "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+                "sopt_optimize": True,
+                "weight_quant_granularity": "per_group",
+                "weight_group_size": 8,
+                "sopt_hessian_mode": "diagonal"},
+            # ---- Interleaved with GPTQ (self-activation objective) ----
+            # Per-channel is always layer-interleaved.
+            {
+                "sopt_optimize": True,
+                "sopt_optimize_in_gpxq": True,
+                "sopt_objective": "self-activation",
+                "gptq": True,
+                "sopt_hessian_mode": "diagonal"},
+            # Per-group, group-interleaved (default).
+            {
+                "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+                "sopt_optimize": True,
+                "sopt_optimize_in_gpxq": True,
+                "sopt_objective": "self-activation",
+                "gptq": True,
+                "weight_quant_granularity": "per_group",
+                "weight_group_size": 8,
+                "sopt_hessian_mode": "diagonal"},
+            # Per-group, layer-interleaved.
+            {
+                "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+                "sopt_optimize": True,
+                "sopt_optimize_in_gpxq": True,
+                "sopt_objective": "self-activation",
+                "gptq": True,
+                "weight_quant_granularity": "per_group",
+                "weight_group_size": 8,
+                "sopt_group_gpxq_layer_interleaved": True,
+                "sopt_hessian_mode": "diagonal"},
+            # ---- Interleaved with Qronos (cross-activation objective) ----
+            {
+                "sopt_optimize": True,
+                "sopt_optimize_in_gpxq": True,
+                "sopt_objective": "cross-activation",
+                "qronos": True,
+                "sopt_hessian_mode": "diagonal"},
+            {
+                "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+                "sopt_optimize": True,
+                "sopt_optimize_in_gpxq": True,
+                "sopt_objective": "cross-activation",
+                "qronos": True,
+                "weight_quant_granularity": "per_group",
+                "weight_group_size": 8,
+                "sopt_group_gpxq_layer_interleaved": True,
+                "sopt_hessian_mode": "diagonal"},
+        ],
+        ids=[
+            "standalone,obj=unquantized",
+            "standalone,obj=self-activation",
+            "standalone,obj=cross-activation",
+            "standalone,hessian_mode=diagonal",
+            "standalone,hessian_mode=identity",
+            "standalone,float_activations",
+            "standalone,solver_batch_size=4",
+            "standalone,per_group",
+            "standalone,per_group,group_sequential",
+            "standalone,per_group,group_sequential,no_act_order",
+            "standalone,per_group,hessian_mode=diagonal",
+            "gpxq,gptq,per_channel",
+            "gpxq,gptq,per_group,group_interleaved",
+            "gpxq,gptq,per_group,layer_interleaved",
+            "gpxq,qronos,per_channel",
+            "gpxq,qronos,per_group,layer_interleaved",
+        ],)
+    def case_small_models_scale_optimization(self, run_dict, default_run_args, request):
+        yield process_args_and_metrics(default_run_args, run_dict)
+
 
 class LLMPerplexityCases:
 
@@ -302,151 +428,8 @@ class LLMPerplexityCases:
             "llama_layerwise",
             "llama_fused_rotation_had_no_orphan_expanded"],
     )
-    def case_small_models_rotation_ppl(self, run_dict, default_run_args, request):
-        yield process_args_and_metrics(
-            default_run_args, run_dict, extra_keys=LLMPerplexityCases.METRICS)
-
-    @pytest_cases.parametrize(
-        "run_dict",
-        [
-            # ---- Standalone scale optimization (--sopt-optimize) ----
-            # Per-channel, one entry per objective.
-            {
-                "sopt_optimize": True, "sopt_objective": "unquantized",
-                "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30977.658, "quant_ppl": 30861.568},
-            {
-                "sopt_optimize": True, "sopt_objective": "self-activation",
-                "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30977.658, "quant_ppl": 30864.982},
-            {
-                "sopt_optimize": True, "sopt_objective": "cross-activation",
-                "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30977.658, "quant_ppl": 30390.059},
-            # Debug Hessians: H=diag(H) and H=I.
-            {
-                "sopt_optimize": True, "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30977.658, "quant_ppl": 30861.568},
-            {
-                "sopt_optimize": True, "sopt_hessian_mode": "identity",
-                "float_ppl": 30977.658, "quant_ppl": 30880.586},
-            # Float weights and float (unquantized) activations.
-            {
-                "sopt_optimize": True, "sopt_use_quant_activations": False,
-                "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30977.658, "quant_ppl": 30874.049},
-            # Batched over channels rather than all at once.
-            {
-                "sopt_optimize": True, "sopt_solver_batch_size": 4,
-                "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30977.658, "quant_ppl": 30861.568},
-            # Per-group: independent groups vs sequential heuristic (act-order on/off).
-            # PiSO requires group_size to divide every layer's channel size (no
-            # padding), so use the Llama tiny model (dims 16 and 64) with size 8.
-            {
-                "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-                "sopt_optimize": True,
-                "weight_quant_granularity": "per_group",
-                "weight_group_size": 8,
-                "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30795.770, "quant_ppl": 30890.602},
-            {
-                "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-                "sopt_optimize": True,
-                "weight_quant_granularity": "per_group",
-                "weight_group_size": 8,
-                "sopt_group_sequential": True,
-                "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30795.770, "quant_ppl": 30890.602},
-            {
-                "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-                "sopt_optimize": True,
-                "weight_quant_granularity": "per_group",
-                "weight_group_size": 8,
-                "sopt_group_sequential": True,
-                "sopt_group_sequential_act_order": False,
-                "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30795.770, "quant_ppl": 30890.602},
-            # Per-group with the diagonal-H fast path.
-            {
-                "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-                "sopt_optimize": True,
-                "weight_quant_granularity": "per_group",
-                "weight_group_size": 8,
-                "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30795.770, "quant_ppl": 30890.514},
-            # ---- Interleaved with GPTQ (self-activation objective) ----
-            # Per-channel is always layer-interleaved.
-            {
-                "sopt_optimize": True,
-                "sopt_optimize_in_gpxq": True,
-                "sopt_objective": "self-activation",
-                "gptq": True,
-                "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30977.658, "quant_ppl": 30878.172},
-            # Per-group, group-interleaved (default).
-            {
-                "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-                "sopt_optimize": True,
-                "sopt_optimize_in_gpxq": True,
-                "sopt_objective": "self-activation",
-                "gptq": True,
-                "weight_quant_granularity": "per_group",
-                "weight_group_size": 8,
-                "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30795.770, "quant_ppl": 30908.105},
-            # Per-group, layer-interleaved.
-            {
-                "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-                "sopt_optimize": True,
-                "sopt_optimize_in_gpxq": True,
-                "sopt_objective": "self-activation",
-                "gptq": True,
-                "weight_quant_granularity": "per_group",
-                "weight_group_size": 8,
-                "sopt_group_gpxq_layer_interleaved": True,
-                "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30795.770, "quant_ppl": 30899.617},
-            # ---- Interleaved with Qronos (cross-activation objective) ----
-            {
-                "sopt_optimize": True,
-                "sopt_optimize_in_gpxq": True,
-                "sopt_objective": "cross-activation",
-                "qronos": True,
-                "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30977.658, "quant_ppl": 30963.275},
-            {
-                "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-                "sopt_optimize": True,
-                "sopt_optimize_in_gpxq": True,
-                "sopt_objective": "cross-activation",
-                "qronos": True,
-                "weight_quant_granularity": "per_group",
-                "weight_group_size": 8,
-                "sopt_group_gpxq_layer_interleaved": True,
-                "sopt_hessian_mode": "diagonal",
-                "float_ppl": 30795.770, "quant_ppl": 30799.764},
-        ],
-        ids=[
-            "standalone,obj=unquantized",
-            "standalone,obj=self-activation",
-            "standalone,obj=cross-activation",
-            "standalone,hessian_mode=diagonal",
-            "standalone,hessian_mode=identity",
-            "standalone,float_activations",
-            "standalone,solver_batch_size=4",
-            "standalone,per_group",
-            "standalone,per_group,group_sequential",
-            "standalone,per_group,group_sequential,no_act_order",
-            "standalone,per_group,hessian_mode=diagonal",
-            "gpxq,gptq,per_channel",
-            "gpxq,gptq,per_group,group_interleaved",
-            "gpxq,gptq,per_group,layer_interleaved",
-            "gpxq,qronos,per_channel",
-            "gpxq,qronos,per_group,layer_interleaved",
-        ],)
     # yapf: enable
-    def case_small_models_scale_optimization_ppl(self, run_dict, default_run_args, request):
+    def case_small_models_rotation_ppl(self, run_dict, default_run_args, request):
         yield process_args_and_metrics(
             default_run_args, run_dict, extra_keys=LLMPerplexityCases.METRICS)
 
