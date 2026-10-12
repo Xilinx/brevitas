@@ -22,7 +22,6 @@ import brevitas.nn as qnn
 from brevitas.quant.float_quant_ocp import Fp8e4m3OCPWeightPerChannelFloat
 from brevitas.quant.mx_quant_ocp import MXInt8Weight
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
-from brevitas.quant.scaled_int import Int8WeightPerChannelFloatMSE
 
 
 @pytest.mark.parametrize("bit_width", [2, 3, 4, 8])
@@ -94,6 +93,10 @@ def test_compute_group_importance_permutation_invalid():
 # -----------------------------------------------------------------------------
 
 
+class _IntPerChannelWeight(Int8WeightPerChannelFloat):
+    scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
+
+
 class _IntPerGroupWeight(MXInt8Weight):
     # Groupwise int weight quant with a parameter-from-stats scale (PiSO's
     # supported scaling) instead of MX's power-of-two scale.
@@ -117,22 +120,20 @@ def _build_quant_linear(weight_quant, in_f=8, out_f=6, **kwargs) -> qnn.QuantLin
 
 def test_is_float_weight_quant():
     assert _is_float_weight_quant(_build_quant_linear(_FloatPerChannelWeight).weight_quant) is True
-    assert _is_float_weight_quant(
-        _build_quant_linear(Int8WeightPerChannelFloatMSE).weight_quant) is False
+    assert _is_float_weight_quant(_build_quant_linear(_IntPerChannelWeight).weight_quant) is False
     assert _is_float_weight_quant(
         _build_quant_linear(_IntPerGroupWeight, weight_group_size=4).weight_quant) is False
 
 
 def test_is_int_weight_quant():
-    assert _is_int_weight_quant(
-        _build_quant_linear(Int8WeightPerChannelFloatMSE).weight_quant) is True
+    assert _is_int_weight_quant(_build_quant_linear(_IntPerChannelWeight).weight_quant) is True
     assert _is_int_weight_quant(
         _build_quant_linear(_IntPerGroupWeight, weight_group_size=4).weight_quant) is True
     assert _is_int_weight_quant(_build_quant_linear(_FloatPerChannelWeight).weight_quant) is False
 
 
 def test_is_int_and_float_weight_quant_are_mutually_exclusive():
-    for weight_quant, kwargs in [(Int8WeightPerChannelFloatMSE, {}),
+    for weight_quant, kwargs in [(_IntPerChannelWeight, {}),
                                  (_IntPerGroupWeight, dict(weight_group_size=4)),
                                  (_FloatPerChannelWeight, {})]:
         wq = _build_quant_linear(weight_quant, **kwargs).weight_quant
@@ -140,7 +141,7 @@ def test_is_int_and_float_weight_quant_are_mutually_exclusive():
 
 
 def test_proxy_restrict_scale_positive_matches_injector():
-    for weight_quant, kwargs in [(Int8WeightPerChannelFloatMSE, {}),
+    for weight_quant, kwargs in [(_IntPerChannelWeight, {}),
                                  (_IntPerGroupWeight, dict(weight_group_size=4)),
                                  (_FloatPerChannelWeight, {})]:
         wq = _build_quant_linear(weight_quant, **kwargs).weight_quant
@@ -149,7 +150,7 @@ def test_proxy_restrict_scale_positive_matches_injector():
 
 @pytest.mark.parametrize(
     "weight_quant,kwargs,dtype",
-    [(Int8WeightPerChannelFloatMSE, {}, torch.float32),
+    [(_IntPerChannelWeight, {}, torch.float32),
      (_IntPerGroupWeight, dict(weight_group_size=4), torch.float32),
      (_FloatPerChannelWeight, {}, torch.float64)])
 def test_build_grid_matches_injector(weight_quant, kwargs, dtype):
@@ -178,7 +179,7 @@ def test_build_grid_matches_injector(weight_quant, kwargs, dtype):
 
 
 def test_grid_threshold_int_vs_float():
-    int_layer = _build_quant_linear(Int8WeightPerChannelFloatMSE)
+    int_layer = _build_quant_linear(_IntPerChannelWeight)
     grid = _build_grid(int_layer, torch.float32, torch.device('cpu'))
     # int: threshold is the largest magnitude of the (asymmetric) grid.
     assert _grid_threshold(grid, int_layer.weight_quant) == grid.abs().max()
@@ -203,7 +204,7 @@ def _scaling_value(layer):
 
 
 def test_has_base_scale():
-    assert _has_base_scale(_build_quant_linear(Int8WeightPerChannelFloatMSE)) is True
+    assert _has_base_scale(_build_quant_linear(_IntPerChannelWeight)) is True
     assert _has_base_scale(_build_quant_linear(_IntPerGroupWeight, weight_group_size=4)) is True
     assert _has_base_scale(_build_quant_linear(_FloatPerChannelWeight)) is True
     # a plain stats-from-parameter scaling has no stored value parameter.
@@ -211,7 +212,7 @@ def test_has_base_scale():
 
 
 def test_get_base_scale_returns_scaling_parameter():
-    layer = _build_quant_linear(Int8WeightPerChannelFloatMSE)
+    layer = _build_quant_linear(_IntPerChannelWeight)
     # the raw stored parameter (identity), not a fresh tensor.
     assert _get_base_scale(layer) is _scaling_value(layer)
 
@@ -221,14 +222,14 @@ def test_get_base_scale_none_without_parameter_from_stats_scale():
 
 
 def test_get_base_scale_none_when_quant_disabled():
-    layer = _build_quant_linear(Int8WeightPerChannelFloatMSE)
+    layer = _build_quant_linear(_IntPerChannelWeight)
     layer.weight_quant.disable_quant = True
     assert _get_base_scale(layer) is None
     assert _has_base_scale(layer) is False
 
 
 def test_set_base_scale_full_write():
-    layer = _build_quant_linear(Int8WeightPerChannelFloatMSE)
+    layer = _build_quant_linear(_IntPerChannelWeight)
     new = torch.full_like(_get_base_scale(layer), 0.5)
     _set_base_scale(layer, new)
     assert torch.equal(_get_base_scale(layer), new)
@@ -254,12 +255,12 @@ def test_set_base_scale_raises_without_parameter_from_stats_scale():
 
 def test_set_base_scale_does_not_require_grad():
     # the write runs under no_grad, so it must not make the Parameter a graph leaf
-    layer = _build_quant_linear(Int8WeightPerChannelFloatMSE)
+    layer = _build_quant_linear(_IntPerChannelWeight)
     _set_base_scale(layer, torch.full_like(_get_base_scale(layer), 0.25))
     assert _get_base_scale(layer).grad_fn is None
 
 
 def test_has_zero_zero_point():
-    assert _has_zero_zero_point(_build_quant_linear(Int8WeightPerChannelFloatMSE)) is True
+    assert _has_zero_zero_point(_build_quant_linear(_IntPerChannelWeight)) is True
     assert _has_zero_zero_point(
         _build_quant_linear(_IntPerGroupWeight, weight_group_size=4)) is True
