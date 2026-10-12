@@ -46,7 +46,9 @@ class RotationWeightParametrization(torch.nn.Module):
         self.hidden_dim = hidden_dim
 
     def forward(self, tensor: torch.Tensor) -> torch.Tensor:
-        rot_mat = self.rot_mat.to(dtype=tensor.dtype)
+        # A power-of-two Hadamard rotation uses None to select the implicit
+        # transform in the rotation function.
+        rot_mat = self.rot_mat if self.rot_mat is None else self.rot_mat.to(dtype=tensor.dtype)
         if self.axis == 0:
             tensor = tensor.t()
             init_shape = tensor.shape
