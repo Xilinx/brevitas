@@ -116,7 +116,8 @@ class IntQuantTensor(IntQuantTensorBase, IntMixin, QuantTensor):
     # Reference: https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
 
     def __neg__(self):
-        neg_value = (-self.int(float_datatype=True) - self.zero_point) * self.scale
+        # Affine: v=(k-z)*s so -v=(-k+z)*s (not (-k-z)*s).
+        neg_value = (-self.int(float_datatype=True) + self.zero_point) * self.scale
         # In case the dtype of self.int is different from the one of the scale
         neg_value = neg_value.type(self.scale.dtype)
         if self.signed:
@@ -219,19 +220,17 @@ class IntQuantTensor(IntQuantTensorBase, IntMixin, QuantTensor):
         return output
 
     def __abs__(self):
-        if self.signed:
-            abs_value = (torch.abs(self.int(float_datatype=True)) - self.zero_point) * self.scale
-            # In case the dtype of self.int is different from the one of the scale
-            abs_value = abs_value.type(self.scale.dtype)
-            return IntQuantTensor(
-                value=abs_value,
-                scale=self.scale,
-                zero_point=self.zero_point,
-                bit_width=self.bit_width - 1,
-                signed=False,
-                training=self.training)
-        else:
-            return self
+        # Affine abs: |v| = |k-z|*s. Unsigned codes can still encode negative reals when z!=0.
+        abs_value = torch.abs(self.int(float_datatype=True) - self.zero_point) * self.scale
+        abs_value = abs_value.type(self.scale.dtype)
+        bit_width = self.bit_width - 1 if self.signed else self.bit_width
+        return IntQuantTensor(
+            value=abs_value,
+            scale=self.scale,
+            zero_point=torch.zeros_like(self.zero_point),
+            bit_width=bit_width,
+            signed=False,
+            training=self.training)
 
     def __pos__(self):
         return self
