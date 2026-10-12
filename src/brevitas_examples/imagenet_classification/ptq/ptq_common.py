@@ -14,6 +14,7 @@ from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.calibrate import norm_correction_mode
+from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.equalize import activation_equalization_mode
 from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
@@ -621,7 +622,7 @@ def apply_gptq(
 
 
 @torch.no_grad()
-def _dual_optimization_callback(
+def _apply_gpfq_or_qronos(
         model,
         calib_loader,
         device,
@@ -646,13 +647,22 @@ def _dual_optimization_callback(
             a2q_layer_filter_fnc=_a2q_layer_filter_fnc,
             max_accumulator_bit_width=max_accumulator_bit_width,
             max_accumulator_tile_size=max_accumulator_tile_size)
+    disable_quantization_cm = quantization_status_manager(
+        model=model, disable_act_quant=True, disable_weight_quant=True, disable_bias_quant=True)
+    # The context manager installs the hooks used by GPFQ or Qronos.
+    # The orchestration layer controls the two-pass protocol required by these hooks.
     with context_manager(**context_manager_kwargs) as algo:
         algo_model = algo.model
         for i in tqdm(range(algo.num_layers)):
             for i, (images, target) in enumerate(calib_loader):
                 images = images.to(device)
                 images = images.to(dtype)
+                # Run the quantized pass first. GPFQ and Qronos store its input.
                 algo_model(images)
+                # Run the float pass second. GPFQ and Qronos use the input pair to update G.
+                with disable_quantization_cm:
+                    algo_model(images)
+            # Update after all input pairs are available for the current layer.
             algo.update()
 
 
@@ -665,9 +675,8 @@ def apply_gpfq(
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
-    # We use the dual optimization callback, which uses two forward passes to correct
-    # quantization error in both the weights and activations from previous layers
-    _dual_optimization_callback(
+    # Use paired quantized and float passes to correct errors from previous layers.
+    _apply_gpfq_or_qronos(
         model,
         calib_loader,
         device=device,
@@ -683,9 +692,8 @@ def apply_qronos(model, calib_loader, act_order=True, alpha=1e-6):
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
-    # We use the dual optimization callback, which uses two forward passes to correct
-    # quantization error in both the weights and activations from previous layers
-    _dual_optimization_callback(
+    # Use paired quantized and float passes to correct errors from previous layers.
+    _apply_gpfq_or_qronos(
         model,
         calib_loader,
         device=device,

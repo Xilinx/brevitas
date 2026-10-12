@@ -54,9 +54,7 @@ class Qronos(GPFQ):
 
         is_quant_enabled = module.weight_quant.is_quant_enabled
 
-        # NOTE: in the gpfq_mode context manager (which we use for this), we first
-        # collect quant inputs, then we collect float inputs for the same batch. We
-        # assume this pattern here, but will add a check just in case.
+        # The orchestration layer collects the quant input before the float input.
 
         # if quant is not enabled, then it is the float input; if it is a float input
         # then a quant input has already happened and we can update G
