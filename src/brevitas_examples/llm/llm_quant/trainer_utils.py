@@ -297,13 +297,6 @@ class TrainingArguments(transformers.TrainingArguments):
     # from a checkpoint, so related files are not save by default
     save_strategy: Optional[str] = field(default="no")
 
-    ### Optimizer args
-    optimizer_dtype: Optional[str] = field(
-        default=None,
-        metadata={
-            "help":
-                "Data type for CaileySGD optimizer computations. None means use parameter dtype."})
-
     ### Multi-optimizer/scheduler args
     # List of dicts, one self-contained entry per optimizer.  Each dict may
     # contain:
