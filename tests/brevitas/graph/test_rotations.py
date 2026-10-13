@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import copy
-from functools import partial
 from functools import reduce
 import itertools
 from unittest.mock import patch
@@ -42,24 +41,42 @@ from .rotation_fixtures import *
 
 @requires_pt_ge('2.4')
 @pytest_cases.parametrize('partial_had', [True, False])
-def test_models_rotation_fixtures(rotation_fixtures, partial_had):
-
-    in_shape = (1, 4, 4)  # Special Attention shape
+@pytest_cases.parametrize('apply_affine_merge', [True, False])
+def test_models_rotation_fixtures(rotation_fixtures, partial_had, apply_affine_merge):
 
     model_class = rotation_fixtures
     model = model_class()
-    inp = torch.ones(in_shape)
-
     model.eval()
 
+    expected_rotation = True
+    expected_tied = None
+    is_embedding_rms = isinstance(model, EmbeddingRMSModel)
+    if is_embedding_rms:
+        rms_weight = model.rms.weight
+        rms_is_scale_invariant = (
+            rms_weight is None or torch.all(rms_weight == rms_weight.flatten()[0]).item())
+        weights_tied = model.embedding.weight is model.head.weight
+        expected_rotation = apply_affine_merge or rms_is_scale_invariant
+        expected_tied = weights_tied and not expected_rotation
+        if rms_weight is None and apply_affine_merge:
+            pytest.skip("Affine merging requires affine parameters.")
+    elif any(isinstance(module, nn.RMSNorm) for module in model.modules()):
+        expected_rotation = apply_affine_merge or partial_had
+
+    inp = torch.ones(model.input_shape, dtype=model.input_dtype)
     with torch.no_grad():
         expected_out = model(inp)
-
     model = symbolic_trace(model)
-    merge = MergeLnAffine()
-    model = merge.apply(model)
+
+    if apply_affine_merge:
+        merge = MergeLnAffine()
+        model = merge.apply(model)
+
+    orphan_sink = partial_had
+    if is_embedding_rms:
+        orphan_sink = False
     eq = GraphRotationEqualization(
-        orphan_sink=partial_had, return_rewriters=True, sdpa_regions=True)
+        orphan_sink=orphan_sink, return_rewriters=True, sdpa_regions=True)
     model, r = eq.apply(model)
 
     with torch.no_grad():
@@ -67,7 +84,9 @@ def test_models_rotation_fixtures(rotation_fixtures, partial_had):
 
     # Invariance of the output
     assert torch.allclose(out, expected_out, atol=ATOL)
-    assert len(r) > 0
+    assert bool(r) == expected_rotation
+    if is_embedding_rms:
+        assert (model.embedding.weight is model.head.weight) == expected_tied
 
 
 @pytest_cases.parametrize('N', [1, 2, 3], ids=lambda x: f"N={x}")
