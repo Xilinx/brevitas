@@ -10,7 +10,7 @@ constant and evaluating the closed-form per-interval minimizer.
 Layout:
   - .common       : shared interval-sweep helpers + the solver registry and the
                     ScaleSolverFamily base class;
-  - .piso         : the _piso_sweep_* variants (paper Algorithm 1) and
+  - .piso         : the _piso_sweep_* variants (Algorithm 1) and
                     PiSOSolverFamily, registered as 'piso';
   - .chunked_piso : the chunked reformulations and ChunkedPiSOSolverFamily,
                     registered as 'chunked-piso' (positive scales only).
@@ -19,7 +19,8 @@ Only the diagonal-H slots are implemented; the dense-H ones raise
 NotImplementedError. Importing this package registers every family in
 SCALE_SOLVER_REGISTRY, so ScaleOptimizer can resolve them by name.
 
-Reference: "Optimal Post-Training Quantization Scales and Where to Find Them".
+Reference: "Optimal Post-Training Quantization Scales and Where to Find Them"
+(https://arxiv.org/abs/2606.10890).
 """
 
 from brevitas.graph.piso.solvers.chunked_piso import _chunked_piso_sweep_per_channel_diag

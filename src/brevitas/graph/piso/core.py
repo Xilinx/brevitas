@@ -19,7 +19,8 @@ The algorithm core (the _piso_sweep_* solvers) lives in .solvers and the grid
 builders / ordering helpers in .utils. Entry points for the LLM example live in
 brevitas_examples.llm.llm_quant.piso.
 
-Reference: "Optimal Post-Training Quantization Scales and Where to Find Them".
+Reference: "Optimal Post-Training Quantization Scales and Where to Find Them"
+(https://arxiv.org/abs/2606.10890).
 """
 
 from functools import partial
@@ -806,6 +807,8 @@ class optimize_scale_mode(layerwise_hook_mode):
 #   - PiSO scale optimization interleaved with error correction (PiSOMixin).
 # The concrete classes at the bottom compose them with GPTQ / Qronos, mirroring
 # the A2GPTQ(_AXE, GPTQ) pattern already used in brevitas for AXE.
+#
+# TODO: Consider moving these mixins to a separate file.
 # -----------------------------------------------------------------------------
 
 

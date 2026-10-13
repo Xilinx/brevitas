@@ -253,8 +253,7 @@ class GPxQ(ABC):
     #
     # These provide the default (plain GPxQ) behaviour and are overridden by
     # mixins to plug in group-aware permutations (GroupAwarePermutationMixin) or
-    # PiSO scale optimization (PiSOMixin, see brevitas.graph.piso). GPTQ/Qronos
-    # call them so their own bodies stay free of algorithm-selection branching.
+    # PiSO scale optimization (PiSOMixin, see brevitas.graph.piso).
     # -------------------------------------------------------------------------
 
     def _resolve_blocksize(self, num_blocks: int) -> int:

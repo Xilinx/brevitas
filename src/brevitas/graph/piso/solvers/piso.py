@@ -1,7 +1,7 @@
 # Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""PiSO interval-sweep solvers (paper Algorithm 1).
+"""PiSO interval-sweep solvers (Algorithm 1).
 
 Given the Hessians H (and optional G) and the quantization grid, each solver
 computes the reconstruction-optimal weight quantization scale by sweeping the
@@ -23,7 +23,8 @@ The per-interval update (how wHq/qHq change) differs per variant and stays
 inline. The shared grid-delta and closed-form/optimality helpers live in
 .common. The chunked reformulation lives in .chunked_piso.
 
-Reference: "Optimal Post-Training Quantization Scales and Where to Find Them".
+Reference: "Optimal Post-Training Quantization Scales and Where to Find Them"
+(https://arxiv.org/abs/2606.10890).
 """
 
 from typing import Optional

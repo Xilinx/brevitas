@@ -19,7 +19,8 @@ The package is split into:
 
 Entry points for the LLM example live in brevitas_examples.llm.llm_quant.piso.
 
-Reference: "Optimal Post-Training Quantization Scales and Where to Find Them".
+Reference: "Optimal Post-Training Quantization Scales and Where to Find Them"
+(https://arxiv.org/abs/2606.10890).
 """
 
 from brevitas.graph.piso.core import GroupAwarePermGPTQ

@@ -17,7 +17,8 @@ This module depends only on torch and the registry primitive; the concrete
 solver modules (`piso`, `chunked_piso`) import from here, never the other way
 around.
 
-Reference: "Optimal Post-Training Quantization Scales and Where to Find Them".
+Reference: "Optimal Post-Training Quantization Scales and Where to Find Them"
+(https://arxiv.org/abs/2606.10890).
 """
 
 from abc import ABC
