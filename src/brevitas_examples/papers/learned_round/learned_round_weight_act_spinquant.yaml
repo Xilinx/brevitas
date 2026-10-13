@@ -43,6 +43,8 @@ few_shot_zeroshot:
 # ==================
 # Stage 1: Transform
 # ==================
+ln_affine_merge:
+- true
 rotation:
 - fused_no_fx
 optimize_rotations:
