@@ -121,8 +121,11 @@ def fused_rotation_no_fx(model, calibration_loader, args):
             if any(map(lambda x: x in name, args.rotation_layers_to_expand)):
                 layers_to_expand.append(name)
 
-    apply_layernorm_affine_merge(fx_model, rmsnorm_classes)
-    # NOTE: This call breaks ties between the the lm_head and the embedding layer
+    if args.ln_affine_merge:
+        warnings.warn(
+            "Applying LN affine merge. Note that this call breaks ties between the the lm_head and the embedding layer"
+        )
+        apply_layernorm_affine_merge(fx_model, rmsnorm_classes)
     fx_model, rewriters = apply_layernorm_to_rmsnorm(fx_model, return_rewriters=True)
     rewriters = fix_rewriter(rewriters, model, 'weight')
 
@@ -361,7 +364,7 @@ def quantize_llm(args, extra_args=None):
 
     # Apply LN affine merging before inserting MHA layers
     # since currently there is support only for merging into Linear
-    if args.ln_affine_merge:
+    if args.ln_affine_merge and args.rotation != 'fused_no_fx' and args.permute_fn is None:
         print("Apply LN affine merge...")
         apply_layernorm_affine_merge(model, rmsnorm_classes)
         print("LN affine merge applied.")

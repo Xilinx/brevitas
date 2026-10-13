@@ -970,8 +970,15 @@ def _is_scale_invariant_module(
         graph_model: GraphModule,
         node: Node,
         scale_invariant_layers=_scale_invariant_layers) -> bool:
-    return node.op == 'call_module' and isinstance(
-        get_module(graph_model, node.target), scale_invariant_layers)
+    if node.op != 'call_module':
+        return False
+    module = get_module(graph_model, node.target)
+    if not isinstance(module, scale_invariant_layers):
+        return False
+    if isinstance(module, RMSNorm) and module.elementwise_affine:
+        weight = module.weight.detach()
+        return torch.equal(weight, weight.flatten()[0].expand_as(weight))
+    return True
 
 
 def _is_scale_varying_activation(graph_model, node):
