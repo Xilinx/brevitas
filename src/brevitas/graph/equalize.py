@@ -975,6 +975,11 @@ def _is_scale_invariant_module(
     module = get_module(graph_model, node.target)
     if not isinstance(module, scale_invariant_layers):
         return False
+    # A uniform weight makes diag(weight) a scalar identity matrix.
+    # A scalar identity matrix commutes with an orthogonal rotation.
+    # More precisely, if diag(weight) = cI for some scalar c then
+    # diag(weight)R = cIR = cR. Alternatively, a non-uniform diagonal
+    # matrix diag(weight) does not commute with R.
     if isinstance(module, RMSNorm) and module.elementwise_affine:
         weight = module.weight.detach()
         return torch.equal(weight, weight.flatten()[0].expand_as(weight))
