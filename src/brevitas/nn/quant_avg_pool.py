@@ -122,9 +122,6 @@ class TruncAdaptiveAvgPool2d(TruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
         x = self.unpack_input(input)
         input_spatial_shape = tuple(x.shape[-2:])
 
-        if isinstance(x, QuantTensor) and not self.training:
-            self._cached_input_spatial_shape = input_spatial_shape
-
         # shortcut execution through the export impl during export
         if self.export_mode:
             self._validate_cached_spatial_shape(input_spatial_shape)
@@ -132,8 +129,10 @@ class TruncAdaptiveAvgPool2d(TruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
             self._set_global_is_quant_layer(False)
             return out
 
-        if self.trunc_quant.export_mode and not isinstance(x, QuantTensor):
+        if self.trunc_quant.export_mode:
             self._validate_cached_spatial_shape(input_spatial_shape)
+        elif isinstance(x, QuantTensor) and not self.training:
+            self._cached_input_spatial_shape = input_spatial_shape
 
         if (isinstance(x, QuantTensor) or
                 self.trunc_quant.export_mode) and self.is_trunc_quant_enabled:
