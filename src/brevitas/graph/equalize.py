@@ -105,7 +105,7 @@ _supported_layers = (
     nn.BatchNorm2d,
     nn.BatchNorm3d)
 
-_scale_invariant_layers = (
+_scale_equivariant_layers = (
     nn.Dropout,
     nn.Dropout2d,
     nn.Dropout3d,
@@ -122,13 +122,26 @@ _scale_invariant_layers = (
     nn.ReLU,
     nn.LeakyReLU)
 
-_scale_invariant_op = (
+_scale_equivariant_op = (
     torch.mul,
     operator.mul,
     operator.imul,
     operator.__mul__,
     operator.__imul__,
     nn.functional.interpolate)
+
+_rotation_equivariant_layers = (
+    nn.Dropout,
+    nn.Dropout2d,
+    nn.Dropout3d,
+    nn.AvgPool1d,
+    nn.AvgPool2d,
+    nn.AvgPool3d,
+    nn.AdaptiveAvgPool1d,
+    nn.AdaptiveAvgPool2d,
+    nn.AdaptiveAvgPool3d,
+    nn.Identity,
+    RMSNorm)
 
 _select_op = (operator.getitem, operator.__getitem__)
 
@@ -143,6 +156,10 @@ _residual_fns = (torch.add, operator.add, operator.iadd, operator.__add__, opera
 _batch_norm = (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)
 
 _ignore_ops = (getattr, 'size')
+
+
+def _is_scale_equivariant_module(module: nn.Module) -> bool:
+    return isinstance(module, _scale_equivariant_layers)
 
 
 # Start and End identify the starting and ending channels of the weight matrix that need to be
@@ -291,16 +308,30 @@ class WalkRegionState:
     history: set = field(default_factory=set)
     name_to_module: Dict = field(default_factory=dict)
 
-    supported_srcs: set = _supported_layers
-    supported_sinks: set = _supported_layers
-    scale_invariant_functions: set = _scale_invariant_op
-    scale_invariant_layers: set = _scale_invariant_layers
-    residual_fns: set = _residual_fns
-    residual_methods: set = _residual_methods
+    supported_srcs: Tuple[Type[nn.Module], ...] = _supported_layers
+    supported_sinks: Tuple[Type[nn.Module], ...] = _supported_layers
+    module_is_equivariant: Callable[[nn.Module], bool] = _is_scale_equivariant_module
+    equivariant_functions: Tuple[Callable, ...] = _scale_equivariant_op
+    residual_fns: Tuple[Callable, ...] = _residual_fns
+    residual_methods: Tuple[str, ...] = _residual_methods
 
     cat_encoutered: bool = False
     offset: int = 0
     update_offset: bool = False
+
+    def is_equivariant_module(self, graph_model: GraphModule, node: Node) -> bool:
+        if node.op != 'call_module':
+            return False
+        return self.module_is_equivariant(get_module(graph_model, node.target))
+
+    def is_equivariant_function(self, node: Node) -> bool:
+        node_target = node.meta.get('orig_target', node.target)
+        out = node.op in (
+            'call_function', 'call_method'
+        ) and node_target in self.equivariant_functions + _select_op + _reshaping_op
+        if node_target == nn.functional.interpolate:
+            out &= node.kwargs.get('mode', None) == 'nearest'
+        return out
 
     @property
     def srcs_names(self):
@@ -966,40 +997,10 @@ def _is_supported_module(
     return False
 
 
-def _is_scale_invariant_module(
-        graph_model: GraphModule,
-        node: Node,
-        scale_invariant_layers=_scale_invariant_layers) -> bool:
-    if node.op != 'call_module':
-        return False
-    module = get_module(graph_model, node.target)
-    if not isinstance(module, scale_invariant_layers):
-        return False
-    # A uniform weight makes diag(weight) a scalar identity matrix.
-    # A scalar identity matrix commutes with an orthogonal rotation.
-    # More precisely, if diag(weight) = cI for some scalar c then
-    # diag(weight)R = cIR = cR. Alternatively, a non-uniform diagonal
-    # matrix diag(weight) does not commute with R.
-    if isinstance(module, RMSNorm) and module.elementwise_affine:
-        weight = module.weight.detach()
-        return torch.equal(weight, weight.flatten()[0].expand_as(weight))
-    return True
-
-
 def _is_scale_varying_activation(graph_model, node):
     node_target = node.meta.get('orig_target', node.target)
     return node.op == 'call_module' and isinstance(
         get_module(graph_model, node_target), _scale_varying_activations)
-
-
-def _is_scale_invariant_function(node: Node, scale_invariant_op: Set = _scale_invariant_op) -> bool:
-    node_target = node.meta.get('orig_target', node.target)
-    out = node.op in (
-        'call_function',
-        'call_method') and node_target in scale_invariant_op + _select_op + _reshaping_op
-    if node_target == nn.functional.interpolate:
-        out &= node.kwargs.get('mode', None) == 'nearest'
-    return out
 
 
 def _is_add(node, residual_fns, residual_methods):
@@ -1053,9 +1054,7 @@ def find_srcs_channel_dim(state, model, inp_node):
         for n in inp_node.all_input_nodes:
             total_channels += find_srcs_channel_dim(state, model, n)
         return total_channels
-    elif _is_scale_invariant_module(model, inp_node,
-                                    state.scale_invariant_layers) or _is_scale_invariant_function(
-                                        inp_node, state.scale_invariant_functions):
+    elif state.is_equivariant_module(model, inp_node) or state.is_equivariant_function(inp_node):
         return find_srcs_channel_dim(state, model, inp_node.all_input_nodes[0])
     else:
         return _UNSUPPORTED_OP
@@ -1104,9 +1103,7 @@ def find_srcs(graph_model: GraphModule, starting_node: Node,
             find_sinks(graph_model, node, state)
             state.offset = state.offset if not state.update_offset else state.offset + weight.shape[
                 0]
-        elif _is_scale_invariant_module(
-                graph_model, node, state.scale_invariant_layers) or _is_scale_invariant_function(
-                    node, state.scale_invariant_functions):
+        elif state.is_equivariant_module(graph_model, node) or state.is_equivariant_function(node):
             find_sinks(graph_model, node, state)
             find_srcs(graph_model, node, state)
         elif _is_add(node, state.residual_fns, state.residual_methods):
@@ -1152,9 +1149,7 @@ def find_sinks(graph_model: GraphModule, starting_node: Node,
             eq_indexes = EqualizationIndexes(0, weight.shape[0], state.offset)
             state.add_sinks(node_target, module, eq_indexes)
 
-        elif _is_scale_invariant_module(
-                graph_model, node, state.scale_invariant_layers) or _is_scale_invariant_function(
-                    node, state.scale_invariant_functions):
+        elif state.is_equivariant_module(graph_model, node) or state.is_equivariant_function(node):
             find_sinks(graph_model, node, state)
         elif _is_add(node, state.residual_fns, state.residual_methods):
             state.update_offset = False
@@ -1183,7 +1178,14 @@ def find_sinks(graph_model: GraphModule, starting_node: Node,
                     continue
                 start = sum(channels[:index])
                 end = start + channels[index]
-                new_state = WalkRegionState(offset=state.offset)
+                new_state = WalkRegionState(
+                    supported_srcs=state.supported_srcs,
+                    supported_sinks=state.supported_sinks,
+                    module_is_equivariant=state.module_is_equivariant,
+                    equivariant_functions=state.equivariant_functions,
+                    residual_fns=state.residual_fns,
+                    residual_methods=state.residual_methods,
+                    offset=state.offset)
                 find_sinks(graph_model, node, new_state)
 
                 for k in new_state.sinks_names:
@@ -1849,15 +1851,15 @@ class RegionWalkMixin:
             self,
             supported_srcs: Tuple[Type[nn.Module]] = _supported_layers,
             supported_sinks: Tuple[Type[nn.Module]] = _supported_layers,
-            scale_invariant_layers: Tuple[Type[nn.Module]] = _scale_invariant_layers,
-            scale_invariant_functions: Tuple[Callable] = _scale_invariant_op,
+            equivariant_layers: Tuple[Type[nn.Module]] = _scale_equivariant_layers,
+            equivariant_functions: Tuple[Callable] = _scale_equivariant_op,
             residual_fns: Tuple[Callable] = _residual_fns,
             residual_methods: Tuple[str] = _residual_methods,
             extra_state_kwargs: Optional[Dict[str, Tuple[Type[nn.Module]]]] = None):
         self.supported_srcs = supported_srcs
         self.supported_sinks = supported_sinks
-        self.scale_invariant_layers = scale_invariant_layers
-        self.scale_invariant_functions = scale_invariant_functions
+        self.equivariant_layers = equivariant_layers
+        self.equivariant_functions = equivariant_functions
         self.residual_fns = residual_fns
         self.residual_methods = residual_methods
 
@@ -1866,13 +1868,16 @@ class RegionWalkMixin:
                 combined_value = value + getattr(self, attr_name)
                 setattr(self, attr_name, combined_value)
 
+    def is_equivariant_module(self, module: nn.Module) -> bool:
+        return isinstance(module, self.equivariant_layers)
+
     @property
-    def full_state_kwargs(self) -> Dict[str, Tuple[Type[nn.Module]]]:
+    def full_state_kwargs(self) -> Dict[str, Any]:
         return {
             'supported_srcs': self.supported_srcs,
             'supported_sinks': self.supported_sinks,
-            'scale_invariant_layers': self.scale_invariant_layers,
-            'scale_invariant_functions': self.scale_invariant_functions,
+            'module_is_equivariant': self.is_equivariant_module,
+            'equivariant_functions': self.equivariant_functions,
             'residual_fns': self.residual_fns,
             'residual_methods': self.residual_methods}
 
@@ -1962,14 +1967,11 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
             extra_state_kwargs: Optional[Dict[str, Tuple]] = None) -> None:
         RotationEqualization.__init__(self, blacklist_layers, layers_to_expand)
 
-        common_scale_invariant = list(_scale_invariant_layers)
-        common_scale_invariant.remove(torch.nn.ReLU)
-        common_scale_invariant.remove(torch.nn.LeakyReLU)
         base_state_kwargs = {
             'supported_srcs': (nn.Linear, nn.Embedding),
             'supported_sinks': (nn.Linear,),
-            'scale_invariant_layers': tuple(common_scale_invariant) + (RMSNorm,),
-            'scale_invariant_functions': ()}
+            'equivariant_layers': _rotation_equivariant_layers,
+            'equivariant_functions': ()}
         RegionWalkMixin.__init__(self, **base_state_kwargs, extra_state_kwargs=extra_state_kwargs)
 
         self.orphan_sink = orphan_sink
@@ -1996,6 +1998,15 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
                 "Using parametrized results might break type-checking, which could lead to unexpected behaviour."
             )
         self.use_parametrized_rotations = use_parametrized_rotations
+
+    def is_equivariant_module(self, module: nn.Module) -> bool:
+        if not super().is_equivariant_module(module):
+            return False
+        if isinstance(module, RMSNorm) and module.elementwise_affine:
+            # A uniform affine weight is a scalar identity and commutes with any rotation.
+            weight = module.weight.detach()
+            return torch.equal(weight, weight.flatten()[0].expand_as(weight))
+        return True
 
     def get_regions(self) -> List[Region]:
         """Return the list of regions identified during graph rotation equalization."""

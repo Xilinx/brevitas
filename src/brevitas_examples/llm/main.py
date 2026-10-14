@@ -156,7 +156,7 @@ def fused_rotation_no_fx(model, calibration_loader, args):
     delay_rewriters = True
     return_rewriters = True
 
-    extra_state_kwargs = {'scale_invariant_layers': rmsnorm_classes}
+    extra_state_kwargs = {'equivariant_layers': rmsnorm_classes}
     eq = GraphRotationEqualization(
         orphan_sink=args.rotation_orphan_sink,
         full_rotation_method=args.rotation_mode,
@@ -427,7 +427,7 @@ def quantize_llm(args, extra_args=None):
             layers_to_expand=layers_to_expand,
             rotation_block_size=args.rotation_block_size,
             disable_block_rotation_for_fused=args.disable_block_rotation_for_fused,
-            extra_state_kwargs={'scale_invariant_layers': rmsnorm_classes})
+            extra_state_kwargs={'equivariant_layers': rmsnorm_classes})
         model = eq.apply(model)
         remove_hooks(model)
 

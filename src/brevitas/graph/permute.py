@@ -16,7 +16,7 @@ from tqdm import tqdm
 
 from brevitas.graph.base import GraphTransform
 from brevitas.graph.equalize import _channel_maxabs
-from brevitas.graph.equalize import _scale_invariant_layers
+from brevitas.graph.equalize import _scale_equivariant_layers
 from brevitas.graph.equalize import _UNSUPPORTED_OP
 from brevitas.graph.equalize import find_srcs
 from brevitas.graph.equalize import GraphRotationEqualization
@@ -32,8 +32,8 @@ logging = setup_logger(__name__)
 
 __all__ = ['GraphPermutationEqualization', 'rotate_permute_mode']
 
-# Initialize permutation-invariant layers from scale-invariant layers
-_permute_invariant_layers = list(_scale_invariant_layers)
+# Initialize permutation-equivariant layers from scale-equivariant layers
+_permute_invariant_layers = list(_scale_equivariant_layers)
 _permute_invariant_layers.extend([torch.nn.GELU, torch.nn.SELU, torch.nn.SiLU])
 
 # Try to add RMSNorm
@@ -168,8 +168,8 @@ class GraphPermutationEqualization(GraphTransform, RegionWalkMixin):
         base_state_kwargs = {
             'supported_srcs': (nn.Embedding, RotatedModule, nn.Linear),
             'supported_sinks': (nn.Linear, RotatedModule),
-            'scale_invariant_layers': _permute_invariant_layers,
-            'scale_invariant_functions': _permute_invariant_functions,
+            'equivariant_layers': _permute_invariant_layers,
+            'equivariant_functions': _permute_invariant_functions,
             'residual_fns': tuple(residual_fns),}
         RegionWalkMixin.__init__(self, **base_state_kwargs, extra_state_kwargs=extra_state_kwargs)
 
