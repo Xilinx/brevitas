@@ -43,8 +43,8 @@ class CacheLLM(Cache[T_inputs, T_outputs]):
         bs = len(args)
         kwargs_split = {
             key:
-            value if not isinstance(value, torch.Tensor) else list(torch.split(value, 1, dim=0))
-            for key,
+                value if not isinstance(value, torch.Tensor) else list(
+                    torch.split(value, 1, dim=0)) for key,
             value in kwargs.items()}
         kwargs = [{
             key: value if not isinstance(value, list) else value[i] for key,

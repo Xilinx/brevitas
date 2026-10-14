@@ -103,8 +103,7 @@ def recursive_to_device(tensor_or_iterable: Union[Iterable, Mapping, torch.Tenso
     if isinstance(tensor_or_iterable, torch.Tensor):
         return tensor_or_iterable.to(device)
     elif isinstance(tensor_or_iterable, Mapping):
-        return {
-            key: recursive_to_device(value, device) for key, value in tensor_or_iterable.items()}
+        return {key: recursive_to_device(value, device) for key, value in tensor_or_iterable.items()}
     elif isinstance(tensor_or_iterable,
                     tuple):  # Special handling of tuples, since they are immutable
         tmp_list = []

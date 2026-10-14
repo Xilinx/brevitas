@@ -103,8 +103,7 @@ def _get_shifted_logits_and_labels(
         sample_length = sample["input_ids"].shape[1]
         for start_index in range(0, sample_length, context_length * 2):
             end_index = min(start_index + sample_length, sample_length - 1)
-            subsample = {
-                key: value[:, start_index:end_index + 1] for (key, value) in sample.items()}
+            subsample = {key: value[:, start_index:end_index + 1] for (key, value) in sample.items()}
 
             # FX models require the traced cache input.
             if "past_key_values" in sample and isinstance(model, torch.fx.GraphModule):
