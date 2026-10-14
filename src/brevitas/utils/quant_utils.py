@@ -35,12 +35,7 @@ class _CachedIO:
             return self._quant_tensor
         value = self.value if self.value is not None else self.scale.new_empty(0)
         self._quant_tensor = IntQuantTensor(
-            value,
-            self.scale,
-            self.zero_point,
-            self.bit_width,
-            self._signed,
-            self._training)
+            value, self.scale, self.zero_point, self.bit_width, self._signed, self._training)
         return self._quant_tensor
 
 
