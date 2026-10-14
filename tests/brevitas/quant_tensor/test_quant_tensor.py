@@ -20,6 +20,7 @@ from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIO
 from brevitas.utils.quant_utils import _CachedIOFloat
 from brevitas.utils.quant_utils import _CachedIOGroupwiseFloat
+from brevitas.utils.quant_utils import _CachedIOGroupwiseInt
 from brevitas.utils.quant_utils import groupwise_dequant_expand
 
 
@@ -190,6 +191,21 @@ def test_int_quant_tensor(metadata_only, bit_width=8):
     # test caching works
     cache = _CachedIO(q, metadata_only=metadata_only)
     assert cache.bit_width == bit_width
+    if metadata_only:
+        assert cache.value is None
+        assert cache._quant_tensor is None
+        cached_quant_tensor = cache.quant_tensor
+        assert cached_quant_tensor.value is None
+        assert cache.quant_tensor is cached_quant_tensor
+        assert torch.equal(cached_quant_tensor.set(value=q.value).value, q.value)
+    else:
+        assert torch.equal(cache.value, q.value)
+        assert cache.quant_tensor is q
+    assert torch.equal(cache.quant_tensor.scale, q.scale)
+    assert torch.equal(cache.quant_tensor.zero_point, q.zero_point)
+    assert torch.equal(cache.bit_width, q.bit_width)
+    assert cache.signed == q.signed
+    assert torch.equal(cache._training_t, q.training_t)
 
 
 @pytest.mark.parametrize("metadata_only", [True, False])
@@ -209,6 +225,24 @@ def test_float_quant_tensor(metadata_only, bit_width=8, exponent_bit_width=4, ma
     cache = _CachedIOFloat(q, metadata_only=metadata_only)
     assert cache.mantissa_bit_width == mantissa_bit_width
     assert cache.exponent_bit_width == exponent_bit_width
+    if metadata_only:
+        assert cache.value is None
+        assert cache._quant_tensor is None
+        cached_quant_tensor = cache.quant_tensor
+        assert cached_quant_tensor.value is None
+        assert cache.quant_tensor is cached_quant_tensor
+        assert torch.equal(cached_quant_tensor.set(value=q.value).value, q.value)
+    else:
+        assert torch.equal(cache.value, q.value)
+        assert cache.quant_tensor is q
+    assert torch.equal(cache.quant_tensor.scale, q.scale)
+    assert torch.equal(cache.quant_tensor.zero_point, q.zero_point)
+    assert torch.equal(cache.exponent_bias, q.exponent_bias)
+    assert cache.saturating == q.saturating
+    assert cache.inf_values == q.inf_values
+    assert cache.nan_values == q.nan_values
+    assert cache.signed == q.signed
+    assert torch.equal(cache._training_t, q.training_t)
 
 
 @pytest.mark.parametrize("metadata_only", [True, False])
@@ -232,6 +266,68 @@ def test_mx_quant_tensor(metadata_only, bit_width=8, exponent_bit_width=4, manti
     assert cache.exponent_bit_width == exponent_bit_width
     assert cache.group_size == 32
     assert cache.group_dim == 1
+    if metadata_only:
+        assert cache.value is None
+        assert cache._quant_tensor is None
+        cached_quant_tensor = cache.quant_tensor
+        assert cached_quant_tensor.value_ is None
+        assert cache.quant_tensor is cached_quant_tensor
+        assert torch.equal(cached_quant_tensor.set(value_=q.value_).value_, q.value_)
+    else:
+        assert torch.equal(cache.value, q.value)
+        assert cache.quant_tensor is q
+    assert torch.equal(cache.quant_tensor.scale_, q.scale_)
+    assert torch.equal(cache.quant_tensor.zero_point_, q.zero_point_)
+    assert torch.equal(cache.exponent_bias, q.exponent_bias)
+    assert cache.saturating == q.saturating
+    assert cache.inf_values == q.inf_values
+    assert cache.nan_values == q.nan_values
+    assert cache.signed == q.signed
+    assert cache.dequant_shape == q.dequant_shape
+    assert torch.equal(cache._training_t, q.training_t)
+    reconstructed = cache.quant_tensor.set(value_=q.value_)
+    assert torch.equal(reconstructed.value, q.value)
+    assert torch.equal(reconstructed.scale, q.scale)
+    assert torch.equal(reconstructed.zero_point, q.zero_point)
+
+
+@pytest.mark.parametrize("metadata_only", [True, False])
+def test_groupwise_int_quant_tensor_cache(metadata_only):
+    q = GroupwiseIntQuantTensor(
+        value=torch.randn(1, 1, 2),
+        scale=torch.tensor(1.0),
+        zero_point=torch.tensor(0.0),
+        group_size=2,
+        group_dim=1,
+        bit_width=torch.tensor(8.0),
+        signed=torch.tensor(True),
+        training=torch.tensor(False),
+        dequant_shape=(1, 2))
+
+    cache = _CachedIOGroupwiseInt(q, metadata_only=metadata_only)
+
+    if metadata_only:
+        assert cache.value is None
+        assert cache._quant_tensor is None
+        cached_quant_tensor = cache.quant_tensor
+        assert cached_quant_tensor.value_ is None
+        assert cache.quant_tensor is cached_quant_tensor
+        assert torch.equal(cached_quant_tensor.set(value_=q.value_).value_, q.value_)
+    else:
+        assert torch.equal(cache.value, q.value)
+        assert cache.quant_tensor is q
+    assert torch.equal(cache.quant_tensor.scale_, q.scale_)
+    assert torch.equal(cache.quant_tensor.zero_point_, q.zero_point_)
+    assert torch.equal(cache.quant_tensor.bit_width, q.bit_width)
+    assert cache.quant_tensor.group_size == q.group_size
+    assert cache.quant_tensor.group_dim == q.group_dim
+    assert cache.signed == q.signed
+    assert cache.dequant_shape == q.dequant_shape
+    assert torch.equal(cache._training_t, q.training_t)
+    reconstructed = cache.quant_tensor.set(value_=q.value_)
+    assert torch.equal(reconstructed.value, q.value)
+    assert torch.equal(reconstructed.scale, q.scale)
+    assert torch.equal(reconstructed.zero_point, q.zero_point)
 
 
 @pytest.mark.parametrize("device", ["cpu", "meta"])
