@@ -1,22 +1,34 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from functools import reduce
+from operator import mul
 from typing import Optional
 from typing import Tuple
 from typing import Type
 from typing import Union
 
+import torch
 from torch import Tensor
 from torch.nn import AdaptiveAvgPool2d
 from torch.nn import AvgPool2d
 
+from brevitas.function.ops import max_int
+from brevitas.function.ops_ste import ceil_ste
 from brevitas.inject.defaults import RoundTo8bit
 from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
+from brevitas.utils.quant_utils import _CachedIO
 
 from .mixin.acc import AccQuantType
 from .mixin.acc import TruncMixin
 from .mixin.base import QuantLayerMixin
+
+
+def _avg_pool_accumulator_metadata(scale, bit_width, avg_scaling):
+    max_uint_input = max_int(bit_width=bit_width, signed=False, narrow_range=False)
+    accumulator_bit_width = ceil_ste(torch.log2(max_uint_input * avg_scaling))
+    return scale / avg_scaling, accumulator_bit_width
 
 
 class TruncAvgPool2d(TruncMixin, QuantLayerMixin, AvgPool2d):
@@ -45,6 +57,9 @@ class TruncAvgPool2d(TruncMixin, QuantLayerMixin, AvgPool2d):
             divisor_override=divisor_override)
         QuantLayerMixin.__init__(self, return_quant_tensor)
         TruncMixin.__init__(self, trunc_quant=trunc_quant, **kwargs)
+        self.cache_inference_quant_act = False
+        self.cache_quant_io_metadata_only = True
+        self.cache_class = None
 
     @property
     def channelwise_separable(self) -> bool:
@@ -54,18 +69,33 @@ class TruncAvgPool2d(TruncMixin, QuantLayerMixin, AvgPool2d):
     def requires_export_handler(self):
         return True
 
+    @property
+    def _avg_scaling(self):
+        if isinstance(self.kernel_size, tuple):
+            return self.kernel_size[0] * self.kernel_size[1]
+        return self.kernel_size * self.kernel_size
+
     def forward(self, input: Union[Tensor, QuantTensor]):
         x = self.unpack_input(input)
 
         if self.export_mode:
             return self.export_handler(_unpack_quant_tensor(x))
 
-        if (isinstance(x, QuantTensor) or
-                self.trunc_quant.export_mode) and self.is_trunc_quant_enabled:
-            # Warm-up caches pooled accumulator metadata in the trunc proxy. Export and compiled
-            # inference pool plain tensors to avoid constructing QuantTensor subclasses.
-            y = AvgPool2d.forward(self, x)
-            y = self.trunc_quant(y)
+        use_cached_input = self.cache_class is not None and (
+            self.cache_inference_quant_act or self.trunc_quant.export_mode)
+        if (isinstance(x, QuantTensor) or use_cached_input) and self.is_trunc_quant_enabled:
+            if self.cache_inference_quant_act and isinstance(x, QuantTensor):
+                self.cache_class = _CachedIO(x, self.cache_quant_io_metadata_only)
+            if isinstance(x, QuantTensor):
+                y = self.trunc_quant(AvgPool2d.forward(self, x))
+            else:
+                y = AvgPool2d.forward(self, x)
+                avg_scaling = self.divisor_override \
+                    if self.divisor_override is not None else self._avg_scaling
+                scale, bit_width = _avg_pool_accumulator_metadata(
+                    self.cache_class.scale, self.cache_class.bit_width, avg_scaling)
+                y = self.trunc_quant(
+                    y, scale, self.cache_class.zero_point, bit_width, self.cache_class._signed)
         else:
             y = AvgPool2d.forward(self, _unpack_quant_tensor(x))
 
@@ -88,7 +118,9 @@ class TruncAdaptiveAvgPool2d(TruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
         AdaptiveAvgPool2d.__init__(self, output_size=output_size)
         QuantLayerMixin.__init__(self, return_quant_tensor)
         TruncMixin.__init__(self, trunc_quant=trunc_quant, **kwargs)
-        self._cached_input_spatial_shape = None
+        self.cache_inference_quant_act = False
+        self.cache_quant_io_metadata_only = True
+        self.cache_class = None
 
     @property
     def channelwise_separable(self) -> bool:
@@ -113,33 +145,30 @@ class TruncAdaptiveAvgPool2d(TruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
             stride_list.append(stride)
         return kernel_size_list, stride_list
 
-    def _validate_cached_spatial_shape(self, input_spatial_shape):
-        if input_spatial_shape != self._cached_input_spatial_shape:
-            raise RuntimeError(
-                "TruncAdaptiveAvgPool2d input spatial shape does not match metadata warm-up.")
-
     def forward(self, input: Union[Tensor, QuantTensor]):
         x = self.unpack_input(input)
-        input_spatial_shape = tuple(x.shape[-2:])
 
         # shortcut execution through the export impl during export
         if self.export_mode:
-            self._validate_cached_spatial_shape(input_spatial_shape)
             out = self.export_handler(_unpack_quant_tensor(x))
             self._set_global_is_quant_layer(False)
             return out
 
-        if self.trunc_quant.export_mode:
-            self._validate_cached_spatial_shape(input_spatial_shape)
-        elif isinstance(x, QuantTensor) and not self.training:
-            self._cached_input_spatial_shape = input_spatial_shape
-
-        if (isinstance(x, QuantTensor) or
-                self.trunc_quant.export_mode) and self.is_trunc_quant_enabled:
-            # Warm-up caches pooled accumulator metadata in the trunc proxy. Export and compiled
-            # inference pool plain tensors to avoid constructing QuantTensor subclasses.
-            y = AdaptiveAvgPool2d.forward(self, x)
-            y = self.trunc_quant(y)
+        use_cached_input = self.cache_class is not None and (
+            self.cache_inference_quant_act or self.trunc_quant.export_mode)
+        if (isinstance(x, QuantTensor) or use_cached_input) and self.is_trunc_quant_enabled:
+            if self.cache_inference_quant_act and isinstance(x, QuantTensor):
+                self.cache_class = _CachedIO(x, self.cache_quant_io_metadata_only)
+            if isinstance(x, QuantTensor):
+                y = self.trunc_quant(AdaptiveAvgPool2d.forward(self, x))
+            else:
+                y = AdaptiveAvgPool2d.forward(self, x)
+                kernel_size, _ = self.compute_kernel_size_stride(x.shape[-2:], y.shape[-2:])
+                avg_scaling = reduce(mul, kernel_size, 1)
+                scale, bit_width = _avg_pool_accumulator_metadata(
+                    self.cache_class.scale, self.cache_class.bit_width, avg_scaling)
+                y = self.trunc_quant(
+                    y, scale, self.cache_class.zero_point, bit_width, self.cache_class._signed)
         else:
             y = AdaptiveAvgPool2d.forward(self, _unpack_quant_tensor(x))
 

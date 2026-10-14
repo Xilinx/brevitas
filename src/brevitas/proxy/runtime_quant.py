@@ -276,8 +276,6 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Input metadata is cached separately from the post-truncation metadata used by export.
-        self._cached_input = None
         self._cached_act = None
         self.cache_inference_quant_act = True
         self.cache_quant_io_metadata_only = True
@@ -304,42 +302,33 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
     def bit_width(self):
         return self.retrieve_attribute('bit_width')
 
-    def forward(self, x: Union[Tensor, IntQuantTensor]) -> Union[Tensor, IntQuantTensor]:
+    def forward(
+            self,
+            x: Union[Tensor, IntQuantTensor],
+            scale: Optional[Tensor] = None,
+            zero_point: Optional[Tensor] = None,
+            bit_width: Optional[Tensor] = None,
+            signed: Optional[Union[bool, Tensor]] = None) -> Union[Tensor, IntQuantTensor]:
         if not self.is_quant_enabled:
             return x
 
         if isinstance(x, IntQuantTensor):
-            quant_input = x
             value = x.value
-            if not self.training and self.cache_inference_quant_act:
-                self._cached_input = self.cache_class(x.detach(), metadata_only=True)
+            scale = x.scale
+            zero_point = x.zero_point
+            bit_width = x.bit_width
+            signed = x.signed
         else:
-            if self._cached_input is None:
-                raise RuntimeError(
-                    "TruncQuantProxy requires cached input metadata for a Tensor input. "
-                    "Enable inference caching and run an IntQuantTensor warm-up first.")
-            quant_input = self._cached_input
             value = x
 
         if self.export_mode:
-            out_tuple = self.export_handler(
-                value,
-                quant_input.scale,
-                quant_input.zero_point,
-                quant_input.bit_width,
-                quant_input.signed)
+            out_tuple = self.export_handler(value, scale, zero_point, bit_width, signed)
         else:
-            out_tuple = self.tensor_quant(
-                value,
-                quant_input.scale,
-                quant_input.zero_point,
-                quant_input.bit_width,
-                quant_input.signed)
+            out_tuple = self.tensor_quant(value, scale, zero_point, bit_width, signed)
         out_value, out_scale, out_zp, out_bit_width = out_tuple
         if self.skip_create_quant_tensor:
             return out_value
-        out = IntQuantTensor(
-            out_value, out_scale, out_zp, out_bit_width, quant_input.signed, self.training)
+        out = IntQuantTensor(out_value, out_scale, out_zp, out_bit_width, signed, self.training)
         if not self.training and self.cache_inference_quant_act:
             cached_out = self.cache_class(out.detach(), self.cache_quant_io_metadata_only)
             self._cached_act = cached_out
