@@ -283,14 +283,19 @@ class IntInferenceHandler(IntInferenceHandlerBase, StaticScaleZeroPointMixin):
 class TruncIntInferenceHandler(IntInferenceHandler):
     handled_layer = TruncQuantProxyFromInjector
 
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.tensor_quant = None
+
+    def prepare_for_export(self, module: nn.Module):
+        super().prepare_for_export(module)
+        if module.is_quant_enabled:
+            self.tensor_quant = module.tensor_quant
+
     def forward(
-            self,
-            x: Tensor,
-            unused_scale: Tensor,
-            unused_zero_point: Tensor,
-            unused_bit_width: Tensor,
-            unused_signed: Tensor) -> Tuple[Tensor]:
-        return super().forward(x)
+            self, x: Tensor, scale: Tensor, zero_point: Tensor, input_bit_width: Tensor,
+            signed: Tensor) -> Tuple[Tensor]:
+        return self.tensor_quant(x, scale, zero_point, input_bit_width, signed)
 
 
 class IntWeightInferencetHandler(IntInferenceHandler):
