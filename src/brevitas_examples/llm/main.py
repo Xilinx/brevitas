@@ -590,7 +590,7 @@ def quantize_llm(args, extra_args=None):
             mse_range=args.awq_clip,
         )
 
-    if tie_weights(args):
+    if not require_fx and tie_weights(args):
         model.tie_weights()
 
     if args.bias_corr:
