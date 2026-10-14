@@ -21,9 +21,38 @@ import torch
 import torch.nn as nn
 
 from brevitas.core.scaling.standalone import ParameterFromStatsFromParameterScaling
+from brevitas.core.zero_point import _ScaleShiftQuantZeroPoint
+from brevitas.core.zero_point import _ScaleShiftZeroPoint
+from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.core.zero_point import ZeroZeroPoint
 from brevitas.proxy.float_parameter_quant import WeightFloatQuantProxyFromInjectorBase
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
+
+# How a weight quantizer expresses its zero point, which decides how PiSO solves
+# for the scale. The two asymmetric kinds are genuinely different one-parameter
+# problems, not two encodings of the same one: INT_ZERO_POINT pins the integer z
+# and lets the offset s*z move with the scale, FREE_OFFSET pins the offset.
+SYMMETRIC = 'symmetric'  # zero zero-point; the base PiSO problem
+INT_ZERO_POINT = 'integer-zero-point'  # z = round(m/s); translate the grid by z
+FREE_OFFSET = 'free-offset'  # offset independent of the scale (GGUF K-quants)
+UNSUPPORTED = 'unsupported'
+
+
+def classify_weight_quant(weight_quant: nn.Module) -> str:
+    """Classify a weight quantizer's asymmetry (see the constants above).
+
+    Dispatches on the zero-point implementation, which is the only thing that
+    distinguishes the two asymmetric reconstructions.
+    """
+    zero_point_impl = weight_quant.tensor_quant.zero_point_impl
+    if isinstance(zero_point_impl, ZeroZeroPoint):
+        return SYMMETRIC
+    scale_shift = getattr(zero_point_impl, 'scale_shift_zero_point', None)
+    if isinstance(scale_shift, _ScaleShiftQuantZeroPoint):
+        return FREE_OFFSET
+    if isinstance(scale_shift, _ScaleShiftZeroPoint) and scale_shift.quantize_zero_point:
+        return INT_ZERO_POINT
+    return UNSUPPORTED
 
 
 def make_int_grid(bit_width: int, signed: bool = True, narrow_range: bool = False) -> List[float]:
@@ -130,6 +159,69 @@ def _set_base_scale(layer: nn.Module, value: torch.Tensor, index: Any = slice(No
             "Cannot set base scale: weight scale is not a "
             "ParameterFromStatsFromParameterScaling.")
     layer.weight_quant.tensor_quant.scaling_impl.value[index] = value
+
+
+def _has_base_zero_point(layer: nn.Module) -> bool:
+    """Whether layer stores a writable zero-point parameter PiSO can re-pin.
+
+    True only for a ParameterFromStatsFromParameterZeroPoint, the zero-point
+    counterpart of _has_base_scale. Needed by the integer-zero-point path, which
+    has to rewrite the stored magnitude so the integer zero point survives a
+    change of scale.
+    """
+    weight_quant = getattr(layer, 'weight_quant', None)
+    if weight_quant is None or not weight_quant.is_quant_enabled:
+        return False
+    return isinstance(
+        weight_quant.tensor_quant.zero_point_impl, ParameterFromStatsFromParameterZeroPoint)
+
+
+def _get_base_zero_point(layer: nn.Module) -> Optional[torch.Tensor]:
+    """Return layer's stored zero-point Parameter, or None if it has none."""
+    if not _has_base_zero_point(layer):
+        return None
+    return layer.weight_quant.tensor_quant.zero_point_impl.value
+
+
+@torch.no_grad()
+def _set_base_zero_point(layer: nn.Module, value: torch.Tensor, index: Any = slice(None)) -> None:
+    """Write value into layer's stored zero-point Parameter at index.
+
+    The parameter holds the positive magnitude m, from which the quantizer forms
+    the integer zero point as z = round(m / scale). To pin z across a change of
+    scale, write m = scale * z.
+    """
+    if not _has_base_zero_point(layer):
+        raise RuntimeError(
+            "Cannot set base zero point: weight zero point is not a "
+            "ParameterFromStatsFromParameterZeroPoint.")
+    layer.weight_quant.tensor_quant.zero_point_impl.value[index] = value
+
+
+def _quant_threshold(layer: nn.Module) -> torch.Tensor:
+    """Scale threshold from the quantizer's own int_scaling_impl.
+
+    Equals grid.abs().max() on a native grid, but stays correct on a translated
+    grid (Section "Zero points proportional to the scale"), where the translated
+    grid's extreme is max(z, M - z) rather than the quantizer's threshold M.
+    """
+    weight_quant = layer.weight_quant
+    return weight_quant.tensor_quant.int_scaling_impl(weight_quant.bit_width())
+
+
+def _weight_zero_point(weight_quant: nn.Module) -> torch.Tensor:
+    """Integer zero point in the scale's shape (group shape for groupwise quant)."""
+    return weight_quant.zero_point_() if weight_quant.is_groupwise else weight_quant.zero_point()
+
+
+def _weight_offset(weight_quant: nn.Module) -> torch.Tensor:
+    """Additive offset (scale * zero point) of a free-offset quantizer, in the scale's shape.
+
+    The reconstruction is w_hat = s*q - zero_point, with the zero point calibrated
+    independently of the scale, so it is a constant of the scale problem.
+    """
+    scale = weight_quant.scale_() if weight_quant.is_groupwise else weight_quant.scale()
+    return scale * _weight_zero_point(weight_quant)
 
 
 def _build_grid(layer: nn.Module, dtype: torch.dtype, device) -> torch.Tensor:

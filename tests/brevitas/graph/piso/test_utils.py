@@ -6,22 +6,35 @@ accessors and ordering helper (brevitas.graph.piso.utils)."""
 import pytest
 import torch
 
+from brevitas import config
+from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.graph.piso.utils import _build_grid
 from brevitas.graph.piso.utils import _get_base_scale
+from brevitas.graph.piso.utils import _get_base_zero_point
 from brevitas.graph.piso.utils import _grid_threshold
 from brevitas.graph.piso.utils import _has_base_scale
+from brevitas.graph.piso.utils import _has_base_zero_point
 from brevitas.graph.piso.utils import _has_zero_zero_point
 from brevitas.graph.piso.utils import _is_float_weight_quant
 from brevitas.graph.piso.utils import _is_int_weight_quant
+from brevitas.graph.piso.utils import _quant_threshold
 from brevitas.graph.piso.utils import _set_base_scale
+from brevitas.graph.piso.utils import _set_base_zero_point
+from brevitas.graph.piso.utils import _weight_zero_point
+from brevitas.graph.piso.utils import classify_weight_quant
 from brevitas.graph.piso.utils import compute_group_importance_permutation
+from brevitas.graph.piso.utils import FREE_OFFSET
+from brevitas.graph.piso.utils import INT_ZERO_POINT
 from brevitas.graph.piso.utils import make_fp_grid
 from brevitas.graph.piso.utils import make_int_grid
+from brevitas.graph.piso.utils import SYMMETRIC
 from brevitas.inject.enum import ScalingImplType
 import brevitas.nn as qnn
 from brevitas.quant.float_quant_ocp import Fp8e4m3OCPWeightPerChannelFloat
 from brevitas.quant.mx_quant_ocp import MXInt8Weight
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
+from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightGroupQuantFloat
+from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
 
 
 @pytest.mark.parametrize("bit_width", [2, 3, 4, 8])
@@ -264,3 +277,100 @@ def test_has_zero_zero_point():
     assert _has_zero_zero_point(_build_quant_linear(_IntPerChannelWeight)) is True
     assert _has_zero_zero_point(
         _build_quant_linear(_IntPerGroupWeight, weight_group_size=4)) is True
+
+
+# =============================================================================
+# Asymmetric weight quantizers: classification, threshold and zero-point access.
+# =============================================================================
+
+
+class _IntZeroPointPerChannel(ShiftedUint8WeightPerChannelFloat):
+    scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
+    zero_point_impl = ParameterFromStatsFromParameterZeroPoint
+
+
+class _IntZeroPointGroup(ShiftedUint8WeightGroupQuantFloat):
+    scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
+    zero_point_impl = ParameterFromStatsFromParameterZeroPoint
+    group_size = 8
+
+
+def _calibrated_linear(weight_quant, out_features=4, in_features=16):
+    layer = qnn.QuantLinear(in_features, out_features, bias=False, weight_quant=weight_quant)
+    with torch.no_grad():
+        layer.weight.normal_(0., 0.1)
+    layer.eval()
+    layer.weight_quant(layer.weight)  # force calibration of scale / zero point
+    return layer
+
+
+@pytest.mark.parametrize(
+    "weight_quant,expected",
+    [
+        (Int8WeightPerChannelFloat, SYMMETRIC),
+        (_IntZeroPointPerChannel, INT_ZERO_POINT),
+        (_IntZeroPointGroup, INT_ZERO_POINT),])
+def test_classify_weight_quant(weight_quant, expected):
+    layer = _calibrated_linear(weight_quant)
+    assert classify_weight_quant(layer.weight_quant) == expected
+
+
+def _gguf_quantizers():
+    """The GGUF K-quant module, skipping when it cannot be exercised.
+
+    K-quants search the scale with a local loss (stats_op.evaluate_loss assigns
+    internal_candidate), which TorchScript cannot compile, so the quantizer
+    cannot even be built with JIT on.
+    """
+    if config.JIT_ENABLED:
+        pytest.skip("GGUF K-quant uses a local-loss search, which requires JIT to be disabled")
+    return pytest.importorskip("brevitas_examples.llm.gguf_export.base_quantizers")
+
+
+def test_classify_weight_quant_free_offset():
+    """GGUF K-quants quantize the min independently of the scale."""
+    gguf = _gguf_quantizers()
+    layer = _calibrated_linear(gguf.GGUFQ4_KWeightQuant, out_features=2, in_features=256)
+    assert classify_weight_quant(layer.weight_quant) == FREE_OFFSET
+
+
+@pytest.mark.parametrize("weight_quant", [Int8WeightPerChannelFloat, _IntZeroPointPerChannel])
+def test_quant_threshold_matches_grid_threshold_on_native_grid(weight_quant):
+    """_quant_threshold must agree with _grid_threshold before any translation."""
+    layer = _calibrated_linear(weight_quant)
+    grid = _build_grid(layer, dtype=torch.float32, device=torch.device('cpu'))
+    assert torch.allclose(
+        _quant_threshold(layer).float().flatten()[0],
+        _grid_threshold(grid, layer.weight_quant).float())
+
+
+@pytest.mark.parametrize("weight_quant", [_IntZeroPointPerChannel, _IntZeroPointGroup])
+def test_weight_zero_point_shape_matches_base_scale(weight_quant):
+    layer = _calibrated_linear(weight_quant)
+    assert _weight_zero_point(layer.weight_quant).shape == _get_base_scale(layer).shape
+
+
+@pytest.mark.parametrize("weight_quant", [_IntZeroPointPerChannel, _IntZeroPointGroup])
+def test_base_zero_point_accessors_round_trip(weight_quant):
+    layer = _calibrated_linear(weight_quant)
+    assert _has_base_zero_point(layer)
+    original = _get_base_zero_point(layer).clone()
+    _set_base_zero_point(layer, original * 0.5)
+    assert torch.allclose(_get_base_zero_point(layer), original * 0.5)
+
+
+def test_base_zero_point_absent_for_symmetric():
+    layer = _calibrated_linear(Int8WeightPerChannelFloat)
+    assert not _has_base_zero_point(layer)
+    assert _get_base_zero_point(layer) is None
+    with pytest.raises(RuntimeError, match="not a"):
+        _set_base_zero_point(layer, torch.zeros(1))
+
+
+def test_stats_from_parameter_zero_point_is_not_writable():
+    """The plain shifted quantizers recompute the zero point from weight stats on
+    every forward, so a written value would be discarded; they must not report a
+    writable base zero point."""
+    layer = _calibrated_linear(ShiftedUint8WeightPerChannelFloat)
+    assert classify_weight_quant(layer.weight_quant) == INT_ZERO_POINT
+    assert not _has_base_zero_point(layer)
