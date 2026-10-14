@@ -32,6 +32,7 @@ from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import DynamicActQuantProxyFromInjector
+from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 from brevitas.quant.mx_quant_ocp import GroupwiseActQuantProxyFromInjector
 from brevitas.quant.solver.act import solve_float_to_int_impl_from_enum
 from brevitas.quant.solver.common import solve_float_to_int_enum_from_impl
@@ -277,6 +278,19 @@ class IntInferenceHandler(IntInferenceHandlerBase, StaticScaleZeroPointMixin):
 
     def prepare_for_export(self, module: nn.Module):
         super().prepare_for_export(module)
+
+
+class TruncIntInferenceHandler(IntInferenceHandler):
+    handled_layer = TruncQuantProxyFromInjector
+
+    def forward(
+            self,
+            x: Tensor,
+            unused_scale: Tensor,
+            unused_zero_point: Tensor,
+            unused_bit_width: Tensor,
+            unused_signed: Tensor) -> Tuple[Tensor]:
+        return super().forward(x)
 
 
 class IntWeightInferencetHandler(IntInferenceHandler):
