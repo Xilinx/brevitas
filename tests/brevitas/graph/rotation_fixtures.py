@@ -16,6 +16,9 @@ def linear_rms():
 
     class LinearRMSModel(nn.Module):
 
+        input_shape = (1, 4, 4)
+        input_dtype = torch.float32
+
         def __init__(self) -> None:
             super().__init__()
             self.linear = nn.Linear(4, 4, bias=True)
@@ -45,6 +48,9 @@ def attention_sdpa():
 
     class AttentionSDPA(nn.Module):
 
+        input_shape = (1, 4, 4)
+        input_dtype = torch.float32
+
         def __init__(self) -> None:
             super().__init__()
 
@@ -70,7 +76,33 @@ def attention_sdpa():
     return AttentionSDPA
 
 
-list_of_rotation_mixtures = ['linear_rms', 'attention_sdpa']
+class EmbeddingRMSModel(nn.Module):
+
+    input_shape = (1, 4)
+    input_dtype = torch.long
+
+    def __init__(self, rms_weight, tie_weights):
+        super().__init__()
+        self.embedding = nn.Embedding(8, 4)
+        self.rms = nn.RMSNorm(4, elementwise_affine=rms_weight is not None)
+        if rms_weight is not None:
+            self.rms.weight.data.copy_(torch.tensor(rms_weight))
+        self.head = nn.Linear(4, 8, bias=False)
+        if tie_weights:
+            self.head.weight = self.embedding.weight
+
+    def forward(self, x):
+        return self.head(self.rms(self.embedding(x)))
+
+
+@pytest_cases.fixture
+@pytest_cases.parametrize('rms_weight', [None, (2., 2., 2., 2.), (1., 2., 1., 1.)])
+@pytest_cases.parametrize('tie_weights', [True, False])
+def embedding_rms(rms_weight, tie_weights):
+    return functools.partial(EmbeddingRMSModel, rms_weight=rms_weight, tie_weights=tie_weights)
+
+
+list_of_rotation_mixtures = ['linear_rms', 'attention_sdpa', 'embedding_rms']
 
 rotation_fixtures = fixture_union(
     'rotation_fixtures', list_of_rotation_mixtures, ids=list_of_rotation_mixtures)

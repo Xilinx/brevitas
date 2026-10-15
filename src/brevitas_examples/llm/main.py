@@ -106,6 +106,25 @@ def filter_results(results, tasks):
     return eval_results
 
 
+def tie_weights(args):
+    _should_tie = True
+    # Affine normalization merging updates the embedding and output weights independently, breaking
+    # the tie between them.
+    if args.ln_affine_merge:
+        _should_tie = False
+    # If any equalization has taken places, the embedding layer and the fully connected one are
+    # not tied anymore, and they need to be treated as standalone, separate layers.
+    # TODO: Consider conditionally disabling equalization for the output layer.
+    if args.act_equalization or args.weight_equalization:
+        _should_tie = False
+    # Layerwise rotation transforms the output linear layer.
+    # TODO: Consider conditionally disabling layerwise rotation for the output layer.
+    if args.rotation == 'layerwise':
+        _should_tie = False
+    # In all other cases we can tie them back so as to reduce memory usage.
+    return _should_tie
+
+
 def fused_rotation_no_fx(model, calibration_loader, args):
     with torch.no_grad(), rmsnorm_patch(model, model.config) as patcher:
         rmsnorm_classes = patcher.rmsnorm_classes
@@ -121,8 +140,11 @@ def fused_rotation_no_fx(model, calibration_loader, args):
             if any(map(lambda x: x in name, args.rotation_layers_to_expand)):
                 layers_to_expand.append(name)
 
-    apply_layernorm_affine_merge(fx_model, rmsnorm_classes)
-    # NOTE: This call breaks ties between the the lm_head and the embedding layer
+    if args.ln_affine_merge:
+        warnings.warn(
+            "Applying LN affine merge. Note that this call breaks ties between the the lm_head and the embedding layer"
+        )
+        apply_layernorm_affine_merge(fx_model, rmsnorm_classes)
     fx_model, rewriters = apply_layernorm_to_rmsnorm(fx_model, return_rewriters=True)
     rewriters = fix_rewriter(rewriters, model, 'weight')
 
@@ -134,7 +156,7 @@ def fused_rotation_no_fx(model, calibration_loader, args):
     delay_rewriters = True
     return_rewriters = True
 
-    extra_state_kwargs = {'scale_invariant_layers': rmsnorm_classes}
+    extra_state_kwargs = {'equivariant_layers': rmsnorm_classes}
     eq = GraphRotationEqualization(
         orphan_sink=args.rotation_orphan_sink,
         full_rotation_method=args.rotation_mode,
@@ -361,7 +383,8 @@ def quantize_llm(args, extra_args=None):
 
     # Apply LN affine merging before inserting MHA layers
     # since currently there is support only for merging into Linear
-    if args.ln_affine_merge:
+    # Delay affine merging to fused_rotation_no_fx() for fused rotations and permutations.
+    if args.ln_affine_merge and args.rotation != 'fused_no_fx' and args.permute_fn is None:
         print("Apply LN affine merge...")
         apply_layernorm_affine_merge(model, rmsnorm_classes)
         print("LN affine merge applied.")
@@ -404,7 +427,7 @@ def quantize_llm(args, extra_args=None):
             layers_to_expand=layers_to_expand,
             rotation_block_size=args.rotation_block_size,
             disable_block_rotation_for_fused=args.disable_block_rotation_for_fused,
-            extra_state_kwargs={'scale_invariant_layers': rmsnorm_classes})
+            extra_state_kwargs={'equivariant_layers': rmsnorm_classes})
         model = eq.apply(model)
         remove_hooks(model)
 
@@ -567,10 +590,7 @@ def quantize_llm(args, extra_args=None):
             mse_range=args.awq_clip,
         )
 
-    # If any equalization has taken places, the embedding layer and the fully connected one are
-    # not tied anymore, and they need to be treated as standalone, separate layers.
-    # In all other cases we can tie them back so to preserve memory.
-    if args.act_equalization is None and not require_fx and args.rotation is None:
+    if not require_fx and tie_weights(args):
         model.tie_weights()
 
     if args.bias_corr:

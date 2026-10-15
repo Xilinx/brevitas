@@ -12,9 +12,9 @@ from torch import nn
 from brevitas import torch_version
 from brevitas.graph import ModuleInstanceToModuleInstance
 from brevitas.graph import ModuleToModuleByClass
-from brevitas.graph.equalize import _is_scale_invariant_module
 from brevitas.graph.equalize import LayerNormToRMS
 from brevitas.graph.equalize import MergeLnAffine
+from brevitas.graph.equalize import WalkRegionState
 from brevitas.graph.utils import get_module
 
 
@@ -93,12 +93,13 @@ def merge_layernorm_affine_params(graph_model):
     merged_dict = {}
     merged_into_layers = []
     scaled_biases = set()
+    walk_state = WalkRegionState()
     for node in graph_model.graph.nodes:
         if node.op == 'call_module':
             module = get_module(graph_model, node.target)
             if isinstance(module, nn.LayerNorm):
                 for next in node.users:
-                    while (_is_scale_invariant_module(graph_model, next)):
+                    while walk_state.is_equivariant_module(graph_model, next):
                         next = node.next
                     if next.op == 'call_module':
                         next_module = get_module(graph_model, next.target)
@@ -133,7 +134,7 @@ def merge_layernorm_affine_params(graph_model):
 
 @torch.no_grad()
 def apply_layernorm_affine_merge(graph_model, rmsnorm_classes):
-    eq = MergeLnAffine(extra_state_kwargs={'scale_invariant_layers': rmsnorm_classes})
+    eq = MergeLnAffine(extra_state_kwargs={'equivariant_layers': rmsnorm_classes})
     graph_model = eq.apply(graph_model)
     return graph_model
 

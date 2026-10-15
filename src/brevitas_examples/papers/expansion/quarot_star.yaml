@@ -79,7 +79,7 @@ learned_round_scale_lr:
 learned_round_scale_momentum:
 - 0.9
 ln_affine_merge:
-- false
+- true
 load_checkpoint:
 - false
 model:

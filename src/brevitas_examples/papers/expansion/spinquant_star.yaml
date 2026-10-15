@@ -85,7 +85,7 @@ learned_round_scale_momentum:
 learning_rate:
 - 1.5
 ln_affine_merge:
-- false
+- true
 load_checkpoint:
 - false
 log_on_each_node:

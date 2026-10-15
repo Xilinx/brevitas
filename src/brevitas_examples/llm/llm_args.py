@@ -570,7 +570,24 @@ def create_args_parser() -> ArgumentParser:
 
 
 def fx_required(args: Namespace):
-    return args.weight_equalization or args.act_equalization == 'fx' or args.rotation == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or args.quant_sdpa == 'fx'
+    _is_required = False
+    if args.act_equalization == 'fx':
+        _is_required = True
+    if args.rotation == 'fx':
+        _is_required = True
+    if args.quant_sdpa == 'fx':
+        _is_required = True
+    # Weight equalization requires FX to identify sources and sinks.
+    if args.weight_equalization:
+        _is_required = True
+    # LayerNorm conversion requires FX to identify the source layers that it must update.
+    if args.convert_layernorm_to_rmsnorm:
+        _is_required = True
+    # Affine normalization merging requires FX to identify all sinks.
+    # The fused_no_fx and permutation paths create their own FX graphs.
+    if args.ln_affine_merge and args.rotation != 'fused_no_fx' and args.permute_fn is None:
+        _is_required = True
+    return _is_required
 
 
 def dynamo_required(args: Namespace):
