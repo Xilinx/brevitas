@@ -40,15 +40,19 @@ from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gpxq import process_layer_input
 from brevitas.graph.layerwise_hook import layerwise_hook_mode
 from brevitas.graph.piso.solvers import SCALE_SOLVER_REGISTRY
+from brevitas.graph.piso.solvers import translate_grid_by_zero_point
 from brevitas.graph.piso.utils import _build_grid
 from brevitas.graph.piso.utils import _get_base_scale
-from brevitas.graph.piso.utils import _grid_threshold
 from brevitas.graph.piso.utils import _has_base_scale
-from brevitas.graph.piso.utils import _has_zero_zero_point
+from brevitas.graph.piso.utils import _has_base_zero_point
 from brevitas.graph.piso.utils import _is_float_weight_quant
 from brevitas.graph.piso.utils import _is_int_weight_quant
+from brevitas.graph.piso.utils import _resolve_quantizer_config
 from brevitas.graph.piso.utils import _set_base_scale
+from brevitas.graph.piso.utils import _set_base_zero_point
+from brevitas.graph.piso.utils import classify_weight_quant
 from brevitas.graph.piso.utils import compute_group_importance_permutation
+from brevitas.graph.piso.utils import ZeroPointKind
 from brevitas.graph.qronos import Qronos
 from brevitas.graph.utils import is_quant_module
 from brevitas.utils.torch_utils import StopFwdException
@@ -135,7 +139,6 @@ class ScaleOptimizer:
 
         # Extract the quantization configuration from the layer's weight quantizer
         weight_quant = layer.weight_quant
-        signed_scale = not weight_quant.restrict_scale_positive
         is_group = weight_quant.is_groupwise
         group_size = weight_quant.group_size if is_group else 0
         use_diag = self.hessian_mode != 'dense'
@@ -170,8 +173,14 @@ class ScaleOptimizer:
             if G is not None:
                 G = G.squeeze().diag()
 
-        # Generate unscaled grid in intX or float_eXmY
+        # Generate unscaled grid in intX or float_eXmY. allow_negative_s is derived
+        # from the native (untranslated) grid; asymmetric quant is positive-only.
         grid = _build_grid(layer, dtype=H.dtype, device=H.device)
+        (zero_point_kind, zero_point, integer_zero_point, threshold,
+         allow_negative_s) = _resolve_quantizer_config(
+             layer, grid, self.solver_dtype, self.solver_device)
+        if zero_point_kind == ZeroPointKind.INT_ZERO_POINT:
+            grid = translate_grid_by_zero_point(grid, integer_zero_point)
 
         # Allocate params if offloaded (e.g., meta device with accelerate). A caller
         # passing skip_offload owns the whole params lifecycle and has already
@@ -184,26 +193,38 @@ class ScaleOptimizer:
         # Select the solver and the arguments it expects (H/G dense, diagonal, or greedy)
         solver_fn, arg_kind = self._select_solver(is_group, use_diag, is_greedy)
 
-        # Prepare the input matrices for the solver
-        H, G, W, _, inv_block_perm = self._prepare_matrices(
-            H, G, W, is_group, is_greedy, n_channels, channel_size, group_size)
+        # Prepare the input matrices for the solver (greedy also reorders the zero point)
+        H, G, W, zero_point, grid, _, inv_block_perm = self._prepare_matrices(
+            H, G, W, is_group, is_greedy, n_channels, channel_size, group_size,
+            zero_point=zero_point, grid=grid)
 
-        # Bind the solver and its arguments into a callable that takes (W, allow_negative_s)
-        compute_scale_method = self._bind_solver_matrices(solver_fn, arg_kind, grid, H, G)
+        # Bind the solver's H/G. The grid (possibly translated, hence per row) and
+        # the zero point are sliced per batch below so both stay aligned with W's rows.
+        compute_scale_method = self._bind_solver_matrices(solver_fn, arg_kind, H, G)
 
         optimal_s = torch.zeros_like(_get_base_scale(layer), dtype=H.dtype)
 
         with torch.inference_mode():
             for i in range(0, W.shape[0], batch_size):
                 end = i + batch_size
+                grid_b = grid if grid.dim() == 1 else grid[i:end]
+                zero_point_b = None if zero_point is None else zero_point[i:end]
                 optimal_s[i:end] = compute_scale_method(
-                    w_b=W[i:end], allow_negative_s=(signed_scale and (grid[-1] != -grid[0])))
+                    w_b=W[i:end],
+                    unscaled_grid=grid_b,
+                    zero_point=zero_point_b,
+                    allow_negative_s=allow_negative_s)
 
         if inv_block_perm is not None:
             optimal_s = optimal_s[:, inv_block_perm]
 
-        # Update the s on the weight quantizer
-        _set_base_scale(layer, optimal_s * _grid_threshold(grid, weight_quant))
+        # Update the scale. optimal_s is the realized scale; the stored value is
+        # scale * threshold. For an integer zero point the stored magnitude is also
+        # re-pinned to m = scale * z, so that z = round(m / scale) is preserved
+        # across the change of scale.
+        _set_base_scale(layer, optimal_s * threshold)
+        if zero_point_kind == ZeroPointKind.INT_ZERO_POINT:
+            _set_base_zero_point(layer, optimal_s * integer_zero_point)
 
         # Offload params back to free memory
         if not skip_offload and hasattr(layer, 'offload_params'):
@@ -234,12 +255,24 @@ class ScaleOptimizer:
         G: Optional[torch.Tensor],
         W: torch.Tensor,
         group_size: int,
-    ) -> Tuple[torch.Tensor, Optional[torch.Tensor], torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Permute H/G/W by group importance for the sequential greedy sweep.
+        zero_point: Optional[torch.Tensor] = None,
+        grid: Optional[torch.Tensor] = None,
+    ) -> Tuple[torch.Tensor,
+               Optional[torch.Tensor],
+               torch.Tensor,
+               Optional[torch.Tensor],
+               Optional[torch.Tensor],
+               torch.Tensor,
+               torch.Tensor]:
+        """Permute H/G/W (and a per-group zero_point / grid) by group importance
+        for the sequential greedy sweep.
 
         Groups are ordered by descending diag(H) per block (per_group_greedy_reorder)
-        or left in natural order. Returns (H, G, W, perm, inv_block_perm); perm is
-        the applied column order and inv_block_perm unshuffles the per-group scales.
+        or left in natural order. Returns (H, G, W, zero_point, grid, perm,
+        inv_block_perm); perm is the applied column order and inv_block_perm
+        unshuffles the per-group scales. H/G/W are permuted by column (perm); the
+        zero point and a translated grid are per group, so they are permuted by the
+        block order instead.
         """
         if self.per_group_greedy_reorder:
             # permute H, G and weights to account for group importance
@@ -260,8 +293,12 @@ class ScaleOptimizer:
             G = G.squeeze()[:, perm]
             G = G[perm, :]
         W = W[:, perm]
+        if zero_point is not None:
+            zero_point = zero_point[:, block_perm]
+        if grid is not None and grid.dim() > 1:
+            grid = grid[:, block_perm]
 
-        return H, G, W, perm, inv_block_perm
+        return H, G, W, zero_point, grid, perm, inv_block_perm
 
     def _select_solver(self, is_group: bool, use_diag: bool, is_greedy: bool):
         """Return (solver_fn, arg_kind) from the solver family for the config flags."""
@@ -277,29 +314,36 @@ class ScaleOptimizer:
         n_channels: int,
         channel_size: int,
         group_size: int,
+        zero_point: Optional[torch.Tensor] = None,
+        grid: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor,
                Optional[torch.Tensor],
                torch.Tensor,
                Optional[torch.Tensor],
+               Optional[torch.Tensor],
+               Optional[torch.Tensor],
                Optional[torch.Tensor]]:
-        """Shape H/G/W for the selected solver.
+        """Shape H/G/W (and a per-group zero_point / grid) for the selected solver.
 
-        Greedy permutes H/G/W and returns (perm, inv_block_perm); group reshapes W
-        into (n_channels, n_groups, group_size); per-channel leaves W as is.
-        Non-greedy paths return perm = inv_block_perm = None.
+        Greedy permutes H/G/W/zero_point/grid and returns (perm, inv_block_perm);
+        group reshapes W into (n_channels, n_groups, group_size); per-channel leaves
+        W as is. Non-greedy paths return perm = inv_block_perm = None.
         """
         if is_greedy:
-            H, G, W, perm, inv_block_perm = self._apply_group_greedy_permutation(
-                H, G, W, group_size)
+            (H, G, W, zero_point, grid, perm,
+             inv_block_perm) = self._apply_group_greedy_permutation(
+                 H, G, W, group_size, zero_point, grid)
             W = W.reshape(n_channels, channel_size // group_size, group_size)
-            return H, G, W, perm, inv_block_perm
+            return H, G, W, zero_point, grid, perm, inv_block_perm
         if is_group:
             W = W.reshape(n_channels, channel_size // group_size, group_size)
-        return H, G, W, None, None
+        return H, G, W, zero_point, grid, None, None
 
-    def _bind_solver_matrices(self, solver_fn, arg_kind: str, grid, H, G) -> Callable:
-        """Bind grid/tolerance and the H/G args into a (w_b, allow_negative_s)
-        callable. arg_kind 'diag' passes H_diag/G_diag; 'dense'/'greedy' pass H/G.
+    def _bind_solver_matrices(self, solver_fn, arg_kind: str, H, G) -> Callable:
+        """Bind tolerance and the H/G args into a (w_b, unscaled_grid, zero_point,
+        allow_negative_s) callable. The grid is passed per call so a translated
+        (per-row) grid can be sliced with the weight batch. arg_kind 'diag' passes
+        H_diag/G_diag; 'dense'/'greedy' pass H/G.
         """
 
         def as_dense(M):
@@ -308,17 +352,18 @@ class ScaleOptimizer:
         def as_diag(M):
             return None if M is None else (M.squeeze() if M.dim() > 1 else M)
 
-        bound = partial(solver_fn, unscaled_grid=grid, eps=self.tolerance)
+        bound = partial(solver_fn, eps=self.tolerance)
         if arg_kind == 'diag':
             return partial(bound, H_diag=as_diag(H), G_diag=as_diag(G))
         return partial(bound, H=as_dense(H), G=as_dense(G))
 
     @staticmethod
     def is_layer_valid(layer: nn.Module) -> bool:
-        """Whether PiSO supports layer: a signed, weight-quantized QuantLinear
-        with a parameter-from-stats scale, per-channel or per-group, int (with zero
-        zero-point) or float. Returns False (warning that the layer is skipped)
-        instead of raising on any mismatch."""
+        """Whether PiSO supports layer: a weight-quantized QuantLinear with a
+        parameter-from-stats scale, per-channel or per-group, and a supported zero
+        point -- signed symmetric or float, a free offset, or an unsigned integer
+        zero point with a writable (parameter-from-stats) zero point. Returns False
+        (warning that the layer is skipped) instead of raising on any mismatch."""
         try:
             if not is_quant_module(layer):
                 warnings.warn("Skipping scale optimization: layer is not a quant module.")
@@ -335,22 +380,46 @@ class ScaleOptimizer:
                     "Skipping scale optimization: layer scale is not a "
                     "ParameterFromStatsFromParameterScaling.")
                 return False
-            if not layer.weight_quant.is_signed:
-                warnings.warn(
-                    "Skipping scale optimization: PiSO requires a signed weight quantizer.")
-                return False
-            if _is_float_weight_quant(layer.weight_quant):
-                pass  # float weight quantizers have no zero-point requirement
-            elif _is_int_weight_quant(layer.weight_quant):
-                if not _has_zero_zero_point(layer):
+            weight_quant = layer.weight_quant
+            if _is_float_weight_quant(weight_quant):
+                # Float weight quantizers have no zero point to classify.
+                if not weight_quant.is_signed:
                     warnings.warn(
-                        "Skipping scale optimization: int weight quantizer must have a zero "
-                        "zero-point.")
+                        "Skipping scale optimization: float weight quantizer must be signed.")
                     return False
-            else:
+                return True
+            if not _is_int_weight_quant(weight_quant):
                 warnings.warn(
                     "Skipping scale optimization: only int and float weight quantizers are "
                     "supported.")
+                return False
+            zero_point_kind = classify_weight_quant(weight_quant)
+            if zero_point_kind == ZeroPointKind.SYMMETRIC:
+                if not weight_quant.is_signed:
+                    warnings.warn(
+                        "Skipping scale optimization: symmetric int weight quantizer must be "
+                        "signed.")
+                    return False
+            elif zero_point_kind == ZeroPointKind.FREE_OFFSET:
+                # The zero point does not depend on the scale and is never rewritten,
+                # so there is no requirement beyond it being readable.
+                pass
+            elif zero_point_kind == ZeroPointKind.INT_ZERO_POINT:
+                if weight_quant.is_signed:
+                    # Re-pinning z assumes m = scale * z, i.e. min_int == 0.
+                    warnings.warn(
+                        "Skipping scale optimization: integer zero point requires an unsigned "
+                        "quantizer.")
+                    return False
+                if not _has_base_zero_point(layer):
+                    warnings.warn(
+                        "Skipping scale optimization: integer zero-point quantizer must have a "
+                        "writable ParameterFromStatsFromParameterZeroPoint zero point.")
+                    return False
+            else:
+                warnings.warn(
+                    "Skipping scale optimization: unsupported weight zero-point "
+                    "implementation.")
                 return False
         except Exception:
             warnings.warn("Skipping scale optimization: layer validity check raised.")
@@ -395,6 +464,8 @@ class ScaleOptimizerGroupInterleaved(ScaleOptimizer):
         super().__init__(**kwargs)
         # Indicates whether init_scale_optimizer_params has been called and the layer state is valid.
         self._params_initialized = False
+        # Whether the layer being processed is one PiSO supports at all.
+        self._enabled = False
 
     def init_scale_optimizer_params(
             self,
@@ -418,22 +489,34 @@ class ScaleOptimizerGroupInterleaved(ScaleOptimizer):
                 "clear_scale_optimizer_params before initializing a new layer.")
         self._params_initialized = True
 
+        # A layer the layer-level updater would skip must be skipped here too,
+        # but returning early would leave single_group_update without state, so
+        # record it and make should_update_group decline instead.
+        self._enabled = ScaleOptimizer.is_layer_valid(layer)
+        if not self._enabled:
+            return
+
         # Extract the quantization configuration from the layer's weight quantizer
         weight_quant = layer.weight_quant
+        use_diag = self.hessian_mode != 'dense'
 
         self.layer = layer
         self.perm = perm
-        # Generate unscaled grid in intX or float_eXmY
+        # Generate unscaled grid in intX or float_eXmY. A translated grid is built
+        # per group in _bind_group_solver, so the native grid is kept here.
         self.grid = self.cast_to_solver_dtype_device(
             _build_grid(layer, dtype=H.dtype, device=H.device))
         self.group_size = weight_quant.group_size
-        self.allow_negative_s = not weight_quant.restrict_scale_positive and (
-            self.grid[-1] != -self.grid[0])
-        self.threshold = _grid_threshold(self.grid, weight_quant)
+        (
+            self.zero_point_kind,
+            self.zero_point,
+            self.integer_zero_point,
+            self.threshold,
+            self.allow_negative_s) = _resolve_quantizer_config(
+                layer, self.grid, self.solver_dtype, self.solver_device)
 
         # Which solver runs depends only on flags fixed at construction, so resolve
         # it once and prepare exactly the matrices it consumes.
-        use_diag = self.hessian_mode != 'dense'
         self._group_solver_fn, self._group_strategy = self._solver_family.get_group_solver(
             use_diag, self.per_group_greedy)
         self._prepare_group_matrices(layer, H, G)
@@ -482,7 +565,14 @@ class ScaleOptimizerGroupInterleaved(ScaleOptimizer):
         if not self._params_initialized:
             return
         self._params_initialized = False
+        if not self._enabled:
+            # init returned before recording any state.
+            return
+        self._enabled = False
 
+        del self.zero_point_kind
+        del self.integer_zero_point
+        del self.zero_point
         del self.layer
         del self.perm
         del self.grid
@@ -498,10 +588,11 @@ class ScaleOptimizerGroupInterleaved(ScaleOptimizer):
         del self.G_diag
 
     def should_update_group(self, column_idx: int) -> bool:
-        """A group scale update is due only while a layer is being processed and
-        column_idx is the first column of a group. self.group_size is only read
-        once a layer is set, so the _params_initialized check must short-circuit."""
-        return self._params_initialized and column_idx % self.group_size == 0
+        """A group scale update is due only while a supported layer is being
+        processed and column_idx is the first column of a group. self.group_size is
+        only read once a layer is set, so the _params_initialized and _enabled
+        checks must short-circuit."""
+        return (self._params_initialized and self._enabled and column_idx % self.group_size == 0)
 
     def single_group_update(self, incoming_idx: int) -> None:
         """Optimize and write the scale of the group that owns column incoming_idx.
@@ -521,22 +612,42 @@ class ScaleOptimizerGroupInterleaved(ScaleOptimizer):
 
         optimal_s = self._bind_group_solver(start, end, incoming_group_idx)()
 
-        # set the optimal s of this group in the QuantLayer
-        _set_base_scale(
-            self.layer, optimal_s * self.threshold, index=(slice(None), incoming_group_idx))
+        # set the optimal s of this group in the QuantLayer. For an integer zero
+        # point, re-pin m = s* z so that z = round(m / s*) survives the change of
+        # scale, exactly as the layer-level updater does.
+        index = (slice(None), incoming_group_idx)
+        _set_base_scale(self.layer, optimal_s * self.threshold, index=index)
+        if self.zero_point_kind == ZeroPointKind.INT_ZERO_POINT:
+            _set_base_zero_point(
+                self.layer, optimal_s * self.integer_zero_point[:, incoming_group_idx], index=index)
 
     def _bind_group_solver(self, start: int, end: int, group_idx: int) -> Callable:
         """Bind this group's arguments into a callable taking no further input.
 
         The counterpart of _bind_solver_matrices for the group-wise updater:
         _prepare_group_matrices already holds everything invariant, so the only
-        tensor read here is the current (error-corrected) weight.
+        tensors read here are the current (error-corrected) weight and this
+        group's slice of the zero point.
+
+        The group is solved as a channel of width group_size, so an integer zero
+        point gives it a local grid of one row per channel ([B, L]) and a free
+        offset a zero point of shape [B, 1] -- exactly what the per-channel sweeps
+        take.
         """
+        unscaled_grid = self.grid
+        zero_point = None
+        if self.zero_point_kind == ZeroPointKind.INT_ZERO_POINT:
+            unscaled_grid = translate_grid_by_zero_point(
+                self.grid, self.integer_zero_point[:, group_idx])
+        elif self.zero_point_kind == ZeroPointKind.FREE_OFFSET:
+            zero_point = self.zero_point[:, group_idx]
+
         bound = partial(
             self._group_solver_fn,
-            unscaled_grid=self.grid,
+            unscaled_grid=unscaled_grid,
             eps=self.tolerance,
-            allow_negative_s=self.allow_negative_s)
+            allow_negative_s=self.allow_negative_s,
+            zero_point=zero_point)
 
         if self._group_strategy == 'group-diag':
             # H is diagonal → no cross-group correlations → use fast O(DL) algorithm
