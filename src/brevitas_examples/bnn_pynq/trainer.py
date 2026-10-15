@@ -346,7 +346,7 @@ class Trainer(object):
         # training ends
         if not self.args.dry_run:
             best_path = os.path.join(self.checkpoints_dir_path, "best.tar")
-            if self.args.export_qonnx or self.args.export_qonnx:
+            if self.args.export_qonnx or self.args.export_qcdq_onnx:
                 self.model = self.load_checkpoint(self.model, best_path, strict=True)
             if self.args.export_qonnx:
                 self.export_qonnx()
