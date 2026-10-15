@@ -10,9 +10,9 @@ Two levels of detail are provided:
 
 - ``mode="compact"`` summarizes each quantized layer with one weight and one
   activation line. It suits the fixed-format integer workflow.
-- ``mode="detailed"`` reports the per-channel minifloat format (``ExMx``) for
-  weights and the per-tensor format for activations. It suits the learned
-  minifloat workflow. Weights show the first few channel formats followed by
+- ``mode="detailed"`` reports per-channel integer bit widths for weights and
+  the per-tensor bit width for activations. It suits the learned integer
+  workflow. Weights show the first few channel widths followed by
   ``...`` when there are more.
 
 Two orientations are provided:
@@ -60,11 +60,10 @@ class _Block:
         return max((len(row) for row in self.rows()), default=0)
 
 
-def _format_minifloat(exponent_bit_width, mantissa_bit_width) -> str:
-    """Return an ``ExMx`` label from scalar exponent/mantissa bit-widths."""
-    exponent = int(round(float(exponent_bit_width)))
-    mantissa = int(round(float(mantissa_bit_width)))
-    return f'E{exponent}M{mantissa}'
+def _format_integer(bit_width, signed) -> str:
+    """Return an ``INTn`` or ``UINTn`` label from a scalar bit width."""
+    prefix = 'INT' if signed else 'UINT'
+    return f'{prefix}{int(round(float(bit_width)))}'
 
 
 def _as_flat_list(tensor) -> list:
@@ -72,12 +71,6 @@ def _as_flat_list(tensor) -> list:
     if isinstance(tensor, torch.Tensor):
         return tensor.detach().cpu().flatten().tolist()
     return [tensor]
-
-
-def _is_float_quant(quant_tensor) -> bool:
-    """A minifloat quant-tensor exposes exponent and mantissa bit-widths."""
-    return hasattr(quant_tensor, 'exponent_bit_width') and hasattr(
-        quant_tensor, 'mantissa_bit_width')
 
 
 def _weight_detail_lines(module, detailed: bool) -> list:
@@ -88,43 +81,30 @@ def _weight_detail_lines(module, detailed: bool) -> list:
     granularity = 'per-output-channel' if per_channel else 'per-tensor'
 
     if not detailed:
-        if _is_float_quant(quant_weight):
-            exponents = _as_flat_list(quant_weight.exponent_bit_width)
-            mantissas = _as_flat_list(quant_weight.mantissa_bit_width)
-            fmt = _format_minifloat(exponents[0], mantissas[0])
-            return [f'weight: {fmt}, {granularity}']
-        bit_width = int(round(float(quant_weight.bit_width)))
-        sign = 'INT' if bool(quant_weight.signed) else 'UINT'
-        return [f'weight: {sign}{bit_width}, {granularity}']
+        bit_widths = _as_flat_list(quant_weight.bit_width)
+        if len(bit_widths) == 1 or len(set(bit_widths)) == 1:
+            fmt = _format_integer(bit_widths[0], quant_weight.signed)
+        else:
+            prefix = 'INT' if quant_weight.signed else 'UINT'
+            minimum = int(round(min(bit_widths)))
+            maximum = int(round(max(bit_widths)))
+            fmt = f'mixed {prefix}{minimum}-{prefix}{maximum}'
+        return [f'weight: {fmt}, {granularity}']
 
-    # Detailed mode reports one ExMx label per output channel.
-    exponents = _as_flat_list(quant_weight.exponent_bit_width)
-    mantissas = _as_flat_list(quant_weight.mantissa_bit_width)
-    channel_count = max(len(exponents), len(mantissas))
-    if len(exponents) == 1:
-        exponents = exponents * channel_count
-    if len(mantissas) == 1:
-        mantissas = mantissas * channel_count
-
+    bit_widths = _as_flat_list(quant_weight.bit_width)
     formats = [
-        _format_minifloat(exponents[channel], mantissas[channel])
-        for channel in range(min(channel_count, _MAX_WEIGHT_CHANNELS))]
-    if channel_count > _MAX_WEIGHT_CHANNELS:
+        _format_integer(bit_width, quant_weight.signed)
+        for bit_width in bit_widths[:_MAX_WEIGHT_CHANNELS]]
+    if len(bit_widths) > _MAX_WEIGHT_CHANNELS:
         formats.append('...')
     return [f'weights: {", ".join(formats)}']
 
 
 def _activation_detail_lines(module, detailed: bool) -> list:
     """Describe the activation quantizer of an activation layer."""
-    if not detailed:
-        bit_width = int(round(float(module.act_quant.bit_width())))
-        sign = 'INT' if module.act_quant.is_signed else 'UINT'
-        return [f'activation: {sign}{bit_width}, per-tensor']
-
-    exponent = module.act_quant.exponent_bit_width()
-    mantissa = module.act_quant.mantissa_bit_width()
-    fmt = _format_minifloat(exponent, mantissa)
-    return [f'activation: {fmt}']
+    fmt = _format_integer(module.act_quant.bit_width(), module.act_quant.is_signed)
+    suffix = '' if detailed else ', per-tensor'
+    return [f'activation: {fmt}{suffix}']
 
 
 def _input_quant_lines(module, detailed: bool) -> list:
@@ -137,12 +117,9 @@ def _input_quant_lines(module, detailed: bool) -> list:
     input_quant = getattr(module, 'input_quant', None)
     if input_quant is None or not input_quant.is_quant_enabled:
         return []
-    if detailed:
-        fmt = _format_minifloat(input_quant.exponent_bit_width(), input_quant.mantissa_bit_width())
-        return [f'input: {fmt}']
-    bit_width = int(round(float(input_quant.bit_width())))
-    sign = 'INT' if input_quant.is_signed else 'UINT'
-    return [f'input: {sign}{bit_width}, per-tensor']
+    fmt = _format_integer(input_quant.bit_width(), input_quant.is_signed)
+    suffix = '' if detailed else ', per-tensor'
+    return [f'input: {fmt}{suffix}']
 
 
 def _rounding_name(module) -> str | None:
@@ -280,7 +257,7 @@ def draw_network(model, title=None, mode='compact', orientation='vertical'):
         model: a PyTorch module, optionally containing Brevitas quant layers.
         title: optional heading printed above the diagram.
         mode: ``"compact"`` for one summary line per quantizer, or
-            ``"detailed"`` for per-channel ``ExMx`` weight formats.
+            ``"detailed"`` for per-channel integer weight bit widths.
         orientation: ``"vertical"`` to stack top to bottom, or ``"horizontal"``
             to read left to right with an optional skip lane above the path.
     """
@@ -290,9 +267,28 @@ def draw_network(model, title=None, mode='compact', orientation='vertical'):
         raise ValueError("orientation must be 'vertical' or 'horizontal'")
     detailed = mode == 'detailed'
 
-    blocks, skips = _graph_blocks(model, detailed)
-    if blocks is None:
-        blocks, skips = _sequential_blocks(model, detailed), {}
+    modules = list(model.modules())
+    training_states = [(module, module.training) for module in modules]
+    tensor_states = [
+        (tensor, tensor.detach().clone()) for tensor in (*model.parameters(), *model.buffers())]
+    quantizer_attributes = [(module, name, getattr(module, name))
+                            for module in modules
+                            for name in ('init_done', 'counter')
+                            if hasattr(module, name)]
+    model.eval()
+    try:
+        with torch.no_grad():
+            blocks, skips = _graph_blocks(model, detailed)
+            if blocks is None:
+                blocks, skips = _sequential_blocks(model, detailed), {}
+    finally:
+        with torch.no_grad():
+            for tensor, value in tensor_states:
+                tensor.copy_(value)
+        for module, name, value in quantizer_attributes:
+            setattr(module, name, value)
+        for module, training in training_states:
+            module.training = training
 
     if orientation == 'vertical':
         _render_vertical(blocks, skips, title)
