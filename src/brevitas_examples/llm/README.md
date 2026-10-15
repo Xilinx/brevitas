@@ -16,7 +16,7 @@ When using `--optimize-rotations`, the rotation training procedure relies on the
 
 ```bash
 usage: main.py [-h] [--config CONFIG] [--model MODEL] [--dtype {auto,float32,float16,bfloat16}] [--seed SEED] [--nsamples NSAMPLES] [--nsamples-rot-calibration NSAMPLES_ROT_CALIBRATION] [--seqlen SEQLEN]
-               [--eval] [--dataset {wikitext2,c4,pile}] [--gpxq-block-name GPXQ_BLOCK_NAME] [--weight-bit-width WEIGHT_BIT_WIDTH] [--weight-param-method {stats,mse,hqo}]
+               [--eval] [--dataset {wikitext2,c4,pile,fineweb,tulu3_sft}] [--gpxq-block-name GPXQ_BLOCK_NAME] [--weight-bit-width WEIGHT_BIT_WIDTH] [--weight-param-method {stats,mse,hqo}]
                [--weight-scale-precision {float_scale,po2_scale}] [--weight-quant-type {sym,asym}] [--weight-quant-format WEIGHT_QUANT_FORMAT] [--weight-quant-granularity {per_channel,per_tensor,per_group}]
                [--scale-rounding-func-type {round,ceil,floor}] [--weight-group-dim {1,0}] [--weight-group-size WEIGHT_GROUP_SIZE] [--quantize-weight-zero-point] [--input-bit-width INPUT_BIT_WIDTH]
                [--input-quant-format INPUT_QUANT_FORMAT] [--input-param-method {stats,mse}] [--input-scale-precision {float_scale,po2_scale}] [--input-scale-type {static,dynamic,no_scale}]
@@ -47,7 +47,7 @@ options:
                         Number of calibration data samples for rotation. Default: 800.
   --seqlen SEQLEN       Sequence length. Default: 2048.
   --eval                Eval model PPL on the chosen Dataset.
-  --dataset {wikitext2,c4,pile}
+  --dataset {wikitext2,c4,pile,fineweb,tulu3_sft}
                         Dataset to use for quantization (default: wikitext2)
   --gpxq-block-name GPXQ_BLOCK_NAME
                         Block name for faster GPxQ optimization. It works only if FX is not needed (default: None)

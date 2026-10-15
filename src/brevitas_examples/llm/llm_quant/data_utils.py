@@ -47,6 +47,8 @@ from transformers import AutoConfig
 from brevitas_examples.llm.llm_quant.data import get_clm_dataset
 from brevitas_examples.llm.llm_quant.data import get_wikitext2
 from brevitas_examples.llm.llm_quant.data import load_raw_dataset
+from brevitas_examples.llm.llm_quant.data import render_chat_template
+from brevitas_examples.llm.llm_quant.data import SFT_CHAT_DATASETS
 
 
 def collate_batch(examples: List[Dict[str, List[np.ndarray]]]) -> Dict[str, torch.Tensor]:
@@ -133,8 +135,8 @@ def get_dataset_for_model(
     torch.random.manual_seed(seed)
 
     test_splits = ["validation", "test"]
-    # Pile and fineweb does not have a test section
-    testless_datasets = ['pile', 'fineweb']
+    # Pile, fineweb, and chat-formatted SFT datasets do not have a test split.
+    testless_datasets = ['pile', 'fineweb', *SFT_CHAT_DATASETS]
 
     if split not in ["train", *test_splits]:
         raise ValueError(f"The split need to be 'train' or 'validation' but found {split}")
@@ -157,6 +159,28 @@ def get_dataset_for_model(
             add_bos_token=(bos_preprocessing == "sequence" and tokenizer.bos_token_id is not None),
             seed=seed)
     else:
+        # Chat-formatted SFT datasets are rendered through the model's chat
+        # template before tokenization. The template inserts its own BOS and
+        # role markers; sequence/document-level BOS preprocessing on top would
+        # produce a double-BOS that the model never sees during inference,
+        # so we require the caller to set bos_preprocessing=None explicitly
+        # (fail-loud rather than silently override). fuse_documents is forced
+        # to True because most Tulu-3 conversations are shorter than seqlen
+        # and group_texts would otherwise silently drop them; this knob is
+        # not exposed via CLI/YAML so the assignment is purely defensive.
+        if dataset_name in SFT_CHAT_DATASETS:
+            if bos_preprocessing is not None:
+                raise ValueError(
+                    f"Dataset {dataset_name!r} is chat-formatted; its chat "
+                    "template already inserts BOS markers. Set "
+                    "bos_preprocessing=None (YAML: 'bos_preprocessing: null') "
+                    "to avoid a double-BOS that the model would not see "
+                    "during inference.")
+            raw_dataset = raw_dataset.map(
+                partial(render_chat_template, tokenizer=tokenizer),
+                remove_columns=raw_dataset.column_names,
+                desc=f"Rendering {dataset_name} via chat template")
+            fuse_documents = True
         dataset = get_clm_dataset(
             raw_dataset=raw_dataset,
             tokenizer=tokenizer,
