@@ -23,11 +23,9 @@ from brevitas.graph.piso.utils import _set_base_zero_point
 from brevitas.graph.piso.utils import _weight_zero_point
 from brevitas.graph.piso.utils import classify_weight_quant
 from brevitas.graph.piso.utils import compute_group_importance_permutation
-from brevitas.graph.piso.utils import FREE_OFFSET
-from brevitas.graph.piso.utils import INT_ZERO_POINT
 from brevitas.graph.piso.utils import make_fp_grid
 from brevitas.graph.piso.utils import make_int_grid
-from brevitas.graph.piso.utils import SYMMETRIC
+from brevitas.graph.piso.utils import ZeroPointKind
 from brevitas.inject.enum import ScalingImplType
 import brevitas.nn as qnn
 from brevitas.quant.float_quant_ocp import Fp8e4m3OCPWeightPerChannelFloat
@@ -307,9 +305,9 @@ def _calibrated_linear(weight_quant, out_features=4, in_features=16):
 @pytest.mark.parametrize(
     "weight_quant,expected",
     [
-        (Int8WeightPerChannelFloat, SYMMETRIC),
-        (_IntZeroPointPerChannel, INT_ZERO_POINT),
-        (_IntZeroPointGroup, INT_ZERO_POINT),])
+        (Int8WeightPerChannelFloat, ZeroPointKind.SYMMETRIC),
+        (_IntZeroPointPerChannel, ZeroPointKind.INT_ZERO_POINT),
+        (_IntZeroPointGroup, ZeroPointKind.INT_ZERO_POINT),])
 def test_classify_weight_quant(weight_quant, expected):
     layer = _calibrated_linear(weight_quant)
     assert classify_weight_quant(layer.weight_quant) == expected
@@ -331,7 +329,7 @@ def test_classify_weight_quant_free_offset():
     """GGUF K-quants quantize the min independently of the scale."""
     gguf = _gguf_quantizers()
     layer = _calibrated_linear(gguf.GGUFQ4_KWeightQuant, out_features=2, in_features=256)
-    assert classify_weight_quant(layer.weight_quant) == FREE_OFFSET
+    assert classify_weight_quant(layer.weight_quant) == ZeroPointKind.FREE_OFFSET
 
 
 @pytest.mark.parametrize("weight_quant", [Int8WeightPerChannelFloat, _IntZeroPointPerChannel])
@@ -372,5 +370,5 @@ def test_stats_from_parameter_zero_point_is_not_writable():
     every forward, so a written value would be discarded; they must not report a
     writable base zero point."""
     layer = _calibrated_linear(ShiftedUint8WeightPerChannelFloat)
-    assert classify_weight_quant(layer.weight_quant) == INT_ZERO_POINT
+    assert classify_weight_quant(layer.weight_quant) == ZeroPointKind.INT_ZERO_POINT
     assert not _has_base_zero_point(layer)

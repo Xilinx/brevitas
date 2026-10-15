@@ -43,21 +43,16 @@ from brevitas.graph.piso.solvers import SCALE_SOLVER_REGISTRY
 from brevitas.graph.piso.solvers import translate_grid_by_zero_point
 from brevitas.graph.piso.utils import _build_grid
 from brevitas.graph.piso.utils import _get_base_scale
-from brevitas.graph.piso.utils import _grid_threshold
 from brevitas.graph.piso.utils import _has_base_scale
 from brevitas.graph.piso.utils import _has_base_zero_point
 from brevitas.graph.piso.utils import _is_float_weight_quant
 from brevitas.graph.piso.utils import _is_int_weight_quant
-from brevitas.graph.piso.utils import _quant_threshold
+from brevitas.graph.piso.utils import _resolve_quantizer_config
 from brevitas.graph.piso.utils import _set_base_scale
 from brevitas.graph.piso.utils import _set_base_zero_point
-from brevitas.graph.piso.utils import _weight_offset
-from brevitas.graph.piso.utils import _weight_zero_point
 from brevitas.graph.piso.utils import classify_weight_quant
 from brevitas.graph.piso.utils import compute_group_importance_permutation
-from brevitas.graph.piso.utils import FREE_OFFSET
-from brevitas.graph.piso.utils import INT_ZERO_POINT
-from brevitas.graph.piso.utils import SYMMETRIC
+from brevitas.graph.piso.utils import ZeroPointKind
 from brevitas.graph.qronos import Qronos
 from brevitas.graph.utils import is_quant_module
 from brevitas.utils.torch_utils import StopFwdException
@@ -181,9 +176,10 @@ class ScaleOptimizer:
         # Generate unscaled grid in intX or float_eXmY. allow_negative_s is derived
         # from the native (untranslated) grid; asymmetric quant is positive-only.
         grid = _build_grid(layer, dtype=H.dtype, device=H.device)
-        (quant_type, zero_point, integer_zero_point, threshold,
-         allow_negative_s) = self._resolve_quantizer_config(layer, grid)
-        if quant_type == INT_ZERO_POINT:
+        (zero_point_kind, zero_point, integer_zero_point, threshold,
+         allow_negative_s) = _resolve_quantizer_config(
+             layer, grid, self.solver_dtype, self.solver_device)
+        if zero_point_kind == ZeroPointKind.INT_ZERO_POINT:
             grid = translate_grid_by_zero_point(grid, integer_zero_point)
 
         # Allocate params if offloaded (e.g., meta device with accelerate). A caller
@@ -227,7 +223,7 @@ class ScaleOptimizer:
         # re-pinned to m = scale * z, so that z = round(m / scale) is preserved
         # across the change of scale.
         _set_base_scale(layer, optimal_s * threshold)
-        if quant_type == INT_ZERO_POINT:
+        if zero_point_kind == ZeroPointKind.INT_ZERO_POINT:
             _set_base_zero_point(layer, optimal_s * integer_zero_point)
 
         # Offload params back to free memory
@@ -238,42 +234,6 @@ class ScaleOptimizer:
         del H
         if G is not None:
             del G
-
-    def _resolve_quantizer_config(
-        self, layer: nn.Module, grid: torch.Tensor
-    ) -> Tuple[str, Optional[torch.Tensor], Optional[torch.Tensor], torch.Tensor, bool]:
-        """Everything the sweep and the write-back need from layer's quantizer.
-
-        Returns (quant_type, zero_point, integer_zero_point, threshold,
-        allow_negative_s): how the quantizer represents its zero point, the two
-        tensors that representation implies, the factor the solved scale is stored
-        in, and whether negative scales may be searched. Both updaters resolve
-        this the same way and differ only in when the grid is translated: the
-        layer-level one does it once at the call site, the group-wise one per
-        group as it reaches them.
-
-        An integer zero point z translates the grid to {0..M} - z, one row per
-        scale entry, and leaves the weights untouched; its threshold must come
-        from the quantizer, since the translated grid's extreme is max(z, M - z).
-        A free offset keeps the native grid and is handed to the solver, which adds
-        the z q^T H 1 term -- exact for any G, unlike shifting the weights (see the
-        note in solvers/piso.py). Both are positive-scale only.
-        """
-        weight_quant = layer.weight_quant
-        quant_type = classify_weight_quant(weight_quant)
-
-        allow_negative_s = (not weight_quant.restrict_scale_positive and bool(grid[-1] != -grid[0]))
-        threshold = _grid_threshold(grid, weight_quant)
-        zero_point = integer_zero_point = None
-
-        if quant_type == INT_ZERO_POINT:
-            integer_zero_point = self.cast_to_solver_dtype_device(_weight_zero_point(weight_quant))
-            threshold = _quant_threshold(layer)
-            allow_negative_s = False
-        elif quant_type == FREE_OFFSET:
-            zero_point = self.cast_to_solver_dtype_device(_weight_offset(weight_quant))
-            allow_negative_s = False
-        return quant_type, zero_point, integer_zero_point, threshold, allow_negative_s
 
     def _warn_ignored_options(self, is_group: bool, use_diag: bool) -> None:
         """Warn when per_group_greedy is set but ignored (diagonal H, or
@@ -433,18 +393,18 @@ class ScaleOptimizer:
                     "Skipping scale optimization: only int and float weight quantizers are "
                     "supported.")
                 return False
-            quant_type = classify_weight_quant(weight_quant)
-            if quant_type == SYMMETRIC:
+            zero_point_kind = classify_weight_quant(weight_quant)
+            if zero_point_kind == ZeroPointKind.SYMMETRIC:
                 if not weight_quant.is_signed:
                     warnings.warn(
                         "Skipping scale optimization: symmetric int weight quantizer must be "
                         "signed.")
                     return False
-            elif quant_type == FREE_OFFSET:
+            elif zero_point_kind == ZeroPointKind.FREE_OFFSET:
                 # The zero point does not depend on the scale and is never rewritten,
                 # so there is no requirement beyond it being readable.
                 pass
-            elif quant_type == INT_ZERO_POINT:
+            elif zero_point_kind == ZeroPointKind.INT_ZERO_POINT:
                 if weight_quant.is_signed:
                     # Re-pinning z assumes m = scale * z, i.e. min_int == 0.
                     warnings.warn(
@@ -548,11 +508,12 @@ class ScaleOptimizerGroupInterleaved(ScaleOptimizer):
             _build_grid(layer, dtype=H.dtype, device=H.device))
         self.group_size = weight_quant.group_size
         (
-            self.quant_type,
+            self.zero_point_kind,
             self.zero_point,
             self.integer_zero_point,
             self.threshold,
-            self.allow_negative_s) = self._resolve_quantizer_config(layer, self.grid)
+            self.allow_negative_s) = _resolve_quantizer_config(
+                layer, self.grid, self.solver_dtype, self.solver_device)
 
         # Which solver runs depends only on flags fixed at construction, so resolve
         # it once and prepare exactly the matrices it consumes.
@@ -609,7 +570,7 @@ class ScaleOptimizerGroupInterleaved(ScaleOptimizer):
             return
         self._enabled = False
 
-        del self.quant_type
+        del self.zero_point_kind
         del self.integer_zero_point
         del self.zero_point
         del self.layer
@@ -656,7 +617,7 @@ class ScaleOptimizerGroupInterleaved(ScaleOptimizer):
         # scale, exactly as the layer-level updater does.
         index = (slice(None), incoming_group_idx)
         _set_base_scale(self.layer, optimal_s * self.threshold, index=index)
-        if self.quant_type == INT_ZERO_POINT:
+        if self.zero_point_kind == ZeroPointKind.INT_ZERO_POINT:
             _set_base_zero_point(
                 self.layer, optimal_s * self.integer_zero_point[:, incoming_group_idx], index=index)
 
@@ -675,10 +636,10 @@ class ScaleOptimizerGroupInterleaved(ScaleOptimizer):
         """
         unscaled_grid = self.grid
         zero_point = None
-        if self.quant_type == INT_ZERO_POINT:
+        if self.zero_point_kind == ZeroPointKind.INT_ZERO_POINT:
             unscaled_grid = translate_grid_by_zero_point(
                 self.grid, self.integer_zero_point[:, group_idx])
-        elif self.quant_type == FREE_OFFSET:
+        elif self.zero_point_kind == ZeroPointKind.FREE_OFFSET:
             zero_point = self.zero_point[:, group_idx]
 
         bound = partial(
