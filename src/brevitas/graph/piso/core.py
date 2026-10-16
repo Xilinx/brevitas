@@ -39,19 +39,29 @@ from brevitas.graph.calibrate import QuantizationStatusManager
 from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gpxq import process_layer_input
 from brevitas.graph.layerwise_hook import layerwise_hook_mode
+from brevitas.graph.piso.solvers import _piso_sweep_per_group_diag
 from brevitas.graph.piso.solvers import SCALE_SOLVER_REGISTRY
 from brevitas.graph.piso.solvers import translate_grid_by_zero_point
+from brevitas.graph.piso.solvers.common import build_quant_scale_problem
 from brevitas.graph.piso.utils import _build_grid
+from brevitas.graph.piso.utils import _build_quant_scale_grid
 from brevitas.graph.piso.utils import _get_base_scale
+from brevitas.graph.piso.utils import _get_macro_scale
+from brevitas.graph.piso.utils import _get_macro_scale_threshold
 from brevitas.graph.piso.utils import _has_base_scale
 from brevitas.graph.piso.utils import _has_base_zero_point
+from brevitas.graph.piso.utils import _has_macro_scale
 from brevitas.graph.piso.utils import _is_float_weight_quant
 from brevitas.graph.piso.utils import _is_int_weight_quant
+from brevitas.graph.piso.utils import _quant_scale_structure
 from brevitas.graph.piso.utils import _resolve_quantizer_config
 from brevitas.graph.piso.utils import _set_base_scale
 from brevitas.graph.piso.utils import _set_base_zero_point
+from brevitas.graph.piso.utils import _set_macro_scale
 from brevitas.graph.piso.utils import classify_weight_quant
 from brevitas.graph.piso.utils import compute_group_importance_permutation
+from brevitas.graph.piso.utils import has_quantized_scale
+from brevitas.graph.piso.utils import has_round_to_nearest_quant_scale
 from brevitas.graph.piso.utils import ZeroPointKind
 from brevitas.graph.qronos import Qronos
 from brevitas.graph.utils import is_quant_module
@@ -193,8 +203,9 @@ class ScaleOptimizer:
         # Select the solver and the arguments it expects (H/G dense, diagonal, or greedy)
         solver_fn, arg_kind = self._select_solver(is_group, use_diag, is_greedy)
 
-        # Prepare the input matrices for the solver (greedy also reorders the zero point)
-        H, G, W, zero_point, grid, _, inv_block_perm = self._prepare_matrices(
+        # Prepare the input matrices for the solver (greedy also reorders the zero
+        # point)
+        H, G, W, zero_point, grid, perm, inv_block_perm = self._prepare_matrices(
             H, G, W, is_group, is_greedy, n_channels, channel_size, group_size,
             zero_point=zero_point, grid=grid)
 
@@ -218,6 +229,28 @@ class ScaleOptimizer:
         if inv_block_perm is not None:
             optimal_s = optimal_s[:, inv_block_perm]
 
+        # A hierarchical quantizer cannot store optimal_s: it stores a macro scale
+        # and one integer code per group. Solving for that macro scale is the same
+        # PiSO problem one level up, so optimal_s is replaced by the floating-point
+        # scales the format will quantize, and the macro scale is written alongside.
+        if has_quantized_scale(layer):
+            # Macro scale optimization requires the column-position order; greedy
+            # permuted H/G/W/grid/zero_point, so undo it first. perm is None (and
+            # the restore a no-op) on the non-greedy paths
+            if perm is not None:
+                H, G, W, grid, zero_point = self._revert_group_greedy_permutation(
+                    H, G, W, grid, zero_point, perm, inv_block_perm, channel_size)
+            optimal_s, macro_scale = self._optimize_macro_scale(
+                layer, H, W, optimal_s, use_diag, batch_size)
+            # The stored scale carries the threshold factor, so the macro scale has
+            # to carry it too for the codes to come out unchanged; it is
+            # additionally stored multiplied by the code grid's own threshold.
+            macro_scale_threshold = _get_macro_scale_threshold(layer).to(
+                dtype=macro_scale.dtype, device=macro_scale.device)
+            _set_macro_scale(
+                layer, (macro_scale * threshold * macro_scale_threshold).reshape(
+                    _get_macro_scale(layer).shape))
+
         # Update the scale. optimal_s is the realized scale; the stored value is
         # scale * threshold. For an integer zero point the stored magnitude is also
         # re-pinned to m = scale * z, so that z = round(m / scale) is preserved
@@ -234,6 +267,65 @@ class ScaleOptimizer:
         del H
         if G is not None:
             del G
+
+    def _optimize_macro_scale(
+            self,
+            layer: nn.Module,
+            H: torch.Tensor,
+            W: torch.Tensor,
+            optimal_s: torch.Tensor,
+            use_diag: bool,
+            batch_size: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Solve for the macro scale of a hierarchical quantizer.
+
+        The format stores s = d * c, a macro scale d per super-block and an
+        integer code c per group, so the solved group scales are not directly
+        representable. build_quant_scale_problem turns that into the base problem
+        one level up -- the solved scales as the weights, the codes as the
+        assignment, the code grid as the grid -- which the diagonal group sweep
+        then solves. This is the llama.cpp-style reduction: the curvature is the
+        plain sum of the per-weight diagonal Hessian entries per group, so a dense
+        H is reduced through its own diagonal and the macro solve is always
+        diagonal regardless of hessian_mode.
+
+        The channel is folded into the solver's *group* axis (batch of one) rather
+        than its batch axis: the macro curvature is per channel, and the group axis
+        lets it be an ordinary 1-D diagonal.
+
+        Returns (fp_scale, macro_scale): the floating-point scales to store in
+        place of optimal_s (here optimal_s unchanged, the format rounds them onto
+        d * code) and the raw macro scale d of shape [n_channels, n_super_blocks].
+        The caller stores the macro scale (its parameter is separate, and it
+        carries the threshold factors).
+        """
+        n_groups, n_super_blocks = _quant_scale_structure(layer)
+        groups_per_super_block = n_groups // n_super_blocks
+        quant_scale_grid = _build_quant_scale_grid(layer, dtype=H.dtype, device=H.device)
+        n_channels = W.shape[0]
+        W = W.reshape(n_channels, n_groups, -1)
+        H = H.squeeze(0) if (not use_diag and H.dim() == 3) else H
+
+        macro_scale = torch.empty((n_channels, n_super_blocks), dtype=H.dtype, device=H.device)
+
+        with torch.inference_mode():
+            for i in range(0, n_channels, batch_size):
+                end = i + batch_size
+                scales, H_diag = build_quant_scale_problem(
+                    w_b=W[i:end],
+                    optimal_s=optimal_s[i:end],
+                    H=H,
+                    n_macro_blocks=n_super_blocks,
+                    use_diag=use_diag)
+                n_b = scales.shape[0]
+                d = _piso_sweep_per_group_diag(
+                    w_b=scales.reshape(1, n_b * n_super_blocks, groups_per_super_block),
+                    H_diag=H_diag,
+                    unscaled_grid=quant_scale_grid,
+                    eps=self.tolerance,
+                    allow_negative_s=False)
+                macro_scale[i:end] = d.reshape(n_b, n_super_blocks)
+
+        return optimal_s, macro_scale
 
     def _warn_ignored_options(self, is_group: bool, use_diag: bool) -> None:
         """Warn when per_group_greedy is set but ignored (diagonal H, or
@@ -299,6 +391,46 @@ class ScaleOptimizer:
             grid = grid[:, block_perm]
 
         return H, G, W, zero_point, grid, perm, inv_block_perm
+
+    def _revert_group_greedy_permutation(
+        self,
+        H: torch.Tensor,
+        G: Optional[torch.Tensor],
+        W: torch.Tensor,
+        grid: Optional[torch.Tensor],
+        zero_point: Optional[torch.Tensor],
+        perm: torch.Tensor,
+        inv_block_perm: torch.Tensor,
+        channel_size: int,
+    ) -> Tuple[torch.Tensor,
+               Optional[torch.Tensor],
+               torch.Tensor,
+               Optional[torch.Tensor],
+               Optional[torch.Tensor]]:
+        """Undo _apply_group_greedy_permutation on H/G/W/grid/zero_point.
+
+        The exact inverse: H/G/W were permuted by the column order perm (which
+        reorders both whole blocks and the weights within a block), while the
+        per-group grid and zero point were permuted by the block order. Applying
+        the inverse of each restores the natural (column-position) order, so
+        _revert_group_greedy_permutation(_apply_group_greedy_permutation(x)) == x.
+
+        W is accepted in the grouped layout [n_channels, n_groups, group_size]
+        that _prepare_matrices leaves it in and returned flat [n_channels,
+        channel_size]; the macro stage reshapes it as it needs.
+        """
+        inv_perm = torch.empty_like(perm)
+        inv_perm[perm] = torch.arange(len(perm), device=perm.device)
+
+        H = H[inv_perm][:, inv_perm]
+        if G is not None:
+            G = G[inv_perm][:, inv_perm]
+        W = W.reshape(W.shape[0], channel_size)[:, inv_perm]
+        if grid is not None and grid.dim() > 1:
+            grid = grid[:, inv_block_perm]
+        if zero_point is not None:
+            zero_point = zero_point[:, inv_block_perm]
+        return H, G, W, grid, zero_point
 
     def _select_solver(self, is_group: bool, use_diag: bool, is_greedy: bool):
         """Return (solver_fn, arg_kind) from the solver family for the config flags."""
@@ -380,6 +512,22 @@ class ScaleOptimizer:
                     "Skipping scale optimization: layer scale is not a "
                     "ParameterFromStatsFromParameterScaling.")
                 return False
+            if has_quantized_scale(layer):
+                if not _has_macro_scale(layer):
+                    # Without a writable macro scale the solved scales would be
+                    # silently re-quantized against the stale calibrated one.
+                    warnings.warn(
+                        "Skipping scale optimization: hierarchical weight quantizer must have a "
+                        "writable ParameterFromStatsFromParameterScaling macro scale.")
+                    return False
+                if not has_round_to_nearest_quant_scale(layer):
+                    # The sweep models round-to-nearest transitions only, so a
+                    # ceil/floor macro scale (shipped Q2_K) would be solved against
+                    # the wrong transitions.
+                    warnings.warn(
+                        "Skipping scale optimization: a hierarchical scale must pick its code "
+                        "with round-to-nearest, which is what the sweep's transitions model.")
+                    return False
             weight_quant = layer.weight_quant
             if _is_float_weight_quant(weight_quant):
                 # Float weight quantizers have no zero point to classify.

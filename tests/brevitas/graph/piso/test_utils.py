@@ -9,20 +9,28 @@ import torch
 from brevitas import config
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.graph.piso.utils import _build_grid
+from brevitas.graph.piso.utils import _build_quant_scale_grid
 from brevitas.graph.piso.utils import _get_base_scale
 from brevitas.graph.piso.utils import _get_base_zero_point
+from brevitas.graph.piso.utils import _get_macro_scale
+from brevitas.graph.piso.utils import _get_macro_scale_threshold
 from brevitas.graph.piso.utils import _grid_threshold
 from brevitas.graph.piso.utils import _has_base_scale
 from brevitas.graph.piso.utils import _has_base_zero_point
+from brevitas.graph.piso.utils import _has_macro_scale
 from brevitas.graph.piso.utils import _has_zero_zero_point
 from brevitas.graph.piso.utils import _is_float_weight_quant
 from brevitas.graph.piso.utils import _is_int_weight_quant
+from brevitas.graph.piso.utils import _quant_scale_structure
 from brevitas.graph.piso.utils import _quant_threshold
 from brevitas.graph.piso.utils import _set_base_scale
 from brevitas.graph.piso.utils import _set_base_zero_point
+from brevitas.graph.piso.utils import _set_macro_scale
 from brevitas.graph.piso.utils import _weight_zero_point
 from brevitas.graph.piso.utils import classify_weight_quant
 from brevitas.graph.piso.utils import compute_group_importance_permutation
+from brevitas.graph.piso.utils import has_quantized_scale
+from brevitas.graph.piso.utils import has_round_to_nearest_quant_scale
 from brevitas.graph.piso.utils import make_fp_grid
 from brevitas.graph.piso.utils import make_int_grid
 from brevitas.graph.piso.utils import ZeroPointKind
@@ -372,3 +380,115 @@ def test_stats_from_parameter_zero_point_is_not_writable():
     layer = _calibrated_linear(ShiftedUint8WeightPerChannelFloat)
     assert classify_weight_quant(layer.weight_quant) == ZeroPointKind.INT_ZERO_POINT
     assert not _has_base_zero_point(layer)
+
+
+# -----------------------------------------------------------------------------
+# Hierarchical (quantized) scales
+# -----------------------------------------------------------------------------
+GGUF_K_QUANTS = [
+    "GGUFQ2_KWeightQuant",
+    "GGUFQ3_KWeightQuant",
+    "GGUFQ4_KWeightQuant",
+    "GGUFQ5_KWeightQuant",
+    "GGUFQ6_KWeightQuant"]
+
+
+def _gguf_quantizers():
+    """The GGUF quantizer module, skipping when it cannot be exercised.
+
+    K-quants search the scale with a local loss (stats_op.evaluate_loss assigns
+    internal_candidate), which TorchScript cannot compile, so the quantizer
+    cannot even be built with JIT on.
+    """
+    if config.JIT_ENABLED:
+        pytest.skip("GGUF K-quant uses a local-loss search, which requires JIT to be disabled")
+    return pytest.importorskip("brevitas_examples.llm.gguf_export.base_quantizers")
+
+
+@pytest.mark.parametrize("quant_name", GGUF_K_QUANTS)
+def test_has_quantized_scale_detects_k_quants(quant_name):
+    """A K-quant stores its scale as macro scale * integer code."""
+    gguf = _gguf_quantizers()
+    layer = _calibrated_linear(getattr(gguf, quant_name), in_features=512)
+    assert has_quantized_scale(layer) is True
+    assert _has_macro_scale(layer) is True
+
+
+@pytest.mark.parametrize("quant_name", ["GGUFQ4_0WeightQuant", "GGUFQ4_1WeightQuant"])
+def test_has_quantized_scale_rejects_flat_quantizers(quant_name):
+    """Q4_0 / Q4_1 store the scale directly, with no quant level."""
+    gguf = _gguf_quantizers()
+    layer = _calibrated_linear(getattr(gguf, quant_name), in_features=512)
+    assert has_quantized_scale(layer) is False
+    assert _has_macro_scale(layer) is False
+
+
+def test_has_quantized_scale_rejects_plain_int():
+    layer = _calibrated_linear(_IntZeroPointPerChannel)
+    assert has_quantized_scale(layer) is False
+    assert _has_macro_scale(layer) is False
+
+
+@pytest.mark.parametrize("quant_name", GGUF_K_QUANTS)
+def test_quant_scale_grid_matches_the_scale_quantizer(quant_name):
+    """The code grid must be the grid the nested quantizer actually rounds onto,
+    and its threshold must agree with the quantizer's own integer threshold."""
+    gguf = _gguf_quantizers()
+    layer = _calibrated_linear(getattr(gguf, quant_name), in_features=512)
+    quant_scale_grid = _build_quant_scale_grid(layer, torch.float64, torch.device('cpu'))
+    assert quant_scale_grid.ndim == 1 and bool(
+        torch.all(quant_scale_grid[1:] > quant_scale_grid[:-1]))
+    # _get_macro_scale_threshold reads the quantizer; the grid is built independently, so
+    # agreement is a real cross-check of the bit width and signedness.
+    assert quant_scale_grid.abs().max() == _get_macro_scale_threshold(layer)
+
+
+@pytest.mark.parametrize("quant_name", GGUF_K_QUANTS)
+def test_quant_scale_structure_matches_stored_shapes(quant_name):
+    gguf = _gguf_quantizers()
+    layer = _calibrated_linear(getattr(gguf, quant_name), in_features=512)
+    n_groups, n_super_blocks = _quant_scale_structure(layer)
+    assert _get_base_scale(layer).shape[1] == n_groups
+    assert _get_macro_scale(layer).shape[1] == n_super_blocks
+    assert n_groups % n_super_blocks == 0
+    # One super-block spans QK_K = 256 columns, so the group count follows.
+    assert n_groups * layer.weight_quant.group_size == 512
+
+
+def test_set_macro_scale_writes_through():
+    gguf = _gguf_quantizers()
+    layer = _calibrated_linear(gguf.GGUFQ4_KWeightQuant, in_features=512)
+    target = _get_macro_scale(layer).clone() * 0.5
+    _set_macro_scale(layer, target)
+    assert torch.equal(_get_macro_scale(layer), target)
+
+
+def test_set_macro_scale_rejects_a_flat_quantizer():
+    layer = _calibrated_linear(_IntZeroPointPerChannel)
+    with pytest.raises(RuntimeError, match="macro scale"):
+        _set_macro_scale(layer, torch.zeros(1))
+
+
+@pytest.mark.parametrize("quant_name", GGUF_K_QUANTS)
+def test_round_to_nearest_quant_scale_detection(quant_name):
+    """K-quant macro scales use round-to-nearest, except the shipped Q2_K, which
+    rounds its sub-block codes with ceil/floor and so is reported unsupported."""
+    gguf = _gguf_quantizers()
+    layer = _calibrated_linear(getattr(gguf, quant_name), in_features=512)
+    expected = quant_name != "GGUFQ2_KWeightQuant"
+    assert has_round_to_nearest_quant_scale(layer) is expected
+
+
+def test_round_q2_k_variant_is_round_to_nearest():
+    """The round-to-nearest Q2_K variant replaces ceil/floor with round, making it
+    PiSO-optimizable while sharing the shipped Q2_K on-disk layout."""
+    gguf = _gguf_quantizers()
+    layer = _calibrated_linear(gguf.GGUFQ2_KRoundWeightQuant, in_features=512)
+    assert has_quantized_scale(layer) is True
+    assert has_round_to_nearest_quant_scale(layer) is True
+
+
+def test_round_to_nearest_quant_scale_true_for_flat_quantizer():
+    """A flat scale has no macro code to round, so it trivially qualifies."""
+    layer = _calibrated_linear(_IntZeroPointPerChannel)
+    assert has_round_to_nearest_quant_scale(layer) is True

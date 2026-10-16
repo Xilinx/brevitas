@@ -175,6 +175,56 @@ def translate_grid_by_zero_point(
     return unscaled_grid - z
 
 
+def build_quant_scale_problem(
+    w_b: torch.Tensor,
+    optimal_s: torch.Tensor,
+    H: torch.Tensor,
+    n_macro_blocks: int,
+    use_diag: bool = True,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Reduce a solved group-scale problem to the macro-scale problem above it.
+
+    A hierarchical (K-quant style) scale stores the group scale as s = d * c, with
+    c a small integer code and d one macro scale per macro block. Choosing d is
+    itself a PiSO problem -- the *same* problem, one level up -- with the solved
+    group scales in the role of the weights, the codes in the role of the
+    assignment and the code grid in the role of the quantization grid. This builds
+    that problem; the caller hands it to the diagonal group sweep.
+
+    This is the llama.cpp-style reduction (ggml-quants.c sw[j]): the per-group
+    curvature is the plain sum of the per-weight diagonal Hessian entries in the
+    group,
+
+        H_diag[j] = sum_{i in group j} H_ii,
+
+    dropping the dependence on the frozen codes, and the scales to quantize are the
+    solved group scales themselves. It is an approximation of the exact
+    frozen-assignment parabola, traded for simplicity and parity with llama.cpp.
+
+    Args:
+        w_b: weights of this channel batch, shape [B, K, group_size]. Only its
+            shape is read; the reduction no longer depends on the weights.
+        optimal_s: the base sweep's group scales, shape [B, K] or [B, K, 1].
+        H: Hessian; the diagonal [D] (or [1, D]) when use_diag, else dense [D, D].
+        n_macro_blocks: how many macro scales the channel carries. The group axis
+            is split into this many super-blocks, each with its own macro scale.
+        use_diag: whether H is already a diagonal. A dense H is reduced through its
+            own diagonal, so the macro curvature is the same either way.
+
+    Returns:
+        (scales, H_diag) for _piso_sweep_per_group_diag, with the channel folded
+        into the leading axis (see the note in ScaleOptimizer): scales is
+        [B, n_macro_blocks, K // n_macro_blocks] (the solved scales, unchanged) and
+        H_diag is the diagonal [B * K] of per-group curvatures.
+    """
+    batch_size, n_groups, group_size = w_b.shape
+    diagonal = H.reshape(-1) if use_diag else H.diagonal()
+    per_group = diagonal.reshape(n_groups, group_size).sum(-1)  # [K]
+    H_diag = per_group.broadcast_to(batch_size, n_groups).reshape(-1)  # [B * K]
+    scales = optimal_s.reshape(batch_size, n_macro_blocks, n_groups // n_macro_blocks)
+    return scales, H_diag
+
+
 def _piso_select_optimal(
         num: torch.Tensor,
         qHq: torch.Tensor,

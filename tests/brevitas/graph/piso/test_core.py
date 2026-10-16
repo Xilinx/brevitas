@@ -12,7 +12,14 @@ from brevitas import config
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.graph.piso.core import ScaleOptimizer
 from brevitas.graph.piso.core import ScaleOptimizerGroupInterleaved
+import brevitas.graph.piso.core as core
 from brevitas.graph.piso.solvers import PiSOSolverFamily
+from brevitas.graph.piso.utils import _build_grid
+from brevitas.graph.piso.utils import _get_macro_scale
+from brevitas.graph.piso.utils import _get_macro_scale_threshold
+from brevitas.graph.piso.utils import _grid_threshold
+from brevitas.graph.piso.utils import _quant_scale_structure
+from brevitas.graph.piso.utils import _scale_quant
 from brevitas.graph.piso.utils import _weight_zero_point
 from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
@@ -319,3 +326,258 @@ def test_free_offset_is_preserved_by_scale_update():
     before = _weight_offset(layer.weight_quant).clone()
     _optimize(layer, (x.T @ x).unsqueeze(0))
     assert torch.allclose(before, _weight_offset(layer.weight_quant), rtol=1e-5, atol=1e-8)
+
+
+# -----------------------------------------------------------------------------
+# Hierarchical scales: the macro stage
+# -----------------------------------------------------------------------------
+def _gguf_quantizers():
+    """The GGUF quantizer module, skipping when it cannot be exercised.
+
+    K-quants search the scale with a local loss (stats_op.evaluate_loss assigns
+    internal_candidate), which TorchScript cannot compile, so the quantizer
+    cannot even be built with JIT on.
+    """
+    if config.JIT_ENABLED:
+        pytest.skip("GGUF K-quant uses a local-loss search, which requires JIT to be disabled")
+    return pytest.importorskip("brevitas_examples.llm.gguf_export.base_quantizers")
+
+
+def _hierarchical_layer(weight_quant, in_features=512, seed=3):
+    torch.manual_seed(seed)
+    layer = qnn.QuantLinear(in_features, 4, bias=False, weight_quant=weight_quant)
+    with torch.no_grad():
+        layer.weight.normal_(0., 0.1)
+    layer.eval()
+    layer.weight_quant(layer.weight)
+    return layer
+
+
+def _hierarchical_error(layer, x, float_weight):
+    return ((x @ float_weight.T) - (x @ layer.quant_weight().value.T)).pow(2).sum().item()
+
+
+# The shipped Q2_K rounds its sub-block codes with ceil/floor, which the sweep's
+# midpoint transitions do not model, so the validity gate skips it (see
+# test_shipped_q2_k_ceil_macro_scale_is_skipped). The round-to-nearest variant is
+# the one that is actually optimized, so the macro tests exercise it instead.
+K_QUANT_NAMES = ["GGUFQ2_KRoundWeightQuant", "GGUFQ4_KWeightQuant", "GGUFQ6_KWeightQuant"]
+
+
+@pytest.mark.parametrize("quant_name", K_QUANT_NAMES)
+def test_macro_stage_makes_the_stored_scale_representable(quant_name):
+    """Without the macro stage the solved scale is silently re-rounded against a
+    stale macro scale. Afterwards the realized scale must be exactly d * code,
+    with the codes on the code grid."""
+    gguf = _gguf_quantizers()
+    layer = _hierarchical_layer(getattr(gguf, quant_name))
+    torch.manual_seed(7)
+    x = torch.randn(256, 512)
+    _optimize(layer, (x.T @ x).unsqueeze(0), hessian_mode='diagonal')
+
+    n_groups, n_super_blocks = _quant_scale_structure(layer)
+    grid = _build_grid(layer, torch.float32, torch.device('cpu'))
+    threshold = _grid_threshold(grid, layer.weight_quant)
+    macro_scale_threshold = _get_macro_scale_threshold(layer)
+    d = (_get_macro_scale(layer) / macro_scale_threshold / threshold).reshape(
+        4, n_super_blocks, 1, 1)
+    realized = layer.weight_quant.scale_().reshape(4, n_super_blocks, n_groups // n_super_blocks, 1)
+    codes = realized / d
+    assert torch.allclose(codes, codes.round(), atol=1e-4), "scale is not d * integer code"
+    assert bool((codes.abs() <= macro_scale_threshold + 1e-4).all()), "codes outside the code grid"
+    assert torch.allclose(realized, d * codes.round(), rtol=1e-5, atol=1e-12)
+
+
+@pytest.mark.parametrize("quant_name", K_QUANT_NAMES)
+@pytest.mark.parametrize("hessian_mode", ['diagonal', 'identity'])
+def test_macro_stage_improves_on_a_stale_macro_scale(quant_name, hessian_mode):
+    """The point of the stage: leaving the macro scale at its calibrated value
+    throws away most of what the sweep solved for.
+
+    Asserted in aggregate over several layers rather than per layer. Freezing the
+    weight assignment is an approximation -- it is an upper bound on the true
+    error only for a diagonal H with G = H -- so an individual layer can come out
+    marginally worse even though the stage is a clear win on average.
+    """
+    gguf = _gguf_quantizers()
+    torch.manual_seed(7)
+    x = torch.randn(256, 512)
+
+    def run(with_macro, seed):
+        layer = _hierarchical_layer(getattr(gguf, quant_name), seed=seed)
+        float_weight = layer.weight.detach().clone()
+        original = core.has_quantized_scale
+        if not with_macro:
+            core.has_quantized_scale = lambda _layer: False
+        try:
+            _optimize(layer, (x.T @ x).unsqueeze(0), hessian_mode=hessian_mode)
+        finally:
+            core.has_quantized_scale = original
+        return _hierarchical_error(layer, x, float_weight)
+
+    seeds = range(3, 11)
+    with_macro = [run(True, s) for s in seeds]
+    stale = [run(False, s) for s in seeds]
+    assert sum(with_macro) < sum(stale), (f"total error {sum(with_macro):.4f} vs {sum(stale):.4f}")
+
+
+def test_macro_stage_leaves_a_flat_quantizer_untouched():
+    """A quantizer that stores its scale directly must take exactly the path it
+    took before, macro scale or not."""
+    gguf = _gguf_quantizers()
+    torch.manual_seed(7)
+    x = torch.randn(256, 512)
+    scales = []
+    for with_macro in [True, False]:
+        layer = _hierarchical_layer(gguf.GGUFQ4_1WeightQuant)
+        original = core.has_quantized_scale
+        if not with_macro:
+            core.has_quantized_scale = lambda _layer: False
+        try:
+            _optimize(layer, (x.T @ x).unsqueeze(0), hessian_mode='diagonal')
+        finally:
+            core.has_quantized_scale = original
+        scales.append(layer.weight_quant.scale_().clone())
+    assert torch.equal(scales[0], scales[1])
+
+
+def test_hierarchical_layer_without_a_writable_macro_scale_is_skipped():
+    """A hierarchical quantizer whose macro scale cannot be written would have
+    its solved scales re-rounded against the stale one, so it is skipped."""
+    gguf = _gguf_quantizers()
+    layer = _hierarchical_layer(gguf.GGUFQ4_KWeightQuant)
+    scale_quant = _scale_quant(layer)
+    original = scale_quant.scaling_impl
+    scale_quant.scaling_impl = torch.nn.Identity()
+    try:
+        with pytest.warns(UserWarning, match="macro scale"):
+            assert not ScaleOptimizer.is_layer_valid(layer)
+    finally:
+        scale_quant.scaling_impl = original
+
+
+def test_shipped_q2_k_ceil_macro_scale_is_skipped():
+    """The shipped Q2_K rounds its sub-block codes with ceil/floor, which the
+    sweep's midpoint transitions do not model, so the validity gate skips it with
+    a warning rather than solving it against the wrong transitions."""
+    gguf = _gguf_quantizers()
+    layer = _hierarchical_layer(gguf.GGUFQ2_KWeightQuant)
+    with pytest.warns(UserWarning, match="round-to-nearest"):
+        assert not ScaleOptimizer.is_layer_valid(layer)
+
+
+# Only 'diagonal'/'identity': the dense per-group base sweep is not implemented by
+# this solver family, so a dense base solve raises NotImplementedError before the
+# macro stage is even reached.
+@pytest.mark.parametrize("hessian_mode", ['diagonal'])
+def test_round_q2_k_quant_stage_lowers_output_error(hessian_mode):
+    """The round-to-nearest Q2_K is the PiSO-optimizable counterpart of the
+    shipped (ceil/floor) Q2_K. Solving its macro scale must lower the output
+    reconstruction error versus leaving the macro scale at its calibrated value.
+
+    Asserted in aggregate over several layers: freezing the weight assignment is
+    an approximation, so an individual layer can come out marginally worse even
+    though the stage is a clear win on average.
+    """
+    gguf = _gguf_quantizers()
+    torch.manual_seed(7)
+    x = torch.randn(256, 512)
+
+    def run(with_macro, seed):
+        layer = _hierarchical_layer(gguf.GGUFQ2_KRoundWeightQuant, seed=seed)
+        float_weight = layer.weight.detach().clone()
+        original = core.has_quantized_scale
+        if not with_macro:
+            core.has_quantized_scale = lambda _layer: False
+        try:
+            _optimize(layer, (x.T @ x).unsqueeze(0), hessian_mode=hessian_mode)
+        finally:
+            core.has_quantized_scale = original
+        return _hierarchical_error(layer, x, float_weight)
+
+    seeds = range(3, 11)
+    with_macro = [run(True, s) for s in seeds]
+    stale = [run(False, s) for s in seeds]
+    assert sum(with_macro) < sum(stale), (f"total error {sum(with_macro):.4f} vs {sum(stale):.4f}")
+
+
+# -----------------------------------------------------------------------------
+# Greedy permutation round-trip: _revert_group_greedy_permutation inverts
+# _apply_group_greedy_permutation, so the macro stage sees the natural order.
+# -----------------------------------------------------------------------------
+@pytest.mark.parametrize("reorder", [True, False])
+@pytest.mark.parametrize("with_zero_point", [False, True])
+def test_revert_group_greedy_permutation_is_the_inverse(reorder, with_zero_point):
+    """Permuting H/G/W/grid/zero_point for the greedy sweep and then restoring
+    must return the original tensors exactly."""
+    torch.manual_seed(0)
+    n_channels, n_groups, group_size = 5, 4, 8
+    channel_size = n_groups * group_size
+
+    H = torch.randn(channel_size, channel_size)
+    H = H @ H.T  # symmetric, so the row/column permutation is well defined
+    G = torch.randn(channel_size, channel_size)
+    W = torch.randn(n_channels, channel_size)
+    # A per-group translated grid and a per-group zero point, as the asymmetric
+    # paths produce: one row per group so they ride the block permutation.
+    grid = torch.randn(n_channels, n_groups, 6) if with_zero_point else torch.arange(6.)
+    zero_point = torch.randn(n_channels, n_groups, 1) if with_zero_point else None
+
+    optimizer = ScaleOptimizer(
+        solver_device='cpu',
+        cross_act_objective=True,
+        per_group_greedy=True,
+        per_group_greedy_reorder=reorder)
+
+    H_p, G_p, W_p, zp_p, grid_p, perm, inv_block_perm = \
+        optimizer._apply_group_greedy_permutation(
+            H.clone(), G.clone(), W.clone(), group_size,
+            zero_point=None if zero_point is None else zero_point.clone(),
+            grid=grid.clone() if grid.dim() > 1 else grid)
+    # _prepare_matrices reshapes W into groups before the macro stage sees it.
+    W_p = W_p.reshape(n_channels, n_groups, group_size)
+
+    H_r, G_r, W_r, grid_r, zp_r = optimizer._revert_group_greedy_permutation(
+        H_p, G_p, W_p, grid_p, zp_p, perm, inv_block_perm, channel_size)
+
+    assert torch.equal(H_r, H)
+    assert torch.equal(G_r, G)
+    assert torch.equal(W_r, W)
+    if zero_point is None:
+        assert zp_r is None
+    else:
+        assert torch.equal(zp_r, zero_point)
+    if grid.dim() > 1:
+        assert torch.equal(grid_r, grid)
+
+
+@pytest.mark.parametrize("reorder", [True, False])
+def test_greedy_hierarchical_scale_is_representable(reorder):
+    """A hierarchical K-quant optimized with per_group_greedy still lands its
+    realized scale on d * code: the greedy permutation is undone before the macro
+    stage, so the super-blocks are solved in their natural column order."""
+    gguf = _gguf_quantizers()
+    layer = _hierarchical_layer(gguf.GGUFQ4_KWeightQuant)
+    torch.manual_seed(7)
+    x = torch.randn(256, 512)
+    try:
+        _optimize(
+            layer, (x.T @ x).unsqueeze(0),
+            hessian_mode='dense',
+            per_group_greedy=True,
+            per_group_greedy_reorder=reorder)
+    except NotImplementedError:
+        # The greedy / dense per-group base sweep is not implemented by this
+        # solver family; the macro stage cannot be reached without it.
+        pytest.skip("solver family does not implement the greedy per-group sweep")
+
+    n_groups, n_super_blocks = _quant_scale_structure(layer)
+    grid = _build_grid(layer, torch.float32, torch.device('cpu'))
+    threshold = _grid_threshold(grid, layer.weight_quant)
+    macro_scale_threshold = _get_macro_scale_threshold(layer)
+    d = (_get_macro_scale(layer) / macro_scale_threshold / threshold).reshape(
+        4, n_super_blocks, 1, 1)
+    realized = layer.weight_quant.scale_().reshape(4, n_super_blocks, n_groups // n_super_blocks, 1)
+    codes = realized / d
+    assert torch.allclose(codes, codes.round(), atol=1e-4), "scale is not d * integer code"
+    assert bool((codes.abs() <= macro_scale_threshold + 1e-4).all()), "codes outside the code grid"

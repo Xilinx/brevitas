@@ -22,6 +22,8 @@ from typing import Tuple
 import torch
 import torch.nn as nn
 
+from brevitas.core.function_wrapper import RoundSte
+from brevitas.core.restrict_val import QuantRestrictValue
 from brevitas.core.scaling.standalone import ParameterFromStatsFromParameterScaling
 from brevitas.core.zero_point import _ScaleShiftQuantZeroPoint
 from brevitas.core.zero_point import _ScaleShiftZeroPoint
@@ -297,6 +299,106 @@ def _resolve_quantizer_config(
         zero_point = _weight_offset(weight_quant).to(dtype).to(device)
         allow_negative_s = False
     return zero_point_kind, zero_point, integer_zero_point, threshold, allow_negative_s
+
+
+# -----------------------------------------------------------------------------
+# Hierarchical (quantized) scales.
+#
+# A hierarchical quantizer does not store the group scale exactly: it stores a
+# coarser macro scale d, shared by a super-block of groups, plus one integer code
+# c per group, and reconstructs s = d * c. In brevitas that is a nested quantizer
+# sitting in the scale's restrict-value slot, so the chain is
+#
+#   scaling_impl.value                                   <- group scales (float)
+#   scaling_impl...restrict_value_impl.float_to_int_impl  <- the scale quantizer
+#     .scaling_impl.value                                <- macro scale, as d * P
+#
+# with P the code grid's integer threshold (63 for a 6-bit unsigned code grid).
+# The accessors below mirror _get/_set_base_scale one level down.
+# -----------------------------------------------------------------------------
+
+
+def _scale_restrict_value_impl(layer: nn.Module) -> Optional[nn.Module]:
+    """The restrict-value impl applied to layer's stored scale, or None."""
+    scaling_impl = layer.weight_quant.tensor_quant.scaling_impl
+    stats_scaling_impl = getattr(scaling_impl, 'stats_scaling_impl', None)
+    restrict_clamp = getattr(stats_scaling_impl, 'restrict_clamp_scaling', None)
+    return getattr(restrict_clamp, 'restrict_value_impl', None)
+
+
+def has_quantized_scale(layer: nn.Module) -> bool:
+    """Whether layer's scale is itself quantized against a coarser macro scale."""
+    return isinstance(_scale_restrict_value_impl(layer), QuantRestrictValue)
+
+
+def _scale_quant(layer: nn.Module) -> nn.Module:
+    """The nested quantizer that maps the stored scale onto d * code."""
+    return _scale_restrict_value_impl(layer).float_to_int_impl
+
+
+def _has_macro_scale(layer: nn.Module) -> bool:
+    """Whether the macro scale is a writable parameter-from-stats scaling."""
+    if not has_quantized_scale(layer):
+        return False
+    return isinstance(_scale_quant(layer).scaling_impl, ParameterFromStatsFromParameterScaling)
+
+
+def has_round_to_nearest_quant_scale(layer: nn.Module) -> bool:
+    """Whether a hierarchical scale picks its code with round-to-nearest.
+
+    The sweep derives its transitions from grid midpoints, so it only models
+    round-to-nearest; a quantizer rounding the code up or down (as the shipped
+    Q2_K does, with ceil for the scale and floor for the min) would be solved
+    against the wrong transitions. is_layer_valid uses this to skip such layers
+    rather than optimize them incorrectly. A flat (non-hierarchical) scale has no
+    macro code to round, so it trivially qualifies.
+    """
+    if not has_quantized_scale(layer):
+        return True
+    return isinstance(_scale_quant(layer).int_quant.float_to_int_impl, RoundSte)
+
+
+def _get_macro_scale(layer: nn.Module) -> Optional[torch.Tensor]:
+    """Return the stored macro-scale Parameter (which holds d * P), or None."""
+    if not _has_macro_scale(layer):
+        return None
+    return _scale_quant(layer).scaling_impl.value
+
+
+@torch.no_grad()
+def _set_macro_scale(layer: nn.Module, value: torch.Tensor, index: Any = slice(None)) -> None:
+    """Write value into the stored macro-scale Parameter at index, in place."""
+    if not _has_macro_scale(layer):
+        raise RuntimeError(
+            "Cannot set macro scale: the scale quantizer's scaling impl is not a "
+            "ParameterFromStatsFromParameterScaling.")
+    _scale_quant(layer).scaling_impl.value[index] = value
+
+
+def _get_macro_scale_threshold(layer: nn.Module) -> torch.Tensor:
+    """Integer threshold P of the code grid: the largest representable code."""
+    scale_quant = _scale_quant(layer)
+    return scale_quant.int_scaling_impl(scale_quant.msb_clamp_bit_width_impl())
+
+
+def _build_quant_scale_grid(layer: nn.Module, dtype: torch.dtype, device: Any) -> torch.Tensor:
+    """Build the code grid G_c that layer's scale is quantized onto."""
+    int_quant = _scale_quant(layer).int_quant
+    grid = make_int_grid(
+        bit_width=int(_scale_quant(layer).msb_clamp_bit_width_impl().item()),
+        signed=bool(int_quant.signed),
+        narrow_range=bool(int_quant.narrow_range))
+    return torch.tensor(grid, dtype=dtype, device=device)
+
+
+def _quant_scale_structure(layer: nn.Module) -> Tuple[int, int]:
+    """(n_groups, n_super_blocks) of layer's hierarchical scale.
+
+    Both are read from the stored shapes rather than from the quantizer's block
+    constants, so a quantizer that lays its super-blocks out differently still
+    reduces correctly.
+    """
+    return _get_base_scale(layer).shape[1], _get_macro_scale(layer).shape[1]
 
 
 def compute_group_importance_permutation(

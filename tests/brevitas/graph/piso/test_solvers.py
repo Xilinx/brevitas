@@ -31,6 +31,7 @@ from brevitas.graph.piso.solvers import PiSOSolverFamily
 from brevitas.graph.piso.solvers import ScaleSolverFamily
 from brevitas.graph.piso.solvers import translate_grid_by_zero_point
 from brevitas.graph.piso.solvers.common import _piso_grid_deltas
+from brevitas.graph.piso.solvers.common import build_quant_scale_problem
 from brevitas.graph.piso.utils import make_fp_grid
 from brevitas.graph.piso.utils import make_int_grid
 
@@ -1578,3 +1579,96 @@ def test_chunked_handles_rows_with_no_negative_transition(grid_name):
         _chunked_piso_sweep_groups_sequential(**call),
         rtol=1e-6,
         atol=1e-9)
+
+
+# =============================================================================
+# Hierarchical scales: the macro problem is the base problem one level up. The
+# llama.cpp-style reduction uses the plain per-group sum of diag(H) as curvature
+# and keeps the solved scales as the weights, so it is solved by the *existing*
+# diagonal group sweep.
+# =============================================================================
+MACRO_B, MACRO_K, MACRO_GS, MACRO_NSB = 3, 8, 4, 2
+MACRO_D = MACRO_K * MACRO_GS
+
+
+def _macro_inputs(seed=11):
+    """A solved group-scale problem to reduce: weights, scales, grids, H."""
+    w = (random_weights(MACRO_B, MACRO_D, seed=seed) * 0.3).reshape(MACRO_B, MACRO_K, MACRO_GS)
+    code_grid = int_grid(6, signed=False)
+    H = spd_matrix(MACRO_D, seed=seed + 1)
+    optimal_s = (w.abs().amax(-1) / int_grid(4)[-1]).clamp_min(1e-6)
+    return w, optimal_s, code_grid, H
+
+
+@pytest.mark.parametrize("pass_diag", [False, True])
+def test_macro_problem_reduces_to_the_group_diagonal_sum(pass_diag):
+    """H_diag[j] is the plain sum of diag(H) over group j, whether H arrives dense
+    or already as its diagonal; scales are the solved scales, unchanged."""
+    w, optimal_s, _, H = _macro_inputs()
+    H_in = torch.diag(H) if pass_diag else H
+    scales, H_diag = build_quant_scale_problem(
+        w_b=w, optimal_s=optimal_s, H=H_in, n_macro_blocks=MACRO_NSB, use_diag=pass_diag)
+
+    expected = torch.diag(H).reshape(MACRO_K, MACRO_GS).sum(-1)  # [K]
+    assert torch.allclose(H_diag, expected.repeat(MACRO_B))
+    assert torch.equal(scales, optimal_s.reshape(MACRO_B, MACRO_NSB, MACRO_K // MACRO_NSB))
+
+
+def test_macro_curvature_ignores_the_codes():
+    """Unlike the exact q^T H q curvature, the sum-of-diagonals one does not depend
+    on the weights (hence on the frozen assignment) at all."""
+    w, optimal_s, _, H = _macro_inputs()
+    _, H_diag_a = build_quant_scale_problem(
+        w_b=w, optimal_s=optimal_s, H=H, n_macro_blocks=MACRO_NSB, use_diag=False)
+    _, H_diag_b = build_quant_scale_problem(
+        w_b=w * 7.0, optimal_s=optimal_s * 3.0, H=H, n_macro_blocks=MACRO_NSB, use_diag=False)
+    assert torch.equal(H_diag_a, H_diag_b)
+
+
+def _macro_objective(scales, d, H_diag, code_grid):
+    """The reduced macro objective sum_j H_diag[j] (s_j - d c_j)^2 per super-block.
+
+    scales and H_diag are [B, NSB, per_super_block]; d is [B, NSB].
+    """
+    c = torch.clamp(torch.round(scales / d.unsqueeze(-1)), code_grid[0], code_grid[-1])
+    return (H_diag * (c * d.unsqueeze(-1) - scales) ** 2).sum(-1)
+
+
+def test_macro_sweep_beats_a_grid_search_over_d():
+    """The reduction plus the diagonal sweep must reach the best macro scale on the
+    reduced (sum-of-diagonals) objective, checked against a dense grid search."""
+    w, optimal_s, code_grid, H = _macro_inputs()
+    scales, H_diag = build_quant_scale_problem(
+        w_b=w, optimal_s=optimal_s, H=H, n_macro_blocks=MACRO_NSB, use_diag=False)
+    per_super_block = MACRO_K // MACRO_NSB
+    d = _piso_sweep_per_group_diag(
+        w_b=scales.reshape(1, MACRO_B * MACRO_NSB, per_super_block),
+        H_diag=H_diag,
+        unscaled_grid=code_grid,
+        eps=SOLVER_EPS,
+        allow_negative_s=False).reshape(MACRO_B, MACRO_NSB)
+
+    H_diag_bk = H_diag.reshape(MACRO_B, MACRO_NSB, per_super_block)
+    err = lambda dd: _macro_objective(scales, dd, H_diag_bk, code_grid)
+    cand = torch.linspace(1e-6, 1.0, 4001, dtype=DTYPE)
+    hi = scales.amax(-1) / code_grid[-1] * 4  # [B, NSB]
+    E_grid = torch.stack([err(c * hi) for c in cand], -1).amin(-1)
+    assert objective_leq(err(d), E_grid)
+
+
+def test_macro_channel_folded_into_group_axis_equals_per_channel_loop():
+    """The macro curvature is per channel; folding the channel into the group axis
+    (one diagonal spanning all channels) must equal a per-channel loop."""
+    code_grid = int_grid(4, signed=False)
+    gen = torch.Generator().manual_seed(314)
+    scales = torch.rand(MACRO_B, MACRO_K, generator=gen, dtype=DTYPE) * 0.02 + 0.001
+    beta = torch.rand(MACRO_B, MACRO_K, generator=gen, dtype=DTYPE) + 0.5
+    gs = MACRO_K // MACRO_NSB
+    call = lambda s, h: _piso_sweep_per_group_diag(
+        w_b=s, H_diag=h, unscaled_grid=code_grid, eps=SOLVER_EPS, allow_negative_s=False)
+    loop = torch.stack([
+        call(scales[b].reshape(1, MACRO_NSB, gs), beta[b]).reshape(MACRO_NSB)
+        for b in range(MACRO_B)])
+    folded = call(scales.reshape(1, MACRO_B * MACRO_NSB, gs),
+                  beta.reshape(-1)).reshape(MACRO_B, MACRO_NSB)
+    assert torch.equal(loop, folded)
