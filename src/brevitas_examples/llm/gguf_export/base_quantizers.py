@@ -230,7 +230,7 @@ class _GGUFSignedBaseKQuantMixin(_GGUFBaseKQuantMixin, MSESymmetricScale):
 
 
 class _GGUFKQuantScaleZPMixin(ExtendedInjector):
-    """Common base for every nested K-quant scale/zero-point sub-injector."""
+    """Common base for every nested K-macro scale/zero-point sub-injector."""
     narrow_range = False  # scale/zp quantization is always full-range too
     rescaling_int_quant = RescalingIntQuant
     scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
@@ -265,7 +265,7 @@ class _GGUFKQuantScaleZPMixin(ExtendedInjector):
 
 
 class _GGUFKQuantScalingMixin(_GGUFKQuantScaleZPMixin):
-    """Base nested K-quant scale sub-injector (the scale-of-scale)."""
+    """Base nested K-macro scale sub-injector (the scale-of-scale)."""
     module = (this << 1).module
     upstream_shape = (this << 1).scaling_shape
 
@@ -363,3 +363,29 @@ class GGUFQ2_KWeightQuant(_GGUFShiftedBaseKQuantMixin, ShiftedUint8WeightPerTens
     bit_width = 2
     scaling_quant = _GGUFQ2_KScalingSubInjector
     zp_quant = _GGUFQ2_KZPSubInjector
+
+
+class _GGUFQ2_KRoundScalingSubInjector(_GGUFQ2_KScalingSubInjector):
+    """Round-to-nearest counterpart of :class:`_GGUFQ2_KScalingSubInjector`."""
+    float_to_int_impl = RoundSte
+
+
+class _GGUFQ2_KRoundZPSubInjector(_GGUFQ2_KZPSubInjector):
+    """Round-to-nearest counterpart of :class:`_GGUFQ2_KZPSubInjector`."""
+    float_to_int_impl = RoundSte
+
+
+class GGUFQ2_KRoundWeightQuant(GGUFQ2_KWeightQuant):
+    """Q2_K with round-to-nearest sub-block scale and min codes.
+
+    The shipped Q2_K picks its 4-bit sub-block codes with ceil (scale) and floor
+    (min), which keeps the realized grid wider than the calibrated range and so
+    never clips. PiSO's interval sweep models round-to-nearest transitions only,
+    so ``has_round_to_nearest_quant_scale`` rejects the shipped quantizer and
+    ``ScaleOptimizer`` skips every Q2_K layer. This variant rounds both codes,
+    which makes the format PiSO-optimizable at the cost of reintroducing
+    clipping. It shares the Q2_K on-disk layout: the exporter recovers ``s`` and
+    ``qm`` by exact division, so the rounding rule is not observable downstream.
+    """
+    scaling_quant = _GGUFQ2_KRoundScalingSubInjector
+    zp_quant = _GGUFQ2_KRoundZPSubInjector
