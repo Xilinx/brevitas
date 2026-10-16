@@ -4,6 +4,7 @@
 import warnings
 
 from dependencies import this
+from torch import nn
 
 from brevitas.core.bit_width import *
 from brevitas.core.bit_width.float import ComputeMaxMantissa
@@ -27,6 +28,7 @@ from brevitas.inject import value
 from brevitas.inject.enum import LearnedRoundImplType
 
 __all__ = [
+    'solve_stats_impl',
     'solve_bit_width_impl_from_enum',
     'solve_restrict_value_impl_from_enum',
     'solve_float_to_int_impl_from_enum',
@@ -40,7 +42,41 @@ __all__ = [
     'SolveStatsReduceDimFromEnum',
     'SolveScalingStatsInputViewShapeImplFromEnum',
     'SolveDtypeDeviceFromTrackedParameterList',
-    'SolveRestrictScaleSign']
+    'SolveRestrictScaleSign',
+    'stats_input_view_shape_impl_from_granularity',
+    'inner_stats_input_view_shape_impl',
+    'zero_point_stats_input_view_shape_impl']
+
+
+def stats_input_view_shape_impl_from_granularity(scaling_per_output):
+    """Map the scaling granularity to the matching stats-input view module."""
+    if scaling_per_output == ScalingPerOutputType.CHANNEL:
+        return StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
+    elif scaling_per_output == ScalingPerOutputType.TENSOR:
+        return StatsInputViewShapeImpl.OVER_TENSOR
+    elif scaling_per_output == ScalingPerOutputType.GROUP:
+        return StatsInputViewShapeImpl.OVER_SUBCHANNEL_BLOCK
+    raise RuntimeError(f"Unsupported scaling_per_output: {scaling_per_output}")
+
+
+@value
+def inner_stats_input_view_shape_impl(scaling_per_output):
+    # Inner view for local-loss searches (MSE / HQO): their outer
+    # *_stats_input_view_shape_impl is Identity, so the reshaping is done here,
+    # once, inside the search.
+    return stats_input_view_shape_impl_from_granularity(scaling_per_output)
+
+
+@value
+def zero_point_stats_input_view_shape_impl(scaling_per_output, scaling_stats_input_view_shape_impl):
+    # Mirror the scale's view, but derive it from the granularity when the scale is
+    # Identity (a local-loss scale reshapes inside its own search, so its view is
+    # Identity yet these plain min/max zero-point stats still need a real view).
+    # Return the class, not the built scale instance, so the zero point gets its
+    # own view submodule.
+    if isinstance(scaling_stats_input_view_shape_impl, (nn.Identity, Identity)):
+        return stats_input_view_shape_impl_from_granularity(scaling_per_output)
+    return type(scaling_stats_input_view_shape_impl)
 
 
 def solve_float_to_int_impl_from_enum(impl_type):
@@ -102,9 +138,13 @@ def solve_restrict_value_impl_from_enum(impl_type):
 
 
 def solve_restrict_value_enum_from_impl(impl: type) -> RestrictValueType:
-    impl_to_enum_dict = {
-        solve_restrict_value_impl_from_enum(enum_value): enum_value
-        for enum_value in RestrictValueType}
+    impl_to_enum_dict = {}
+    for enum_value in RestrictValueType:
+        try:
+            impl_to_enum_dict[solve_restrict_value_impl_from_enum(enum_value)] = enum_value
+        except RuntimeError:
+            # Partial map: some members (e.g. QUANT) have no arg-less impl.
+            continue
     if impl not in impl_to_enum_dict:
         raise RuntimeError(f"{impl} not recognized.")
     return impl_to_enum_dict[impl]
@@ -169,45 +209,53 @@ class SolveBitWidthImplFromEnum(ExtendedInjector):
         return solve_bit_width_impl_from_enum(bit_width_impl_type)
 
 
+def solve_stats_impl(stats_op=None, restrict_type=None):
+    if stats_op is None:
+        scaling_stats_impl = None
+    elif stats_op == StatsOp.MAX:
+        scaling_stats_impl = AbsMax
+    elif stats_op == StatsOp.MAX_AVE:
+        scaling_stats_impl = AbsMaxAve
+    elif stats_op == StatsOp.AVE:
+        scaling_stats_impl = AbsAve
+    elif stats_op == StatsOp.MEAN_SIGMA_STD:
+        scaling_stats_impl = MeanSigmaStd
+    elif stats_op == StatsOp.MEAN_LEARN_SIGMA_STD:
+        scaling_stats_impl = MeanLearnedSigmaStd
+    elif stats_op == StatsOp.PERCENTILE:
+        scaling_stats_impl = AbsPercentile
+    elif stats_op == StatsOp.MIN_MAX:
+        scaling_stats_impl = AbsMinMax
+    elif stats_op == StatsOp.PERCENTILE_INTERVAL:
+        scaling_stats_impl = PercentileInterval
+    elif stats_op == StatsOp.SIGNED_MAX:
+        scaling_stats_impl = SignedAbsMax
+    elif stats_op == StatsOp.NEG_MIN_OR_ZERO:
+        scaling_stats_impl = NegativeMinOrZero
+    elif stats_op == StatsOp.NEG_PERCENTILE_OR_ZERO:
+        scaling_stats_impl = NegativePercentileOrZero
+    else:
+        raise RuntimeError(f"{stats_op} not recognized.")
+
+    # For power of two scales, the stat needs to be unsigned
+    if restrict_type == RestrictValueType.POWER_OF_TWO:
+        if scaling_stats_impl not in SIGNEDNESS_STATS:
+            raise ValueError(
+                f"Signedness of statistic {scaling_stats_impl.__name__} is not known."
+                f"Register the statistic using the decorator @register_stat_implementation.")
+        if SIGNEDNESS_STATS[scaling_stats_impl]:
+            raise ValueError(
+                f"Statistic {scaling_stats_impl.__name__} is signed but only unsigned statistics can "
+                f"be used with power-of-two scales.")
+
+    return scaling_stats_impl
+
+
 class SolveScalingStatsOpFromEnum(ExtendedInjector):
 
     @value
     def scaling_stats_impl(scaling_stats_op=None, restrict_scaling_type=None):
-        if scaling_stats_op is None:
-            scaling_stats_impl = None
-        elif scaling_stats_op == StatsOp.MAX:
-            scaling_stats_impl = AbsMax
-        elif scaling_stats_op == StatsOp.MAX_AVE:
-            scaling_stats_impl = AbsMaxAve
-        elif scaling_stats_op == StatsOp.AVE:
-            scaling_stats_impl = AbsAve
-        elif scaling_stats_op == StatsOp.MEAN_SIGMA_STD:
-            scaling_stats_impl = MeanSigmaStd
-        elif scaling_stats_op == StatsOp.MEAN_LEARN_SIGMA_STD:
-            scaling_stats_impl = MeanLearnedSigmaStd
-        elif scaling_stats_op == StatsOp.PERCENTILE:
-            scaling_stats_impl = AbsPercentile
-        elif scaling_stats_op == StatsOp.MIN_MAX:
-            scaling_stats_impl = AbsMinMax
-        elif scaling_stats_op == StatsOp.PERCENTILE_INTERVAL:
-            scaling_stats_impl = PercentileInterval
-        elif scaling_stats_op == StatsOp.SIGNED_MAX:
-            scaling_stats_impl = SignedAbsMax
-        else:
-            raise RuntimeError(f"{scaling_stats_op} not recognized.")
-
-        # For power of two scales, the stat needs to be unsigned
-        if restrict_scaling_type == RestrictValueType.POWER_OF_TWO:
-            if scaling_stats_impl not in SIGNEDNESS_STATS:
-                raise ValueError(
-                    f"Signedness of statistic {scaling_stats_impl.__name__} is not known."
-                    f"Register the statistic using the decorator @register_stat_implementation.")
-            if SIGNEDNESS_STATS[scaling_stats_impl]:
-                raise ValueError(
-                    f"Statistic {scaling_stats_impl.__name__} is signed but only unsigned statistics can "
-                    f"be used with power-of-two scales.")
-
-        return scaling_stats_impl
+        return solve_stats_impl(scaling_stats_op, restrict_scaling_type)
 
 
 class SolveAffineRescalingFromEnum(ExtendedInjector):
@@ -301,6 +349,9 @@ class SolveStatsReduceDimFromEnum(ExtendedInjector):
 
 class SolveScalingStatsInputViewShapeImplFromEnum(ExtendedInjector):
 
+    # NOTE: intentionally not delegating to stats_input_view_shape_impl_from_granularity:
+    # this one also forces OVER_OUTPUT_CHANNELS for the MAX_AVE stats op and keeps
+    # a tolerant fall-through for the scale, so it is kept separate on purpose.
     @value
     def scaling_stats_input_view_shape_impl(scaling_stats_op, scaling_per_output):
         if scaling_per_output == ScalingPerOutputType.CHANNEL or scaling_stats_op == StatsOp.MAX_AVE:
