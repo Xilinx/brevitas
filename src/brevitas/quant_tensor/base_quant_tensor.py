@@ -266,6 +266,26 @@ class IntMixin:
                 tensor_meta[k] = tm.permute(*args, **kwargs)
         return self.set(value=value, **tensor_meta)
 
+    def squeeze(self, *args, **kwargs):
+        value = self.value.squeeze(*args, **kwargs)
+        tensor_meta = {
+            'scale': self.scale, 'zero_point': self.zero_point, 'bit_width': self.bit_width}
+        for k, tm in tensor_meta.items():
+            # only squeeze per-channel metadata that is broadcastable against the
+            # pre-squeeze value shape; per-tensor (lower-rank) metadata is left alone
+            if len(self.value.shape) == len(tm.shape):
+                tensor_meta[k] = tm.squeeze(*args, **kwargs)
+        return self.set(value=value, **tensor_meta)
+
+    def unsqueeze(self, *args, **kwargs):
+        value = self.value.unsqueeze(*args, **kwargs)
+        tensor_meta = {
+            'scale': self.scale, 'zero_point': self.zero_point, 'bit_width': self.bit_width}
+        for k, tm in tensor_meta.items():
+            if len(self.value.shape) == len(tm.shape):
+                tensor_meta[k] = tm.unsqueeze(*args, **kwargs)
+        return self.set(value=value, **tensor_meta)
+
 
 class FloatMixin:
 
