@@ -2,7 +2,9 @@ accelerate
 datasets
 gguf==0.18.0
 numexpr<2.14.0
-onnx
+# onnx >= 1.23 emits ONNX IR version 14; onnxruntime accepts at most IR version 13
+onnx<1.23 ; python_version >= "3.13"
+onnx==1.17.0 ; python_version < "3.13"
 onnxruntime
 optimum
 pandas
