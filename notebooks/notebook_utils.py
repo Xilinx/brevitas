@@ -1,10 +1,9 @@
 """Shared helpers for the Brevitas workshop notebook.
 
 The main feature is a lightweight ASCII network renderer that draws the
-floating-point baseline and its quantized variants without pulling in Netron,
-Graphviz, or torchview. Netron shows the exported QDQ/QONNX graph, which mixes in
-concepts the tutorial has not introduced yet, so ``draw_network`` renders the
-PyTorch model directly instead.
+floating-point baseline and its quantized variants without extra dependencies. An
+exported QDQ/QONNX graph mixes in concepts the tutorial has not introduced yet, so
+``draw_network`` renders the PyTorch model directly instead.
 
 Two levels of detail are provided:
 
@@ -26,6 +25,10 @@ order. When FX tracing is available it also detects residual merges (``add`` or
 ``cat`` nodes with two inputs) and draws the skip branch as a separate lane. It
 reads quantizer metadata through the public Brevitas tensor/quantizer API and
 never executes an exported graph.
+
+``show_onnx_graph`` covers the exported side: it draws an ONNX or QONNX file with
+pydot and Graphviz and hides constant tensors, so each ``Quant`` node shows its
+integer type and rounding mode.
 
 The module also hosts a few small workflow and inspection helpers used by the
 notebook: parameter snapshots for PTQ/QAT, a rounding-gradient plot, and a
@@ -443,3 +446,99 @@ def where_defined(quantizer, name):
             return base.__name__, source_file
     print(f'{name}: not found in {quantizer_class.__name__} hierarchy')
     return None
+
+
+def _quant_label(node, constants) -> str:
+    """Describe a QONNX ``Quant`` node by its integer type, rounding, and constant input."""
+    from onnx import helper
+
+    attributes = {
+        attribute.name: helper.get_attribute_value(attribute) for attribute in node.attribute}
+    bit_width = constants.get(node.input[3])
+    if bit_width is None:
+        integer_type = 'bit width from graph'
+    else:
+        lowest, highest = int(bit_width.min()), int(bit_width.max())
+        integer_type = 'INT' if attributes.get('signed', 1) else 'UINT'
+        integer_type += str(lowest) if lowest == highest else f'{lowest}-{highest}'
+        if bit_width.size > 1:
+            integer_type += f' ({bit_width.size} values)'
+
+    lines = [node.name or 'Quant', integer_type]
+    rounding = attributes.get('rounding_mode', b'')
+    if rounding:
+        lines.append(rounding.decode() if isinstance(rounding, bytes) else rounding)
+    if attributes.get('narrow'):
+        lines.append('narrow range')
+    if node.input[0] in constants:
+        lines.append(f'constant {list(constants[node.input[0]].shape)}')
+    return '\n'.join(lines)
+
+
+def show_onnx_graph(model_path):
+    """Draw an ONNX or QONNX graph inline with pydot and Graphviz.
+
+    Constant tensors such as weights, scales, and bit widths are not drawn as nodes, so the
+    picture follows the data path. Each ``Quant`` node shows its integer type and rounding
+    mode, plus the shape of the constant it quantizes. If the Graphviz ``dot`` executable is
+    missing, the function prints where to open the file instead.
+    """
+    from IPython.display import display
+    from IPython.display import Image
+    import onnx
+    from onnx import numpy_helper
+    import pydot
+
+    graph = onnx.load(str(model_path)).graph
+    constants = {
+        initializer.name: numpy_helper.to_array(initializer) for initializer in graph.initializer}
+    for node in graph.node:
+        if node.op_type == 'Constant':
+            for attribute in node.attribute:
+                if attribute.name == 'value':
+                    constants[node.output[0]] = numpy_helper.to_array(attribute.t)
+
+    def shape_text(value_info):
+        dimensions = value_info.type.tensor_type.shape.dim
+        return '[' + ', '.join(str(d.dim_value or d.dim_param or '?') for d in dimensions) + ']'
+
+    # Node ids are synthetic because pydot splits names containing ':' into name and port.
+    dot = pydot.Dot(graph_type='digraph', rankdir='TB')
+    producer = {}
+    for position, value_info in enumerate(graph.input):
+        if value_info.name not in constants:
+            producer[value_info.name] = f'input{position}'
+            dot.add_node(
+                pydot.Node(
+                    producer[value_info.name],
+                    shape='ellipse',
+                    label=f'input\n{shape_text(value_info)}'))
+
+    for position, node in enumerate(graph.node):
+        if node.op_type == 'Constant':
+            continue
+        node_id = f'node{position}'
+        is_quant = node.op_type == 'Quant'
+        dot.add_node(
+            pydot.Node(
+                node_id,
+                shape='box',
+                style='filled',
+                fillcolor='#cfe2ff' if is_quant else '#eeeeee',
+                label=_quant_label(node, constants) if is_quant else node.op_type))
+        for tensor_name in node.input:
+            if tensor_name in producer:
+                dot.add_edge(pydot.Edge(producer[tensor_name], node_id))
+        for tensor_name in node.output:
+            producer[tensor_name] = node_id
+
+    for position, value_info in enumerate(graph.output):
+        dot.add_node(
+            pydot.Node(
+                f'output{position}', shape='ellipse', label=f'output\n{shape_text(value_info)}'))
+        dot.add_edge(pydot.Edge(producer[value_info.name], f'output{position}'))
+
+    try:
+        display(Image(data=dot.create_png()))
+    except OSError as error:
+        print(f'Graphviz could not run ({error}). Open {model_path} at https://netron.app instead.')
