@@ -26,9 +26,8 @@ order. When FX tracing is available it also detects residual merges (``add`` or
 reads quantizer metadata through the public Brevitas tensor/quantizer API and
 never executes an exported graph.
 
-``show_onnx_graph`` covers the exported side: it draws an ONNX or QONNX file with
-pydot and Graphviz and hides constant tensors, so each ``Quant`` node shows its
-integer type and rounding mode.
+``show_netron`` covers the exported side: it opens an ONNX or QONNX file in Netron
+inside the notebook, both in local Jupyter and on Colab.
 
 The module also hosts a few small workflow and inspection helpers used by the
 notebook: parameter snapshots for PTQ/QAT, a rounding-gradient plot, and a
@@ -448,97 +447,49 @@ def where_defined(quantizer, name):
     return None
 
 
-def _quant_label(node, constants) -> str:
-    """Describe a QONNX ``Quant`` node by its integer type, rounding, and constant input."""
-    from onnx import helper
-
-    attributes = {
-        attribute.name: helper.get_attribute_value(attribute) for attribute in node.attribute}
-    bit_width = constants.get(node.input[3])
-    if bit_width is None:
-        integer_type = 'bit width from graph'
-    else:
-        lowest, highest = int(bit_width.min()), int(bit_width.max())
-        integer_type = 'INT' if attributes.get('signed', 1) else 'UINT'
-        integer_type += str(lowest) if lowest == highest else f'{lowest}-{highest}'
-        if bit_width.size > 1:
-            integer_type += f' ({bit_width.size} values)'
-
-    lines = [node.name or 'Quant', integer_type]
-    rounding = attributes.get('rounding_mode', b'')
-    if rounding:
-        lines.append(rounding.decode() if isinstance(rounding, bytes) else rounding)
-    if attributes.get('narrow'):
-        lines.append('narrow range')
-    if node.input[0] in constants:
-        lines.append(f'constant {list(constants[node.input[0]].shape)}')
-    return '\n'.join(lines)
+# Netron creates its graph-layout worker with this expression in its view.js.
+_NETRON_LAYOUT_WORKER = b"this._host.environment('serial') ? null : new view.Worker(this._host)"
 
 
-def show_onnx_graph(model_path):
-    """Draw an ONNX or QONNX graph inline with pydot and Graphviz.
+def show_netron(model_path, height=500):
+    """Serve ``model_path`` with Netron and show the viewer inside the notebook.
 
-    Constant tensors such as weights, scales, and bit widths are not drawn as nodes, so the
-    picture follows the data path. Each ``Quant`` node shows its integer type and rounding
-    mode, plus the shape of the constant it quantizes. If the Graphviz ``dot`` executable is
-    missing, the function prints where to open the file instead.
+    Netron serves one model per Python process, so each call first stops the servers that
+    earlier calls started. Netron then picks a free port itself, which avoids "address
+    already in use" errors when a cell is re-run.
+
+    On Colab the viewer is shown through Colab's port proxy. Netron normally lays out the
+    graph in a module Web Worker, and on Colab that worker failed to load ``dagre.js``
+    through the proxy. We therefore serve Netron's ``view.js`` with the worker disabled, so
+    the layout runs on the page itself, which is fast for graphs of this size.
     """
+    from pathlib import Path
+    import sys
+
     from IPython.display import display
-    from IPython.display import Image
-    import onnx
-    from onnx import numpy_helper
-    import pydot
+    from IPython.display import IFrame
+    import netron
 
-    graph = onnx.load(str(model_path)).graph
-    constants = {
-        initializer.name: numpy_helper.to_array(initializer) for initializer in graph.initializer}
-    for node in graph.node:
-        if node.op_type == 'Constant':
-            for attribute in node.attribute:
-                if attribute.name == 'value':
-                    constants[node.output[0]] = numpy_helper.to_array(attribute.t)
+    handler = netron.server._HTTPRequestHandler
+    if not getattr(handler, 'layout_worker_disabled', False):
+        if _NETRON_LAYOUT_WORKER not in (Path(netron.__file__).parent / 'view.js').read_bytes():
+            print(
+                'This Netron version builds its layout worker differently. If the graph '
+                f'does not render, open {model_path} at https://netron.app instead.')
+        write = handler._write
 
-    def shape_text(value_info):
-        dimensions = value_info.type.tensor_type.shape.dim
-        return '[' + ', '.join(str(d.dim_value or d.dim_param or '?') for d in dimensions) + ']'
+        def write_without_layout_worker(self, status_code, content_type, content):
+            if content and self.path.split('?')[0].endswith('/view.js'):
+                content = content.replace(_NETRON_LAYOUT_WORKER, b'null')
+            write(self, status_code, content_type, content)
 
-    # Node ids are synthetic because pydot splits names containing ':' into name and port.
-    dot = pydot.Dot(graph_type='digraph', rankdir='TB')
-    producer = {}
-    for position, value_info in enumerate(graph.input):
-        if value_info.name not in constants:
-            producer[value_info.name] = f'input{position}'
-            dot.add_node(
-                pydot.Node(
-                    producer[value_info.name],
-                    shape='ellipse',
-                    label=f'input\n{shape_text(value_info)}'))
+        handler._write = write_without_layout_worker
+        handler.layout_worker_disabled = True
 
-    for position, node in enumerate(graph.node):
-        if node.op_type == 'Constant':
-            continue
-        node_id = f'node{position}'
-        is_quant = node.op_type == 'Quant'
-        dot.add_node(
-            pydot.Node(
-                node_id,
-                shape='box',
-                style='filled',
-                fillcolor='#cfe2ff' if is_quant else '#eeeeee',
-                label=_quant_label(node, constants) if is_quant else node.op_type))
-        for tensor_name in node.input:
-            if tensor_name in producer:
-                dot.add_edge(pydot.Edge(producer[tensor_name], node_id))
-        for tensor_name in node.output:
-            producer[tensor_name] = node_id
-
-    for position, value_info in enumerate(graph.output):
-        dot.add_node(
-            pydot.Node(
-                f'output{position}', shape='ellipse', label=f'output\n{shape_text(value_info)}'))
-        dot.add_edge(pydot.Edge(producer[value_info.name], f'output{position}'))
-
-    try:
-        display(Image(data=dot.create_png()))
-    except OSError as error:
-        print(f'Graphviz could not run ({error}). Open {model_path} at https://netron.app instead.')
+    netron.stop()
+    _, port = netron.start(str(model_path), address=('localhost', 0), browse=False)
+    if 'google.colab' in sys.modules:
+        from google.colab import output
+        output.serve_kernel_port_as_iframe(port, height=height)
+    else:
+        display(IFrame(f'http://localhost:{port}/', width='100%', height=height))
