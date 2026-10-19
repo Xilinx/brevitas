@@ -1,12 +1,31 @@
 # Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import math
+from typing import Optional
+
 import pytest
 import torch
 from torch import nn
 
 from brevitas_examples.llm.llm_quant.eval import compute_float_evaluation_metrics
 from brevitas_examples.llm.llm_quant.eval import compute_quantized_evaluation_metrics
+
+
+def standard_error(values: torch.Tensor) -> Optional[float]:
+    """Reference implementation of the per-token standard error estimator.
+
+    Moments are accumulated in double, matching ``MetricBase``.
+    """
+    values = values.to(dtype=torch.float64).flatten()
+    count = values.numel()
+    if count < 2:
+        return None
+    mean = (values.sum() / count).item()
+    variance = (values.square().sum() / count).item() - mean ** 2
+    if variance <= 0:
+        return None
+    return math.sqrt(variance / (count - 1))
 
 
 class FixedLogitsModel(nn.Module):
@@ -119,3 +138,149 @@ class TestEvaluation:
                 context_length=2,
                 tokenizer=None,
                 reference_probabilities=[])
+
+
+class PositionLogitsModel(nn.Module):
+    """Emit a different logit vector at every position."""
+
+    def __init__(self, logits):
+        super().__init__()
+        self.logits = nn.Parameter(torch.tensor(logits, dtype=torch.float32), requires_grad=False)
+
+    def forward(self, input_ids):
+        batch_size, sequence_length = input_ids.shape
+        assert sequence_length <= self.logits.shape[0]
+        return {"logits": self.logits[:sequence_length].unsqueeze(0).expand(batch_size, -1, -1)}
+
+
+class TestStandardError:
+    """The standard errors are derived from per-token moments accumulated in double.
+
+    Moments are accumulated per token, so a single chunk holding more than one
+    token is already enough to define a standard error.
+    """
+
+    reference_logits = [[2.0, 1.0, 0.0], [0.5, 2.5, 1.0], [1.0, 0.0, 3.0], [2.0, 2.0, 0.5]]
+    quantized_logits = [[1.5, 0.5, 1.0], [0.0, 2.0, 1.5], [1.5, 0.5, 2.5], [1.0, 2.5, 0.0]]
+    input_ids = torch.tensor([[0, 1, 2, 0]])
+    context_length = 2
+
+    @property
+    def data(self):
+        return [{"input_ids": self.input_ids}]
+
+    def _expected_nlls(self, logits) -> torch.Tensor:
+        # _get_shifted_logits_and_labels yields logits[:, context_length - 1:-1]
+        # against input_ids[:, context_length:].
+        shifted_logits = torch.tensor(logits)[self.context_length - 1:-1]
+        labels = self.input_ids[0, self.context_length:]
+        return nn.functional.cross_entropy(shifted_logits, labels, reduction="none")
+
+    def test_perplexity_standard_error(self):
+        model = PositionLogitsModel(self.reference_logits)
+        metrics = compute_float_evaluation_metrics(
+            model=model,
+            data=self.data,
+            context_length=self.context_length,
+            tokenizer=None,
+            top_k=3)
+
+        nlls = self._expected_nlls(self.reference_logits)
+        expected_ppl = math.exp(nlls.to(dtype=torch.float64).mean().item())
+        # The delta method reports ppl +/- sigma * ppl.
+        expected_std = expected_ppl * standard_error(nlls)
+
+        assert metrics.ppl == pytest.approx(expected_ppl)
+        assert metrics.ppl_std == pytest.approx(expected_std)
+
+    def test_perplexity_is_token_weighted_but_unchanged_for_equal_chunks(self):
+        # All chunks carry the same number of tokens, so the token-weighted mean
+        # agrees with the mean of the per-chunk means.
+        model = PositionLogitsModel(self.reference_logits)
+        two_chunks = [{"input_ids": self.input_ids}, {"input_ids": self.input_ids}]
+        metrics = compute_float_evaluation_metrics(
+            model=model,
+            data=two_chunks,
+            context_length=self.context_length,
+            tokenizer=None,
+            top_k=3)
+
+        nlls = self._expected_nlls(self.reference_logits).to(dtype=torch.float64)
+        chunk_means = torch.stack([nlls.mean(), nlls.mean()])
+        assert metrics.ppl == pytest.approx(math.exp(chunk_means.mean().item()))
+        # Four tokens across two chunks, rather than two chunk means.
+        expected_std = metrics.ppl * standard_error(torch.cat([nlls, nlls]))
+        assert metrics.ppl_std == pytest.approx(expected_std)
+
+    def test_ear_and_kld_standard_error(self):
+        reference_model = PositionLogitsModel(self.reference_logits)
+        quantized_model = PositionLogitsModel(self.quantized_logits)
+        top_k = 3
+
+        reference_metrics = compute_float_evaluation_metrics(
+            model=reference_model,
+            data=self.data,
+            context_length=self.context_length,
+            tokenizer=None,
+            top_k=top_k)
+        quantized_metrics = compute_quantized_evaluation_metrics(
+            model=quantized_model,
+            data=self.data,
+            context_length=self.context_length,
+            tokenizer=None,
+            reference_probabilities=reference_metrics.probabilities,
+            normalize=False)
+
+        # Reuse the cached reference probabilities rather than recomputing them, so
+        # that the assertions below isolate the standard error estimator.
+        reference_chunk = reference_metrics.probabilities[0]
+        reference_p = reference_chunk.probabilities.to(dtype=torch.float32)
+        token_ids = reference_chunk.token_ids.to(dtype=torch.int64)
+        quantized_logits = torch.tensor(self.quantized_logits)[self.context_length -
+                                                               1:-1].unsqueeze(0)
+        quantized_q = torch.softmax(quantized_logits, dim=-1).gather(-1, token_ids)
+
+        per_token_ear = torch.minimum(quantized_q, reference_p).sum(dim=-1)
+        per_token_kld = (reference_p * (reference_p.log() - quantized_q.log())).sum(dim=-1)
+
+        assert quantized_metrics.ear == pytest.approx(per_token_ear.mean().item())
+        assert quantized_metrics.ear_std == pytest.approx(standard_error(per_token_ear))
+        assert quantized_metrics.kld == pytest.approx(per_token_kld.mean().item())
+        assert quantized_metrics.kld_std == pytest.approx(standard_error(per_token_kld))
+
+    def test_standard_error_is_none_for_a_single_token(self):
+        model = PositionLogitsModel(self.reference_logits)
+        # Three tokens with context_length=2 leave a single token to score.
+        single_token = [{"input_ids": self.input_ids[:, :3]}]
+        metrics = compute_float_evaluation_metrics(
+            model=model,
+            data=single_token,
+            context_length=self.context_length,
+            tokenizer=None,
+            top_k=3)
+
+        assert metrics.ppl is not None
+        assert metrics.ppl_std is None
+
+    def test_standard_error_is_none_for_zero_variance(self):
+        # Position-independent logits give every token the same EAR and KLD, so
+        # their variance is zero and no standard error is defined.
+        reference_model = FixedLogitsModel([2.0, 1.0, 0.0])
+        quantized_model = FixedLogitsModel([1.5, 0.5, 1.0])
+        reference_metrics = compute_float_evaluation_metrics(
+            model=reference_model,
+            data=self.data,
+            context_length=self.context_length,
+            tokenizer=None,
+            top_k=3)
+        quantized_metrics = compute_quantized_evaluation_metrics(
+            model=quantized_model,
+            data=self.data,
+            context_length=self.context_length,
+            tokenizer=None,
+            reference_probabilities=reference_metrics.probabilities)
+
+        assert quantized_metrics.ear_std is None
+        assert quantized_metrics.kld_std is None
+        # The two scored tokens have different targets, so the NLLs do differ.
+        assert quantized_metrics.ppl_std is not None

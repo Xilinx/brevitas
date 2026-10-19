@@ -200,6 +200,10 @@ def test_small_models_ppl(caplog, args_and_metrics, main):
     assert_metrics(results, exp_metrics, atol=ATOL_PPL, rtol=RTOL_PPL, strict=False)
     assert 0.0 <= results["quant_ear"] <= 1.0
     assert results["quant_kld"] is not None
+    # The EAR and KLD standard errors are too small for the perplexity tolerances
+    # to say anything meaningful about them, so they are only checked structurally.
+    assert results["quant_ear_std"] is None or results["quant_ear_std"] >= 0.0
+    assert results["quant_kld_std"] is None or results["quant_kld_std"] >= 0.0
 
 
 @pytest.mark.llm
@@ -209,6 +213,8 @@ def test_small_model_eval_computes_ppl_and_ear(default_run_args, main):
     assert results["float_ppl"] is not None
     assert results["quant_ppl"] is not None
     assert 0.0 <= results["quant_ear"] <= 1.0
+    assert results["float_ppl_std"] is not None
+    assert results["quant_ppl_std"] is not None
 
 
 @pytest.mark.llm

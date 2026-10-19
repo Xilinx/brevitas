@@ -80,6 +80,10 @@ from brevitas_examples.llm.llm_quant.rotation_optimization import apply_fine_tun
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
 from brevitas_examples.llm.llm_quant.trainer_utils import TRAINER_REGISTRY
+from brevitas_examples.llm.metric_report import FLOAT_PPL
+from brevitas_examples.llm.metric_report import QUANT_EAR
+from brevitas_examples.llm.metric_report import QUANT_KLD
+from brevitas_examples.llm.metric_report import QUANT_PPL
 
 logging = setup_logger(__name__)
 
@@ -304,10 +308,10 @@ def quantize_llm(args, extra_args=None):
     model.eval()
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     float_probabilities = None
-    float_ppl = None
-    quant_ppl = None
-    quant_ear = None
-    quant_kld = None
+    float_ppl = float_ppl_std = None
+    quant_ppl = quant_ppl_std = None
+    quant_ear = quant_ear_std = None
+    quant_kld = quant_kld_std = None
 
     require_fx = fx_required(args)
     if require_fx and args.calibration_batch_size > 1:
@@ -367,9 +371,10 @@ def quantize_llm(args, extra_args=None):
             tokenizer=tokenizer,
             seed=args.seed)
         float_ppl = float_metrics.ppl
+        float_ppl_std = float_metrics.ppl_std
         float_probabilities = float_metrics.probabilities
         remove_hooks(model)
-        print(f"Float perplexity ({args.dataset}): {float_ppl:.3f}")
+        print(FLOAT_PPL.report(args.dataset, float_ppl, float_ppl_std))
 
     rmsnorm_classes = ()
     if require_fx:
@@ -782,12 +787,15 @@ def quantize_llm(args, extra_args=None):
                     reference_probabilities=float_probabilities,
                     seed=args.seed)
             quant_ppl = quant_metrics.ppl
+            quant_ppl_std = quant_metrics.ppl_std
             # NOTE: EAR and KLD are by default normalized by reference top-K probability mass.
             quant_ear = quant_metrics.ear
+            quant_ear_std = quant_metrics.ear_std
             quant_kld = quant_metrics.kld
-            print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
-            print(f"Quantized expected acceptance rate ({args.dataset}): {quant_ear:.6f}")
-            print(f"Quantized KL divergence ({args.dataset}): {quant_kld:.6f}")
+            quant_kld_std = quant_metrics.kld_std
+            print(QUANT_PPL.report(args.dataset, quant_ppl, quant_ppl_std))
+            print(QUANT_EAR.report(args.dataset, quant_ear, quant_ear_std))
+            print(QUANT_KLD.report(args.dataset, quant_kld, quant_kld_std))
         few_shot_eval_results = dict()
         if args.few_shot_eval == 'lm_eval':
             from lm_eval import evaluator
@@ -839,10 +847,14 @@ def quantize_llm(args, extra_args=None):
             model_export(model, tokenizer, next(iter(calibration_loader)), args, config)
 
     eval_results = {
-        "float_ppl": float_ppl,
-        "quant_ppl": quant_ppl,
-        "quant_ear": quant_ear,
-        "quant_kld": quant_kld}
+        FLOAT_PPL.name: float_ppl,
+        FLOAT_PPL.std_name: float_ppl_std,
+        QUANT_PPL.name: quant_ppl,
+        QUANT_PPL.std_name: quant_ppl_std,
+        QUANT_EAR.name: quant_ear,
+        QUANT_EAR.std_name: quant_ear_std,
+        QUANT_KLD.name: quant_kld,
+        QUANT_KLD.std_name: quant_kld_std}
     return {**eval_results, **few_shot_eval_results}, model
 
 

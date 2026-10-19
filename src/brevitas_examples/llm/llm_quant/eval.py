@@ -65,11 +65,14 @@ class ProbabilityChunk(NamedTuple):
 
 
 class EvaluationResults(NamedTuple):
-    """Store metrics and probabilities."""
+    """Store metrics, their standard errors, and probabilities."""
 
     ppl: Optional[float] = None
+    ppl_std: Optional[float] = None
     ear: Optional[float] = None
+    ear_std: Optional[float] = None
     kld: Optional[float] = None
+    kld_std: Optional[float] = None
     probabilities: Optional[List[ProbabilityChunk]] = None
 
 
@@ -142,7 +145,7 @@ def compute_float_evaluation_metrics(
                 token_ids=top_ids.to(device="cpu", dtype=torch.int32),
                 probabilities=top_probabilities.to(device="cpu", dtype=torch.float32)))
 
-    return EvaluationResults(ppl=ppl.finalize(), probabilities=chunks)
+    return EvaluationResults(ppl=ppl.finalize(), ppl_std=ppl.finalize_std(), probabilities=chunks)
 
 
 @torch.no_grad()
@@ -180,4 +183,10 @@ def compute_quantized_evaluation_metrics(
         ear.update(quantized_q, reference_p)
         kld.update(quantized_q, reference_p)
 
-    return EvaluationResults(ppl=ppl.finalize(), ear=ear.finalize(), kld=kld.finalize())
+    return EvaluationResults(
+        ppl=ppl.finalize(),
+        ppl_std=ppl.finalize_std(),
+        ear=ear.finalize(),
+        ear_std=ear.finalize_std(),
+        kld=kld.finalize(),
+        kld_std=kld.finalize_std())
