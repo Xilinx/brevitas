@@ -13,6 +13,10 @@ from brevitas_examples.common.parse_utils import create_entrypoint_args_parser
 from brevitas_examples.common.parse_utils import quant_format_validator
 from brevitas_examples.llm.llm_quant.piso_args import ScaleOptimizerArgumentParser
 
+# Algorithms that can report quantization error statistics, see --ptq-stats.
+# 'error' is not an algorithm: it measures the model as-is, before any of them run.
+PTQ_STATS_KEYS = ['error', 'gptq', 'gpfq', 'qronos', 'sopt']
+
 # Export targets that do not require the (optional) `gguf` dependency
 BASE_EXPORT_TARGETS = [
     None,
@@ -562,6 +566,23 @@ def create_args_parser() -> ArgumentParser:
         type=int,
         default=1,
         help='Batch size for calibration data loader. (default: %(default)s).')
+
+    parser.add_argument(
+        '--ptq-stats',
+        default=[],
+        type=str,
+        nargs='*',
+        choices=PTQ_STATS_KEYS,
+        help='PTQ algorithms to collect quantization error statistics for. Each selected '
+        'algorithm writes a <algorithm>_stats.yaml file to --stats-output-dir. '
+        '"error" additionally measures the error of the model before any algorithm runs, '
+        'without modifying it. Default: %(default)s')
+
+    parser.add_argument(
+        '--stats-output-dir',
+        type=str,
+        default='./',
+        help='Directory where the --ptq-stats YAML files are saved. Default: %(default)s')
 
     # Adds Scale Optimization (--sopt-*) flags (PiSO being the current solver instance behind them).
     ScaleOptimizerArgumentParser.add_arguments(parser)
