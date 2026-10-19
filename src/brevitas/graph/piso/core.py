@@ -51,6 +51,7 @@ from brevitas.graph.piso.utils import _set_base_scale
 from brevitas.graph.piso.utils import compute_group_importance_permutation
 from brevitas.graph.qronos import Qronos
 from brevitas.graph.utils import is_quant_module
+from brevitas.utils.stats_utils import is_stats_collector_active
 from brevitas.utils.torch_utils import StopFwdException
 
 # How the solver uses the Hessian H (and G): 'dense' keeps the full matrices
@@ -574,6 +575,10 @@ class PiSOLayerHandler():
     them to the ScaleOptimizer to compute and write the scales.
     """
 
+    # PiSO accumulates G = X_tilde^T X, i.e. the transpose of the X^T X_tilde
+    # convention expected by gpxq_compute_error_stats.
+    stats_g_is_transposed = True
+
     def __init__(
             self,
             layer: nn.Module,
@@ -596,6 +601,9 @@ class PiSOLayerHandler():
         self.nsamples = 0
         self.nsamples_G = 0
         self.G = torch.zeros_like(self.H) if self.scale_optimizer.cross_act_objective else None
+        # R = X^T X, only needed to report the mismatched-objective error
+        if self.scale_optimizer.cross_act_objective and is_stats_collector_active():
+            self.R = torch.zeros_like(self.H)
         self.quant_input = None
 
     def compute_iterative_XtX(self, module, input, current_layer):
@@ -635,6 +643,12 @@ class PiSOLayerHandler():
 
         self.G += self.quant_input.bmm(inp_processed.transpose(2, 1))
 
+        # Accumulate the float covariance with the same normalization as H and G,
+        # so that the constants cancel in the reported relative errors.
+        if hasattr(self, 'R'):
+            self.R *= (self.nsamples_G - batch_size) / self.nsamples_G
+            self.R += inp_processed.bmm(inp_processed.transpose(2, 1))
+
         del self.quant_input
         self.quant_input = None
 
@@ -662,6 +676,8 @@ class PiSOLayerHandler():
         del self.H
         if self.scale_optimizer.cross_act_objective:
             del self.G
+            if hasattr(self, 'R'):
+                del self.R
 
 
 class optimize_scale_mode(layerwise_hook_mode):
@@ -675,6 +691,9 @@ class optimize_scale_mode(layerwise_hook_mode):
     the chosen reconstruction objective. This is the standalone path; the interleaved
     path instead passes a ScaleOptimizer into GPTQ/Qronos.
     """
+
+    # PiSO only updates the scale, so layer.weight is still the float reference.
+    stats_weight_attr = 'weight'
 
     def __init__(
             self,

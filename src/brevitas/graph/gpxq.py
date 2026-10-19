@@ -188,6 +188,11 @@ class gpxq_mode(layerwise_hook_mode):
 
 class GPxQ(ABC):
 
+    # Orientation of the cross-covariance G, when the algorithm accumulates one.
+    # gpxq_compute_error_stats expects G = X \hat{X}^T; set this to True in
+    # algorithms that accumulate \hat{X} X^T instead (GPFQ, PiSO).
+    stats_g_is_transposed = False
+
     def __init__(
             self,
             layer,
