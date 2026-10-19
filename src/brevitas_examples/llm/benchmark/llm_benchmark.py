@@ -59,7 +59,9 @@ class LLMEntryPointUtils(EntryPointUtils):
             extra_args: Optional[List[str]] = None,
             job_folder: Optional[str] = None) -> Tuple[Dict, Any]:
         from brevitas_examples.llm.main import quantize_llm
-        return quantize_llm(args=args, extra_args=extra_args)
+
+        # job_folder keeps any --ptq-stats output next to the rest of the job artifacts.
+        return quantize_llm(args=args, extra_args=extra_args, output_dir=job_folder)
 
 
 class LLMGridBenchmark(BenchmarkUtils):

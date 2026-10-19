@@ -33,6 +33,7 @@ from brevitas.graph.utils import remove_weight_orig
 from brevitas.nn.quant_sdpa import ScaledDotProductAttention
 from brevitas.utils.logging import setup_logger
 from brevitas.utils.python_utils import hooked_on_a_function
+from brevitas.utils.stats_utils import collect_stats_ctx
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.accelerate_utils.accelerate import update_internal_dict
@@ -62,6 +63,7 @@ from brevitas_examples.llm.llm_quant.export import convert_hf_hparams_to_gguf
 from brevitas_examples.llm.llm_quant.export import gguf_mapping
 from brevitas_examples.llm.llm_quant.gpxq import apply_gpfq
 from brevitas_examples.llm.llm_quant.gpxq import apply_gptq
+from brevitas_examples.llm.llm_quant.gpxq import apply_gpxq_stats
 from brevitas_examples.llm.llm_quant.gpxq import apply_magr
 from brevitas_examples.llm.llm_quant.gpxq import apply_qronos
 from brevitas_examples.llm.llm_quant.learned_round_utils import apply_learned_round
@@ -281,9 +283,17 @@ def find_equalized_layer(layer):
     return layer
 
 
-def quantize_llm(args, extra_args=None):
+def quantize_llm(args, extra_args=None, output_dir=None):
     validate(args, extra_args)
     set_seed(args.seed)
+
+    # Where the --ptq-stats YAML files are written. An explicit output_dir (e.g. the
+    # benchmark job folder) takes precedence over the CLI flag.
+    if output_dir is None:
+        output_dir = getattr(args, 'stats_output_dir', './')
+    if args.ptq_stats:
+        os.makedirs(output_dir, exist_ok=True)
+
     if args.export_prefix is None:
         args.export_prefix = f"{args.model.replace('/', '--')}"
 
@@ -633,7 +643,9 @@ def quantize_llm(args, extra_args=None):
 
         if args.sopt_optimize and not args.sopt_optimize_in_gpxq:
             print("Applying Scale Opt...")
-            apply_scale_optimization(model, calibration_loader, args)
+            with collect_stats_ctx("sopt", args.ptq_stats) as stats:
+                apply_scale_optimization(model, calibration_loader, args)
+                stats.save_to_yaml(os.path.join(output_dir, "sopt_stats.yaml"))
             print("Scale Optimization applied.")
 
         if args.act_calibration and not args.load_checkpoint:
@@ -709,34 +721,48 @@ def quantize_llm(args, extra_args=None):
             model = offload_model(model)
             print("Checkpoint loaded.")
 
+        if "error" in args.ptq_stats:
+            print("Measuring quantization error...")
+            collector = apply_gpxq_stats(
+                model,
+                calibration_loader,
+                block_name=args.gpxq_block_name,
+                buffer_device=args.gpxq_buffer_device)
+            collector.save_to_yaml(os.path.join(output_dir, "error_stats.yaml"))
+            print("Quantization error measured.")
+
         if args.gptq and not args.load_checkpoint:
             print("Applying GPTQ...")
             scale_optimizer = build_scale_optimizer(
                 args, cross_act_objective=False) if args.sopt_optimize_in_gpxq else None
-            apply_gptq(
-                model,
-                calibration_loader,
-                act_order=args.gpxq_act_order,
-                use_quant_activations=args.gpxq_use_quant_activations,
-                create_weight_orig=not args.disable_create_weight_orig,
-                block_name=args.gpxq_block_name,
-                buffer_device=args.gpxq_buffer_device,
-                max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
-                max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size,
-                scale_optimizer=scale_optimizer)
+            with collect_stats_ctx("gptq", args.ptq_stats) as stats:
+                apply_gptq(
+                    model,
+                    calibration_loader,
+                    act_order=args.gpxq_act_order,
+                    use_quant_activations=args.gpxq_use_quant_activations,
+                    create_weight_orig=not args.disable_create_weight_orig,
+                    block_name=args.gpxq_block_name,
+                    buffer_device=args.gpxq_buffer_device,
+                    max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
+                    max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size,
+                    scale_optimizer=scale_optimizer)
+                stats.save_to_yaml(os.path.join(output_dir, "gptq_stats.yaml"))
 
             print("GPTQ applied.")
 
         if args.gpfq and not args.load_checkpoint:
             print("Applying GPFQ...")
-            apply_gpfq(
-                model,
-                calibration_loader,
-                act_order=args.gpxq_act_order,
-                block_name=args.gpxq_block_name,
-                buffer_device=args.gpxq_buffer_device,
-                max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
-                max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
+            with collect_stats_ctx("gpfq", args.ptq_stats) as stats:
+                apply_gpfq(
+                    model,
+                    calibration_loader,
+                    act_order=args.gpxq_act_order,
+                    block_name=args.gpxq_block_name,
+                    buffer_device=args.gpxq_buffer_device,
+                    max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
+                    max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
+                stats.save_to_yaml(os.path.join(output_dir, "gpfq_stats.yaml"))
             print("GPFQ applied.")
 
         if args.qronos and not args.load_checkpoint:
@@ -745,14 +771,16 @@ def quantize_llm(args, extra_args=None):
             # (enforced in validate()).
             scale_optimizer = build_scale_optimizer(
                 args, cross_act_objective=True) if args.sopt_optimize_in_gpxq else None
-            apply_qronos(
-                model,
-                calibration_loader,
-                alpha=args.qronos_alpha,
-                act_order=args.gpxq_act_order,
-                block_name=args.gpxq_block_name,
-                buffer_device=args.gpxq_buffer_device,
-                scale_optimizer=scale_optimizer)
+            with collect_stats_ctx("qronos", args.ptq_stats) as stats:
+                apply_qronos(
+                    model,
+                    calibration_loader,
+                    alpha=args.qronos_alpha,
+                    act_order=args.gpxq_act_order,
+                    block_name=args.gpxq_block_name,
+                    buffer_device=args.gpxq_buffer_device,
+                    scale_optimizer=scale_optimizer)
+                stats.save_to_yaml(os.path.join(output_dir, "qronos_stats.yaml"))
             print("Qronos applied.")
 
         if args.bias_corr and not args.load_checkpoint:
