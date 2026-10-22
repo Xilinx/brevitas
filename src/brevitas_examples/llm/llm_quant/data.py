@@ -220,6 +220,47 @@ def load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
             warnings.warn(
                 f"There is no available {split} split for fineweb. Defaulting to wikitext2.")
             data = load_dataset('Salesforce/wikitext', 'wikitext-2-raw-v1', split=split)
+    elif dataset_name == "tulu3_sft":
+        if split == "train":
+            data = load_dataset("allenai/tulu-3-sft-mixture", split="train")
+            data = data.shuffle(seed=seed)
+        else:
+            warnings.warn(
+                f"There is no available {split} split for tulu3_sft. Defaulting to wikitext2.")
+            data = load_dataset('Salesforce/wikitext', 'wikitext-2-raw-v1', split=split)
     else:
         raise ValueError(f"Dataset {dataset_name} is not available")
     return data
+
+
+# Datasets whose samples are chat-formatted message lists rather than raw text.
+# `data_utils.get_dataset_for_model` detects these names and pre-renders each
+# row through `tokenizer.apply_chat_template` before invoking the standard CLM
+# tokenization pipeline.
+SFT_CHAT_DATASETS = {"tulu3_sft"}
+
+
+def render_chat_template(example: Dict[str, Any],
+                         tokenizer: PreTrainedTokenizerBase) -> Dict[str, str]:
+    """Render a chat-formatted dataset row into a single text string.
+
+    Expects ``example["messages"]`` to be a list of ``{"role", "content"}`` dicts
+    (Tulu-3 / ShareGPT-style schema). Returns ``{"text": <rendered string>}``
+    suitable for the existing :func:`get_clm_dataset` pipeline.
+
+    The chat template inserts the conversation framing that the target model
+    expects. Use ``bos_preprocessing=None`` to preserve this framing.
+    """
+    rendered = tokenizer.apply_chat_template(
+        example["messages"],
+        tokenize=False,
+        add_generation_prompt=False,
+    )
+    return {"text": rendered}
+
+
+def count_chat_template_tokens(tokenizer: PreTrainedTokenizerBase) -> int:
+    """Return the number of tokens that the chat template adds to an empty conversation."""
+    messages = [dict(role="user", content=""), dict(role="assistant", content="")]
+    rendered = render_chat_template({"messages": messages}, tokenizer)["text"]
+    return len(tokenizer([rendered], add_special_tokens=False)["input_ids"][0])
