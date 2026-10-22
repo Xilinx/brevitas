@@ -252,9 +252,8 @@ def render_chat_template(example: Dict[str, Any],
     (Tulu-3 / ShareGPT-style schema). Returns ``{"text": <rendered string>}``
     suitable for the existing :func:`get_clm_dataset` pipeline.
 
-    The chat template inserts BOS/EOS markers and role tokens appropriate to the
-    target model, so downstream callers should pass ``bos_preprocessing=None``
-    to avoid double-BOS.
+    The chat template inserts the conversation framing that the target model
+    expects. Use ``bos_preprocessing=None`` to preserve this framing.
     """
     rendered = tokenizer.apply_chat_template(
         example["messages"],
@@ -262,3 +261,10 @@ def render_chat_template(example: Dict[str, Any],
         add_generation_prompt=False,
     )
     return {"text": rendered}
+
+
+def count_chat_template_tokens(tokenizer: PreTrainedTokenizerBase) -> int:
+    """Return the number of tokens that the chat template adds to an empty conversation."""
+    messages = [dict(role="user", content=""), dict(role="assistant", content="")]
+    rendered = render_chat_template({"messages": messages}, tokenizer)["text"]
+    return len(tokenizer([rendered], add_special_tokens=False)["input_ids"][0])

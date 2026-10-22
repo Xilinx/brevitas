@@ -44,6 +44,7 @@ import numpy as np
 import torch
 from transformers import AutoConfig
 
+from brevitas_examples.llm.llm_quant.data import count_chat_template_tokens
 from brevitas_examples.llm.llm_quant.data import get_clm_dataset
 from brevitas_examples.llm.llm_quant.data import get_wikitext2
 from brevitas_examples.llm.llm_quant.data import load_raw_dataset
@@ -159,28 +160,35 @@ def get_dataset_for_model(
             add_bos_token=(bos_preprocessing == "sequence" and tokenizer.bos_token_id is not None),
             seed=seed)
     else:
-        # Chat-formatted SFT datasets are rendered through the model's chat
-        # template before tokenization. The template inserts its own BOS and
-        # role markers; sequence/document-level BOS preprocessing on top would
-        # produce a double-BOS that the model never sees during inference,
-        # so we require the caller to set bos_preprocessing=None explicitly
-        # (fail-loud rather than silently override). fuse_documents is forced
-        # to True because most Tulu-3 conversations are shorter than seqlen
-        # and group_texts would otherwise silently drop them; this knob is
-        # not exposed via CLI/YAML so the assignment is purely defensive.
+        # Render chat-formatted SFT datasets with the model's chat template.
+        # Generic BOS processing can alter the model-specific conversation framing.
+        # Require bos_preprocessing=None to preserve the template output.
+        # Fuse documents because most Tulu-3 conversations are shorter than seqlen.
+        # Without fusion, group_texts silently drops these conversations.
+        # The CLI and YAML interfaces do not expose this setting.
         if dataset_name in SFT_CHAT_DATASETS:
             if bos_preprocessing is not None:
                 raise ValueError(
                     f"Dataset {dataset_name!r} is chat-formatted; its chat "
-                    "template already inserts BOS markers. Set "
+                    "template defines the complete conversation framing. Set "
                     "bos_preprocessing=None (YAML: 'bos_preprocessing: null') "
-                    "to avoid a double-BOS that the model would not see "
-                    "during inference.")
+                    "to preserve this framing.")
+            # For reference, Qwen3-1.7B uses 14 framing tokens for an empty user-assistant exchange.
+            chat_template_tokens = count_chat_template_tokens(tokenizer)
+            if seqlen <= chat_template_tokens:
+                warnings.warn(
+                    f"seqlen ({seqlen}) is not larger than the {chat_template_tokens} tokens "
+                    "that the chat template adds to an empty conversation. "
+                    "Each sample has no room for conversation content.")
             raw_dataset = raw_dataset.map(
                 partial(render_chat_template, tokenizer=tokenizer),
                 remove_columns=raw_dataset.column_names,
                 desc=f"Rendering {dataset_name} via chat template")
-            fuse_documents = True
+            if not fuse_documents:
+                warnings.warn(
+                    f"Dataset {dataset_name!r} requires fuse_documents=True. "
+                    "Overriding fuse_documents to True.")
+                fuse_documents = True
         dataset = get_clm_dataset(
             raw_dataset=raw_dataset,
             tokenizer=tokenizer,
