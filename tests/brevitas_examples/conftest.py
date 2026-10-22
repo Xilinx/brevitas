@@ -7,6 +7,7 @@ from pathlib import Path
 from filelock import FileLock
 import pytest
 
+from tests.brevitas_examples.assets_for_tests import get_lock_dir
 from tests.brevitas_examples.assets_for_tests import get_test_cache_dir
 from tests.brevitas_examples.assets_for_tests import TEST_CACHE_VERSION
 
@@ -59,7 +60,9 @@ def bnn_pynq_datasets():
     download, so unrelated sessions (LLM, vision, diffusion) are unaffected.
     """
     os.makedirs(DATADIR, exist_ok=True)
-    lock_path = os.path.join(DATADIR, '.download.lock')
+    lock_dir = get_lock_dir()
+    os.makedirs(lock_dir, exist_ok=True)
+    lock_path = os.path.join(lock_dir, 'bnn-pynq-datasets.lock')
     sentinel_path = os.path.join(DATADIR, '.download.done')
     with FileLock(lock_path):
         sentinel = Path(sentinel_path)

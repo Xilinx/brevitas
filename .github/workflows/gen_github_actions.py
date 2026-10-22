@@ -1,4 +1,5 @@
 from collections import OrderedDict as od
+from textwrap import indent
 
 from utils import Action
 from utils import combine_od_list
@@ -170,17 +171,67 @@ PYTEST_STEP_LIST = [
         )]),]
 
 
+def asset_cache_key(asset_family):
+    # Hashing every test file means adding a test that uses a new model also invalidates the cache.
+    return (
+        "${{ runner.os }}-brevitas-test-assets-" + asset_family + "-${{ hashFiles("
+        "'tests/brevitas_examples/**/*.py', 'noxfile.py', "
+        "'requirements/requirements-lighteval.txt', "
+        "'src/brevitas_examples/bnn_pynq/cfg/*.ini') }}")
+
+
 def examples_cache_step(asset_family):
-    return od([
-        ('name', 'Cache brevitas {} assets'.format(asset_family)), ('uses', 'actions/cache@v4'),
-        (
-            'with',
-            od([
-                ('path', 'data'),
-                (
-                    'key',
-                    "${{{{ runner.os }}}}-brevitas-test-assets-{}-${{{{ hashFiles('tests/brevitas_examples/conftest.py', 'tests/brevitas_examples/assets_for_tests.py', 'noxfile.py', 'requirements/requirements-lighteval.txt', 'src/brevitas_examples/bnn_pynq/cfg/*.ini') }}}}"
-                    .format(asset_family)),]))])
+    return od([('name', 'Cache brevitas {} assets'.format(asset_family)),
+               ('uses', 'actions/cache@v4'),
+               ('with', od([('path', 'data'), ('key', asset_cache_key(asset_family))]))])
+
+
+def restore_assets_steps(asset_family):
+    # Read-only: the prepare-assets job is the only writer of this cache entry.
+    return [
+        od([('name', 'Restore brevitas {} assets'.format(asset_family)), ('id', 'assets'),
+            ('uses', 'actions/cache/restore@v4'),
+            ('with', od([('path', 'data'), ('key', asset_cache_key(asset_family))]))]),
+        od([('name', 'Use prepared assets only'), ('shell', 'bash'),
+            ('run', 'echo "BREVITAS_TEST_OFFLINE=1" >> "$GITHUB_ENV"'),
+            ('if', "steps.assets.outputs.cache-hit == 'true'")]),]
+
+
+PREPARE_JOB_HEADER = """\
+  prepare-assets:
+    name: Cache brevitas %s assets
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: %s
+    if: ${{ !github.event.pull_request.draft }}
+    steps:
+"""
+
+
+def prepare_assets_job(asset_family, nox_session):
+    on_miss = ('if', "steps.cache.outputs.cache-hit != 'true'")
+    steps = [
+        od([('name', 'Checkout repo'), ('uses', 'actions/checkout@v3')]),
+        od([('name', 'Cache brevitas {} assets'.format(asset_family)), ('id', 'cache'),
+            ('uses', 'actions/cache@v4'),
+            (
+                'with',
+                od([('path', 'data'), ('key', asset_cache_key(asset_family)),
+                    ('lookup-only', 'true')]))]),
+        od([('name', 'Set up Python'), ('uses', 'actions/setup-python@v2'),
+            ('with', od([('python-version', "'{}'".format(PYTHON_VERSIONS[0]))])),
+            on_miss]),
+        od([('name', 'Install Nox dependencies'), ('shell', 'bash'),
+            ('run', 'pip install -r requirements/requirements-nox.txt'),
+            on_miss]),
+        od([('name', 'Prepare brevitas {} assets'.format(asset_family)), ('shell', 'bash'),
+            ('run', 'nox -v -s {}'.format(nox_session)),
+            on_miss]),]
+    body = indent(Action.list_of_dicts_str(steps, False, True), 4 * ' ')
+    return PREPARE_JOB_HEADER % (asset_family, PLATFORM_LIST) + body
 
 
 EXAMPLES_PYTEST_STEP_LIST = [
@@ -328,8 +379,9 @@ def gen_examples_llm_pytest_yml():
         'Examples LLM Pytest',
         EXCLUDE_LIST + JIT_EXCLUDE_LIST,
         combine_od_list([EXAMPLES_LLM_PYTEST_MATRIX, PYTEST_MATRIX_EXTRA]),
-        EXAMPLES_LLM_PYTEST_STEP_LIST,
-        STRATEGY)
+        restore_assets_steps('llm') + EXAMPLES_LLM_PYTEST_STEP_LIST[1:],
+        STRATEGY,
+        prepare_job=prepare_assets_job('llm', 'prepare_llm_assets'))
     pytest.gen_yaml(BASE_YML_TEMPLATE, EXAMPLES_LLM_PYTEST_YML)
     pytest = Action(
         'Examples LLM Pytest',
@@ -345,8 +397,9 @@ def gen_examples_diffusion_pytest_yml():
         'Examples Diffusion Pytest',
         EXCLUDE_LIST + JIT_EXCLUDE_LIST,
         combine_od_list([EXAMPLES_DIFFUSION_PYTEST_MATRIX, PYTEST_MATRIX_EXTRA]),
-        EXAMPLES_DIFFUSION_PYTEST_STEP_LIST,
-        STRATEGY)
+        restore_assets_steps('diffusion') + EXAMPLES_DIFFUSION_PYTEST_STEP_LIST[1:],
+        STRATEGY,
+        prepare_job=prepare_assets_job('diffusion', 'prepare_diffusion_assets'))
     pytest.gen_yaml(BASE_YML_TEMPLATE, EXAMPLES_DIFFUSION_PYTEST_YML)
     pytest = Action(
         'Examples Diffusion Pytest',
