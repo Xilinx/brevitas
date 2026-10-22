@@ -222,10 +222,6 @@ def load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
             data = load_dataset('Salesforce/wikitext', 'wikitext-2-raw-v1', split=split)
     elif dataset_name == "tulu3_sft":
         if split == "train":
-            # SFT-style chat corpus (e.g., for quantization-aware distillation
-            # on instruction-tuned models). The downstream loader (data_utils.get_dataset_for_model)
-            # renders each `messages` row through the tokenizer's chat template
-            # before tokenization.
             data = load_dataset("allenai/tulu-3-sft-mixture", split="train")
             data = data.shuffle(seed=seed)
         else:
@@ -237,7 +233,7 @@ def load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
     return data
 
 
-# Datasets whose rows are chat-formatted message lists rather than raw text.
+# Datasets whose samples are chat-formatted message lists rather than raw text.
 # `data_utils.get_dataset_for_model` detects these names and pre-renders each
 # row through `tokenizer.apply_chat_template` before invoking the standard CLM
 # tokenization pipeline.
