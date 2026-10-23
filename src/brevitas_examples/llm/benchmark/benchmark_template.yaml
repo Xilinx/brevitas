@@ -58,8 +58,12 @@ eager_quant_sdpa_class:
 - auto
 eval:
 - false
+eval_top_k:
+- 10
 expansion_step:
 - 1
+export_path:
+- null
 export_prefix:
 - null
 export_target:
