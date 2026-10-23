@@ -12,7 +12,7 @@ from brevitas.export.onnx import onnx_export_opset
 from brevitas.export.onnx.debug import DebugMarkerFunction
 from brevitas.nn.quant_rnn import _QuantLSTMLayer
 
-from .function import LSTMCellFn
+from .function import LSTMCellOp
 
 __all__ = [
     'Kernel1dApplHandlerMixin',
@@ -319,7 +319,8 @@ class QuantLSTMLayerHandler(ONNXBaseHandler, ABC):
             else:
                 output_dir_axes = torch.tensor([2], dtype=torch.int64)
                 state_dir_axes = torch.tensor([0], dtype=torch.int64)
-            return LSTMCellFn.apply(
+            return self.export_op(
+                LSTMCellOp,
                 quant_input,
                 quant_weight_i,
                 quant_weight_h,

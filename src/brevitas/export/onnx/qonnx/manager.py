@@ -15,6 +15,7 @@ from brevitas.export.manager import _set_recurrent_layer_export_mode
 from brevitas.export.onnx.debug import DebugMarkerFunction
 from brevitas.export.onnx.manager import ONNXBaseManager
 from brevitas.export.onnx.manager import ONNXDynamoExportMixin
+from brevitas.nn.quant_rnn import _QuantLSTMLayer
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.logging import setup_logger
 
@@ -102,6 +103,15 @@ class QONNXManager(ONNXBaseManager):
 class QONNXDynamoManager(ONNXDynamoExportMixin, QONNXManager):
 
     @classmethod
+    def _validate_dynamo_supported(cls, module: Module):
+        # The quantized LSTM cell has no dynamo backend yet, and tracing it would silently
+        # produce an empty graph.
+        for m in module.modules():
+            if isinstance(m, _QuantLSTMLayer) and m.cell.output_quant.is_quant_enabled:
+                raise RuntimeError(
+                    "QONNX export with `dynamo=True` does not support quantized LSTM cells.")
+
+    @classmethod
     def export_onnx(
             cls,
             module: Module,
@@ -112,6 +122,7 @@ class QONNXDynamoManager(ONNXDynamoExportMixin, QONNXManager):
             disable_warnings,
             **onnx_export_kwargs):
         cls._check_dynamo_export_kwargs(onnx_export_kwargs)
+        cls._validate_dynamo_supported(module)
         model = super(QONNXDynamoManager, cls).export_onnx(
             module, args, export_path, input_shape, input_t, disable_warnings, **onnx_export_kwargs)
         return model
