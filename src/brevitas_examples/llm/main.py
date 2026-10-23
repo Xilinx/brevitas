@@ -787,8 +787,12 @@ def quantize_llm(args, extra_args=None):
             quant_ear = quant_metrics.ear
             quant_kld = quant_metrics.kld
             print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
-            print(f"Quantized expected acceptance rate ({args.dataset}): {quant_ear:.6f}")
-            print(f"Quantized KL divergence ({args.dataset}): {quant_kld:.6f}")
+            print(
+                f"Quantized expected acceptance rate @ top-{args.eval_top_k} "
+                f"({args.dataset}): {quant_ear:.6f}")
+            print(
+                f"Quantized KL divergence @ top-{args.eval_top_k} "
+                f"({args.dataset}): {quant_kld:.6f}")
         few_shot_eval_results = dict()
         if args.few_shot_eval == 'lm_eval':
             from lm_eval import evaluator
