@@ -75,6 +75,11 @@ def create_args_parser() -> ArgumentParser:
     parser.add_argument(
         '--eval', action='store_true', help='Eval model PPL, EAR, and KLD on the chosen dataset.')
     parser.add_argument(
+        '--eval-top-k',
+        type=int,
+        default=10,
+        help='Number of tokens to evaluate EAR and KLD on. Default: 10.')
+    parser.add_argument(
         '--dataset',
         type=str,
         choices=['wikitext2', 'c4', 'pile', 'fineweb'],
@@ -595,6 +600,7 @@ def dynamo_required(args: Namespace):
 
 
 def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
+    assert args.eval_top_k > 0, 'Error: eval_top_k must be positive.'
     # --optimize-rotations is a deprecated alias for --fine-tune
     if args.optimize_rotations:
         warn(
