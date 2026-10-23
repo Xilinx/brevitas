@@ -365,7 +365,8 @@ def quantize_llm(args, extra_args=None):
             data=validation_loader,
             context_length=args.seqlen // 2,
             tokenizer=tokenizer,
-            seed=args.seed)
+            seed=args.seed,
+            top_k=args.eval_top_k)
         float_ppl = float_metrics.ppl
         float_probabilities = float_metrics.probabilities
         remove_hooks(model)
