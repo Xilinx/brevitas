@@ -1,12 +1,17 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from packaging.version import parse
+import pytest
 import torch
 
+from brevitas import torch_version
 from brevitas.export import enable_debug
+from brevitas.export import export_qonnx
 from brevitas.nn import QuantConv2d
 from brevitas.nn import QuantIdentity
 from brevitas.nn import QuantLinear
+from brevitas.nn import QuantLSTM
 from brevitas.nn import TruncAvgPool2d
 from brevitas.quant.scaled_int import Int4WeightPerTensorFloatDecoupled
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
@@ -227,3 +232,13 @@ def test_debug_brevitas_onnx_export(request, qonnx_export_fn):
     rm_onnx(outfile)
     model(input_tensor)
     assert debug_hook.values
+
+
+@pytest.mark.skipif(torch_version < parse('2.8'), reason='Dynamo export requires PyTorch >= 2.8')
+def test_quant_lstm_qonnx_dynamo_export_raises():
+    model = QuantLSTM(input_size=IN_CH, hidden_size=OUT_CH)
+    model.eval()
+    inp = torch.randn(5, 1, IN_CH)
+    outfile = 'quant_lstm_qonnx_dynamo.onnx'
+    with pytest.raises(RuntimeError, match='does not support quantized LSTM cells'):
+        export_qonnx(model, inp, export_path=outfile, dynamo=True, optimize=True)

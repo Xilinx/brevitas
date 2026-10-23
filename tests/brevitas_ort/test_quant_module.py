@@ -115,14 +115,18 @@ def test_ort_avgpool(model, export_type, current_cases):
 
 
 @parametrize_with_cases('model', cases=QuantRecurrentCases)
-@pytest.mark.parametrize('export_type', ['qcdq', 'qonnx_opset14'])
+@pytest.mark.parametrize(
+    'export_type', ['qcdq', 'qcdq_dynamo', 'qonnx_opset14', 'qonnx_dynamo_opset18'])
 def test_ort_lstm(model, export_type, current_cases):
     cases_generator_func = current_cases['model'][1]
     case_id = get_case_id(cases_generator_func)
     if 'a2q' in case_id:
         pytest.skip("A2Q doesn't support LSTM export currently.")
 
-    if 'quant' in case_id and export_type == 'qonnx_opset14':
+    if 'dynamo' in export_type and torch_version < parse('2.8'):
+        pytest.skip('Dynamo export requires PyTorch >= 2.8')
+
+    if 'quant' in case_id and 'qonnx' in export_type:
         pytest.skip(
             'Execution of quantized LSTM not supported out of the box for QONNX IR + ORT (requires qonnx lib).'
         )
@@ -131,5 +135,13 @@ def test_ort_lstm(model, export_type, current_cases):
     inp = gen_linspaced_data(reduce(mul, in_size)).reshape(in_size)
     model.eval()
     export_name = f'lstm_export_{case_id}.onnx'
-    assert is_brevitas_ort_close(model, inp, export_name, export_type, tolerance=FLOAT_TOLERANCE)
+    # Dynamo QCDQ only supports Q-node weight export
+    export_q_weight = export_type == 'qcdq_dynamo'
+    assert is_brevitas_ort_close(
+        model,
+        inp,
+        export_name,
+        export_type,
+        tolerance=FLOAT_TOLERANCE,
+        export_q_weight=export_q_weight)
     rm_onnx(export_name)
