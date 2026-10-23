@@ -14,6 +14,7 @@ import torch
 
 from brevitas_examples.llm.llm_quant.data import get_wikitext2
 from brevitas_examples.llm.llm_quant.data import tokenize_and_group_texts
+from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
 from brevitas_examples.llm.llm_quant.data_utils import llm_collate
 
 pytestmark = pytest.mark.llm
@@ -206,3 +207,38 @@ def test_llm_dataloader():
         assert torch.allclose(batch['attention_mask'][0], expected_attention_mask[0]['attention_mask']), 'attention_mask mismatch'
         assert torch.allclose(batch['attention_mask'][1], expected_attention_mask[1]['attention_mask']), 'attention_mask mismatch'
         assert batch['attention_mask'].shape[0] == 2, 'wrong number of attention_mask'
+
+
+class DummyChatTokenizer(DummyTokenizer):
+
+    def apply_chat_template(self, messages, tokenize=False, add_generation_prompt=False):
+        return "".join(f"<{m['role']}>{m['content']}" for m in messages)
+
+
+def mock_tulu3_sft_raw_dataset(*args, **kwargs) -> Dataset:
+    messages = [[dict(role="user", content="Hi"), dict(role="assistant", content="Hello!")]]
+    return Dataset.from_dict({"messages": messages})
+
+
+@pytest_cases.parametrize("bos_preprocessing", ["document", "sequence"])
+def test_tulu3_sft_rejects_bos_preprocessing(bos_preprocessing: str):
+    with patch('brevitas_examples.llm.llm_quant.data_utils.load_raw_dataset',
+               mock_tulu3_sft_raw_dataset):
+        with pytest.raises(ValueError, match="chat-formatted"):
+            get_dataset_for_model(
+                "tulu3_sft",
+                DummyChatTokenizer(),
+                nsamples=1,
+                seqlen=4,
+                bos_preprocessing=bos_preprocessing)
+
+
+def test_tulu3_sft_chat_template_tokenization():
+    with patch('brevitas_examples.llm.llm_quant.data_utils.load_raw_dataset',
+               mock_tulu3_sft_raw_dataset):
+        dataset = get_dataset_for_model(
+            "tulu3_sft", DummyChatTokenizer(), nsamples=-1, seqlen=8, bos_preprocessing=None)
+    rendered = "<user>Hi<assistant>Hello!"
+    samples = ["".join(chr(t) for t in ids) for ids in dataset["input_ids"]]
+    assert len(samples) > 0
+    assert all(len(sample) == 8 and sample in rendered for sample in samples)
