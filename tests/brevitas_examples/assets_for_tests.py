@@ -93,19 +93,16 @@ def resolve_hf_asset(repo_id: str, revision: str | None = None) -> str:
         "revision": revision,
         "cache_dir": cache_dir,}
 
-    try:
-        return snapshot_download(**common_args, local_files_only=True)
-    except LocalEntryNotFoundError:
-        if _env_enabled("BREVITAS_TEST_OFFLINE"):
-            raise
-
     lock_id = hashlib.sha256(f"{repo_id}\n{revision}".encode()).hexdigest()
     lock_dir = get_lock_dir()
     os.makedirs(lock_dir, exist_ok=True)
+    # The local probe runs under the lock: a worker must not read a snapshot another worker is still writing.
     with FileLock(os.path.join(lock_dir, f"hf-{lock_id}.lock")):
         try:
             return snapshot_download(**common_args, local_files_only=True)
         except LocalEntryNotFoundError:
+            if _env_enabled("BREVITAS_TEST_OFFLINE"):
+                raise
             return _retry(partial(snapshot_download, **common_args, local_files_only=False))
 
 
