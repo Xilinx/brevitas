@@ -8,8 +8,47 @@ on:
       - review_requested
 
 jobs:
+  prepare-assets:
+    name: Cache brevitas llm assets
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ['windows-latest', 'ubuntu-latest', 'macos-latest']
+    if: ${{ !github.event.pull_request.draft }}
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
+
+    - name: Cache brevitas llm assets
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: data
+        key: ${{ runner.os }}-brevitas-test-assets-llm-${{ hashFiles('tests/brevitas_examples/**/*.py', 'noxfile.py', 'requirements/requirements-lighteval.txt', 'src/brevitas_examples/bnn_pynq/cfg/*.ini') }}
+        lookup-only: true
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.10'
+      if: steps.cache.outputs.cache-hit != 'true'
+
+    - name: Install Nox dependencies
+      shell: bash
+      run: pip install -r requirements/requirements-nox.txt
+      if: steps.cache.outputs.cache-hit != 'true'
+
+    - name: Prepare brevitas llm assets
+      shell: bash
+      run: nox -v -s prepare_llm_assets
+      if: steps.cache.outputs.cache-hit != 'true'
+
+
   build:
     runs-on: ${{ matrix.platform }}
+    needs: prepare-assets
     strategy:
       fail-fast: false
 
@@ -52,6 +91,18 @@ jobs:
       shell: bash
       run: brew install libomp
       if: startsWith(runner.os, 'macOS') == true
+
+    - name: Restore brevitas llm assets
+      id: assets
+      uses: actions/cache/restore@v4
+      with:
+        path: data
+        key: ${{ runner.os }}-brevitas-test-assets-llm-${{ hashFiles('tests/brevitas_examples/**/*.py', 'noxfile.py', 'requirements/requirements-lighteval.txt', 'src/brevitas_examples/bnn_pynq/cfg/*.ini') }}
+
+    - name: Use prepared assets only
+      shell: bash
+      run: echo "BREVITAS_TEST_OFFLINE=1" >> "$GITHUB_ENV"
+      if: steps.assets.outputs.cache-hit == 'true'
 
     - name: Run Nox session for brevitas_examples LLM
       shell: bash

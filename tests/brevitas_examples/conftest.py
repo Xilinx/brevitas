@@ -2,13 +2,32 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import os
+from pathlib import Path
 
 from filelock import FileLock
 import pytest
 
+from tests.brevitas_examples.assets_for_tests import get_lock_dir
+from tests.brevitas_examples.assets_for_tests import get_test_cache_dir
+from tests.brevitas_examples.assets_for_tests import TEST_CACHE_VERSION
+
 # Default dataset location used by brevitas_examples.bnn_pynq.bnn_pynq_train.launch
 # (resolved relative to the current working directory, i.e. the repo root under nox).
-DATADIR = os.path.abspath(os.path.join(os.getcwd(), 'data'))
+DATADIR = str(get_test_cache_dir())
+
+
+def _datasets_available(datadir):
+    from torchvision.datasets import CIFAR10
+
+    from brevitas_examples.bnn_pynq.trainer import MirrorMNIST
+
+    try:
+        for builder in (MirrorMNIST, CIFAR10):
+            for train in (True, False):
+                builder(root=datadir, train=train, download=False)
+    except (RuntimeError, FileNotFoundError):
+        return False
+    return True
 
 
 def _download_datasets(datadir):
@@ -41,11 +60,18 @@ def bnn_pynq_datasets():
     download, so unrelated sessions (LLM, vision, diffusion) are unaffected.
     """
     os.makedirs(DATADIR, exist_ok=True)
-    lock_path = os.path.join(DATADIR, '.download.lock')
+    lock_dir = get_lock_dir()
+    os.makedirs(lock_dir, exist_ok=True)
+    lock_path = os.path.join(lock_dir, 'bnn-pynq-datasets.lock')
     sentinel_path = os.path.join(DATADIR, '.download.done')
     with FileLock(lock_path):
-        if not os.path.exists(sentinel_path):
+        sentinel = Path(sentinel_path)
+        cache_valid = sentinel.is_file() and sentinel.read_text() == TEST_CACHE_VERSION
+        if not cache_valid or not _datasets_available(DATADIR):
             _download_datasets(DATADIR)
-            with open(sentinel_path, 'w') as f:
-                f.write('ok')
+            if not _datasets_available(DATADIR):
+                raise RuntimeError(f'Incomplete dataset cache at {DATADIR}')
+            sentinel_tmp = sentinel.with_suffix('.tmp')
+            sentinel_tmp.write_text(TEST_CACHE_VERSION)
+            os.replace(sentinel_tmp, sentinel)
     yield
