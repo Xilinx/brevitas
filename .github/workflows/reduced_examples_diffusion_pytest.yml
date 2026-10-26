@@ -56,10 +56,10 @@ jobs:
       if: startsWith(runner.os, 'macOS') == true
 
     - name: Cache brevitas diffusion-reduced assets
-      uses: actions/cache@v4
+      uses: ./.github/actions/assets-cache
       with:
-        path: data
-        key: ${{ runner.os }}-brevitas-test-assets-diffusion-reduced-${{ hashFiles('tests/brevitas_examples/**/*.py', 'noxfile.py', 'requirements/requirements-lighteval.txt', 'src/brevitas_examples/bnn_pynq/cfg/*.ini') }}
+        family: diffusion-reduced
+        mode: cache
 
     - name: Run Nox session for brevitas_examples pytest
       shell: bash

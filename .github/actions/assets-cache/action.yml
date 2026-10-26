@@ -1,0 +1,81 @@
+name: Brevitas test assets
+description: Prepare, restore or cache the models, datasets and weights used by the example tests
+inputs:
+  family:
+    description: llm, diffusion or datasets, with a -reduced suffix in the reduced workflows
+    required: true
+  mode:
+    description: >
+      prepare downloads the assets once, with nox -s prepare_<family>_assets, and publishes them.
+      restore gets the published assets, fails on a miss and makes the tests run offline.
+      cache restores and saves the assets in the same job.
+    required: true
+  python-version:
+    description: Python version of the prepare mode
+    required: false
+runs:
+  using: composite
+  steps:
+    # Every test file is hashed, so adding a test that needs a new model also rebuilds the cache.
+    - name: Compute the cache key
+      id: key
+      shell: bash
+      run: >
+        echo "key=${{ runner.os }}-brevitas-test-assets-${{ inputs.family }}-${{ hashFiles(
+        'tests/brevitas_examples/**/*.py', 'noxfile.py', 'requirements/requirements-lighteval.txt',
+        'src/brevitas_examples/bnn_pynq/cfg/*.ini') }}" >> "$GITHUB_OUTPUT"
+
+    - name: Look up or restore the cached assets
+      id: restore
+      if: inputs.mode != 'cache'
+      uses: actions/cache/restore@v4
+      with:
+        path: data
+        key: ${{ steps.key.outputs.key }}
+        lookup-only: ${{ inputs.mode == 'prepare' }}
+        fail-on-cache-miss: ${{ inputs.mode == 'restore' }}
+
+    - name: Use prepared assets only
+      if: inputs.mode == 'restore'
+      shell: bash
+      run: echo "BREVITAS_TEST_OFFLINE=1" >> "$GITHUB_ENV"
+
+    - name: Cache the assets
+      if: inputs.mode == 'cache'
+      uses: actions/cache@v4
+      with:
+        path: data
+        key: ${{ steps.key.outputs.key }}
+
+    - name: Set up Python
+      if: inputs.mode == 'prepare' && steps.restore.outputs.cache-hit != 'true'
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install Nox dependencies
+      if: inputs.mode == 'prepare' && steps.restore.outputs.cache-hit != 'true'
+      shell: bash
+      run: pip install -r requirements/requirements-nox.txt
+
+    - name: Prepare the assets
+      if: inputs.mode == 'prepare' && steps.restore.outputs.cache-hit != 'true'
+      shell: bash
+      run: nox -v -s prepare_${{ inputs.family }}_assets
+
+    - name: Save the assets
+      if: inputs.mode == 'prepare' && steps.restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: data
+        key: ${{ steps.key.outputs.key }}
+
+    # Saving only warns on failure: fail here, not in every job of the matrix.
+    - name: Check the assets are published
+      if: inputs.mode == 'prepare'
+      uses: actions/cache/restore@v4
+      with:
+        path: data
+        key: ${{ steps.key.outputs.key }}
+        lookup-only: true
+        fail-on-cache-miss: true
