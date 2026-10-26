@@ -55,11 +55,11 @@ jobs:
       run: brew install libomp
       if: startsWith(runner.os, 'macOS') == true
 
-    - name: Cache brevitas diffusion assets
+    - name: Cache brevitas diffusion-reduced assets
       uses: actions/cache@v4
       with:
         path: data
-        key: ${{ runner.os }}-brevitas-test-assets-diffusion-${{ hashFiles('tests/brevitas_examples/**/*.py', 'noxfile.py', 'requirements/requirements-lighteval.txt', 'src/brevitas_examples/bnn_pynq/cfg/*.ini') }}
+        key: ${{ runner.os }}-brevitas-test-assets-diffusion-reduced-${{ hashFiles('tests/brevitas_examples/**/*.py', 'noxfile.py', 'requirements/requirements-lighteval.txt', 'src/brevitas_examples/bnn_pynq/cfg/*.ini') }}
 
     - name: Run Nox session for brevitas_examples pytest
       shell: bash

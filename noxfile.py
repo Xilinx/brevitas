@@ -16,6 +16,7 @@ from gen_github_actions import EXAMPLES_DIFFUSION_PYTEST_PYTORCH_VERSIONS
 from gen_github_actions import EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS
 from gen_github_actions import EXAMPLES_VISION_PYTEST_PYTORCH_VERSIONS
 from gen_github_actions import JIT_STATUSES
+from gen_github_actions import PYTORCH_VERSIONS as EXAMPLES_PYTORCH_VERSIONS
 from gen_github_actions import TORCHVISION_VERSION_DICT
 
 IS_OSX = system() == 'Darwin'
@@ -243,6 +244,14 @@ def prepare_diffusion_assets(session):
     cmd = install_pytorch_cmd(pytorch) + install_torchvision_cmd(pytorch)
     session.install('-e', '.[test, diffusion, export, numpy]', *cmd)
     session.run('python', '-m', 'tests.brevitas_examples.assets_for_tests', 'diffusion')
+
+
+@nox.session
+def prepare_datasets_assets(session):
+    pytorch = EXAMPLES_PYTORCH_VERSIONS[-1]
+    cmd = install_pytorch_cmd(pytorch) + install_torchvision_cmd(pytorch)
+    session.install('-e', '.[test, vision, export, numpy]', *cmd)
+    session.run('python', '-m', 'tests.brevitas_examples.assets_for_tests', 'datasets')
 
 
 @nox.session(python=PYTHON_VERSIONS)

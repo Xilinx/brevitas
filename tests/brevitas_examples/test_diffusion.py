@@ -107,7 +107,7 @@ def main() -> Callable:
             args: UpdatableNamespace,
             extra_args: Optional[List[str]] = None) -> Tuple[torch.nn.Module, Dict[str, float]]:
         if args.model == "hf-internal-testing/tiny-stable-diffusion-pipe":
-            args.model = resolve_hf_asset(args.model, revision="refs/pr/4")
+            args.model = resolve_hf_asset(args.model)
             # Fix the configuration so the feature processor returns a tensor with the dimensions
             # expected by the safety checker
             from transformers.image_processing_base import ImageProcessingMixin

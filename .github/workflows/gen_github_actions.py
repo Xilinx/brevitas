@@ -187,14 +187,17 @@ def examples_cache_step(asset_family):
 
 
 def restore_assets_steps(asset_family):
-    # Read-only: the prepare-assets job is the only writer of this cache entry.
+    # Read-only and strict: the prepare-assets job is the only writer of this cache entry, so a
+    # miss is an error and the matrix never downloads assets by itself.
     return [
-        od([('name', 'Restore brevitas {} assets'.format(asset_family)), ('id', 'assets'),
+        od([('name', 'Restore brevitas {} assets'.format(asset_family)),
             ('uses', 'actions/cache/restore@v4'),
-            ('with', od([('path', 'data'), ('key', asset_cache_key(asset_family))]))]),
+            (
+                'with',
+                od([('path', 'data'), ('key', asset_cache_key(asset_family)),
+                    ('fail-on-cache-miss', 'true')]))]),
         od([('name', 'Use prepared assets only'), ('shell', 'bash'),
-            ('run', 'echo "BREVITAS_TEST_OFFLINE=1" >> "$GITHUB_ENV"'),
-            ('if', "steps.assets.outputs.cache-hit == 'true'")]),]
+            ('run', 'echo "BREVITAS_TEST_OFFLINE=1" >> "$GITHUB_ENV"')]),]
 
 
 PREPARE_JOB_HEADER = """\
@@ -213,14 +216,12 @@ PREPARE_JOB_HEADER = """\
 
 def prepare_assets_job(asset_family, nox_session):
     on_miss = ('if', "steps.cache.outputs.cache-hit != 'true'")
+    cache_with = od([('path', 'data'), ('key', asset_cache_key(asset_family))])
     steps = [
         od([('name', 'Checkout repo'), ('uses', 'actions/checkout@v3')]),
-        od([('name', 'Cache brevitas {} assets'.format(asset_family)), ('id', 'cache'),
-            ('uses', 'actions/cache@v4'),
-            (
-                'with',
-                od([('path', 'data'), ('key', asset_cache_key(asset_family)),
-                    ('lookup-only', 'true')]))]),
+        od([('name', 'Look up brevitas {} assets'.format(asset_family)), ('id', 'cache'),
+            ('uses', 'actions/cache/restore@v4'),
+            ('with', od([*cache_with.items(), ('lookup-only', 'true')]))]),
         od([('name', 'Set up Python'), ('uses', 'actions/setup-python@v2'),
             ('with', od([('python-version', "'{}'".format(PYTHON_VERSIONS[0]))])),
             on_miss]),
@@ -229,13 +230,21 @@ def prepare_assets_job(asset_family, nox_session):
             on_miss]),
         od([('name', 'Prepare brevitas {} assets'.format(asset_family)), ('shell', 'bash'),
             ('run', 'nox -v -s {}'.format(nox_session)),
-            on_miss]),]
+            on_miss]),
+        od([('name', 'Save brevitas {} assets'.format(asset_family)),
+            ('uses', 'actions/cache/save@v4'), ('with', cache_with),
+            on_miss]),
+        # Saving only warns on failure: fail here, not in every job of the matrix.
+        od([('name', 'Check the assets are published'), ('uses', 'actions/cache/restore@v4'),
+            (
+                'with',
+                od([*cache_with.items(), ('lookup-only', 'true'),
+                    ('fail-on-cache-miss', 'true')]))]),]
     body = indent(Action.list_of_dicts_str(steps, False, True), 4 * ' ')
     return PREPARE_JOB_HEADER % (asset_family, PLATFORM_LIST) + body
 
 
 EXAMPLES_PYTEST_STEP_LIST = [
-    examples_cache_step('datasets'),
     od([('name', 'Run Nox session for brevitas_examples pytest'), ('shell', 'bash'),
         (
             'run',
@@ -243,7 +252,6 @@ EXAMPLES_PYTEST_STEP_LIST = [
         )]),]
 
 EXAMPLES_LLM_PYTEST_STEP_LIST = [
-    examples_cache_step('llm'),
     od([('name', 'Run Nox session for brevitas_examples LLM'), ('shell', 'bash'),
         (
             'run',
@@ -266,7 +274,6 @@ EXAMPLES_LLM_PYTEST_STEP_LIST = [
         )]),]
 
 EXAMPLES_DIFFUSION_PYTEST_STEP_LIST = [
-    examples_cache_step('diffusion'),
     od([('name', 'Run Nox session for brevitas_examples pytest'), ('shell', 'bash'),
         (
             'run',
@@ -362,14 +369,15 @@ def gen_examples_pytest_yml():
         'Examples Pytest',
         EXCLUDE_LIST + JIT_EXCLUDE_LIST,
         combine_od_list([MATRIX, PYTEST_MATRIX_EXTRA]),
-        EXAMPLES_PYTEST_STEP_LIST,
-        STRATEGY)
+        restore_assets_steps('datasets') + EXAMPLES_PYTEST_STEP_LIST,
+        STRATEGY,
+        prepare_job=prepare_assets_job('datasets', 'prepare_datasets_assets'))
     pytest.gen_yaml(BASE_YML_TEMPLATE, EXAMPLES_PYTEST_YML)
     pytest = Action(
         'Examples Pytest',
         EXCLUDE_LIST,
         combine_od_list([MATRIX_REDUCED, PYTEST_MATRIX_EXTRA_REDUCED]),
-        EXAMPLES_PYTEST_STEP_LIST,
+        [examples_cache_step('datasets-reduced')] + EXAMPLES_PYTEST_STEP_LIST,
         STRATEGY)
     pytest.gen_yaml(BASE_YML_REDUCED_TEMPLATE, 'reduced_' + EXAMPLES_PYTEST_YML)
 
@@ -379,7 +387,7 @@ def gen_examples_llm_pytest_yml():
         'Examples LLM Pytest',
         EXCLUDE_LIST + JIT_EXCLUDE_LIST,
         combine_od_list([EXAMPLES_LLM_PYTEST_MATRIX, PYTEST_MATRIX_EXTRA]),
-        restore_assets_steps('llm') + EXAMPLES_LLM_PYTEST_STEP_LIST[1:],
+        restore_assets_steps('llm') + EXAMPLES_LLM_PYTEST_STEP_LIST,
         STRATEGY,
         prepare_job=prepare_assets_job('llm', 'prepare_llm_assets'))
     pytest.gen_yaml(BASE_YML_TEMPLATE, EXAMPLES_LLM_PYTEST_YML)
@@ -387,7 +395,7 @@ def gen_examples_llm_pytest_yml():
         'Examples LLM Pytest',
         EXCLUDE_LIST,
         combine_od_list([EXAMPLES_LLM_PYTEST_MATRIX_REDUCED, PYTEST_MATRIX_EXTRA_REDUCED]),
-        EXAMPLES_LLM_PYTEST_STEP_LIST,
+        [examples_cache_step('llm-reduced')] + EXAMPLES_LLM_PYTEST_STEP_LIST,
         STRATEGY)
     pytest.gen_yaml(BASE_YML_REDUCED_TEMPLATE, 'reduced_' + EXAMPLES_LLM_PYTEST_YML)
 
@@ -397,7 +405,7 @@ def gen_examples_diffusion_pytest_yml():
         'Examples Diffusion Pytest',
         EXCLUDE_LIST + JIT_EXCLUDE_LIST,
         combine_od_list([EXAMPLES_DIFFUSION_PYTEST_MATRIX, PYTEST_MATRIX_EXTRA]),
-        restore_assets_steps('diffusion') + EXAMPLES_DIFFUSION_PYTEST_STEP_LIST[1:],
+        restore_assets_steps('diffusion') + EXAMPLES_DIFFUSION_PYTEST_STEP_LIST,
         STRATEGY,
         prepare_job=prepare_assets_job('diffusion', 'prepare_diffusion_assets'))
     pytest.gen_yaml(BASE_YML_TEMPLATE, EXAMPLES_DIFFUSION_PYTEST_YML)
@@ -405,7 +413,7 @@ def gen_examples_diffusion_pytest_yml():
         'Examples Diffusion Pytest',
         EXCLUDE_LIST,
         combine_od_list([EXAMPLES_DIFFUSION_PYTEST_MATRIX_REDUCED, PYTEST_MATRIX_EXTRA_REDUCED]),
-        EXAMPLES_DIFFUSION_PYTEST_STEP_LIST,
+        [examples_cache_step('diffusion-reduced')] + EXAMPLES_DIFFUSION_PYTEST_STEP_LIST,
         STRATEGY)
     pytest.gen_yaml(BASE_YML_REDUCED_TEMPLATE, 'reduced_' + EXAMPLES_DIFFUSION_PYTEST_YML)
 
