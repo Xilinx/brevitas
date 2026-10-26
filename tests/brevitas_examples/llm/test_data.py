@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 import pytest_cases
 import torch
+from transformers import AutoTokenizer
 
 from brevitas_examples.llm.llm_quant.data import get_wikitext2
 from brevitas_examples.llm.llm_quant.data import tokenize_and_group_texts
@@ -210,6 +211,7 @@ def test_llm_dataloader():
 
 
 class DummyChatTokenizer(DummyTokenizer):
+    chat_template = "dummy"
 
     def apply_chat_template(self, messages, tokenize=False, add_generation_prompt=False):
         return "".join(f"<{m['role']}>{m['content']}" for m in messages)
@@ -233,12 +235,30 @@ def test_tulu3_sft_rejects_bos_preprocessing(bos_preprocessing: str):
                 bos_preprocessing=bos_preprocessing)
 
 
+@pytest_cases.parametrize(
+    "model_name, has_chat_template",
+    [("hf-internal-testing/tiny-random-LlamaForCausalLM", True),
+     ("hf-internal-testing/tiny-random-MistralForCausalLM", False)],
+    ids=["llama", "mistral"])
+def test_tulu3_sft_requires_chat_template(model_name: str, has_chat_template: bool):
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    assert (tokenizer.chat_template is not None) == has_chat_template
+    with patch('brevitas_examples.llm.llm_quant.data_utils.load_raw_dataset',
+               mock_tulu3_sft_raw_dataset):
+        if has_chat_template:
+            dataset = get_dataset_for_model(
+                "tulu3_sft", tokenizer, nsamples=-1, seqlen=12, bos_preprocessing=None)
+            assert dataset["input_ids"][0][0] == tokenizer.bos_token_id
+        else:
+            with pytest.raises(ValueError, match="requires a tokenizer with a chat template"):
+                get_dataset_for_model(
+                    "tulu3_sft", tokenizer, nsamples=-1, seqlen=12, bos_preprocessing=None)
+
+
 def test_tulu3_sft_chat_template_tokenization():
     with patch('brevitas_examples.llm.llm_quant.data_utils.load_raw_dataset',
                mock_tulu3_sft_raw_dataset):
         dataset = get_dataset_for_model(
-            "tulu3_sft", DummyChatTokenizer(), nsamples=-1, seqlen=8, bos_preprocessing=None)
-    rendered = "<user>Hi<assistant>Hello!"
+            "tulu3_sft", DummyChatTokenizer(), nsamples=-1, seqlen=25, bos_preprocessing=None)
     samples = ["".join(chr(t) for t in ids) for ids in dataset["input_ids"]]
-    assert len(samples) > 0
-    assert all(len(sample) == 8 and sample in rendered for sample in samples)
+    assert samples == ["<user>Hi<assistant>Hello!"]

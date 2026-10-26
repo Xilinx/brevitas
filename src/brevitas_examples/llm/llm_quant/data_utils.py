@@ -173,6 +173,10 @@ def get_dataset_for_model(
                     "template defines the complete conversation framing. Set "
                     "bos_preprocessing=None (YAML: 'bos_preprocessing: null') "
                     "to preserve this framing.")
+            if tokenizer.chat_template is None:
+                raise ValueError(
+                    f"Dataset {dataset_name!r} is chat-formatted and requires a tokenizer with a "
+                    "chat template, but this tokenizer defines none. Use an instruct/chat model.")
             # For reference, Qwen3-1.7B uses 14 framing tokens for an empty user-assistant exchange.
             chat_template_tokens = count_chat_template_tokens(tokenizer)
             if seqlen <= chat_template_tokens:
