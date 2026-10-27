@@ -176,6 +176,12 @@ class ScaleSolverFamily(ABC):
     subset: an unimplemented slot still dispatches and fails when called, not
     when selected. Slots take *args/**kwargs so a family can take extras.
 
+    Every slot minimizes the scale-dependent part of ||X w - s X_tilde q(w; s)||^2,
+    E(s) = s^2 q^T H q - 2 s w^T G q, with H = X_tilde^T X_tilde and G = X^T X_tilde.
+    This is the layout GPTQ and Qronos accumulate (G = sum_n x_n x_tilde_n^T), so a
+    dense slot reads G as is: w^T G q is ``w @ G @ q``. G / G_diag are optional and
+    None means G = H. The diagonal slots only read diag(G), which G and G^T share.
+
     get_layer_solver returns (solver_fn, arg_kind) for a whole layer,
     get_group_solver returns (solver_fn, tag) for one group. arg_kind
     ('dense'|'diag'|'greedy') and tag ('group-dense'|'group-diag'|

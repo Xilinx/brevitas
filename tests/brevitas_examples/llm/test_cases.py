@@ -212,6 +212,15 @@ class LLMRunCases:
                 "gpxq_use_grid_optimization": True,
                 "qronos": True,
                 "sopt_hessian_mode": "diagonal"},
+            # Per-group, group-interleaved (default).
+            {
+                "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+                "gpxq_use_grid_optimization": True,
+                "qronos": True,
+                "weight_quant_granularity": "per_group",
+                "weight_group_size": 8,
+                "sopt_hessian_mode": "diagonal"},
+            # Per-group, layer-interleaved.
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
                 "gpxq_use_grid_optimization": True,
@@ -237,6 +246,7 @@ class LLMRunCases:
             "gpxq,gptq,per_group,group_interleaved",
             "gpxq,gptq,per_group,layer_interleaved",
             "gpxq,qronos,per_channel",
+            "gpxq,qronos,per_group,group_interleaved",
             "gpxq,qronos,per_group,layer_interleaved",
         ],)
     def case_small_models_scale_optimization(self, run_dict, default_run_args, request):

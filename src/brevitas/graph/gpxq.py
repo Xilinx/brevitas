@@ -259,8 +259,9 @@ class GPxQ(ABC):
     def _resolve_blocksize(self, num_blocks: int) -> int:
         """Number of columns processed per error-correction block.
 
-        Default: split the columns into num_blocks blocks (plain GPxQ).
-        PiSO overrides this to align blocks with quantization groups.
+        Default: split the columns into num_blocks blocks (plain GPxQ). Blocks start
+        at multiples of the block size, so PiSO returns the group size to make every
+        block cover exactly one quantization group.
         """
         return math.ceil(self.columns / num_blocks)
 
@@ -274,7 +275,14 @@ class GPxQ(ABC):
         return torch.argsort(torch.diag(hessian_group), descending=True)
 
     def _on_error_correction_starts(self, perm: torch.Tensor) -> None:
-        """Called once the (damped) Hessian is ready, before error correction.
+        """Called once the Hessians are ready, before error correction.
+
+        self.H ([groups, columns, columns], damped for GPTQ) and, for algorithms
+        with a cross term (Qronos), self.G ([groups, columns, columns]) are in the
+        column order given by perm. With x_n and x_tilde_n the layer inputs of sample
+        n from the float and the quantized model, H = sum_n x_tilde_n x_tilde_n^T and
+        G = sum_n x_n x_tilde_n^T, up to a common positive scale. Algorithms without
+        a cross term have no G, i.e. the quantized inputs are also the target.
 
         No-op by default; PiSO uses it to optimize the layer scale on the fixed
         grid before weights are error-corrected.

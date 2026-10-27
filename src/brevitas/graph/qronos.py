@@ -42,8 +42,8 @@ class Qronos(GPFQ):
         super().__init__(
             layer, name, act_order, len_parallel_layers, create_weight_orig, device, dtype)
 
-        # Mixins may override _resolve_blocksize (e.g. PiSO aligns blocks with groups).
-        self.blocksize = self._resolve_blocksize(num_blocks)
+        # # Define how many columns to update in each mini-block.
+        self.blocksize = num_blocks
 
         self.alpha = alpha
 
@@ -209,8 +209,7 @@ class Qronos(GPFQ):
 
             # Correct the quantization error within the block.
             for i in range(count):
-                # Let a PiSO mixin optimize a group's scale when column i1+i starts
-                # a new group, before its weights are quantized. No-op otherwise.
+                # Callback for a mix-in when a new column is optimized.
                 self._on_column_reached(i1 + i)
 
                 q_groups = self.get_quant_weights(i, i1, permutation_list)  # [groups, OC/groups]
