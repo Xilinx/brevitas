@@ -14,6 +14,9 @@ round-to-nearest quantization. Two objectives are supported through the choice o
 Hessians H = X_tilde^T X_tilde and G = X_tilde^T X (see ScaleOptimizer):
   - self-activation (GPTQ-style): pass only H (G defaults to H);
   - cross-activation (Qronos/GPTAQ-style): pass both H and G.
+Which activations X_tilde and X are (e.g. whether the previous layers are quantized)
+is decided by whoever produces H and G: the GPTQ / Qronos mixins below, or the caller
+of optimize_scale_mode, which runs the forward passes.
 
 The algorithm core (the _piso_sweep_* solvers) lives in .solvers and the grid
 builders / ordering helpers in .utils. Entry points for the LLM example live in
@@ -34,8 +37,6 @@ import warnings
 import torch
 import torch.nn as nn
 
-from brevitas.graph.calibrate import quantization_status_manager
-from brevitas.graph.calibrate import QuantizationStatusManager
 from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gpxq import process_layer_input
 from brevitas.graph.layerwise_hook import layerwise_hook_mode
@@ -82,7 +83,6 @@ class ScaleOptimizer:
             solver_device: str = 'cuda',
             tolerance: float = 1e-5,
             solver_batch_size: Optional[int] = None,
-            cross_act_objective: bool = False,
             per_group_greedy: bool = False,
             per_group_greedy_reorder: bool = True,
             hessian_mode: str = 'dense',
@@ -91,7 +91,6 @@ class ScaleOptimizer:
         self.solver_device = solver_device
         self.tolerance = tolerance
         self.solver_batch_size = solver_batch_size
-        self.cross_act_objective = cross_act_objective
         self.per_group_greedy = per_group_greedy
         self.per_group_greedy_reorder = per_group_greedy_reorder
         self.hessian_mode = hessian_mode
@@ -118,10 +117,10 @@ class ScaleOptimizer:
         matching _piso_sweep_* solver (per-channel vs per-group, full vs
         diagonal H, greedy sequential), runs it in batches over output
         channels, and stores optimal_s * threshold into the weight quantizer's
-        scaling parameter. H/G are the Hessians of Eq. H,G-def; if
-        cross_act_objective is set, G is required. skip_offload means the caller
-        manages the layer params: it has allocated them already and will offload
-        them later, so neither is done here.
+        scaling parameter. H/G are the Hessians of Eq. H,G-def; G=None selects
+        the self-activation objective (the solvers then use H in place of G).
+        skip_offload means the caller manages the layer params: it has allocated
+        them already and will offload them later, so neither is done here.
 
         Solver-specific work is split across _select_solver (choose the function),
         _prepare_matrices (shape/permute H/G/W) and _bind_solver_matrices (bind
@@ -129,9 +128,6 @@ class ScaleOptimizer:
         """
         if not ScaleOptimizer.is_layer_valid(layer):
             return
-
-        if self.cross_act_objective and G is None:
-            raise ValueError("Expected matrix G to not be None for cross_act_objective=True")
 
         # Extract the quantization configuration from the layer's weight quantizer
         weight_quant = layer.weight_quant
@@ -256,7 +252,7 @@ class ScaleOptimizer:
 
         H = H.squeeze()[:, perm]
         H = H[perm, :]
-        if self.cross_act_objective:
+        if G is not None:
             G = G.squeeze()[:, perm]
             G = G[perm, :]
         W = W[:, perm]
@@ -572,6 +568,11 @@ class PiSOLayerHandler():
     data flows through, update_batch incrementally builds the Hessians H and G
     from the layer inputs. Once calibration is done, single_layer_update hands
     them to the ScaleOptimizer to compute and write the scales.
+
+    With cross_act_objective, each batch is seen twice: first through the quantized
+    model (accumulates H), then through the float model (accumulates G). As in
+    GPFQ / Qronos, update_batch tells the two apart by whether the layer's weight
+    quantization is enabled, so the quantized pass has to come first.
     """
 
     def __init__(
@@ -580,6 +581,7 @@ class PiSOLayerHandler():
             name: str,
             single_forward: bool,
             matrix_dtype: torch.dtype,
+            cross_act_objective: bool,
             scale_optimizer: ScaleOptimizer) -> None:
 
         self.layer = layer
@@ -588,6 +590,7 @@ class PiSOLayerHandler():
 
         self.single_forward = single_forward
         self.matrix_dtype = matrix_dtype
+        self.cross_act_objective = cross_act_objective
 
         dim = self.layer.weight.shape[1]
         self.H = torch.zeros((1, dim, dim),
@@ -595,7 +598,7 @@ class PiSOLayerHandler():
                              dtype=self.matrix_dtype)
         self.nsamples = 0
         self.nsamples_G = 0
-        self.G = torch.zeros_like(self.H) if self.scale_optimizer.cross_act_objective else None
+        self.G = torch.zeros_like(self.H) if self.cross_act_objective else None
         self.quant_input = None
 
     def compute_iterative_XtX(self, module, input, current_layer):
@@ -605,7 +608,7 @@ class PiSOLayerHandler():
         current_layer.layer_names.add(self.name)
 
         inp_processed = self.process_input(input)
-        if self.scale_optimizer.cross_act_objective:
+        if self.cross_act_objective:
             if self.quant_input is not None:
                 raise RuntimeError(
                     "Expected quant_input to be consumed by compute_iterative_G before "
@@ -648,7 +651,7 @@ class PiSOLayerHandler():
     def update_batch(self, module, input, current_layer):
         is_quant_enabled = module.weight_quant.is_quant_enabled
 
-        if self.scale_optimizer.cross_act_objective and not is_quant_enabled:
+        if self.cross_act_objective and not is_quant_enabled:
             self.compute_iterative_G(module, input, current_layer)
         else:
             self.compute_iterative_XtX(module, input, current_layer)
@@ -660,7 +663,7 @@ class PiSOLayerHandler():
         # ScaleOptimizer.single_layer_update owns the allocate/offload pair here.
         self.scale_optimizer.single_layer_update(layer=self.layer, H=self.H, G=self.G)
         del self.H
-        if self.scale_optimizer.cross_act_objective:
+        if self.cross_act_objective:
             del self.G
 
 
@@ -670,17 +673,28 @@ class optimize_scale_mode(layerwise_hook_mode):
     On entry it selects the supported layers, attaches a PiSOLayerHandler hook to
     each, and swaps in a forward that catches the early-stop exception. The caller
     feeds calibration data through the model to accumulate Hessians, then calls
-    update to optimize every layer's scales. Quantization status is toggled per
-    use_quant_activations / quantize_prev so the accumulated activations match
-    the chosen reconstruction objective. This is the standalone path; the interleaved
-    path instead passes a ScaleOptimizer into GPTQ/Qronos.
+    update to optimize every layer's scales. This is the standalone path; the
+    interleaved path instead passes a ScaleOptimizer into GPTQ/Qronos.
+
+    Like gpfq_mode, it never enables or disables quantization: the caller runs
+    every forward pass under the quantization state its objective needs.
+      - cross_act_objective=False: one pass per batch. Whether the layers before
+        the current one are quantized (self-activation) or left float (unquantized)
+        is up to the caller.
+      - cross_act_objective=True: per batch, a quantized pass first (X_tilde, whose
+        input the layer handler stores), then a float pass with all quantization
+        disabled (X, which accumulates G).
+    update has to run outside that disabling: a layer's weight quantization must be
+    enabled for its scales to be written.
+
+    It keeps the inherited solves_mismatched_objective = False on purpose: block-wise
+    drivers then cache a single stream of block inputs, and the caller runs both passes
+    of the cross-activation objective on it.
     """
 
     def __init__(
             self,
             model,
-            use_quant_activations: bool = True,
-            quantize_prev: bool = False,
             single_forward: bool = False,
             solver_dtype: torch.dtype = torch.float32,
             matrix_dtype: torch.dtype = torch.float32,
@@ -697,67 +711,36 @@ class optimize_scale_mode(layerwise_hook_mode):
             solver_device='cuda' if torch.cuda.is_available() else 'cpu',
             tolerance=tolerance,
             solver_batch_size=solver_batch_size,
-            cross_act_objective=cross_act_objective,
             per_group_greedy=per_group_greedy,
             per_group_greedy_reorder=per_group_greedy_reorder,
             hessian_mode=hessian_mode,
             solver=solver)
 
-        self.use_quant_activations = use_quant_activations
-        self.quantize_prev = quantize_prev
+        self.cross_act_objective = cross_act_objective
         self.single_forward = single_forward
         self.matrix_dtype = matrix_dtype
-        # Weight quant temporarily disabled per layer until its scales are computed;
-        # populated on __enter__ and reactivated on __exit__.
-        self.modules_to_reactivate_after = dict()
 
         # Validate attributes received as arguments before touching the model
         self._validate_args()
 
+        # NOTE: layerwise_hook_mode inherits from quantization_status_manager. As in
+        # gpfq_mode, leaving activation and bias quantization enabled makes the
+        # inherited manager a no-op, so the caller owns the quantization state.
         super().__init__(
             model=model,
-            disable_act_quant=not use_quant_activations,
-            disable_bias_quant=not use_quant_activations,
+            disable_act_quant=False,
+            disable_bias_quant=False,
             swap_forward=not single_forward,
         )
 
     def _is_module_supported(self, module) -> bool:
         return ScaleOptimizer.is_layer_valid(module)
 
-    def _post_enter(self, dict_of_layers) -> None:
-        if not (self.quantize_prev or self.single_forward):
-            # dict_of_layers maps group name -> [(name, module)]; PiSO uses no
-            # parallel groups, so each list holds a single member.
-            self.modules_to_reactivate_after = {
-                name: members[0][1] for name, members in dict_of_layers.items()}
-
-    def _post_exit(self) -> None:
-        # Reactivate weight quantization if it was disabled
-        for layer in self.modules_to_reactivate_after.values():
-            QuantizationStatusManager.enable_weight_quantization(model=layer, is_training=False)
-
-    def _after_layer_update(self, name: str) -> None:
-        if name in self.modules_to_reactivate_after:
-            QuantizationStatusManager.disable_weight_quantization(
-                model=self.modules_to_reactivate_after[name], is_training=False)
-
     def catch_stopfwd(self, *args, **kwargs):
         try:
             self.orig_forward(*args, **kwargs)
         except StopFwdException:
             pass
-        if self.scale_optimizer.cross_act_objective:
-            with quantization_status_manager(
-                    self.model,
-                    disable_act_quant=True,
-                    disable_weight_quant=True,
-                    disable_bias_quant=True,
-                    is_training=False,
-            ):
-                try:
-                    self.orig_forward(*args, **kwargs)
-                except StopFwdException:
-                    pass
 
     @torch.no_grad()
     def __enter__(self):
@@ -771,17 +754,14 @@ class optimize_scale_mode(layerwise_hook_mode):
             name=name,
             single_forward=self.single_forward,
             matrix_dtype=self.matrix_dtype,
+            cross_act_objective=self.cross_act_objective,
             scale_optimizer=self.scale_optimizer)
 
     def _validate_args(self) -> None:
         # TODO (jpga) Move this to LLM args maybe? unsure about it, as the class could be used in other wrokflows
-        if self.single_forward and self.quantize_prev:
+        if self.single_forward and self.cross_act_objective:
             raise ValueError(
-                'single_forward and quantize_prev are incompatible options. Set at least one of the two to False.'
-            )
-        if not (self.quantize_prev or self.single_forward):
-            warnings.warn(
-                'Since quantize_prev=False you may consider using single_forward=True to accelerate the algorithm if memory requiriments allow it.'
+                'single_forward and cross_act_objective are incompatible options. Set at least one of the two to False.'
             )
         if self.scale_optimizer.hessian_mode == 'diagonal':
             warnings.warn(
@@ -792,8 +772,6 @@ class optimize_scale_mode(layerwise_hook_mode):
                 'hessian_mode="identity": scale optimization is data-free (H=I, G=None, pure weight '
                 'MSE). The calibration forward passes still run, but the computed H and G are ignored.'
             )
-        if self.scale_optimizer.cross_act_objective and not self.quantize_prev:
-            raise ValueError('cross_act_objective requires quantize_prev')
 
 
 # -----------------------------------------------------------------------------

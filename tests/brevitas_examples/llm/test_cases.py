@@ -135,11 +135,10 @@ class LLMRunCases:
             {
                 "weight_calibration": True, "sopt_hessian_mode": "diagonal"},
             {
-                "weight_calibration": True, "sopt_quantize_prev": True,
+                "weight_calibration": True, "sopt_objective": "self-activation",
                 "sopt_hessian_mode": "diagonal"},
             {
-                "weight_calibration": True, "sopt_quantize_prev": True,
-                "sopt_cross_act_objective": True,
+                "weight_calibration": True, "sopt_objective": "cross-activation",
                 "sopt_hessian_mode": "diagonal"},
             # Debug Hessians: H=diag(H) and H=I.
             {
@@ -189,14 +188,12 @@ class LLMRunCases:
             # Per-channel is always layer-interleaved.
             {
                 "gpxq_use_grid_optimization": True,
-                "sopt_quantize_prev": True,
                 "gptq": True,
                 "sopt_hessian_mode": "diagonal"},
             # Per-group, group-interleaved (default).
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
                 "gpxq_use_grid_optimization": True,
-                "sopt_quantize_prev": True,
                 "gptq": True,
                 "weight_quant_granularity": "per_group",
                 "weight_group_size": 8,
@@ -205,7 +202,6 @@ class LLMRunCases:
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
                 "gpxq_use_grid_optimization": True,
-                "sopt_quantize_prev": True,
                 "gptq": True,
                 "weight_quant_granularity": "per_group",
                 "weight_group_size": 8,
@@ -214,15 +210,11 @@ class LLMRunCases:
             # ---- Interleaved with Qronos (cross-activation objective) ----
             {
                 "gpxq_use_grid_optimization": True,
-                "sopt_quantize_prev": True,
-                "sopt_cross_act_objective": True,
                 "qronos": True,
                 "sopt_hessian_mode": "diagonal"},
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
                 "gpxq_use_grid_optimization": True,
-                "sopt_quantize_prev": True,
-                "sopt_cross_act_objective": True,
                 "qronos": True,
                 "weight_quant_granularity": "per_group",
                 "weight_group_size": 8,

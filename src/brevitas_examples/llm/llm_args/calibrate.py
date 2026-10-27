@@ -10,6 +10,8 @@ from warnings import warn
 from brevitas_examples.common.parse_utils import AlgorithmArgumentParser
 
 SOPT_PREFIX = "sopt"
+# Reconstruction objectives of --weight-calibration, see apply_weight_calibration.
+SOPT_OBJECTIVES = ['unquantized', 'self-activation', 'cross-activation']
 
 
 class ScaleOptimizerArgumentParser(AlgorithmArgumentParser):
@@ -49,20 +51,20 @@ class ScaleOptimizerArgumentParser(AlgorithmArgumentParser):
             'for which the scale is optimized in parallel. When set to None all the scales in the '
             'layer are optimized at the same time (fastest but more memory required).')
 
-        ScaleOptimizerArgumentParser._add_bool(
+        ScaleOptimizerArgumentParser._add(
             parser,
             prefix,
-            'quantize-prev',
-            default=False,
-            help='Use quantized activations to reconstruct the current layer. Default: disabled')
-
-        ScaleOptimizerArgumentParser._add_bool(
-            parser,
-            prefix,
-            'cross-act-objective',
-            default=False,
-            help='Use float activations as the reconstruction target. '
-            'Requires --sopt-quantize-prev. Default: disabled')
+            'objective',
+            type=str,
+            default='unquantized',
+            choices=SOPT_OBJECTIVES,
+            help='Reconstruction objective of --weight-calibration, ||X w - s X_tilde q(w)||^2, '
+            'where X_tilde are the activations the layer sees. '
+            'unquantized: X_tilde = X, with the previous layers left unquantized. '
+            'self-activation: X_tilde = X, from the quantized previous layers. '
+            'cross-activation: X_tilde from the quantized previous layers, X from the float model. '
+            'With --gpxq-use-grid-optimization the objective follows the error-correction '
+            'algorithm (GPTQ: self-activation, Qronos: cross-activation). Default: unquantized')
 
         ScaleOptimizerArgumentParser._add_bool(
             parser,
@@ -120,26 +122,29 @@ class ScaleOptimizerArgumentParser(AlgorithmArgumentParser):
 
         weight_calibration = args.weight_calibration
         gpxq_use_grid_optimization = args.gpxq_use_grid_optimization
-        quantize_prev = a('quantize-prev')
-        cross_act_objective = a('cross-act-objective')
+        objective = a('objective')
         layer_interleaved = a('group-gpxq-layer-interleaved')
         hessian_mode = a('hessian-mode')
 
-        assert quantize_prev or not cross_act_objective, \
-            f"--{prefix}-cross-act-objective requires --{prefix}-quantize-prev."
+        # Arguments built without argparse (e.g., benchmark sweeps) skip `choices`.
+        assert objective in SOPT_OBJECTIVES, \
+            f"--{prefix}-objective must be one of {SOPT_OBJECTIVES}, got {objective!r}."
 
         if gpxq_use_grid_optimization:
             assert args.gptq or args.qronos, \
                 "--gpxq-use-grid-optimization requires --gptq or --qronos."
-            if args.gptq:
-                assert quantize_prev and not cross_act_objective, \
-                    f"--gpxq-use-grid-optimization with --gptq requires --{prefix}-quantize-prev and --no-{prefix}-cross-act-objective."
-            if args.qronos:
-                assert quantize_prev and cross_act_objective, \
-                    f"--gpxq-use-grid-optimization with --qronos requires --{prefix}-quantize-prev and --{prefix}-cross-act-objective."
             if layer_interleaved:
                 assert args.weight_quant_granularity == 'per_group', \
                     f"--{prefix}-group-gpxq-layer-interleaved only applies to per-group weight quantization."
+            if not weight_calibration:
+                # The interleaved objective follows the algorithm, so an explicit
+                # objective that disagrees with it would otherwise be ignored silently.
+                implied_objective = 'self-activation' if args.gptq else 'cross-activation'
+                if objective not in ('unquantized', implied_objective):
+                    warn(
+                        f"--{prefix}-objective {objective} is ignored with "
+                        f"--gpxq-use-grid-optimization: the objective follows the "
+                        f"error-correction algorithm ({implied_objective}).")
         else:
             assert not layer_interleaved, \
                 f"--{prefix}-group-gpxq-layer-interleaved requires --gpxq-use-grid-optimization."

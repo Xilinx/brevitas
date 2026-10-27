@@ -113,15 +113,20 @@ def _block_optimization(
         context_manager_func,
         context_manager_kwargs,
         block_optimization_callback=_gptq_block_optimization_callback,
-        reset_float_cache_every=None):
+        reset_float_cache_every=None,
+        use_quant_activations=None):
 
     if reset_float_cache_every is not None:
         if not isinstance(reset_float_cache_every, int) or reset_float_cache_every <= 0:
             raise ValueError("reset_float_cache_every must be None or a positive integer.")
 
+    # Context managers that toggle activation quantization themselves (GPTQ) receive
+    # use_quant_activations through their kwargs. Callers that manage the quantization
+    # state outside of the context manager (PiSO) pass it explicitly instead.
+    if use_quant_activations is None:
+        use_quant_activations = context_manager_kwargs.get('use_quant_activations', True)
     # Algorithms such as GPFQ and Qronos aim to solve the mismatched objective by using
     # float inputs and (possibly quantized) inputs from the previously quantized layers.
-    use_quant_activations = context_manager_kwargs.get('use_quant_activations', True)
     solves_mismatched_objective = context_manager_func.solves_mismatched_objective
     if solves_mismatched_objective and not use_quant_activations:
         raise ValueError("Mismatched objective requires use_quant_activations=True.")

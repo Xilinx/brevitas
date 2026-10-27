@@ -6,7 +6,7 @@
 The YAML configs sweep the scale-selection axis (``--sopt-*``) against the error
 correction axis (``--gptq`` / ``--qronos``). Their Cartesian product contains many
 combinations that do not correspond to a row of the paper, e.g. an ``absmax`` run
-repeated for each objective flag, or a data-free run combined with a group
+repeated for each objective, or a data-free run combined with a group
 heuristic that it ignores. :meth:`PiSOEntryPointUtils.validate` raises
 ``AssertionError`` on those, which ``GridSearchUtils.gen_search_space`` uses to
 discard them, so every paper row is run exactly once.
@@ -31,7 +31,7 @@ class PiSOEntryPointUtils(LLMEntryPointUtils):
         grid_optimization = args.weight_calibration or args.gpxq_use_grid_optimization
         assert not (args.weight_calibration and args.gpxq_use_grid_optimization), \
             "The paper applies grid optimization either before or during error correction."
-        assert args.sopt_quantize_prev, \
+        assert args.sopt_objective != 'unquantized', \
             "The paper uses quantized activations for scale reconstruction."
 
         if not grid_optimization:
@@ -41,12 +41,12 @@ class PiSOEntryPointUtils(LLMEntryPointUtils):
                 "The data-free baseline requires grid optimization."
             assert not args.sopt_group_sequential, \
                 "Group heuristics require grid optimization."
-            assert args.sopt_cross_act_objective, \
-                "The objective flags are pinned to deduplicate this baseline."
+            assert args.sopt_objective == 'cross-activation', \
+                "The objective is pinned to deduplicate this baseline."
             return
 
-        expected_cross_act_objective = not args.gptq
-        assert args.sopt_cross_act_objective == expected_cross_act_objective, \
+        expected_objective = 'self-activation' if args.gptq else 'cross-activation'
+        assert args.sopt_objective == expected_objective, \
             "The scale objective must match the error correction algorithm."
 
         if args.sopt_hessian_mode == 'identity':

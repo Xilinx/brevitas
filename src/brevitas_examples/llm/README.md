@@ -38,8 +38,7 @@ usage: main.py [-h] [--config CONFIG] [--model MODEL] [--custom-quantizer CUSTOM
                [--few-shot-eval {lm_eval,lighteval}] [--few-shot-override-batch-size FEW_SHOT_OVERRIDE_BATCH_SIZE] [--compile-ptq] [--compile-eval] [--few-shot-zeroshot]
                [--bos-preprocessing {None,document,sequence}] [--few-shot-limit FEW_SHOT_LIMIT] [--few-shot-tasks [FEW_SHOT_TASKS ...]] [--awq-scale] [--awq-clip]
                [--calibration-batch-size CALIBRATION_BATCH_SIZE] [--sopt-solver {piso,chunked-piso}]
-               [--sopt-use-quant-activations | --no-sopt-use-quant-activations] [--sopt-solver-batch-size SOPT_SOLVER_BATCH_SIZE] [--sopt-quantize-prev | --no-sopt-quantize-prev]
-               [--sopt-cross-act-objective | --no-sopt-cross-act-objective]
+               [--sopt-use-quant-activations | --no-sopt-use-quant-activations] [--sopt-solver-batch-size SOPT_SOLVER_BATCH_SIZE] [--sopt-objective {unquantized,self-activation,cross-activation}]
                [--sopt-group-sequential | --no-sopt-group-sequential] [--sopt-group-sequential-act-order | --no-sopt-group-sequential-act-order] [--sopt-hessian-mode {dense,diagonal,identity}]
                [--sopt-group-gpxq-layer-interleaved | --no-sopt-group-gpxq-layer-interleaved]
 
@@ -256,14 +255,10 @@ options:
   --sopt-solver-batch-size SOPT_SOLVER_BATCH_SIZE
                         The number of weight rows/channels in a given layer for which the scale is optimized in parallel. When set to None all the scales in the layer are optimized at the same time
                         (fastest but more memory required).
-  --sopt-quantize-prev
-                        Enable Use quantized activations to reconstruct the current layer. Default: disabled
-  --no-sopt-quantize-prev
-                        Disable Use quantized activations to reconstruct the current layer. Default: disabled
-  --sopt-cross-act-objective
-                        Enable Use float activations as the reconstruction target. Requires --sopt-quantize-prev. Default: disabled
-  --no-sopt-cross-act-objective
-                        Disable Use float activations as the reconstruction target. Requires --sopt-quantize-prev. Default: disabled
+  --sopt-objective {unquantized,self-activation,cross-activation}
+                        Reconstruction objective of --weight-calibration, ||X w - s X_tilde q(w)||^2, where X_tilde are the activations the layer sees. unquantized: X_tilde = X, with the previous layers
+                        left unquantized. self-activation: X_tilde = X, from the quantized previous layers. cross-activation: X_tilde from the quantized previous layers, X from the float model. With --gpxq-
+                        use-grid-optimization the objective follows the error-correction algorithm (GPTQ: self-activation, Qronos: cross-activation). Default: unquantized
   --sopt-group-sequential
                         Enable With per-group weights, optimize each group while correcting the error from previous groups (sequential heuristic). When disabled, groups are optimized independently.
                         Default: disabled
