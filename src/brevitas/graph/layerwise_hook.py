@@ -40,9 +40,7 @@ class layerwise_hook_mode(quantization_status_manager):
     same LayerHandler.
 
     Subclasses implement _is_module_supported, initialize_module_optimizer and
-    catch_stopfwd; the no-op _pre_enter / _post_enter / _post_exit /
-    _after_layer_update extension points let them run extra bookkeeping without
-    duplicating the lifecycle.
+    catch_stopfwd.
     """
 
     # Algorithms such as GPFQ and Qronos aim to solve the mismatched objective by using
@@ -125,7 +123,6 @@ class layerwise_hook_mode(quantization_status_manager):
     def __enter__(self):
         # Disable quantization selectively
         super().__enter__()
-        self._pre_enter()
 
         dict_of_layers = self._collect_layer_groups()
         self._warn_on_existing_hooks(dict_of_layers)
@@ -143,7 +140,6 @@ class layerwise_hook_mode(quantization_status_manager):
                 self.hook_dict[name] = module.register_forward_pre_hook(hook_fn)
                 self.layers[name] = module_optimizer
 
-        self._post_enter(dict_of_layers)
         self.num_layers = len(dict_of_layers)
         return self
 
@@ -152,30 +148,12 @@ class layerwise_hook_mode(quantization_status_manager):
         super().__exit__(type, value, traceback)
         if self._forward_swapped:
             self._set_forward(self.orig_forward)
-        self._post_exit()
 
     def update(self):
         for name in self.current_layer.layer_names:
             self.layers[name].single_layer_update()
             self.hook_dict[name].remove()
-            self._after_layer_update(name)
         self.current_layer.layer_names.clear()
-
-    # -------------------------------------------------------------------------
-    # Extension points (no-op defaults).
-    # -------------------------------------------------------------------------
-
-    def _pre_enter(self) -> None:
-        pass
-
-    def _post_enter(self, dict_of_layers: Dict[str, List[Tuple[str, object]]]) -> None:
-        pass
-
-    def _post_exit(self) -> None:
-        pass
-
-    def _after_layer_update(self, name: str) -> None:
-        pass
 
     # -------------------------------------------------------------------------
     # Abstract hooks implemented by subclasses.
