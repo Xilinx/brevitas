@@ -17,7 +17,7 @@ Hessians H = X_tilde^T X_tilde and G = X_tilde^T X (see ScaleOptimizer):
 
 The algorithm core (the _piso_sweep_* solvers) lives in .solvers and the grid
 builders / ordering helpers in .utils. Entry points for the LLM example live in
-brevitas_examples.llm.llm_quant.piso.
+brevitas_examples.llm.llm_quant.calibrate.
 
 Reference: "Optimal Post-Training Quantization Scales and Where to Find Them"
 (https://arxiv.org/abs/2606.10890).

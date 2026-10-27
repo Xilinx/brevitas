@@ -54,9 +54,9 @@ validation raises). Each row below is therefore run exactly once.
 
 | Paper row | Flags |
 |---|---|
-| `+ absmax` | `sopt_optimize: false` (with `weight_param_method: stats`) |
-| `+ data-free` | `sopt_optimize: true`, `sopt_hessian_mode: identity` |
-| `+ PiSO` | `sopt_optimize: true`, `sopt_hessian_mode: dense` |
+| `+ absmax` | Both calibration flags are false (with `weight_param_method: stats`) |
+| `+ data-free` | `weight_calibration: true`, `sopt_hessian_mode: identity` |
+| `+ PiSO` | `weight_calibration: true`, `sopt_hessian_mode: dense` |
 | `PiSO_I` / `PiSO_S` | `sopt_group_sequential: false` / `true` (group-wise only) |
 
 ### Integration with error correction
@@ -64,27 +64,26 @@ validation raises). Each row below is therefore run exactly once.
 | Paper row | Flags |
 |---|---|
 | `RTN` | `gptq: false`, `qronos: false` |
-| `+` (decoupled) | `sopt_optimize_in_gpxq: false` |
-| `⊙ *` (layer-interleaved) | `sopt_optimize_in_gpxq: true`, `sopt_group_gpxq_layer_interleaved: true` |
-| `⊙ †` (group-interleaved) | `sopt_optimize_in_gpxq: true`, `sopt_group_gpxq_layer_interleaved: false` |
+| `+` (decoupled) | `weight_calibration: true` |
+| `⊙ *` (layer-interleaved) | `gpxq_use_grid_optimization: true`, `sopt_group_gpxq_layer_interleaved: true` |
+| `⊙ †` (group-interleaved) | `gpxq_use_grid_optimization: true`, `sopt_group_gpxq_layer_interleaved: false` |
 
 Per-channel quantization is always layer-interleaved, so `⊙` needs only
-`sopt_optimize_in_gpxq: true` there.
+`gpxq_use_grid_optimization: true` there.
 
 ### Objective
 
-PiSO minimizes the same reconstruction objective as the algorithm it is combined with, so
-`sopt_objective` is not a free axis: `benchmark.py` keeps `self-activation` with `--gptq`
-and `cross-activation` with `--qronos` or standalone RTN, and discards the rest.
+PiSO enables `sopt_quantize_prev` for all paper runs. `sopt_cross_act_objective`
+is disabled with `--gptq` and enabled with `--qronos` or standalone RTN.
 
 ### Discarded combinations
 
 | Discarded | Reason |
 |---|---|
-| Any `sopt_objective` mismatching the error-correction algorithm | Not a paper configuration |
-| `sopt_objective` variants when `sopt_optimize: false` | The objective is unused; deduplicated |
-| `sopt_hessian_mode: identity` with `sopt_optimize: false` | Data-free requires scale optimization |
-| `sopt_group_sequential` with `sopt_optimize: false`, `sopt_hessian_mode: identity`, or per-channel weights | The heuristic is inert; deduplicated |
+| `sopt_cross_act_objective` mismatching the error-correction algorithm | Not a paper configuration |
+| Objective flag variants without grid optimization | The objective is unused; deduplicated |
+| `sopt_hessian_mode: identity` without grid optimization | Data-free requires scale optimization |
+| `sopt_group_sequential` without grid optimization, with `sopt_hessian_mode: identity`, or with per-channel weights | The heuristic is inert; deduplicated |
 | Layer-interleaved `sopt_hessian_mode: identity` | Reproduces the decoupled run (see below); deduplicated |
 
 Interleaving the data-free baseline is only redundant in the *layer*-interleaved case.
