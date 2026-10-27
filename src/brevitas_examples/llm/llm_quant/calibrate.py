@@ -12,8 +12,6 @@ from tqdm import tqdm
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.piso import optimize_scale_mode
-from brevitas.graph.piso import ScaleOptimizer
-from brevitas.graph.piso import ScaleOptimizerGroupInterleaved
 from brevitas_examples.llm.llm_quant.gpxq import _block_optimization
 from brevitas_examples.llm.llm_quant.gpxq import _calibrate_model
 
@@ -29,31 +27,24 @@ def apply_calibration(model, dataloader):
             model(**inps)
 
 
-def build_scale_optimizer(args: Namespace) -> ScaleOptimizer:
-    """Build the scale optimizer that runs with GPTQ or Qronos.
+def build_piso_kwargs(args: Namespace) -> dict:
+    """Arguments for the PiSO GPxQ classes, which build their own scale optimizer.
 
     No objective is passed: it is implied by the error-correction algorithm (GPTQ:
     self-activation, Qronos: cross-activation), whose PiSO classes decide whether
     the optimizer receives G.
     """
-    if args.weight_quant_granularity == "per_group":
-        ScaleOptimizerClass = (
-            ScaleOptimizer
-            if args.sopt_group_gpxq_layer_interleaved else ScaleOptimizerGroupInterleaved)
-    elif args.weight_quant_granularity == "per_channel":
-        ScaleOptimizerClass = ScaleOptimizer
-    else:
-        raise NotImplementedError()
-    return ScaleOptimizerClass(
-        solver_dtype=S_DTYPE,
-        # Use the GPU for the solver when it is available.
-        solver_device='cuda' if torch.cuda.is_available() else 'cpu',
-        tolerance=S_TOLERANCE,
-        solver_batch_size=args.sopt_solver_batch_size,
-        per_group_greedy=args.sopt_group_sequential,
-        per_group_greedy_reorder=args.sopt_group_sequential_act_order,
-        hessian_mode=args.sopt_hessian_mode,
-        solver=args.sopt_solver)
+    return {
+        'scale_optimizer_kwargs': {
+            'solver_dtype': S_DTYPE,  # Use the GPU for the solver when it is available.
+            'solver_device': 'cuda' if torch.cuda.is_available() else 'cpu',
+            'tolerance': S_TOLERANCE,
+            'solver_batch_size': args.sopt_solver_batch_size,
+            'per_group_greedy': args.sopt_group_sequential,
+            'per_group_greedy_reorder': args.sopt_group_sequential_act_order,
+            'hessian_mode': args.sopt_hessian_mode,
+            'solver': args.sopt_solver,},
+        'layer_interleaved': args.sopt_group_gpxq_layer_interleaved,}
 
 
 def _pass_managers(model: nn.Module, objective: str,

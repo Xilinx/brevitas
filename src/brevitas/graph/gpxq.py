@@ -252,8 +252,8 @@ class GPxQ(ABC):
     # Extension hooks.
     #
     # These provide the default (plain GPxQ) behaviour and are overridden by
-    # mixins to plug in group-aware permutations (GroupAwarePermutationMixin) or
-    # PiSO scale optimization (PiSOMixin, see brevitas.graph.piso).
+    # mixins to plug in group-aware permutations or PiSO scale optimization
+    # (PiSOMixin, see brevitas.graph.piso).
     # -------------------------------------------------------------------------
 
     def _resolve_blocksize(self, num_blocks: int) -> int:
@@ -269,8 +269,8 @@ class GPxQ(ABC):
         """Column ordering used when act_order is enabled, for one group.
 
         Only called from the act_order branch of the algorithms. Default:
-        descending diagonal-Hessian order. GroupAwarePermutationMixin overrides
-        this to keep quantization groups contiguous.
+        descending diagonal-Hessian order. PiSOMixin overrides this to keep
+        quantization groups contiguous for groupwise layers.
         """
         return torch.argsort(torch.diag(hessian_group), descending=True)
 
