@@ -9,7 +9,7 @@ intervals on which the round-to-nearest assignment q(w; s) is constant and
 evaluating the closed-form per-interval minimizer.
 
 The _piso_sweep_* functions implement the same interval sweep: sort transition
-scales, walk intervals from large to small |s| maintaining alpha = q^T G w and
+scales, walk intervals from large to small |s| maintaining alpha = w^T G q and
 beta = q^T H q (code: wHq, qHq), take the closed-form s* = alpha / beta per
 interval, keep the global best. They differ only in the structure exploited:
 
@@ -54,7 +54,7 @@ def _piso_sweep_per_channel_diag(
     Args:
         w_b: weights, shape [batch, D].
         H_diag: diagonal of H = X_tilde^T X_tilde, shape [D].
-        G_diag: diagonal of G = X_tilde^T X for the cross-activation objective,
+        G_diag: diagonal of G = X^T X_tilde for the cross-activation objective,
             shape [D]. If None, H_diag is used for both terms.
         unscaled_grid: sorted quantization grid with 0 included.
         eps: interval degeneracy threshold and clamping margin.
@@ -171,7 +171,7 @@ def _piso_sweep_per_group_diag(
     Args:
         w_b: weights, shape [batch, n_groups, group_size].
         H_diag: diagonal of H = X_tilde^T X_tilde, shape [D] (D = n_groups * group_size).
-        G_diag: diagonal of G = X_tilde^T X, shape [D].
+        G_diag: diagonal of G = X^T X_tilde, shape [D].
             If None, H_diag is used for both terms.
         unscaled_grid: sorted quantization grid with 0 included.
         eps: interval degeneracy threshold and clamping margin.
