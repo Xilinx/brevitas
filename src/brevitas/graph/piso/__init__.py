@@ -17,7 +17,7 @@ The package is split into:
                ScaleOptimizerGroupInterleaved, PiSOLayerHandler, optimize_scale_mode)
                and the GPTQ / Qronos integration mixins.
 
-Entry points for the LLM example live in brevitas_examples.llm.llm_quant.piso.
+Entry points for the LLM example live in brevitas_examples.llm.llm_quant.calibrate.
 
 Reference: "Optimal Post-Training Quantization Scales and Where to Find Them"
 (https://arxiv.org/abs/2606.10890).
