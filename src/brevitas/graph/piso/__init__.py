@@ -15,7 +15,8 @@ The package is split into:
   - .solvers : the algorithm core (the _piso_sweep_* interval solvers);
   - .core    : machinery to apply PiSO to a model (ScaleOptimizer /
                ScaleOptimizerGroupInterleaved, PiSOLayerHandler, optimize_scale_mode)
-               and the GPTQ / Qronos integration mixins.
+               and the GPxQ integration (PiSOMixin, GroupAwarePermutationMixin) with
+               the GPTQ / Qronos classes composed from it.
 
 Entry points for the LLM example live in brevitas_examples.llm.llm_quant.calibrate.
 
