@@ -23,8 +23,6 @@ Reference: "Optimal Post-Training Quantization Scales and Where to Find Them"
 (https://arxiv.org/abs/2606.10890).
 """
 
-from brevitas.graph.piso.core import GroupAwarePermGPTQ
-from brevitas.graph.piso.core import GroupAwarePermQronos
 from brevitas.graph.piso.core import GroupAwarePermutationMixin
 from brevitas.graph.piso.core import optimize_scale_mode
 from brevitas.graph.piso.core import PiSOGroupInterleavedGPTQ
