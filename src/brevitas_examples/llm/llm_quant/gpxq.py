@@ -17,9 +17,6 @@ from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gptq import gptq_mode
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.magr import magr_mode
-from brevitas.graph.piso import GroupAwarePermGPTQ
-from brevitas.graph.piso import GroupAwarePermQronos
-from brevitas.graph.piso import GroupAwarePermutationMixin
 from brevitas.graph.piso import PiSOGroupInterleavedGPTQ
 from brevitas.graph.piso import PiSOGroupInterleavedQronos
 from brevitas.graph.piso import PiSOLayerInterleavedGPTQ
@@ -233,21 +230,15 @@ def _select_gpxq_class(
         base_class: Type[GPxQ],
         piso_class: Type[PiSOMixin],
         groupwise_piso_class: Type[PiSOMixin],
-        group_aware_class: Type[GroupAwarePermutationMixin],
-        scale_optimizer: Optional[ScaleOptimizer],
-        block_sum_act_order: bool) -> Type[GPxQ]:
-    """Pick the GPxQ variant given the requested scale-opt / permutation options.
+        scale_optimizer: Optional[ScaleOptimizer]) -> Type[GPxQ]:
+    """Pick the GPxQ variant for the requested scale optimization.
 
-    - scale optimization on: PiSO class, group-wise variant if the updater is;
-    - scale optimization off but group-aware act_order requested: group-aware class;
-    - otherwise: the plain base class.
+    Use the group-wise PiSO variant with its matching updater.
     """
     if scale_optimizer is not None:
         if isinstance(scale_optimizer, ScaleOptimizerGroupInterleaved):
             return partial(groupwise_piso_class, scale_optimizer=scale_optimizer)
         return partial(piso_class, scale_optimizer=scale_optimizer)
-    if block_sum_act_order:
-        return group_aware_class
     return base_class
 
 
@@ -264,8 +255,7 @@ def apply_gptq(
         max_accumulator_tile_size=None,
         buffer_device='cpu',
         buffer_dtype=torch.float32,
-        scale_optimizer=None,
-        block_sum_act_order=False):
+        scale_optimizer=None):
     context_manager_kwargs = {
         'act_order': act_order,
         'group_of_parallel_layers': group_of_parallel_layers,
@@ -281,12 +271,7 @@ def apply_gptq(
             max_accumulator_tile_size=max_accumulator_tile_size)
     else:
         context_manager_kwargs['gptq_class'] = _select_gpxq_class(
-            GPTQ,
-            PiSOLayerInterleavedGPTQ,
-            PiSOGroupInterleavedGPTQ,
-            GroupAwarePermGPTQ,
-            scale_optimizer,
-            block_sum_act_order)
+            GPTQ, PiSOLayerInterleavedGPTQ, PiSOGroupInterleavedGPTQ, scale_optimizer)
     if block_name is not None:
         _block_optimization(
             model, dataloader, block_name, context_manager_func, context_manager_kwargs)
@@ -392,16 +377,10 @@ def apply_qronos(
     buffer_device='cpu',
     buffer_dtype=torch.float32,
     scale_optimizer=None,
-    block_sum_act_order=False,
 ):
     assert alpha > 0, "Error: alpha needs to be strictly positive"
     qronos_class = _select_gpxq_class(
-        Qronos,
-        PiSOLayerInterleavedQronos,
-        PiSOGroupInterleavedQronos,
-        GroupAwarePermQronos,
-        scale_optimizer,
-        block_sum_act_order)
+        Qronos, PiSOLayerInterleavedQronos, PiSOGroupInterleavedQronos, scale_optimizer)
     # Use paired quantized and float passes to correct errors from previous layers.
     _apply_gpfq_or_qronos(
         model,

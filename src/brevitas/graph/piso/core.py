@@ -817,10 +817,8 @@ class GroupAwarePermutationMixin:
 
     Overrides only _act_order_permutation (so it applies solely when act_order is
     on): keep each quantization group's weights contiguous and order groups by
-    descending aggregated diag(H) (see compute_group_importance_permutation). Usable on its
-    own (group-aware act_order without scale optimization) or combined with
-    PiSOMixin for the group-interleaved PiSO integration, where processing every
-    group contiguously is required.
+    descending aggregated diag(H) (see compute_group_importance_permutation).
+    Group-interleaved PiSO uses this order to process each group contiguously.
     """
 
     def _act_order_permutation(self, hessian_group: torch.Tensor) -> torch.Tensor:
@@ -969,19 +967,4 @@ class PiSOGroupInterleavedQronos(_PiSOQronosMixin, GroupAwarePermutationMixin, Q
 
     See PiSOGroupInterleavedGPTQ; each group's scale is optimized just before Qronos
     quantizes that group.
-    """
-
-
-class GroupAwarePermGPTQ(GroupAwarePermutationMixin, GPTQ):
-    """GPTQ with group-aware act_order but no scale optimization.
-
-    Keeps each quantization group's weights contiguous and orders groups by
-    aggregated diag(H); see the group processing order discussion in the paper.
-    """
-
-
-class GroupAwarePermQronos(GroupAwarePermutationMixin, Qronos):
-    """Qronos with group-aware act_order but no scale optimization.
-
-    See GroupAwarePermGPTQ.
     """
