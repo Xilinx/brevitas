@@ -56,9 +56,8 @@ def build_scale_optimizer(args: Namespace) -> ScaleOptimizer:
         solver=args.sopt_solver)
 
 
-def _pass_managers(
-        model: nn.Module, objective: str,
-        use_quant_activations: bool) -> List[quantization_status_manager]:
+def _pass_managers(model: nn.Module, objective: str,
+                   use_quant_activations: bool) -> List[quantization_status_manager]:
     """Quantization state of each forward pass that feeds PiSO for every calibration batch.
 
     The objective picks the activations X_tilde (reconstruction) and X (target) the
@@ -119,7 +118,6 @@ def apply_weight_calibration(
     objective = args.sopt_objective
     use_quant_activations = args.sopt_use_quant_activations
     context_manager_kwargs = {
-        'single_forward': False,
         'solver_dtype': S_DTYPE,
         'matrix_dtype': S_DTYPE,
         'tolerance': S_TOLERANCE,

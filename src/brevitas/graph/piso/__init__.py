@@ -14,7 +14,8 @@ The package is split into:
   - .utils   : grid builders and the group-aware ordering helper;
   - .solvers : the algorithm core (the _piso_sweep_* interval solvers);
   - .core    : machinery to apply PiSO to a model (ScaleOptimizer /
-               ScaleOptimizerGroupInterleaved, PiSOLayerHandler, optimize_scale_mode)
+               ScaleOptimizerGroupInterleaved, optimize_scale_mode, and the standalone
+               PiSODecoupledGPTQ / PiSODecoupledQronos hooks it attaches)
                and the GPxQ integration (PiSOMixin, GroupAwarePermutationMixin) with
                the GPTQ / Qronos classes composed from it.
 
@@ -28,7 +29,6 @@ from brevitas.graph.piso.core import GroupAwarePermutationMixin
 from brevitas.graph.piso.core import optimize_scale_mode
 from brevitas.graph.piso.core import PiSOGroupInterleavedGPTQ
 from brevitas.graph.piso.core import PiSOGroupInterleavedQronos
-from brevitas.graph.piso.core import PiSOLayerHandler
 from brevitas.graph.piso.core import PiSOLayerInterleavedGPTQ
 from brevitas.graph.piso.core import PiSOLayerInterleavedQronos
 from brevitas.graph.piso.core import PiSOMixin
