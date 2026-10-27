@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import math
-from typing import List
-from typing import Tuple
 
 import torch
 from torch import Tensor
@@ -95,24 +93,6 @@ class Qronos(GPFQ):
         if current_layer.forward_count == self.len_parallel_layers:
             current_layer.forward_count = 0
             raise StopFwdException
-
-    def _step2_block_ranges(self) -> List[Tuple[int, int]]:
-        """(i1, i2) column blocks for the Qronos step-2+ error-correction loop.
-
-        Column 0 is handled in step 1, so blocks start at column 1. This is the
-        reference Qronos partition: range(1, columns, blocksize).
-
-        This lives in a hook because the group-interleaved PiSO variant needs a
-        different partition (each block must cover exactly one quantization group
-        so a group's scale can be optimized at its boundary). Keeping the base
-        partition here guarantees that plain Qronos and layer-interleaved PiSO
-        reproduce the reference numerics exactly: block boundaries determine how
-        quantization error is diffused, so any change to them changes the result
-        even without scale optimization. Only PiSOGroupInterleavedQronos overrides
-        this (see _PiSOQronosMixin).
-        """
-        return [(i1, min(i1 + self.blocksize, self.columns))
-                for i1 in range(1, self.columns, self.blocksize)]
 
     def single_layer_update(self, beta: int = 1e4):
         assert not self.layer.weight_quant.requires_quant_input, \
@@ -221,8 +201,8 @@ class Qronos(GPFQ):
             assert (q_arg >= dtype_min).all() and (q_arg <= dtype_max).all()
             weight[group_index, :, perm[0]] = q_arg.to(dtype)  # weight 0 changes here
 
-        # Optimize scale for group 0 using the Qronos-corrected col 0 value, before
-        # quantization. No-op unless a PiSO mixin is present.
+        # Callback for a mix-in when a new column is optimized.
+        # Column 0 is treated outside of the loop so we manually add this call
         self._on_column_reached(0)
 
         # Sherman-Morrison-Woodbury update rule
@@ -264,8 +244,13 @@ class Qronos(GPFQ):
             return
         del self.iH  # memory management
 
-        # Qronos - step 2+
-        for i1, i2 in self._step2_block_ranges():
+        # Qronos - step 2+. Column 0 was done in step 1, so the first block is shortened
+        # to skip it; every block boundary falls on a multiple of blocksize, as in GPTQ.
+        for block_start in range(0, self.columns, self.blocksize):
+            i1 = max(block_start, 1)
+            i2 = min(block_start + self.blocksize, self.columns)
+            if i2 <= i1:  # blocksize == 1: the first block is column 0 alone
+                continue
             count = i2 - i1
             error_block = torch.zeros_like(
                 weight[:, :, perm[i1:i2]], dtype=self.dtype)  # [groups, OC/groups, i2-i1]
@@ -273,8 +258,7 @@ class Qronos(GPFQ):
             h_inv_block = self.L[:, i1 - 1:i2 - 1, i1 - 1:i2 - 1]
             # correct error within the block
             for i in range(count):
-                # Let a PiSO mixin optimize a group's scale when column i1+i starts
-                # a new group, before its weights are quantized. No-op otherwise.
+                # Callback for a mix-in when a new column is optimized.
                 self._on_column_reached(i1 + i)
                 # error diffusion
 

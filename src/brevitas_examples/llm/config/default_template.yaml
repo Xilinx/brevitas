@@ -99,8 +99,8 @@ sopt_group_sequential: false
 sopt_group_sequential_act_order: true
 sopt_hessian_mode: dense
 sopt_objective: unquantized
-sopt_optimize: false
-sopt_optimize_in_gpxq: false
+weight_calibration: false
+gpxq_use_grid_optimization: false
 sopt_solver: piso
 sopt_solver_batch_size: null
 sopt_use_quant_activations: true

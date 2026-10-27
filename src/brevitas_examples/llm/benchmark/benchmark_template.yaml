@@ -195,9 +195,9 @@ sopt_hessian_mode:
 - dense
 sopt_objective:
 - unquantized
-sopt_optimize:
+weight_calibration:
 - false
-sopt_optimize_in_gpxq:
+gpxq_use_grid_optimization:
 - false
 sopt_solver:
 - piso

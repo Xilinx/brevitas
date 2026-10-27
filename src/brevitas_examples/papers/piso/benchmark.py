@@ -6,8 +6,8 @@
 The YAML configs sweep the scale-selection axis (``--sopt-*``) against the error
 correction axis (``--gptq`` / ``--qronos``). Their Cartesian product contains many
 combinations that do not correspond to a row of the paper, e.g. an ``absmax`` run
-repeated once per ``--sopt-objective`` value, or a data-free run combined with a
-group heuristic that it ignores. :meth:`PiSOEntryPointUtils.validate` raises
+repeated for each objective, or a data-free run combined with a group
+heuristic that it ignores. :meth:`PiSOEntryPointUtils.validate` raises
 ``AssertionError`` on those, which ``GridSearchUtils.gen_search_space`` uses to
 discard them, so every paper row is run exactly once.
 """
@@ -20,16 +20,6 @@ from typing import Optional
 from brevitas_examples.llm.benchmark.llm_benchmark import LLMEntryPointUtils
 from brevitas_examples.llm.benchmark.llm_benchmark import LLMGridBenchmark
 
-# PiSO minimizes the same reconstruction objective as the algorithm it is combined
-# with (paper, Section 4): GPTQ uses the self-activation objective, while Qronos
-# and standalone RTN use the cross-activation one.
-GPTQ_OBJECTIVE = 'self-activation'
-CROSS_OBJECTIVE = 'cross-activation'
-
-# Canonical value for runs in which no scale optimization happens, so that the
-# swept objective collapses to a single experiment instead of one per value.
-UNUSED_OBJECTIVE = CROSS_OBJECTIVE
-
 
 class PiSOEntryPointUtils(LLMEntryPointUtils):
     """Keeps only the argument combinations that map to a row of the paper."""
@@ -38,21 +28,24 @@ class PiSOEntryPointUtils(LLMEntryPointUtils):
     def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
         LLMEntryPointUtils.validate(args=args, extra_args=extra_args)
 
-        if not args.sopt_optimize:
+        grid_optimization = args.weight_calibration or args.gpxq_use_grid_optimization
+        assert not (args.weight_calibration and args.gpxq_use_grid_optimization), \
+            "The paper applies grid optimization either before or during error correction."
+        assert args.sopt_objective != 'unquantized', \
+            "The paper uses quantized activations for scale reconstruction."
+
+        if not grid_optimization:
             # absmax baseline: without scale optimization every --sopt-* modifier is
             # inert, so pin them to discard the duplicates they would generate.
             assert args.sopt_hessian_mode != 'identity', \
-                "The data-free baseline requires --sopt-optimize."
+                "The data-free baseline requires grid optimization."
             assert not args.sopt_group_sequential, \
-                "Group heuristics require --sopt-optimize."
-            assert args.sopt_objective == UNUSED_OBJECTIVE, \
-                "The objective is unused without --sopt-optimize; pinned to deduplicate."
+                "Group heuristics require grid optimization."
+            assert args.sopt_objective == 'cross-activation', \
+                "The objective is pinned to deduplicate this baseline."
             return
 
-        # The --sopt-* validation only constrains the objective on the interleaved
-        # path; the paper matches it to the error correction algorithm on the
-        # decoupled path too.
-        expected_objective = GPTQ_OBJECTIVE if args.gptq else CROSS_OBJECTIVE
+        expected_objective = 'self-activation' if args.gptq else 'cross-activation'
         assert args.sopt_objective == expected_objective, \
             "The scale objective must match the error correction algorithm."
 
@@ -66,7 +59,7 @@ class PiSOEntryPointUtils(LLMEntryPointUtils):
             # match the decoupled run exactly. Group-interleaved is genuinely
             # different: each group is fitted on weights that already carry the error
             # diffused by the preceding groups.
-            if args.sopt_optimize_in_gpxq:
+            if args.gpxq_use_grid_optimization:
                 assert not args.sopt_group_gpxq_layer_interleaved, \
                     "Layer-interleaved data-free reproduces the decoupled run; deduplicated."
                 assert args.weight_quant_granularity == 'per_group', \

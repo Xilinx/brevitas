@@ -45,19 +45,19 @@ weight_bit_width:
 - 3
 - 4
 
-# Scale selection. The three flags below are swept jointly and select one scale
+# Scale selection. The flags below are swept jointly and select one scale
 # method per run:
-#   sopt_optimize: false                                 -> absmax (data-free heuristic)
-#   sopt_optimize: true,  sopt_hessian_mode: identity    -> data-free solver, H = I
-#   sopt_optimize: true,  sopt_hessian_mode: dense       -> PiSO
-sopt_optimize:
+#   both calibration flags false                  -> absmax (data-free heuristic)
+#   weight calibration with hessian mode identity -> data-free solver, H = I
+#   weight calibration with hessian mode dense    -> PiSO
+weight_calibration:
 - false
 - true
 # How scale optimization composes with error correction: false runs it as a
 # separate pass beforehand (decoupled, +), true runs it inside GPTQ/Qronos just
 # before each layer is corrected (layer-interleaved, *). Per-channel quantization
 # is always layer-interleaved, so no further flag is needed here.
-sopt_optimize_in_gpxq:
+gpxq_use_grid_optimization:
 - false
 - true
 # `identity` ignores the calibration statistics and minimizes the weight-only
@@ -65,9 +65,9 @@ sopt_optimize_in_gpxq:
 sopt_hessian_mode:
 - dense
 - identity
-# PiSO minimizes the same objective as the algorithm it is combined with, so this
-# is not a free axis: `benchmark.py` keeps `self-activation` with GPTQ and
-# `cross-activation` with Qronos or standalone RTN, and discards the mismatches.
+# PiSO uses quantized activations for reconstruction. Qronos and standalone RTN
+# use float target activations (cross-activation). GPTQ uses quantized target
+# activations (self-activation).
 sopt_objective:
 - cross-activation
 - self-activation

@@ -11,7 +11,7 @@ from warnings import warn
 from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import create_entrypoint_args_parser
 from brevitas_examples.common.parse_utils import quant_format_validator
-from brevitas_examples.llm.llm_quant.piso_args import ScaleOptimizerArgumentParser
+from brevitas_examples.llm.llm_args.calibrate import ScaleOptimizerArgumentParser
 
 # Export targets that do not require the (optional) `gguf` dependency
 BASE_EXPORT_TARGETS = [
@@ -324,6 +324,10 @@ def create_args_parser() -> ArgumentParser:
         action='store_true',
         help='Use quantized activations in GPxQ.')
     parser.add_argument(
+        '--gpxq-use-grid-optimization',
+        action='store_true',
+        help='Use grid optimization with GPTQ or Qronos.')
+    parser.add_argument(
         '--disable-create-weight-orig',
         action='store_true',
         help='Disable maintaining original weights for non-quant forward pass. Default: false')
@@ -339,6 +343,8 @@ def create_args_parser() -> ArgumentParser:
         help='Maximum accumulator tile size for GPxQ using AXE.')
     parser.add_argument(
         '--act-calibration', action='store_true', help='Apply activation calibration.')
+    parser.add_argument(
+        '--weight-calibration', action='store_true', help='Apply weight calibration.')
     parser.add_argument('--bias-corr', action='store_true', help='Apply bias correction.')
     parser.add_argument('--ln-affine-merge', action='store_true', help='Merge LN affine params.')
     parser.add_argument(

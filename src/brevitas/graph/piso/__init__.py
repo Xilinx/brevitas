@@ -14,24 +14,20 @@ The package is split into:
   - .utils   : grid builders and the group-aware ordering helper;
   - .solvers : the algorithm core (the _piso_sweep_* interval solvers);
   - .core    : machinery to apply PiSO to a model (ScaleOptimizer /
-               ScaleOptimizerGroupInterleaved, PiSOLayerHandler, optimize_scale_mode)
-               and the GPTQ / Qronos integration mixins.
+               ScaleOptimizerGroupInterleaved, optimize_scale_mode, and the standalone
+               PiSODecoupledGPTQ / PiSODecoupledQronos hooks it attaches)
+               and the GPxQ integration (PiSOMixin) with
+               the GPTQ / Qronos classes composed from it.
 
-Entry points for the LLM example live in brevitas_examples.llm.llm_quant.piso.
+Entry points for the LLM example live in brevitas_examples.llm.llm_quant.calibrate.
 
 Reference: "Optimal Post-Training Quantization Scales and Where to Find Them"
 (https://arxiv.org/abs/2606.10890).
 """
 
-from brevitas.graph.piso.core import GroupAwarePermGPTQ
-from brevitas.graph.piso.core import GroupAwarePermQronos
-from brevitas.graph.piso.core import GroupAwarePermutationMixin
 from brevitas.graph.piso.core import optimize_scale_mode
-from brevitas.graph.piso.core import PiSOGroupInterleavedGPTQ
-from brevitas.graph.piso.core import PiSOGroupInterleavedQronos
-from brevitas.graph.piso.core import PiSOLayerHandler
-from brevitas.graph.piso.core import PiSOLayerInterleavedGPTQ
-from brevitas.graph.piso.core import PiSOLayerInterleavedQronos
+from brevitas.graph.piso.core import PiSOInterleavedGPTQ
+from brevitas.graph.piso.core import PiSOInterleavedQronos
 from brevitas.graph.piso.core import PiSOMixin
 from brevitas.graph.piso.core import ScaleOptimizer
 from brevitas.graph.piso.core import ScaleOptimizerGroupInterleaved

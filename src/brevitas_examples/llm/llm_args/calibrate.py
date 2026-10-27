@@ -9,17 +9,13 @@ from warnings import warn
 
 from brevitas_examples.common.parse_utils import AlgorithmArgumentParser
 
-# Default prefix for scale optimization arguments: flags are ``--sopt-{suffix}``,
-# stored as ``args.sopt_{suffix}``. PiSO is the current solver behind them.
 SOPT_PREFIX = "sopt"
+# Reconstruction objectives of --weight-calibration, see apply_weight_calibration.
+SOPT_OBJECTIVES = ['unquantized', 'self-activation', 'cross-activation']
 
 
 class ScaleOptimizerArgumentParser(AlgorithmArgumentParser):
-    """Scale optimization argument group (PiSO being the current solver).
-
-    Adds the ``--sopt-*`` flags (e.g. ``--sopt-optimize``, ``--sopt-objective``),
-    read back as ``args.sopt_*``, and validates their cross-constraints.
-    """
+    """Add and validate the scale optimization arguments."""
 
     prefix = SOPT_PREFIX
 
@@ -40,23 +36,9 @@ class ScaleOptimizerArgumentParser(AlgorithmArgumentParser):
         ScaleOptimizerArgumentParser._add_bool(
             parser,
             prefix,
-            'optimize',
-            default=False,
-            help='Apply scale optimization based on the calibration set. Default: disabled')
-
-        ScaleOptimizerArgumentParser._add_bool(
-            parser,
-            prefix,
-            'optimize-in-gpxq',
-            default=False,
-            help='Apply scale optimization together with gpxq or qronos. Default: disabled')
-
-        ScaleOptimizerArgumentParser._add_bool(
-            parser,
-            prefix,
             'use-quant-activations',
             default=True,
-            help=f'With --{prefix}-optimize, use quant activations when optimising the scale. '
+            help='Use quantized activations during weight calibration. '
             'Default: enabled')
 
         ScaleOptimizerArgumentParser._add(
@@ -65,7 +47,7 @@ class ScaleOptimizerArgumentParser(AlgorithmArgumentParser):
             'solver-batch-size',
             type=int,
             default=None,
-            help=f'With --{prefix}-optimize, the number of weight rows/channels in a given layer '
+            help='The number of weight rows/channels in a given layer '
             'for which the scale is optimized in parallel. When set to None all the scales in the '
             'layer are optimized at the same time (fastest but more memory required).')
 
@@ -75,20 +57,21 @@ class ScaleOptimizerArgumentParser(AlgorithmArgumentParser):
             'objective',
             type=str,
             default='unquantized',
-            choices=['cross-activation', 'self-activation', 'unquantized'],
-            help=f'With --{prefix}-optimize, the reconstruction objective the solver optimizes, '
-            'i.e. the choice of X (target) and X_tilde (reconstruction) in '
-            '||X w - s X_tilde q(w)||^2. '
-            'cross-activation: X float, X_tilde quantized (Qronos/GPTAQ target). '
-            'self-activation: both X_tilde quantized (GPTQ target). '
-            'unquantized: both float X (data-aware weight MSE). Default: unquantized')
+            choices=SOPT_OBJECTIVES,
+            help='Reconstruction objective of --weight-calibration, ||X w - s X_tilde q(w)||^2, '
+            'where X_tilde are the activations the layer sees. '
+            'unquantized: X_tilde = X, with the previous layers left unquantized. '
+            'self-activation: X_tilde = X, from the quantized previous layers. '
+            'cross-activation: X_tilde from the quantized previous layers, X from the float model. '
+            'With --gpxq-use-grid-optimization the objective follows the error-correction '
+            'algorithm (GPTQ: self-activation, Qronos: cross-activation). Default: unquantized')
 
         ScaleOptimizerArgumentParser._add_bool(
             parser,
             prefix,
             'group-sequential',
             default=False,
-            help=f'With --{prefix}-optimize and per-group weights, optimize each group correcting '
+            help='With per-group weights, optimize each group while correcting '
             'the error from previous groups (sequential heuristic). When disabled, groups are '
             'optimized independently. Default: disabled')
 
@@ -97,9 +80,9 @@ class ScaleOptimizerArgumentParser(AlgorithmArgumentParser):
             prefix,
             'group-sequential-act-order',
             default=True,
-            help=f'With --{prefix}-group-sequential (standalone --{prefix}-optimize only), process '
+            help=f'With --{prefix}-group-sequential during weight calibration, process '
             'groups by descending sum of diag(H) (most important first) instead of natural order. '
-            f'Ignored with --{prefix}-optimize-in-gpxq, where the column order is controlled by '
+            'Ignored with --gpxq-use-grid-optimization, where the column order is controlled by '
             '--gpxq-act-order. Default: enabled')
 
         ScaleOptimizerArgumentParser._add(
@@ -109,7 +92,7 @@ class ScaleOptimizerArgumentParser(AlgorithmArgumentParser):
             type=str,
             default='dense',
             choices=['dense', 'diagonal', 'identity'],
-            help=f'With --{prefix}-optimize, how the Hessian H (and G) is used by the solver. '
+            help='How the solver uses the Hessian H and matrix G. '
             'dense: the full matrices accumulated from the calibration data; not implemented, so '
             'it currently raises NotImplementedError. '
             'diagonal: only diag(H) (and diag(G)), discarding cross-weight interactions. '
@@ -125,7 +108,7 @@ class ScaleOptimizerArgumentParser(AlgorithmArgumentParser):
             'quantization (paper: interleaved integration strategies). When enabled, all group '
             'scales are optimized once per layer (layer-interleaved). When disabled (default), '
             'each group scale is optimized at its boundary during GPxQ (group-interleaved). Only '
-            f'applies with --{prefix}-optimize-in-gpxq and per-group weights; per-channel '
+            'applies with --gpxq-use-grid-optimization and per-group weights; per-channel '
             'quantization is always layer-interleaved regardless. Default: disabled')
 
     @staticmethod
@@ -133,42 +116,40 @@ class ScaleOptimizerArgumentParser(AlgorithmArgumentParser):
             args: Namespace,
             extra_args: Optional[List[str]] = None,
             prefix: str = SOPT_PREFIX) -> None:
-        # Read attributes through the prefix so checks stay prefix-configurable.
+
         def a(suffix: str):
             return getattr(args, ScaleOptimizerArgumentParser._dest(prefix, suffix))
 
-        optimize = a('optimize')
-        optimize_in_gpxq = a('optimize-in-gpxq')
+        weight_calibration = args.weight_calibration
+        gpxq_use_grid_optimization = args.gpxq_use_grid_optimization
         objective = a('objective')
         layer_interleaved = a('group-gpxq-layer-interleaved')
         hessian_mode = a('hessian-mode')
 
-        # Scale optimization: --{prefix}-optimize is the master switch,
-        # --{prefix}-optimize-in-gpxq is a modifier selecting the interleaved strategy.
-        if optimize_in_gpxq:
-            assert optimize, \
-                f"--{prefix}-optimize-in-gpxq requires --{prefix}-optimize (it selects the interleaved strategy)."
+        # Arguments built without argparse (e.g., benchmark sweeps) skip `choices`.
+        assert objective in SOPT_OBJECTIVES, \
+            f"--{prefix}-objective must be one of {SOPT_OBJECTIVES}, got {objective!r}."
+
+        if gpxq_use_grid_optimization:
             assert args.gptq or args.qronos, \
-                f"--{prefix}-optimize-in-gpxq requires --gptq or --qronos (the solver is interleaved into them)."
-            # When interleaved, the input quantization is dictated by the error-correction
-            # algorithm, so the scale objective must match it: GPTQ uses the self-activation
-            # objective, Qronos uses the cross-activation one.
-            if args.gptq:
-                assert objective == 'self-activation', \
-                    f"--{prefix}-optimize-in-gpxq with --gptq requires --{prefix}-objective self-activation."
-            if args.qronos:
-                assert objective == 'cross-activation', \
-                    f"--{prefix}-optimize-in-gpxq with --qronos requires --{prefix}-objective cross-activation."
-            # The group- vs layer-interleaved choice only exists for per-group weights;
-            # per-channel is always layer-interleaved.
+                "--gpxq-use-grid-optimization requires --gptq or --qronos."
             if layer_interleaved:
                 assert args.weight_quant_granularity == 'per_group', \
                     f"--{prefix}-group-gpxq-layer-interleaved only applies to per-group weight quantization."
+            if not weight_calibration:
+                # The interleaved objective follows the algorithm, so an explicit
+                # objective that disagrees with it would otherwise be ignored silently.
+                implied_objective = 'self-activation' if args.gptq else 'cross-activation'
+                if objective not in ('unquantized', implied_objective):
+                    warn(
+                        f"--{prefix}-objective {objective} is ignored with "
+                        f"--gpxq-use-grid-optimization: the objective follows the "
+                        f"error-correction algorithm ({implied_objective}).")
         else:
             assert not layer_interleaved, \
-                f"--{prefix}-group-gpxq-layer-interleaved requires --{prefix}-optimize-in-gpxq."
+                f"--{prefix}-group-gpxq-layer-interleaved requires --gpxq-use-grid-optimization."
 
-        if optimize or optimize_in_gpxq:
+        if weight_calibration or gpxq_use_grid_optimization:
             if hessian_mode == 'diagonal':
                 warn(
                     f"--{prefix}-hessian-mode diagonal: only the diagonal of H (and G) is used for "
