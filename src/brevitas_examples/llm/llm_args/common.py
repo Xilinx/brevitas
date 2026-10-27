@@ -11,7 +11,7 @@ from warnings import warn
 from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import create_entrypoint_args_parser
 from brevitas_examples.common.parse_utils import quant_format_validator
-from brevitas_examples.llm.llm_quant.piso_args import ScaleOptimizerArgumentParser
+from brevitas_examples.llm.llm_args.calibrate import ScaleOptimizerArgumentParser
 
 # Export targets that do not require the (optional) `gguf` dependency
 BASE_EXPORT_TARGETS = [
