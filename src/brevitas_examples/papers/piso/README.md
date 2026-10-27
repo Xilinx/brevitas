@@ -73,15 +73,18 @@ Per-channel quantization is always layer-interleaved, so `⊙` needs only
 
 ### Objective
 
-PiSO enables `sopt_quantize_prev` for all paper runs. `sopt_cross_act_objective`
-is disabled with `--gptq` and enabled with `--qronos` or standalone RTN.
+The paper runs reconstruct from the quantized model, so `sopt_objective` is never
+`unquantized`: it is `self-activation` with `--gptq` and `cross-activation` with
+`--qronos` or standalone RTN. When scale optimization runs inside GPTQ/Qronos
+(`gpxq_use_grid_optimization`), the objective follows the algorithm regardless; the
+sweep still pins `sopt_objective` to it to avoid running duplicates.
 
 ### Discarded combinations
 
 | Discarded | Reason |
 |---|---|
-| `sopt_cross_act_objective` mismatching the error-correction algorithm | Not a paper configuration |
-| Objective flag variants without grid optimization | The objective is unused; deduplicated |
+| `sopt_objective` mismatching the error-correction algorithm | Not a paper configuration |
+| Objective variants without grid optimization | The objective is unused; deduplicated |
 | `sopt_hessian_mode: identity` without grid optimization | Data-free requires scale optimization |
 | `sopt_group_sequential` without grid optimization, with `sopt_hessian_mode: identity`, or with per-channel weights | The heuristic is inert; deduplicated |
 | Layer-interleaved `sopt_hessian_mode: identity` | Reproduces the decoupled run (see below); deduplicated |

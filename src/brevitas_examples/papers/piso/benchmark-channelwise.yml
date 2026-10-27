@@ -66,12 +66,11 @@ sopt_hessian_mode:
 - dense
 - identity
 # PiSO uses quantized activations for reconstruction. Qronos and standalone RTN
-# use float target activations. GPTQ uses quantized target activations.
-sopt_quantize_prev:
-- true
-sopt_cross_act_objective:
-- true
-- false
+# use float target activations (cross-activation). GPTQ uses quantized target
+# activations (self-activation).
+sopt_objective:
+- cross-activation
+- self-activation
 # Channels solved in parallel. Throughput/memory knob only; does not affect results.
 sopt_solver_batch_size:
 - 512

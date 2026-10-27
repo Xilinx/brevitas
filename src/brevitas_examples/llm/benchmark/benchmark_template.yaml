@@ -193,10 +193,8 @@ sopt_group_sequential_act_order:
 - true
 sopt_hessian_mode:
 - dense
-sopt_cross_act_objective:
-- false
-sopt_quantize_prev:
-- false
+sopt_objective:
+- unquantized
 weight_calibration:
 - false
 gpxq_use_grid_optimization:
