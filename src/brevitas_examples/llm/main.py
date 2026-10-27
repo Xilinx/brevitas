@@ -51,7 +51,7 @@ from brevitas_examples.llm.llm_quant.awq.pre_quant import apply_awq
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
 from brevitas_examples.llm.llm_quant.calibrate import apply_calibration
 from brevitas_examples.llm.llm_quant.calibrate import apply_weight_calibration
-from brevitas_examples.llm.llm_quant.calibrate import build_scale_optimizer
+from brevitas_examples.llm.llm_quant.calibrate import build_piso_kwargs
 from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
 from brevitas_examples.llm.llm_quant.data_utils import llm_collate
 from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
@@ -712,8 +712,7 @@ def quantize_llm(args, extra_args=None):
 
         if args.gptq and not args.load_checkpoint:
             print("Applying GPTQ...")
-            scale_optimizer = build_scale_optimizer(
-                args) if args.gpxq_use_grid_optimization else None
+            piso_kwargs = build_piso_kwargs(args) if args.gpxq_use_grid_optimization else None
             apply_gptq(
                 model,
                 calibration_loader,
@@ -724,7 +723,7 @@ def quantize_llm(args, extra_args=None):
                 buffer_device=args.gpxq_buffer_device,
                 max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
                 max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size,
-                scale_optimizer=scale_optimizer)
+                piso_kwargs=piso_kwargs)
             print("GPTQ applied.")
 
         if args.gpfq and not args.load_checkpoint:
@@ -741,8 +740,7 @@ def quantize_llm(args, extra_args=None):
 
         if args.qronos and not args.load_checkpoint:
             print("Applying Qronos...")
-            scale_optimizer = build_scale_optimizer(
-                args) if args.gpxq_use_grid_optimization else None
+            piso_kwargs = build_piso_kwargs(args) if args.gpxq_use_grid_optimization else None
             apply_qronos(
                 model,
                 calibration_loader,
@@ -750,7 +748,7 @@ def quantize_llm(args, extra_args=None):
                 act_order=args.gpxq_act_order,
                 block_name=args.gpxq_block_name,
                 buffer_device=args.gpxq_buffer_device,
-                scale_optimizer=scale_optimizer)
+                piso_kwargs=piso_kwargs)
             print("Qronos applied.")
 
         if args.bias_corr and not args.load_checkpoint:

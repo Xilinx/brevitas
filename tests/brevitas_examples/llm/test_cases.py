@@ -207,6 +207,15 @@ class LLMRunCases:
                 "weight_group_size": 8,
                 "sopt_group_gpxq_layer_interleaved": True,
                 "sopt_hessian_mode": "diagonal"},
+            # Per-group, group-interleaved with act-order (group-aware ordering).
+            {
+                "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+                "gpxq_use_grid_optimization": True,
+                "gptq": True,
+                "gpxq_act_order": True,
+                "weight_quant_granularity": "per_group",
+                "weight_group_size": 8,
+                "sopt_hessian_mode": "diagonal"},
             # ---- Interleaved with Qronos (cross-activation objective) ----
             {
                 "gpxq_use_grid_optimization": True,
@@ -245,6 +254,7 @@ class LLMRunCases:
             "gpxq,gptq,per_channel",
             "gpxq,gptq,per_group,group_interleaved",
             "gpxq,gptq,per_group,layer_interleaved",
+            "gpxq,gptq,per_group,group_interleaved,act_order",
             "gpxq,qronos,per_channel",
             "gpxq,qronos,per_group,group_interleaved",
             "gpxq,qronos,per_group,layer_interleaved",

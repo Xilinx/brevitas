@@ -494,17 +494,18 @@ class ScaleOptimizerGroupInterleaved(ScaleOptimizer):
     def single_group_update(self, incoming_idx: int) -> None:
         """Optimize and write the scale of the group that owns column incoming_idx.
 
+        Called for every column; only the first column of a group does work.
         incoming_idx is an index into the caller's permuted column order; it is
         mapped back through perm to the group it belongs to. Picks the matching
         sweep (diagonal, sequential-greedy, or plain per-group) and writes that
         group's scale into the quantizer.
         """
-        if not self._params_initialized and incoming_idx % self.group_size == 0:
-            return
         if not self._params_initialized:
             raise RuntimeError(
                 "Scale optimizer params not initialized; call "
                 "init_scale_optimizer_params before single_group_update.")
+        if incoming_idx % self.group_size != 0:
+            return
         incoming_group_idx = self.perm[incoming_idx] // self.group_size
         start = incoming_group_idx * self.group_size
         end = start + self.group_size
@@ -696,42 +697,22 @@ class optimize_scale_mode(layerwise_hook_mode):
 # Integration with error correction (GPTQ / Qronos).
 #
 # GPTQ and Qronos expose extension hooks on the base GPxQ class (see
-# brevitas.graph.gpxq): _act_order_permutation, _resolve_blocksize,
-# _on_error_correction_starts, _on_column_reached and
-# _on_layer_finished. The two mixins below override those hooks to add,
-# independently:
-#   - group-aware column ordering (GroupAwarePermutationMixin), and
-#   - PiSO scale optimization interleaved with error correction (PiSOMixin).
-# PiSOMixin is algorithm-agnostic: it consumes the algorithm's own Hessians (self.H
-# and, when there is a cross term, self.G), so no per-algorithm adapter is needed.
-# The concrete classes at the bottom compose the mixins with GPTQ / Qronos,
-# mirroring the A2GPTQ(_AXE, GPTQ) pattern already used in brevitas for AXE.
+# brevitas.graph.gpxq). PiSOMixin overrides them to interleave PiSO scale optimization
+# with error correction. The concrete classes at the bottom compose it with GPTQ /
+# Qronos, mirroring the A2GPTQ(_AXE, GPTQ) pattern already used in brevitas for AXE.
 #
 # TODO: Consider moving these mixins to a separate file.
 # -----------------------------------------------------------------------------
 
 
-class GroupAwarePermutationMixin:
-    """Order columns group-by-group instead of by plain diag(H).
-
-    Overrides only _act_order_permutation (so it applies solely when act_order is
-    on): keep each quantization group's weights contiguous and order groups by
-    descending aggregated diag(H) (see compute_group_importance_permutation).
-    Group-interleaved PiSO uses this order to process each group contiguously.
-    """
-
-    def _act_order_permutation(self, hessian_group: torch.Tensor) -> torch.Tensor:
-        perm, _ = compute_group_importance_permutation(
-            x=hessian_group.diag(), group_size=self.layer.weight_quant.group_size)
-        return perm
-
-
 class PiSOMixin:
     """Interleave PiSO scale optimization with error correction.
 
-    Holds the ScaleOptimizer (always present for a PiSO class) and overrides the
-    scale lifecycle hooks so GPTQ / Qronos stay free of scale-specific branching:
+    Builds the layer's updater from scale_optimizer_kwargs: group-wise for groupwise
+    layers unless layer_interleaved is set, layer-level otherwise. It overrides the
+    GPxQ hooks so GPTQ / Qronos stay free of scale-specific branching:
       - _resolve_blocksize: align error-correction blocks with quantization groups;
+      - _act_order_permutation: keep each group's columns contiguous for groupwise layers;
       - _on_error_correction_starts: optimize the layer scale on the fixed grid
         (layer-level updater) or hand the Hessians to the group-wise updater;
       - _on_column_reached: optimize a group's scale at its first column;
@@ -744,9 +725,26 @@ class PiSOMixin:
     updater optimizes the self-activation objective.
     """
 
-    def __init__(self, *args, scale_optimizer, **kwargs):
+    def __init__(self, *args, scale_optimizer_kwargs, layer_interleaved=False, **kwargs):
         super().__init__(*args, **kwargs)
-        self.scale_optimizer = scale_optimizer
+        if self.layer.weight_quant.is_groupwise and not layer_interleaved:
+            self.scale_optimizer = ScaleOptimizerGroupInterleaved(**scale_optimizer_kwargs)
+        else:
+            self.scale_optimizer = ScaleOptimizer(**scale_optimizer_kwargs)
+
+    def _resolve_blocksize(self, num_blocks: int) -> int:
+        weight_quant = self.layer.weight_quant
+        if weight_quant.is_groupwise:
+            return weight_quant.group_size
+        return super()._resolve_blocksize(num_blocks)
+
+    def _act_order_permutation(self, hessian_group: torch.Tensor) -> torch.Tensor:
+        weight_quant = self.layer.weight_quant
+        if weight_quant.is_groupwise:
+            perm, _ = compute_group_importance_permutation(
+                x=hessian_group.diag(), group_size=weight_quant.group_size)
+            return perm
+        return super()._act_order_permutation(hessian_group)
 
     def _on_error_correction_starts(self, perm: torch.Tensor) -> None:
         if self.groups != 1:
@@ -775,55 +773,19 @@ class PiSOMixin:
         self.scale_optimizer.clear_scale_optimizer_params()
 
 
-class PiSOLayerInterleavedGPTQ(PiSOMixin, GPTQ):
-    """GPTQ with layer-interleaved PiSO (paper "Interleaved layer-wise optimization").
+class PiSOInterleavedGPTQ(PiSOMixin, GPTQ):
+    """GPTQ with PiSO scale optimization interleaved with error correction.
 
-    The layer scale is optimized once, right before the layer's error-correction
-    step. Works with per-channel or per-group quantization (in the per-group case a
-    single pass computes all group scales); it does not interleave scale updates
-    with individual groups, so the plain act_order permutation is used.
-
-    Note: because the scale is fixed before error correction, EC is free to order
-    columns however it likes, so group-aware ordering is not required here. If a
-    group-aware order were ever wanted alongside layer-wise optimization, one would
-    add GroupAwarePermutationMixin to the bases; the paper does not use this combo.
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        weight_quant = self.layer.weight_quant
-        if weight_quant.is_groupwise:
-            warnings.warn("Adjusting GPTQ blocksize to match layer's groupsize")
-            self.blocksize = weight_quant.group_size
-
-
-class PiSOGroupInterleavedGPTQ(PiSOMixin, GroupAwarePermutationMixin, GPTQ):
-    """GPTQ with group-interleaved PiSO (paper "Interleaved group-wise optimization").
-
-    Each group's scale is optimized just before error correction quantizes that
-    group's weights, so it requires per-group quantization and a group-aware column
-    order (groups processed contiguously).
+    Layer-interleaved (paper "Interleaved layer-wise optimization") when the
+    scale optimizer is ScaleOptimizer: the layer scale is optimized once before
+    error correction. Group-interleaved (paper "Interleaved group-wise optimization")
+    with ScaleOptimizerGroupInterleaved: each group's scale is optimized just before
+    error correction quantizes that group.
     """
 
 
-class PiSOLayerInterleavedQronos(PiSOMixin, Qronos):
-    """Qronos with layer-interleaved PiSO (paper "Interleaved layer-wise optimization").
+class PiSOInterleavedQronos(PiSOMixin, Qronos):
+    """Qronos with PiSO scale optimization interleaved with error correction.
 
-    See PiSOLayerInterleavedGPTQ; the scale is optimized once per layer before
-    Qronos' error correction.
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        weight_quant = self.layer.weight_quant
-        if weight_quant.is_groupwise:
-            warnings.warn("Adjusting GPTQ blocksize to match layer's groupsize")
-            self.blocksize = weight_quant.group_size
-
-
-class PiSOGroupInterleavedQronos(PiSOMixin, GroupAwarePermutationMixin, Qronos):
-    """Qronos with group-interleaved PiSO (paper "Interleaved group-wise optimization").
-
-    See PiSOGroupInterleavedGPTQ; each group's scale is optimized just before Qronos
-    quantizes that group.
+    See PiSOInterleavedGPTQ for the layer- and group-interleaved variants.
     """

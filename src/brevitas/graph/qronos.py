@@ -39,8 +39,8 @@ class Qronos(GPFQ):
         super().__init__(
             layer, name, act_order, len_parallel_layers, create_weight_orig, device, dtype)
 
-        # # Define how many columns to update in each mini-block.
-        self.blocksize = num_blocks
+        # Mixins may override _resolve_blocksize (e.g. PiSO aligns blocks with groups).
+        self.blocksize = self._resolve_blocksize(num_blocks)
 
         self.alpha = alpha
 

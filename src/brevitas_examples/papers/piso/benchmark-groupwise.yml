@@ -106,9 +106,8 @@ gptq:
 qronos:
 - true
 - false
-# Order columns by Hessian importance. The group-interleaved runs additionally
-# require groups to be processed contiguously, which the group-aware ordering
-# handles internally.
+# Order columns by Hessian importance. For groupwise layers, PiSO keeps each
+# group's columns contiguous in this order, as the group-wise updater requires.
 gpxq_act_order:
 - true
 
