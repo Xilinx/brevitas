@@ -11,9 +11,11 @@ import numpy as np
 import pytest
 import pytest_cases
 import torch
+from transformers import AutoTokenizer
 
 from brevitas_examples.llm.llm_quant.data import get_wikitext2
 from brevitas_examples.llm.llm_quant.data import tokenize_and_group_texts
+from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
 from brevitas_examples.llm.llm_quant.data_utils import llm_collate
 
 pytestmark = pytest.mark.llm
@@ -206,3 +208,57 @@ def test_llm_dataloader():
         assert torch.allclose(batch['attention_mask'][0], expected_attention_mask[0]['attention_mask']), 'attention_mask mismatch'
         assert torch.allclose(batch['attention_mask'][1], expected_attention_mask[1]['attention_mask']), 'attention_mask mismatch'
         assert batch['attention_mask'].shape[0] == 2, 'wrong number of attention_mask'
+
+
+class DummyChatTokenizer(DummyTokenizer):
+    chat_template = "dummy"
+
+    def apply_chat_template(self, messages, tokenize=False, add_generation_prompt=False):
+        return "".join(f"<{m['role']}>{m['content']}" for m in messages)
+
+
+def mock_tulu3_sft_raw_dataset(*args, **kwargs) -> Dataset:
+    messages = [[dict(role="user", content="Hi"), dict(role="assistant", content="Hello!")]]
+    return Dataset.from_dict({"messages": messages})
+
+
+@pytest_cases.parametrize("bos_preprocessing", ["document", "sequence"])
+def test_tulu3_sft_rejects_bos_preprocessing(bos_preprocessing: str):
+    with patch('brevitas_examples.llm.llm_quant.data_utils.load_raw_dataset',
+               mock_tulu3_sft_raw_dataset):
+        with pytest.raises(ValueError, match="chat-formatted"):
+            get_dataset_for_model(
+                "tulu3_sft",
+                DummyChatTokenizer(),
+                nsamples=1,
+                seqlen=4,
+                bos_preprocessing=bos_preprocessing)
+
+
+@pytest_cases.parametrize(
+    "model_name, has_chat_template",
+    [("hf-internal-testing/tiny-random-LlamaForCausalLM", True),
+     ("hf-internal-testing/tiny-random-MistralForCausalLM", False)],
+    ids=["llama", "mistral"])
+def test_tulu3_sft_requires_chat_template(model_name: str, has_chat_template: bool):
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    assert (tokenizer.chat_template is not None) == has_chat_template
+    with patch('brevitas_examples.llm.llm_quant.data_utils.load_raw_dataset',
+               mock_tulu3_sft_raw_dataset):
+        if has_chat_template:
+            dataset = get_dataset_for_model(
+                "tulu3_sft", tokenizer, nsamples=-1, seqlen=12, bos_preprocessing=None)
+            assert dataset["input_ids"][0][0] == tokenizer.bos_token_id
+        else:
+            with pytest.raises(ValueError, match="requires a tokenizer with a chat template"):
+                get_dataset_for_model(
+                    "tulu3_sft", tokenizer, nsamples=-1, seqlen=12, bos_preprocessing=None)
+
+
+def test_tulu3_sft_chat_template_tokenization():
+    with patch('brevitas_examples.llm.llm_quant.data_utils.load_raw_dataset',
+               mock_tulu3_sft_raw_dataset):
+        dataset = get_dataset_for_model(
+            "tulu3_sft", DummyChatTokenizer(), nsamples=-1, seqlen=25, bos_preprocessing=None)
+    samples = ["".join(chr(t) for t in ids) for ids in dataset["input_ids"]]
+    assert samples == ["<user>Hi<assistant>Hello!"]
