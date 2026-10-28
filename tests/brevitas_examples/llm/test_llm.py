@@ -41,7 +41,6 @@ from brevitas_examples.llm.llm_quant.trainer_utils import GeneralizedTrainer
 from brevitas_examples.llm.llm_quant.trainer_utils import TRAINER_REGISTRY
 from brevitas_examples.llm.main import main as llm_main
 from brevitas_examples.llm.main import quantize_llm
-from tests.brevitas_examples.assets_for_tests import resolve_hf_asset
 from tests.brevitas_examples.common import assert_layer_types
 from tests.brevitas_examples.common import assert_layer_types_count
 from tests.brevitas_examples.common import assert_metrics
@@ -148,8 +147,6 @@ def main(parser) -> Callable:
         if os.path.isabs(lighteval_model_name) and os.path.isdir(lighteval_model_name):
             # Strip the directory so it cannot override LightEval's cache root.
             lighteval_model_name = os.path.basename(os.path.normpath(lighteval_model_name))
-        if args.model and not os.path.isdir(args.model):
-            args.model = resolve_hf_asset(args.model)
         with patch('brevitas_examples.llm.llm_quant.data_utils.load_raw_dataset',
                    mock_load_raw_dataset):
             # Validate the arguments before running the entrypoint
@@ -709,7 +706,7 @@ def test_rmsnorm_patch_context_manager(caplog):
 
     model_id = "hf-internal-testing/tiny-random-LlamaForCausalLM"
     model = AutoModelForCausalLM.from_pretrained(
-        resolve_hf_asset(model_id), torch_dtype=torch.float32, local_files_only=True)
+        model_id, torch_dtype=torch.float32, local_files_only=True)
     config = model.config
 
     # Discover what RMSNorm classes the model uses before patching

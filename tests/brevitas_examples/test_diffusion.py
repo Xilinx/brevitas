@@ -20,7 +20,6 @@ import torch
 
 from brevitas_examples.stable_diffusion.main import quantize_sd
 from brevitas_examples.stable_diffusion.stable_diffusion_args import create_args_parser
-from tests.brevitas_examples.assets_for_tests import resolve_hf_asset
 from tests.brevitas_examples.common import assert_metrics
 from tests.brevitas_examples.common import get_default_args
 from tests.brevitas_examples.common import process_args_and_metrics
@@ -107,7 +106,6 @@ def main() -> Callable:
             args: UpdatableNamespace,
             extra_args: Optional[List[str]] = None) -> Tuple[torch.nn.Module, Dict[str, float]]:
         if args.model == "hf-internal-testing/tiny-stable-diffusion-pipe":
-            args.model = resolve_hf_asset(args.model)
             # Fix the configuration so the feature processor returns a tensor with the dimensions
             # expected by the safety checker
             from transformers.image_processing_base import ImageProcessingMixin

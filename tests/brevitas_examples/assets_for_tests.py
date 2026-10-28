@@ -233,15 +233,26 @@ def prepare_bnn_pynq_datasets() -> None:
         os.replace(sentinel_tmp, sentinel)
 
 
+def _pin_default_revision(repo_id: str) -> None:
+    """Point the cache's `main` ref at the pinned commit, so bare repo ids resolve offline."""
+    refs_dir = os.path.join(
+        get_test_cache_dir(), 'huggingface', 'hub', f"models--{repo_id.replace('/', '--')}", 'refs')
+    os.makedirs(refs_dir, exist_ok=True)
+    with open(os.path.join(refs_dir, 'main'), 'w') as f:
+        f.write({**LLM_MODELS, **DIFFUSION_MODELS}[repo_id])
+
+
 def prepare_assets(family: str) -> None:
     """Download everything a test family needs, so the test matrix only restores it."""
     if family == 'llm':
         for model in LLM_MODELS:
             resolve_hf_asset(model)
+            _pin_default_revision(model)
         prepare_lighteval_assets()
     elif family == 'diffusion':
         for model in DIFFUSION_MODELS:
             resolve_hf_asset(model)
+            _pin_default_revision(model)
         # Constructing the metric downloads its Inception weights into TORCH_HOME.
         from torchmetrics.image.fid import FrechetInceptionDistance
         _retry(partial(FrechetInceptionDistance, normalize=False))
