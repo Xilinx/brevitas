@@ -121,6 +121,27 @@ def recursive_to_device(tensor_or_iterable: Union[Iterable, Mapping, torch.Tenso
         raise ValueError(f"Cannot move {type(tensor_or_iterable)} to {device}")
 
 
+def _preprocess_raw_chat_dataset(
+        raw_dataset: Dataset, dataset_name: str, tokenizer: Any, seqlen: int) -> Dataset:
+    """Render a chat-formatted dataset with the chat template of the tokenizer."""
+    # Render chat-formatted SFT datasets with the model's chat template.
+    if tokenizer.chat_template is None:
+        raise ValueError(
+            f"Dataset {dataset_name!r} is chat-formatted and requires a tokenizer with a "
+            "chat template, but this tokenizer defines none. Use an instruct/chat model.")
+    # For reference, Qwen3-1.7B uses 14 framing tokens for an empty user-assistant exchange.
+    chat_template_tokens = count_chat_template_tokens(tokenizer)
+    if seqlen <= chat_template_tokens:
+        warnings.warn(
+            f"seqlen ({seqlen}) is not larger than the {chat_template_tokens} tokens "
+            "that the chat template adds to an empty conversation. "
+            "Each sample has no room for conversation content.")
+    return raw_dataset.map(
+        partial(render_chat_template, tokenizer=tokenizer),
+        remove_columns=raw_dataset.column_names,
+        desc=f"Rendering {dataset_name} via chat template")
+
+
 def get_dataset_for_model(
         dataset_name: str,
         tokenizer: Any,
@@ -160,39 +181,28 @@ def get_dataset_for_model(
             add_bos_token=(bos_preprocessing == "sequence" and tokenizer.bos_token_id is not None),
             seed=seed)
     else:
-        # Render chat-formatted SFT datasets with the model's chat template.
-        # Generic BOS processing can alter the model-specific conversation framing.
-        # Require bos_preprocessing=None to preserve the template output.
-        # Fuse documents because most Tulu-3 conversations are shorter than seqlen.
-        # Without fusion, group_texts silently drops these conversations.
-        # The CLI and YAML interfaces do not expose this setting.
         if dataset_name in SFT_CHAT_DATASETS:
+            # Generic BOS processing can alter the model-specific conversation framing.
+            # Require bos_preprocessing=None to preserve the template output.
             if bos_preprocessing is not None:
                 raise ValueError(
                     f"Dataset {dataset_name!r} is chat-formatted; its chat "
                     "template defines the complete conversation framing. Set "
                     "bos_preprocessing=None (YAML: 'bos_preprocessing: null') "
                     "to preserve this framing.")
-            if tokenizer.chat_template is None:
-                raise ValueError(
-                    f"Dataset {dataset_name!r} is chat-formatted and requires a tokenizer with a "
-                    "chat template, but this tokenizer defines none. Use an instruct/chat model.")
-            # For reference, Qwen3-1.7B uses 14 framing tokens for an empty user-assistant exchange.
-            chat_template_tokens = count_chat_template_tokens(tokenizer)
-            if seqlen <= chat_template_tokens:
-                warnings.warn(
-                    f"seqlen ({seqlen}) is not larger than the {chat_template_tokens} tokens "
-                    "that the chat template adds to an empty conversation. "
-                    "Each sample has no room for conversation content.")
-            raw_dataset = raw_dataset.map(
-                partial(render_chat_template, tokenizer=tokenizer),
-                remove_columns=raw_dataset.column_names,
-                desc=f"Rendering {dataset_name} via chat template")
+            raw_dataset = _preprocess_raw_chat_dataset(
+                raw_dataset=raw_dataset,
+                dataset_name=dataset_name,
+                tokenizer=tokenizer,
+                seqlen=seqlen)
+            # Fuse documents because most Tulu-3 conversations are shorter than seqlen.
+            # Without fusion, group_texts silently drops these conversations.
+            # The CLI and YAML interfaces do not expose this setting.
             if not fuse_documents:
+                fuse_documents = True
                 warnings.warn(
                     f"Dataset {dataset_name!r} requires fuse_documents=True. "
                     "Overriding fuse_documents to True.")
-                fuse_documents = True
         dataset = get_clm_dataset(
             raw_dataset=raw_dataset,
             tokenizer=tokenizer,
