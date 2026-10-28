@@ -193,6 +193,9 @@ def get_wikitext2(
     return Dataset.from_list(tokenized_data)
 
 
+# TODO: Consider adding a dataset registry to custom datasets.
+
+
 def load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
     if dataset_name == "wikitext2":
         data = load_dataset('Salesforce/wikitext', 'wikitext-2-raw-v1', split=split)
@@ -251,8 +254,13 @@ def render_chat_template(example: Dict[str, Any],
     The chat template inserts the conversation framing that the target model
     expects. Use ``bos_preprocessing=None`` to preserve this framing.
     """
+    assert "messages" in example, "Expected example['messages'] to be a non-empty list of dicts with the keys 'role' and 'content'"
+    messages = example["messages"]
+    assert isinstance(messages, list), "Expected example['messages'] to be a list"
+    assert len(messages) > 0, "Expected example['messages'] to be a non-empty list"
+    assert all(isinstance(message, dict) and {"role", "content"} <= message.keys() for message in messages), "Expected example['messages'] to be a list of dicts with the keys 'role' and 'content'"
     rendered = tokenizer.apply_chat_template(
-        example["messages"],
+        messages,
         tokenize=False,
         add_generation_prompt=False,
     )
