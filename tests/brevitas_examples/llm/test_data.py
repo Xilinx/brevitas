@@ -17,6 +17,7 @@ from brevitas_examples.llm.llm_quant.data import get_wikitext2
 from brevitas_examples.llm.llm_quant.data import tokenize_and_group_texts
 from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
 from brevitas_examples.llm.llm_quant.data_utils import llm_collate
+from tests.brevitas_examples.assets_for_tests import resolve_hf_asset
 
 pytestmark = pytest.mark.llm
 
@@ -241,7 +242,7 @@ def test_tulu3_sft_rejects_bos_preprocessing(bos_preprocessing: str):
      ("hf-internal-testing/tiny-random-MistralForCausalLM", False)],
     ids=["llama", "mistral"])
 def test_tulu3_sft_requires_chat_template(model_name: str, has_chat_template: bool):
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(resolve_hf_asset(model_name))
     assert (tokenizer.chat_template is not None) == has_chat_template
     with patch('brevitas_examples.llm.llm_quant.data_utils.load_raw_dataset',
                mock_tulu3_sft_raw_dataset):
