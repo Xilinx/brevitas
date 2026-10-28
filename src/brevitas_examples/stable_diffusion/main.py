@@ -283,7 +283,8 @@ def quantize_sd(args: Namespace, extra_args: Optional[List[str]] = None):
         variant_dict = {torch.float16: 'fp16', torch.bfloat16: 'bf16'}
         extra_kwargs = {'variant': variant_dict.get(dtype, None)}
 
-    pipe = DiffusionPipeline.from_pretrained(args.model, torch_dtype=dtype, **extra_kwargs)
+    pipe = DiffusionPipeline.from_pretrained(
+        args.model, torch_dtype=dtype, use_safetensors=True, **extra_kwargs)
 
     # Detect if is unet-based pipeline
     is_unet = hasattr(pipe, 'unet')
