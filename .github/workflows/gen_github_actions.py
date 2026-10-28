@@ -182,7 +182,7 @@ PREPARE_JOB_HEADER = """\
   prepare-assets:
     name: Cache brevitas %s assets
     runs-on: ${{ matrix.platform }}
-    timeout-minutes: 30
+    timeout-minutes: %s
     strategy:
       fail-fast: false
       matrix:
@@ -192,12 +192,12 @@ PREPARE_JOB_HEADER = """\
 """
 
 
-def prepare_assets_job(asset_family):
+def prepare_assets_job(asset_family, timeout_minutes=30):
     prepare_step = assets_step(asset_family, 'prepare')
     prepare_step['with']['python-version'] = "'{}'".format(PYTHON_VERSIONS[0])
     steps = [od([('name', 'Checkout repo'), ('uses', 'actions/checkout@v3')]), prepare_step]
     body = indent(Action.list_of_dicts_str(steps, False, True), 4 * ' ')
-    return PREPARE_JOB_HEADER % (asset_family, PLATFORM_LIST) + body
+    return PREPARE_JOB_HEADER % (asset_family, timeout_minutes, PLATFORM_LIST) + body
 
 
 EXAMPLES_PYTEST_STEP_LIST = [
@@ -327,7 +327,8 @@ def gen_examples_pytest_yml():
         combine_od_list([MATRIX, PYTEST_MATRIX_EXTRA]),
         [assets_step('datasets', 'restore')] + EXAMPLES_PYTEST_STEP_LIST,
         STRATEGY,
-        prepare_job=prepare_assets_job('datasets'))
+        # CIFAR-10 comes from a slow server: a cold download can take most of an hour.
+        prepare_job=prepare_assets_job('datasets', timeout_minutes=90))
     pytest.gen_yaml(BASE_YML_TEMPLATE, EXAMPLES_PYTEST_YML)
     pytest = Action(
         'Examples Pytest',

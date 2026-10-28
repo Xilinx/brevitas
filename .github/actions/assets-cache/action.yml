@@ -16,14 +16,20 @@ inputs:
 runs:
   using: composite
   steps:
-    # Every test file is hashed, so adding a test that needs a new model also rebuilds the cache.
+    # The datasets only depend on the code that downloads them: their download is slow, so editing
+    # a test must not rebuild them. The other families hash every test file, so that adding a test
+    # that needs a new model also rebuilds the cache.
     - name: Compute the cache key
       id: key
       shell: bash
       run: >
-        echo "key=${{ runner.os }}-brevitas-test-assets-${{ inputs.family }}-${{ hashFiles(
-        'tests/brevitas_examples/**/*.py', 'noxfile.py', 'requirements/requirements-lighteval.txt',
-        'src/brevitas_examples/bnn_pynq/cfg/*.ini') }}" >> "$GITHUB_OUTPUT"
+        echo "key=${{ runner.os }}-brevitas-test-assets-${{ inputs.family }}-${{
+        startsWith(inputs.family, 'datasets')
+        && hashFiles('tests/brevitas_examples/assets_for_tests.py',
+        'src/brevitas_examples/bnn_pynq/cfg/*.ini')
+        || hashFiles('tests/brevitas_examples/**/*.py', 'noxfile.py',
+        'requirements/requirements-lighteval.txt', 'src/brevitas_examples/bnn_pynq/cfg/*.ini')
+        }}" >> "$GITHUB_OUTPUT"
 
     - name: Look up or restore the cached assets
       id: restore
