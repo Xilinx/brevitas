@@ -2,7 +2,7 @@ name: Brevitas test assets
 description: Prepare, restore or cache the models, datasets and weights used by the example tests
 inputs:
   family:
-    description: llm, diffusion or datasets, with a -reduced suffix in the reduced workflows
+    description: llm, diffusion or datasets
     required: true
   mode:
     description: >
@@ -59,9 +59,7 @@ runs:
     - name: Prepare the assets
       if: inputs.mode == 'prepare' && steps.restore.outputs.cache-hit != 'true'
       shell: bash
-      env:
-        FAMILY: ${{ inputs.family }}
-      run: nox -v -s "prepare_${FAMILY%-reduced}_assets"
+      run: nox -v -s prepare_${{ inputs.family }}_assets
 
     - name: Save the assets
       if: inputs.mode == 'prepare' && steps.restore.outputs.cache-hit != 'true'

@@ -334,10 +334,10 @@ def gen_examples_pytest_yml():
         'Examples Pytest',
         EXCLUDE_LIST,
         combine_od_list([MATRIX_REDUCED, PYTEST_MATRIX_EXTRA_REDUCED]),
-        [assets_step('datasets-reduced', 'restore')] + EXAMPLES_PYTEST_STEP_LIST,
+        [assets_step('datasets', 'restore')] + EXAMPLES_PYTEST_STEP_LIST,
         STRATEGY,
         prepare_job=prepare_assets_job(
-            'datasets-reduced', timeout_minutes=90, platforms=PLATFORM_LIST_REDUCED))
+            'datasets', timeout_minutes=90, platforms=PLATFORM_LIST_REDUCED))
     pytest.gen_yaml(BASE_YML_REDUCED_TEMPLATE, 'reduced_' + EXAMPLES_PYTEST_YML)
 
 
@@ -354,9 +354,9 @@ def gen_examples_llm_pytest_yml():
         'Examples LLM Pytest',
         EXCLUDE_LIST,
         combine_od_list([EXAMPLES_LLM_PYTEST_MATRIX_REDUCED, PYTEST_MATRIX_EXTRA_REDUCED]),
-        [assets_step('llm-reduced', 'restore')] + EXAMPLES_LLM_PYTEST_STEP_LIST,
+        [assets_step('llm', 'restore')] + EXAMPLES_LLM_PYTEST_STEP_LIST,
         STRATEGY,
-        prepare_job=prepare_assets_job('llm-reduced', platforms=PLATFORM_LIST_REDUCED))
+        prepare_job=prepare_assets_job('llm', platforms=PLATFORM_LIST_REDUCED))
     pytest.gen_yaml(BASE_YML_REDUCED_TEMPLATE, 'reduced_' + EXAMPLES_LLM_PYTEST_YML)
 
 
@@ -373,9 +373,9 @@ def gen_examples_diffusion_pytest_yml():
         'Examples Diffusion Pytest',
         EXCLUDE_LIST,
         combine_od_list([EXAMPLES_DIFFUSION_PYTEST_MATRIX_REDUCED, PYTEST_MATRIX_EXTRA_REDUCED]),
-        [assets_step('diffusion-reduced', 'restore')] + EXAMPLES_DIFFUSION_PYTEST_STEP_LIST,
+        [assets_step('diffusion', 'restore')] + EXAMPLES_DIFFUSION_PYTEST_STEP_LIST,
         STRATEGY,
-        prepare_job=prepare_assets_job('diffusion-reduced', platforms=PLATFORM_LIST_REDUCED))
+        prepare_job=prepare_assets_job('diffusion', platforms=PLATFORM_LIST_REDUCED))
     pytest.gen_yaml(BASE_YML_REDUCED_TEMPLATE, 'reduced_' + EXAMPLES_DIFFUSION_PYTEST_YML)
 
 
