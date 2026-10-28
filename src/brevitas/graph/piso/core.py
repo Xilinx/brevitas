@@ -900,8 +900,6 @@ class _PiSOQronosMixin(PiSOMixin):
 
     def _prepare_input_scale_optimizer(
             self, perm: torch.Tensor) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
-        # Qronos keeps H and G in the natural column order until the hook runs
-        # (only the inverse Hessian is permuted), so perm needs no undoing here.
         # G is transposed to match the ScaleOptimizer's convention (G = X_tilde^T X).
         if self.groups != 1:
             raise ValueError("scale optimization inside qronos requires groups == 1")

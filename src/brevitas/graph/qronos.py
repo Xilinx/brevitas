@@ -112,8 +112,9 @@ class Qronos(GPFQ):
         dev = weight.device
         weight_orig = weight_orig.to(dev)
 
-        # Store the original dtype of the weights.
-        # Convert computations to self.dtype and cast weight updates back to this dtype.
+        # Store the original dtype of the weights
+        # During computation, everything is converted to float32.
+        # When the weights are updated, we cast everything back to the original dtype
         dtype = weight.dtype
 
         if isinstance(self.layer, SUPPORTED_CONV_OP):
@@ -129,7 +130,7 @@ class Qronos(GPFQ):
         assert not torch.isnan(self.H).any(), f"Error in {self.name}"
         assert not torch.isnan(self.G).any(), f"Error in {self.name}"
 
-        # Compute the regularized inverse once for the projection and GPTQ.
+        # Compute the regularized inverse once.
         self.iH = self.H.clone()
         diag = torch.arange(self.columns, device=self.device)
         damp = torch.zeros(self.groups, device=self.device, dtype=self.dtype)
@@ -142,7 +143,6 @@ class Qronos(GPFQ):
                 self.iH[group_index, diag, diag] += damp[group_index]
                 self.iH[group_index] = torch.linalg.cholesky(self.iH[group_index])
                 self.iH[group_index] = torch.cholesky_inverse(self.iH[group_index])
-                # Apply the same ridge term to the cross-covariance.
                 self.G[group_index, diag, diag] += damp[group_index]
         except LinAlgError:
             warnings.warn(
