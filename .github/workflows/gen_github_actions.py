@@ -192,12 +192,12 @@ PREPARE_JOB_HEADER = """\
 """
 
 
-def prepare_assets_job(asset_family, timeout_minutes=30):
+def prepare_assets_job(asset_family, timeout_minutes=30, platforms=PLATFORM_LIST):
     prepare_step = assets_step(asset_family, 'prepare')
     prepare_step['with']['python-version'] = "'{}'".format(PYTHON_VERSIONS[0])
     steps = [od([('name', 'Checkout repo'), ('uses', 'actions/checkout@v3')]), prepare_step]
     body = indent(Action.list_of_dicts_str(steps, False, True), 4 * ' ')
-    return PREPARE_JOB_HEADER % (asset_family, timeout_minutes, PLATFORM_LIST) + body
+    return PREPARE_JOB_HEADER % (asset_family, timeout_minutes, platforms) + body
 
 
 EXAMPLES_PYTEST_STEP_LIST = [
@@ -334,8 +334,10 @@ def gen_examples_pytest_yml():
         'Examples Pytest',
         EXCLUDE_LIST,
         combine_od_list([MATRIX_REDUCED, PYTEST_MATRIX_EXTRA_REDUCED]),
-        [assets_step('datasets-reduced', 'cache')] + EXAMPLES_PYTEST_STEP_LIST,
-        STRATEGY)
+        [assets_step('datasets-reduced', 'restore')] + EXAMPLES_PYTEST_STEP_LIST,
+        STRATEGY,
+        prepare_job=prepare_assets_job(
+            'datasets-reduced', timeout_minutes=90, platforms=PLATFORM_LIST_REDUCED))
     pytest.gen_yaml(BASE_YML_REDUCED_TEMPLATE, 'reduced_' + EXAMPLES_PYTEST_YML)
 
 
@@ -352,8 +354,9 @@ def gen_examples_llm_pytest_yml():
         'Examples LLM Pytest',
         EXCLUDE_LIST,
         combine_od_list([EXAMPLES_LLM_PYTEST_MATRIX_REDUCED, PYTEST_MATRIX_EXTRA_REDUCED]),
-        [assets_step('llm-reduced', 'cache')] + EXAMPLES_LLM_PYTEST_STEP_LIST,
-        STRATEGY)
+        [assets_step('llm-reduced', 'restore')] + EXAMPLES_LLM_PYTEST_STEP_LIST,
+        STRATEGY,
+        prepare_job=prepare_assets_job('llm-reduced', platforms=PLATFORM_LIST_REDUCED))
     pytest.gen_yaml(BASE_YML_REDUCED_TEMPLATE, 'reduced_' + EXAMPLES_LLM_PYTEST_YML)
 
 
@@ -370,8 +373,9 @@ def gen_examples_diffusion_pytest_yml():
         'Examples Diffusion Pytest',
         EXCLUDE_LIST,
         combine_od_list([EXAMPLES_DIFFUSION_PYTEST_MATRIX_REDUCED, PYTEST_MATRIX_EXTRA_REDUCED]),
-        [assets_step('diffusion-reduced', 'cache')] + EXAMPLES_DIFFUSION_PYTEST_STEP_LIST,
-        STRATEGY)
+        [assets_step('diffusion-reduced', 'restore')] + EXAMPLES_DIFFUSION_PYTEST_STEP_LIST,
+        STRATEGY,
+        prepare_job=prepare_assets_job('diffusion-reduced', platforms=PLATFORM_LIST_REDUCED))
     pytest.gen_yaml(BASE_YML_REDUCED_TEMPLATE, 'reduced_' + EXAMPLES_DIFFUSION_PYTEST_YML)
 
 

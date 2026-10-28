@@ -8,7 +8,6 @@ inputs:
     description: >
       prepare downloads the assets once, with nox -s prepare_<family>_assets, and publishes them.
       restore gets the published assets, fails on a miss and makes the tests run offline.
-      cache restores and saves the assets in the same job.
     required: true
   python-version:
     description: Python version of the prepare mode
@@ -46,13 +45,6 @@ runs:
       shell: bash
       run: echo "BREVITAS_TEST_OFFLINE=1" >> "$GITHUB_ENV"
 
-    - name: Cache the assets
-      if: inputs.mode == 'cache'
-      uses: actions/cache@v4
-      with:
-        path: data
-        key: ${{ steps.key.outputs.key }}
-
     - name: Set up Python
       if: inputs.mode == 'prepare' && steps.restore.outputs.cache-hit != 'true'
       uses: actions/setup-python@v2
@@ -67,7 +59,9 @@ runs:
     - name: Prepare the assets
       if: inputs.mode == 'prepare' && steps.restore.outputs.cache-hit != 'true'
       shell: bash
-      run: nox -v -s prepare_${{ inputs.family }}_assets
+      env:
+        FAMILY: ${{ inputs.family }}
+      run: nox -v -s "prepare_${FAMILY%-reduced}_assets"
 
     - name: Save the assets
       if: inputs.mode == 'prepare' && steps.restore.outputs.cache-hit != 'true'

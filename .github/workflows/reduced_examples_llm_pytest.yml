@@ -10,8 +10,30 @@ on:
 
 
 jobs:
+  prepare-assets:
+    name: Cache brevitas llm-reduced assets
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ['ubuntu-latest']
+    if: ${{ !github.event.pull_request.draft }}
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
+
+    - name: Prepare brevitas llm-reduced assets
+      uses: ./.github/actions/assets-cache
+      with:
+        family: llm-reduced
+        mode: prepare
+        python-version: '3.10'
+
+
   build:
     runs-on: ${{ matrix.platform }}
+    needs: prepare-assets
     strategy:
       fail-fast: false
 
@@ -55,11 +77,11 @@ jobs:
       run: brew install libomp
       if: startsWith(runner.os, 'macOS') == true
 
-    - name: Cache brevitas llm-reduced assets
+    - name: Restore brevitas llm-reduced assets
       uses: ./.github/actions/assets-cache
       with:
         family: llm-reduced
-        mode: cache
+        mode: restore
 
     - name: Run Nox session for brevitas_examples LLM
       shell: bash
