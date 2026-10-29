@@ -182,19 +182,19 @@ def get_dataset_for_model(
             seed=seed)
     else:
         if dataset_name in SFT_CHAT_DATASETS:
-            # Generic BOS processing can alter the model-specific conversation framing.
-            # Require bos_preprocessing=None to preserve the template output.
-            if bos_preprocessing is not None:
-                raise ValueError(
-                    f"Dataset {dataset_name!r} is chat-formatted; its chat "
-                    "template defines the complete conversation framing. Set "
-                    "bos_preprocessing=None (YAML: 'bos_preprocessing: null') "
-                    "to preserve this framing.")
             raw_dataset = _preprocess_raw_chat_dataset(
                 raw_dataset=raw_dataset,
                 dataset_name=dataset_name,
                 tokenizer=tokenizer,
                 seqlen=seqlen)
+            # Generic BOS processing can alter the model-specific conversation framing.
+            # Use bos_preprocessing=None to preserve the template output.
+            if bos_preprocessing is not None:
+                bos_preprocessing = None
+                warnings.warn(
+                    f"Dataset {dataset_name!r} is chat-formatted; its chat "
+                    "template defines the complete conversation framing. "
+                    "Overriding bos_preprocessing to None to preserve this framing.")
             # Fuse documents because most Tulu-3 conversations are shorter than seqlen.
             # Without fusion, group_texts silently drops these conversations.
             # The CLI and YAML interfaces do not expose this setting.

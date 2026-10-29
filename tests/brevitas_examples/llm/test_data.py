@@ -223,16 +223,19 @@ def mock_tulu3_sft_raw_dataset(*args, **kwargs) -> Dataset:
 
 
 @pytest_cases.parametrize("bos_preprocessing", ["document", "sequence"])
-def test_tulu3_sft_rejects_bos_preprocessing(bos_preprocessing: str):
+def test_tulu3_sft_overrides_bos_preprocessing(bos_preprocessing: str):
     with patch('brevitas_examples.llm.llm_quant.data_utils.load_raw_dataset',
                mock_tulu3_sft_raw_dataset):
-        with pytest.raises(ValueError, match="chat-formatted"):
-            get_dataset_for_model(
+        with pytest.warns(UserWarning, match="Overriding bos_preprocessing to None"):
+            dataset = get_dataset_for_model(
                 "tulu3_sft",
-                DummyChatTokenizer(),
-                nsamples=1,
-                seqlen=4,
+                DummyChatTokenizer(bos_token_id=BOS_TOKEN_ID),
+                nsamples=-1,
+                seqlen=25,
                 bos_preprocessing=bos_preprocessing)
+    # The sample contains only the rendered chat template, without any BOS token
+    samples = ["".join(chr(t) for t in ids) for ids in dataset["input_ids"]]
+    assert samples == ["<user>Hi<assistant>Hello!"]
 
 
 @pytest_cases.parametrize(
