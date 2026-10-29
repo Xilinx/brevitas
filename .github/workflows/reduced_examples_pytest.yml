@@ -10,8 +10,30 @@ on:
 
 
 jobs:
+  prepare-assets:
+    name: Cache brevitas datasets assets
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ['ubuntu-latest']
+    if: ${{ !github.event.pull_request.draft }}
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
+
+    - name: Prepare brevitas datasets assets
+      uses: ./.github/actions/assets-cache
+      with:
+        family: datasets
+        mode: prepare
+        python-version: '3.10'
+
+
   build:
     runs-on: ${{ matrix.platform }}
+    needs: prepare-assets
     strategy:
       fail-fast: false
 
@@ -55,12 +77,11 @@ jobs:
       run: brew install libomp
       if: startsWith(runner.os, 'macOS') == true
 
-    - name: Cache bnn_pynq datasets
-      uses: actions/cache@v4
+    - name: Restore brevitas datasets assets
+      uses: ./.github/actions/assets-cache
       with:
-        path: data
-        key: ${{ runner.os }}-bnn-pynq-datasets-${{ hashFiles('src/brevitas_examples/bnn_pynq/cfg/*.ini') }}
-        restore-keys: ${{ runner.os }}-bnn-pynq-datasets-
+        family: datasets
+        mode: restore
 
     - name: Run Nox session for brevitas_examples pytest
       shell: bash

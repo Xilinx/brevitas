@@ -16,6 +16,7 @@ from gen_github_actions import EXAMPLES_DIFFUSION_PYTEST_PYTORCH_VERSIONS
 from gen_github_actions import EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS
 from gen_github_actions import EXAMPLES_VISION_PYTEST_PYTORCH_VERSIONS
 from gen_github_actions import JIT_STATUSES
+from gen_github_actions import PYTORCH_VERSIONS as EXAMPLES_PYTORCH_VERSIONS
 from gen_github_actions import TORCHVISION_VERSION_DICT
 
 IS_OSX = system() == 'Darwin'
@@ -66,6 +67,22 @@ def install_torchvision_cmd(pytorch):
     else:
         cmd = [f'torchvision=={torchvision}']
     return cmd
+
+
+def configure_hf_test_cache(session):
+    cache_dir = os.path.abspath(os.environ.get('BREVITAS_TEST_CACHE_DIR', 'data'))
+    # Keep third-party caches under data/ so actions/cache restores one tree.
+    session.env['BREVITAS_TEST_CACHE_DIR'] = cache_dir
+    session.env['HF_HOME'] = os.path.join(cache_dir, 'huggingface')
+    session.env['HF_HUB_CACHE'] = os.path.join(cache_dir, 'huggingface', 'hub')
+    session.env['HF_DATASETS_CACHE'] = os.path.join(cache_dir, 'huggingface', 'datasets')
+    session.env['HF_XET_CACHE'] = os.path.join(cache_dir, 'huggingface', 'xet')
+    session.env['NLTK_DATA'] = os.path.join(cache_dir, 'nltk')
+    session.env['TORCH_HOME'] = os.path.join(cache_dir, 'torch')
+    # Set by the CI cache-hit step: only the prepared assets may be used.
+    if os.environ.get('BREVITAS_TEST_OFFLINE') == '1':
+        for variable in ('HF_HUB_OFFLINE', 'HF_DATASETS_OFFLINE', 'TRANSFORMERS_OFFLINE'):
+            session.env[variable] = '1'
 
 
 @nox.session(python=PYTHON_VERSIONS)
@@ -146,6 +163,7 @@ def tests_brevitas_examples_cpu(session, pytorch, jit_status):
 @nox.parametrize("jit_status", JIT_STATUSES, ids=JIT_IDS)
 def tests_brevitas_examples_llm(session, pytorch, jit_status):
     session.env['BREVITAS_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
+    configure_hf_test_cache(session)
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)  # Optimum seems to require torchvision
@@ -159,6 +177,7 @@ def tests_brevitas_examples_llm(session, pytorch, jit_status):
 @nox.parametrize("jit_status", JIT_STATUSES, ids=JIT_IDS)
 def tests_brevitas_examples_llm_export(session, pytorch, jit_status):
     session.env['BREVITAS_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
+    configure_hf_test_cache(session)
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)  # Optimum seems to require torchvision
@@ -174,11 +193,20 @@ def tests_brevitas_examples_llm_export(session, pytorch, jit_status):
 @nox.parametrize("jit_status", JIT_STATUSES, ids=JIT_IDS)
 def tests_brevitas_examples_llm_lighteval(session, pytorch, jit_status):
     session.env['BREVITAS_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
+    configure_hf_test_cache(session)
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)  # Optim um seems to require torchvision
 
     session.install('-e', '.[test, llm, export, lighteval]', *cmd)
+    session.run(
+        'python',
+        '-c',
+        'from tests.brevitas_examples.assets_for_tests import prepare_lighteval_assets; '
+        'prepare_lighteval_assets()')
+    session.env['HF_HUB_OFFLINE'] = '1'
+    session.env['HF_DATASETS_OFFLINE'] = '1'
+    session.env['TRANSFORMERS_OFFLINE'] = '1'
     session.run(
         'pytest', '-n', 'logical', '-m', 'few_shot', 'tests/brevitas_examples/llm/test_llm.py')
 
@@ -189,6 +217,7 @@ def tests_brevitas_examples_llm_lighteval(session, pytorch, jit_status):
 @nox.parametrize("jit_status", JIT_STATUSES, ids=JIT_IDS)
 def tests_brevitas_examples_llm_lm_eval(session, pytorch, jit_status):
     session.env['BREVITAS_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
+    configure_hf_test_cache(session)
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)  # Optim um seems to require torchvision
@@ -199,6 +228,32 @@ def tests_brevitas_examples_llm_lm_eval(session, pytorch, jit_status):
         'pytest', '-n', 'logical', '-m', 'few_shot', 'tests/brevitas_examples/llm/test_llm.py')
 
 
+@nox.session
+def prepare_llm_assets(session):
+    pytorch = EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS[-1]
+    configure_hf_test_cache(session)
+    cmd = install_pytorch_cmd(pytorch) + install_torchvision_cmd(pytorch)
+    session.install('-e', '.[test, llm, export, lighteval]', *cmd)
+    session.run('python', '-m', 'tests.brevitas_examples.assets_for_tests', 'llm')
+
+
+@nox.session
+def prepare_diffusion_assets(session):
+    pytorch = EXAMPLES_DIFFUSION_PYTEST_PYTORCH_VERSIONS[-1]
+    configure_hf_test_cache(session)
+    cmd = install_pytorch_cmd(pytorch) + install_torchvision_cmd(pytorch)
+    session.install('-e', '.[test, diffusion, export, numpy]', *cmd)
+    session.run('python', '-m', 'tests.brevitas_examples.assets_for_tests', 'diffusion')
+
+
+@nox.session
+def prepare_datasets_assets(session):
+    pytorch = EXAMPLES_PYTORCH_VERSIONS[-1]
+    cmd = install_pytorch_cmd(pytorch) + install_torchvision_cmd(pytorch)
+    session.install('-e', '.[test, vision, export, numpy]', *cmd)
+    session.run('python', '-m', 'tests.brevitas_examples.assets_for_tests', 'datasets')
+
+
 @nox.session(python=PYTHON_VERSIONS)
 @nox.parametrize(
     "pytorch",
@@ -207,6 +262,7 @@ def tests_brevitas_examples_llm_lm_eval(session, pytorch, jit_status):
 @nox.parametrize("jit_status", JIT_STATUSES, ids=JIT_IDS)
 def tests_brevitas_examples_diffusion(session, pytorch, jit_status):
     session.env['BREVITAS_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
+    configure_hf_test_cache(session)
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)  # Optimum seems to require torchvision

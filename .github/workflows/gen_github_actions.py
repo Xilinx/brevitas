@@ -1,4 +1,5 @@
 from collections import OrderedDict as od
+from textwrap import indent
 
 from utils import Action
 from utils import combine_od_list
@@ -169,15 +170,37 @@ PYTEST_STEP_LIST = [
             r'nox -v -s tests_brevitas_cpu-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)'
         )]),]
 
+
+def assets_step(asset_family, mode):
+    # The key and all the cache logic live in the action, so that every job handles them the same.
+    return od([('name', '{} brevitas {} assets'.format(mode.capitalize(), asset_family)),
+               ('uses', './.github/actions/assets-cache'),
+               ('with', od([('family', asset_family), ('mode', mode)]))])
+
+
+PREPARE_JOB_HEADER = """\
+  prepare-assets:
+    name: Cache brevitas %s assets
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: %s
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: %s
+    if: ${{ !github.event.pull_request.draft }}
+    steps:
+"""
+
+
+def prepare_assets_job(asset_family, timeout_minutes=30, platforms=PLATFORM_LIST):
+    prepare_step = assets_step(asset_family, 'prepare')
+    prepare_step['with']['python-version'] = "'{}'".format(PYTHON_VERSIONS[0])
+    steps = [od([('name', 'Checkout repo'), ('uses', 'actions/checkout@v3')]), prepare_step]
+    body = indent(Action.list_of_dicts_str(steps, False, True), 4 * ' ')
+    return PREPARE_JOB_HEADER % (asset_family, timeout_minutes, platforms) + body
+
+
 EXAMPLES_PYTEST_STEP_LIST = [
-    od([('name', 'Cache bnn_pynq datasets'), ('uses', 'actions/cache@v4'),
-        (
-            'with',
-            od([('path', 'data'),
-                (
-                    'key',
-                    "${{ runner.os }}-bnn-pynq-datasets-${{ hashFiles('src/brevitas_examples/bnn_pynq/cfg/*.ini') }}"
-                ), ('restore-keys', '${{ runner.os }}-bnn-pynq-datasets-')]))]),
     od([('name', 'Run Nox session for brevitas_examples pytest'), ('shell', 'bash'),
         (
             'run',
@@ -302,15 +325,19 @@ def gen_examples_pytest_yml():
         'Examples Pytest',
         EXCLUDE_LIST + JIT_EXCLUDE_LIST,
         combine_od_list([MATRIX, PYTEST_MATRIX_EXTRA]),
-        EXAMPLES_PYTEST_STEP_LIST,
-        STRATEGY)
+        [assets_step('datasets', 'restore')] + EXAMPLES_PYTEST_STEP_LIST,
+        STRATEGY,
+        # CIFAR-10 comes from a slow server: a cold download can take most of an hour.
+        prepare_job=prepare_assets_job('datasets', timeout_minutes=90))
     pytest.gen_yaml(BASE_YML_TEMPLATE, EXAMPLES_PYTEST_YML)
     pytest = Action(
         'Examples Pytest',
         EXCLUDE_LIST,
         combine_od_list([MATRIX_REDUCED, PYTEST_MATRIX_EXTRA_REDUCED]),
-        EXAMPLES_PYTEST_STEP_LIST,
-        STRATEGY)
+        [assets_step('datasets', 'restore')] + EXAMPLES_PYTEST_STEP_LIST,
+        STRATEGY,
+        prepare_job=prepare_assets_job(
+            'datasets', timeout_minutes=90, platforms=PLATFORM_LIST_REDUCED))
     pytest.gen_yaml(BASE_YML_REDUCED_TEMPLATE, 'reduced_' + EXAMPLES_PYTEST_YML)
 
 
@@ -319,15 +346,17 @@ def gen_examples_llm_pytest_yml():
         'Examples LLM Pytest',
         EXCLUDE_LIST + JIT_EXCLUDE_LIST,
         combine_od_list([EXAMPLES_LLM_PYTEST_MATRIX, PYTEST_MATRIX_EXTRA]),
-        EXAMPLES_LLM_PYTEST_STEP_LIST,
-        STRATEGY)
+        [assets_step('llm', 'restore')] + EXAMPLES_LLM_PYTEST_STEP_LIST,
+        STRATEGY,
+        prepare_job=prepare_assets_job('llm'))
     pytest.gen_yaml(BASE_YML_TEMPLATE, EXAMPLES_LLM_PYTEST_YML)
     pytest = Action(
         'Examples LLM Pytest',
         EXCLUDE_LIST,
         combine_od_list([EXAMPLES_LLM_PYTEST_MATRIX_REDUCED, PYTEST_MATRIX_EXTRA_REDUCED]),
-        EXAMPLES_LLM_PYTEST_STEP_LIST,
-        STRATEGY)
+        [assets_step('llm', 'restore')] + EXAMPLES_LLM_PYTEST_STEP_LIST,
+        STRATEGY,
+        prepare_job=prepare_assets_job('llm', platforms=PLATFORM_LIST_REDUCED))
     pytest.gen_yaml(BASE_YML_REDUCED_TEMPLATE, 'reduced_' + EXAMPLES_LLM_PYTEST_YML)
 
 
@@ -336,15 +365,17 @@ def gen_examples_diffusion_pytest_yml():
         'Examples Diffusion Pytest',
         EXCLUDE_LIST + JIT_EXCLUDE_LIST,
         combine_od_list([EXAMPLES_DIFFUSION_PYTEST_MATRIX, PYTEST_MATRIX_EXTRA]),
-        EXAMPLES_DIFFUSION_PYTEST_STEP_LIST,
-        STRATEGY)
+        [assets_step('diffusion', 'restore')] + EXAMPLES_DIFFUSION_PYTEST_STEP_LIST,
+        STRATEGY,
+        prepare_job=prepare_assets_job('diffusion'))
     pytest.gen_yaml(BASE_YML_TEMPLATE, EXAMPLES_DIFFUSION_PYTEST_YML)
     pytest = Action(
         'Examples Diffusion Pytest',
         EXCLUDE_LIST,
         combine_od_list([EXAMPLES_DIFFUSION_PYTEST_MATRIX_REDUCED, PYTEST_MATRIX_EXTRA_REDUCED]),
-        EXAMPLES_DIFFUSION_PYTEST_STEP_LIST,
-        STRATEGY)
+        [assets_step('diffusion', 'restore')] + EXAMPLES_DIFFUSION_PYTEST_STEP_LIST,
+        STRATEGY,
+        prepare_job=prepare_assets_job('diffusion', platforms=PLATFORM_LIST_REDUCED))
     pytest.gen_yaml(BASE_YML_REDUCED_TEMPLATE, 'reduced_' + EXAMPLES_DIFFUSION_PYTEST_YML)
 
 
