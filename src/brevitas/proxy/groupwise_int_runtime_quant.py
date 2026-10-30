@@ -18,14 +18,20 @@ class GroupwiseActQuantProxyFromInjector(ActQuantProxyFromInjector):
     def __init__(self, quant_layer, quant_injector):
         super().__init__(quant_layer, quant_injector)
         self.cache_class = _CachedIOGroupwiseInt
+        self.quant_tensor_class = GroupwiseIntQuantTensor
+        self._group_dim = self.quant_injector.group_dim
+        self._group_size = self.quant_injector.group_size
+        if self._group_dim is None or self._group_size is None:
+            raise RuntimeError(
+                "Groupwise quantization requires a resolved group_dim and group_size")
 
     @property
     def group_dim(self):
-        return self.quant_injector.group_dim
+        return self._group_dim
 
     @property
     def group_size(self):
-        return self.quant_injector.group_size
+        return self._group_size
 
     def apply_input_view(self, x):
         x = super().apply_input_view(x)
@@ -38,7 +44,7 @@ class GroupwiseActQuantProxyFromInjector(ActQuantProxyFromInjector):
             x: Union[torch.Tensor, GroupwiseIntQuantTensor]) -> GroupwiseIntQuantTensor:
         if isinstance(qt_args, tuple):
             value, scale, zero_point, bit_width = qt_args
-            out = GroupwiseIntQuantTensor(
+            out = self.quant_tensor_class(
                 value,
                 scale,
                 zero_point,
@@ -49,7 +55,7 @@ class GroupwiseActQuantProxyFromInjector(ActQuantProxyFromInjector):
                 self.training,
                 x.shape)
         else:
-            out = GroupwiseIntQuantTensor(
+            out = self.quant_tensor_class(
                 qt_args,
                 x.scale,
                 x.zero_point,
