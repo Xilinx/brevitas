@@ -18,6 +18,7 @@ from brevitas.export.inference.handler import GroupwiseIntInferenceHandler
 from brevitas.export.inference.handler import GroupwiseIntWeightInferenceHandler
 from brevitas.export.inference.handler import IntInferenceHandler
 from brevitas.export.inference.handler import IntWeightInferencetHandler
+from brevitas.export.inference.handler import TruncIntInferenceHandler
 from brevitas.export.manager import _set_proxy_export_handler
 from brevitas.export.manager import _set_proxy_export_mode
 from brevitas.export.manager import _set_recurrent_layer_export_handler
@@ -64,6 +65,7 @@ def _override_create_quant_tensor(m: nn.Module, state: bool):
 class InferenceManager(BaseManager):
     handlers = [
         IntInferenceHandler,
+        TruncIntInferenceHandler,
         DynamicIntInferenceHandler,
         DynamicFloatInferenceHandler,
         FloatInferencetHandler,

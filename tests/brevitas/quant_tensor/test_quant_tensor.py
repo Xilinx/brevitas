@@ -80,9 +80,14 @@ def test_qt_structure():
         torch.randn(10), torch.randn(1), torch.tensor(0.), torch.tensor(8.), True, False)
     assert isinstance(qt, IntQuantTensor)
     assert isinstance(qt, QuantTensor)
-    assert isinstance(qt, tuple)
-    assert hasattr(qt, '_fields')
-    assert len(qt._fields) == 6
+    assert isinstance(qt, torch.Tensor)
+    assert qt._quant_tensor_metadata == (
+        '_scale',
+        '_zero_point',
+        '_bit_width',
+        '_signed',
+        '_training',
+    )
 
 
 def test_quant_tensor_init():
@@ -195,7 +200,7 @@ def test_int_quant_tensor(metadata_only, bit_width=8):
         assert cache.value is None
         assert cache._quant_tensor is None
         cached_quant_tensor = cache.quant_tensor
-        assert cached_quant_tensor.value is None
+        assert cached_quant_tensor.value.numel() == 0
         assert cache.quant_tensor is cached_quant_tensor
         assert torch.equal(cached_quant_tensor.set(value=q.value).value, q.value)
     else:
@@ -205,7 +210,7 @@ def test_int_quant_tensor(metadata_only, bit_width=8):
     assert torch.equal(cache.quant_tensor.zero_point, q.zero_point)
     assert torch.equal(cache.bit_width, q.bit_width)
     assert cache.signed == q.signed
-    assert torch.equal(cache._training_t, q.training_t)
+    assert torch.equal(cache._training, q._training)
 
 
 @pytest.mark.parametrize("metadata_only", [True, False])
@@ -229,7 +234,7 @@ def test_float_quant_tensor(metadata_only, bit_width=8, exponent_bit_width=4, ma
         assert cache.value is None
         assert cache._quant_tensor is None
         cached_quant_tensor = cache.quant_tensor
-        assert cached_quant_tensor.value is None
+        assert cached_quant_tensor.value.numel() == 0
         assert cache.quant_tensor is cached_quant_tensor
         assert torch.equal(cached_quant_tensor.set(value=q.value).value, q.value)
     else:
@@ -242,7 +247,7 @@ def test_float_quant_tensor(metadata_only, bit_width=8, exponent_bit_width=4, ma
     assert cache.inf_values == q.inf_values
     assert cache.nan_values == q.nan_values
     assert cache.signed == q.signed
-    assert torch.equal(cache._training_t, q.training_t)
+    assert torch.equal(cache._training, q._training)
 
 
 @pytest.mark.parametrize("metadata_only", [True, False])
@@ -270,22 +275,22 @@ def test_mx_quant_tensor(metadata_only, bit_width=8, exponent_bit_width=4, manti
         assert cache.value is None
         assert cache._quant_tensor is None
         cached_quant_tensor = cache.quant_tensor
-        assert cached_quant_tensor.value_ is None
+        assert cached_quant_tensor._value.numel() == 0
         assert cache.quant_tensor is cached_quant_tensor
-        assert torch.equal(cached_quant_tensor.set(value_=q.value_).value_, q.value_)
+        assert torch.equal(cached_quant_tensor.set(value=q._value)._value, q._value)
     else:
         assert torch.equal(cache.value, q.value)
         assert cache.quant_tensor is q
-    assert torch.equal(cache.quant_tensor.scale_, q.scale_)
-    assert torch.equal(cache.quant_tensor.zero_point_, q.zero_point_)
+    assert torch.equal(cache.quant_tensor._scale, q._scale)
+    assert torch.equal(cache.quant_tensor._zero_point, q._zero_point)
     assert torch.equal(cache.exponent_bias, q.exponent_bias)
     assert cache.saturating == q.saturating
     assert cache.inf_values == q.inf_values
     assert cache.nan_values == q.nan_values
     assert cache.signed == q.signed
     assert cache.dequant_shape == q.dequant_shape
-    assert torch.equal(cache._training_t, q.training_t)
-    reconstructed = cache.quant_tensor.set(value_=q.value_)
+    assert torch.equal(cache._training, q._training)
+    reconstructed = cache.quant_tensor.set(value=q._value)
     assert torch.equal(reconstructed.value, q.value)
     assert torch.equal(reconstructed.scale, q.scale)
     assert torch.equal(reconstructed.zero_point, q.zero_point)
@@ -310,21 +315,21 @@ def test_groupwise_int_quant_tensor_cache(metadata_only):
         assert cache.value is None
         assert cache._quant_tensor is None
         cached_quant_tensor = cache.quant_tensor
-        assert cached_quant_tensor.value_ is None
+        assert cached_quant_tensor._value.numel() == 0
         assert cache.quant_tensor is cached_quant_tensor
-        assert torch.equal(cached_quant_tensor.set(value_=q.value_).value_, q.value_)
+        assert torch.equal(cached_quant_tensor.set(value=q._value)._value, q._value)
     else:
         assert torch.equal(cache.value, q.value)
         assert cache.quant_tensor is q
-    assert torch.equal(cache.quant_tensor.scale_, q.scale_)
-    assert torch.equal(cache.quant_tensor.zero_point_, q.zero_point_)
+    assert torch.equal(cache.quant_tensor._scale, q._scale)
+    assert torch.equal(cache.quant_tensor._zero_point, q._zero_point)
     assert torch.equal(cache.quant_tensor.bit_width, q.bit_width)
     assert cache.quant_tensor.group_size == q.group_size
     assert cache.quant_tensor.group_dim == q.group_dim
     assert cache.signed == q.signed
     assert cache.dequant_shape == q.dequant_shape
-    assert torch.equal(cache._training_t, q.training_t)
-    reconstructed = cache.quant_tensor.set(value_=q.value_)
+    assert torch.equal(cache._training, q._training)
+    reconstructed = cache.quant_tensor.set(value=q._value)
     assert torch.equal(reconstructed.value, q.value)
     assert torch.equal(reconstructed.scale, q.scale)
     assert torch.equal(reconstructed.zero_point, q.zero_point)
@@ -360,6 +365,8 @@ def test_groupwise_quant_tensor_device(device, quant_tensor_class):
     assert quant_tensor.device == device
 
     other_device = torch.device("meta" if device.type == "cpu" else "cpu")
-    mismatched_quant_tensor = quant_tensor._replace(scale_=torch.tensor(1.0, device=other_device))
+    mismatched_kwargs = dict(kwargs)
+    mismatched_kwargs['scale'] = torch.tensor(1.0, device=other_device)
+    mismatched_quant_tensor = quant_tensor_class(**mismatched_kwargs)
     with pytest.raises(RuntimeError, match="Value and metadata are on different devices"):
         mismatched_quant_tensor.device
