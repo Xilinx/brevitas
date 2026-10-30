@@ -15,9 +15,9 @@ inputs:
 runs:
   using: composite
   steps:
-    # The datasets only depend on the code that downloads them: their download is slow, so editing
-    # a test must not rebuild them. The other families hash every test file, so that adding a test
-    # that needs a new model also rebuilds the cache.
+    # Only the files that decide what prepare downloads and where it is stored are hashed. The
+    # datasets do not depend on noxfile.py, and their download is slow, so editing it must not
+    # rebuild them.
     - name: Compute the cache key
       id: key
       shell: bash
@@ -26,7 +26,7 @@ runs:
         startsWith(inputs.family, 'datasets')
         && hashFiles('tests/brevitas_examples/assets_for_tests.py',
         'src/brevitas_examples/bnn_pynq/cfg/*.ini')
-        || hashFiles('tests/brevitas_examples/**/*.py', 'noxfile.py',
+        || hashFiles('tests/brevitas_examples/assets_for_tests.py', 'noxfile.py',
         'requirements/requirements-lighteval.txt', 'src/brevitas_examples/bnn_pynq/cfg/*.ini')
         }}" >> "$GITHUB_OUTPUT"
 

@@ -17,9 +17,9 @@ from filelock import FileLock
 TEST_CACHE_VERSION = '1'
 
 # Hub models used by the tests, pinned to a commit so that results do not change when the upstream
-# repo does. resolve_hf_asset() rejects models that are not listed here, so the cache prepared in
-# CI always has what the tests load. To update a pin, replace the commit id: this file is part of
-# the cache key, so the cache is rebuilt.
+# repo does. A model that is not listed here is not prepared in CI, so the offline test run fails
+# on it. To update a pin, replace the commit id: this file is part of the cache key, so the cache is
+# rebuilt.
 LLM_MODELS = {
     'hf-internal-testing/tiny-random-LlamaForCausalLM':
         '9fb191250dd56d0ba7ec9785a025ed29c03d5998',
