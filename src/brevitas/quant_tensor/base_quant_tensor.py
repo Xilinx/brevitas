@@ -144,8 +144,14 @@ class QuantTensor(Tensor):
     def detach(self):
         return self._apply_and_reconstruct(Tensor.detach)
 
-    def contiguous(self):
-        return self._apply_and_reconstruct(Tensor.contiguous)
+    def contiguous(self, memory_format=torch.contiguous_format):
+        """Return a contiguous QuantTensor without applying value layouts to metadata."""
+        metadata_kwargs = self._get_metadata_kwargs()
+        for parameter, metadata in metadata_kwargs.items():
+            if isinstance(metadata, Tensor):
+                metadata_kwargs[parameter] = Tensor.contiguous(metadata)
+        return self._reconstruct(
+            Tensor.contiguous(self._value, memory_format=memory_format), metadata_kwargs)
 
     @property
     def shape(self):
@@ -154,12 +160,17 @@ class QuantTensor(Tensor):
     def dim(self):
         return self.value.dim()
 
-    def add(self, other):
-        return self + other
+    def add(self, other, *, alpha=1):
+        if alpha == 1:
+            return self + other
+        other = other.value if isinstance(other, QuantTensor) else other
+        return torch.add(self.value, other, alpha=alpha)
 
     def to(self, *args, **kwargs):
         new_value = Tensor.to(self._value, *args, **kwargs)
         metadata_kwargs = self._get_metadata_kwargs()
+        metadata_to_kwargs = dict(kwargs)
+        metadata_to_kwargs.pop('memory_format', None)
         for parameter, metadata in metadata_kwargs.items():
             if not isinstance(metadata, Tensor):
                 continue
@@ -167,7 +178,7 @@ class QuantTensor(Tensor):
             if metadata.dtype == torch.bool:
                 metadata_kwargs[parameter] = metadata.to(device=new_value.device)
             else:
-                metadata_kwargs[parameter] = metadata.to(*args, **kwargs)
+                metadata_kwargs[parameter] = metadata.to(*args, **metadata_to_kwargs)
         return self._reconstruct(new_value, metadata_kwargs)
 
     def cuda(self, *args, **kwargs):
@@ -246,7 +257,7 @@ class GroupwiseQuantTensorMixin:
     def dequant_shape(self):
         return self._dequant_shape
 
-    def expand(self, expand_metadata=True):
+    def _expand_groupwise(self, expand_metadata=True):
         """Expand grouped storage and optionally its quantization metadata."""
         from brevitas.utils.quant_utils import groupwise_dequant_expand
 
@@ -273,18 +284,21 @@ class GroupwiseQuantTensorMixin:
 
     @property
     def value(self):
-        value, _, _ = self.expand(expand_metadata=False)
+        value, _, _ = self._expand_groupwise(expand_metadata=False)
         return value
 
     @property
     def scale(self):
-        _, scale, _ = self.expand()
+        _, scale, _ = self._expand_groupwise()
         return scale
 
     @property
     def zero_point(self):
-        _, _, zero_point = self.expand()
+        _, _, zero_point = self._expand_groupwise()
         return zero_point
+
+    def expand(self, *sizes):
+        return self.value.expand(*sizes)
 
     @classmethod
     def check_input_type(cls, tensor):
