@@ -106,7 +106,7 @@ class FloatQuantTensor(FloatMixin, QuantTensor):
             raise RuntimeError("Tensor is not a FloatQuantTensor")
 
     @staticmethod
-    def cat(tensors, dim, out=None):
+    def cat(tensors, dim=0, *, out=None):
         if out is not None:
             raise RuntimeError("Out not supported.")
         if len(tensors) < 2:

@@ -211,6 +211,7 @@ class WeightQuantProxyFromInjector(WeightQuantProxyFromInjectorBase):
     def __init__(self, quant_layer: nn.Module, quant_injector: Injector) -> None:
         super().__init__(quant_layer, quant_injector)
         self.cache_class = _CachedIO
+        self.quant_tensor_class = IntQuantTensor
 
     @property
     def tracked_parameter_list(self):
@@ -230,7 +231,7 @@ class WeightQuantProxyFromInjector(WeightQuantProxyFromInjectorBase):
         return self.retrieve_attribute('bit_width')
 
     def create_quant_tensor(self, qt_args: Tuple[Any]) -> IntQuantTensor:
-        return IntQuantTensor(*qt_args, self.is_signed, self.training)
+        return self.quant_tensor_class(*qt_args, self.is_signed, self.training)
 
 
 class DecoupledWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
@@ -251,7 +252,8 @@ class DecoupledWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
 
     def create_quant_tensor(self, qt_args: Tuple[Any]) -> IntQuantTensor:
         out, scale, zero_point, bit_width, pre_scale, pre_zero_point = qt_args
-        return IntQuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
+        return self.quant_tensor_class(
+            out, scale, zero_point, bit_width, self.is_signed, self.training)
 
 
 class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFromInjector):
