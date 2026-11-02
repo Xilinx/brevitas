@@ -64,7 +64,7 @@ def _pass_managers(model: nn.Module, objective: str,
       - self-activation: both from the quantized model;
       - cross-activation: X_tilde from the quantized model, X from a float pass.
     Activation and bias quantization in the quantized pass follow use_quant_activations.
-    The float pass of cross-activation comes second: Qronos' hook pairs its input with
+    The float pass of cross-activation comes second: PiSO's hook pairs its input with
     the one stored by the quantized pass.
     """
     quant_pass = quantization_status_manager(

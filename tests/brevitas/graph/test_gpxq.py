@@ -14,6 +14,7 @@ from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gptq import gptq_mode
+from brevitas.graph.gpxq import accumulate_hessian
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.magr import magr_mode
@@ -604,3 +605,28 @@ class TestAXEThresholds:
         thresholds = axe.get_thresholds(weight.unsqueeze(0), scales.unsqueeze(0), 1)
         assert thresholds.shape == expected.shape
         assert torch.allclose(thresholds, expected, atol=1e-5, rtol=1e-4)
+
+
+def test_accumulate_hessian_is_running_mean():
+    # Batches of different sizes, in the [groups, in_features, batch] layout.
+    g = torch.Generator().manual_seed(0)
+    D = 6
+    x_batches = [torch.randn(1, D, b, generator=g, dtype=torch.float64) for b in (3, 5, 2)]
+    y_batches = [torch.randn(1, D, b, generator=g, dtype=torch.float64) for b in (3, 5, 2)]
+    H = torch.zeros(1, D, D, dtype=torch.float64)
+    G = torch.zeros_like(H)
+    H_buffered = torch.zeros_like(H)
+    buffer = torch.zeros_like(H)
+    n_H = n_G = n_buffered = 0
+    for x, y in zip(x_batches, y_batches):
+        n_H = accumulate_hessian(H, n_H, x)
+        n_G = accumulate_hessian(G, n_G, x, y)
+        n_buffered = accumulate_hessian(H_buffered, n_buffered, x, buffer=buffer)
+
+    X = torch.cat(x_batches, dim=-1)
+    Y = torch.cat(y_batches, dim=-1)
+    N = X.shape[-1]
+    assert n_H == n_G == n_buffered == N
+    assert torch.allclose(H, 2 / N * X @ X.transpose(2, 1))
+    assert torch.allclose(G, 2 / N * X @ Y.transpose(2, 1))
+    assert torch.equal(H_buffered, H)

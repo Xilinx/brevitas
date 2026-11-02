@@ -5,9 +5,8 @@
 
 The layer-level and group-wise updaters (ScaleOptimizer / ScaleOptimizerGroupInterleaved)
 that run the solvers and write scales into a layer's weight quantizer, the
-standalone PiSO classes (PiSODecoupledGPTQ / PiSODecoupledQronos) and driver
-(optimize_scale_mode), and the mixins that interleave PiSO with GPTQ / Qronos error
-correction.
+calibration hook (PiSOLayerHandler) and standalone driver (optimize_scale_mode),
+and the mixins that interleave PiSO with GPTQ / Qronos error correction.
 
 PiSO computes the weight quantization scale that minimizes the layer output
 reconstruction error ||X w - s X_tilde q(w; s)||^2 exactly, under
@@ -37,6 +36,8 @@ import torch
 import torch.nn as nn
 
 from brevitas.graph.gptq import GPTQ
+from brevitas.graph.gpxq import accumulate_hessian
+from brevitas.graph.gpxq import ModuleOptimizer
 from brevitas.graph.layerwise_hook import layerwise_hook_mode
 from brevitas.graph.piso.solvers import SCALE_SOLVER_REGISTRY
 from brevitas.graph.piso.utils import _build_grid
@@ -552,46 +553,76 @@ class ScaleOptimizerGroupInterleaved(ScaleOptimizer):
                 self.G[start:end, start:end]))
 
 
-class PiSODecoupledMixin:
-    """Standalone PiSO: the Hessians of a GPxQ algorithm, solved without error correction.
+class PiSOLayerHandler(ModuleOptimizer):
+    """Per-layer forward hook that accumulates the Hessians PiSO needs.
 
-    optimize_scale_mode attaches a GPTQ (self-activation) or Qronos (cross-activation)
-    instance to each layer, so the Hessians are accumulated by the same code that
-    error correction uses. single_layer_update then hands the accumulated, undamped H
-    (and G, in the layout the ScaleOptimizer expects) to the ScaleOptimizer, and frees
-    the matrices so they do not stay alive for the rest of the calibration.
+    One is attached to each supported layer by optimize_scale_mode. As calibration
+    data flows through, update_batch incrementally builds the Hessians H and G
+    from the layer inputs. Once calibration is done, single_layer_update hands
+    them to the ScaleOptimizer to compute and write the scales.
     """
 
-    def __init__(self, *args, scale_optimizer, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(
+            self,
+            layer: nn.Module,
+            name: str,
+            len_parallel_layers: int,
+            cross_act_objective: bool,
+            matrix_dtype: torch.dtype,
+            scale_optimizer: ScaleOptimizer) -> None:
+        # The Hessians are kept on the device of the layer weights, and the scales are
+        # optimized without a copy of the original weights.
+        super().__init__(
+            layer,
+            name,
+            len_parallel_layers,
+            create_weight_orig=False,
+            device='same',
+            dtype=matrix_dtype)
+        self.cross_act_objective = cross_act_objective
         self.scale_optimizer = scale_optimizer
 
+        self.H = torch.zeros((self.groups, self.columns, self.columns),
+                             device=self.device,
+                             dtype=self.dtype)
+        self.nsamples = 0
+        self.nsamples_G = 0
+        self.G = torch.zeros_like(self.H) if cross_act_objective else None
+        self.quant_input = None
+
+    def update_batch(self, module, input, current_layer):
+        current_layer.layer_names.add(self.name)
+        inp_processed = self.process_input(input)
+        if self.cross_act_objective and not module.weight_quant.is_quant_enabled:
+            # Float pass: accumulate G = X_tilde^T X, pairing this input with the
+            # quantized input stored by the previous pass.
+            self.nsamples_G = accumulate_hessian(
+                self.G, self.nsamples_G, self.quant_input, inp_processed)
+            self.quant_input = None
+        else:
+            # Accumulate H = X_tilde^T X_tilde. For the cross-activation objective, also
+            # store this input to pair it with the float input of the next pass.
+            if self.cross_act_objective:
+                if self.quant_input is not None:
+                    raise RuntimeError(
+                        "Expected quant_input to be consumed by the float pass before the "
+                        "next quantized pass; got a stale quant_input.")
+                self.quant_input = inp_processed.to(dtype=self.H.dtype, copy=True)
+            self.nsamples = accumulate_hessian(self.H, self.nsamples, inp_processed)
+        raise StopFwdException
+
     def single_layer_update(self):
-        # Qronos accumulates G = X^T X_tilde; the ScaleOptimizer expects X_tilde^T X.
-        G = getattr(self, 'G', None)
-        if G is not None:
-            G = G.transpose(-1, -2)
         # ScaleOptimizer.single_layer_update owns the allocate/offload pair here.
-        self.scale_optimizer.single_layer_update(layer=self.layer, H=self.H, G=G)
-        for buffer in ('H', 'G', 'B'):
-            if hasattr(self, buffer):
-                delattr(self, buffer)
-
-
-class PiSODecoupledGPTQ(PiSODecoupledMixin, GPTQ):
-    """Hessian accumulation for the self-activation objective (H only)."""
-
-
-class PiSODecoupledQronos(PiSODecoupledMixin, Qronos):
-    """Hessian accumulation for the cross-activation objective (H and G)."""
+        self.scale_optimizer.single_layer_update(layer=self.layer, H=self.H, G=self.G)
+        del self.H, self.G
 
 
 class optimize_scale_mode(layerwise_hook_mode):
     """Context manager that runs standalone (decoupled) PiSO over a whole model.
 
-    On entry it selects the supported layers, attaches a PiSODecoupledGPTQ or
-    PiSODecoupledQronos hook to each, and swaps in a forward that catches the
-    early-stop exception. The caller feeds calibration data through the model to
+    On entry it selects the supported layers, attaches a PiSOLayerHandler hook to
+    each, and swaps in a forward that catches the early-stop exception. The caller
+    feeds calibration data through the model to
     accumulate Hessians, then calls update to optimize every layer's scales. This is
     the standalone path; the interleaved path instead runs PiSO inside GPTQ/Qronos
     (PiSOInterleavedGPTQ / PiSOInterleavedQronos).
@@ -602,7 +633,7 @@ class optimize_scale_mode(layerwise_hook_mode):
         the current one are quantized (self-activation) or left float (unquantized)
         is up to the caller.
       - cross_act_objective=True: per batch, a quantized pass first (X_tilde, whose
-        input Qronos stores), then a float pass with all quantization disabled
+        input the hook stores), then a float pass with all quantization disabled
         (X, which accumulates G).
     update has to run outside that disabling: a layer's weight quantization must be
     enabled for its scales to be written.
@@ -664,19 +695,14 @@ class optimize_scale_mode(layerwise_hook_mode):
         return super().__enter__()
 
     def initialize_module_optimizer(self, layer, name, len_parallel_layers, create_weight_orig):
-        # The Hessians come from the GPxQ algorithm whose error correction PiSO replaces:
-        # Qronos for the cross-activation objective (H and G), GPTQ otherwise (H only).
-        # Weights stay on their device and no weight_orig copy is needed.
-        optimizer_class = PiSODecoupledQronos if self.cross_act_objective else PiSODecoupledGPTQ
-        return optimizer_class(
+        # create_weight_orig is part of the shared initialize_module_optimizer contract
+        # but unused: PiSO keeps no copy of the original weights.
+        return PiSOLayerHandler(
             layer=layer,
             name=name,
-            act_order=False,
             len_parallel_layers=len_parallel_layers,
-            create_weight_orig=False,
-            num_blocks=1,
-            device='same',
-            dtype=self.matrix_dtype,
+            cross_act_objective=self.cross_act_objective,
+            matrix_dtype=self.matrix_dtype,
             scale_optimizer=self.scale_optimizer)
 
     def _validate_args(self) -> None:
