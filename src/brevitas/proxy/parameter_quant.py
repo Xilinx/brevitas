@@ -235,7 +235,21 @@ class WeightQuantProxyFromInjector(WeightQuantProxyFromInjectorBase):
 
 class DecoupledWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
 
+    def __init__(self, quant_layer: nn.Module, quant_injector: Injector) -> None:
+        super().__init__(quant_layer, quant_injector)
+        # Necessary for export
+        self._cached_act = None
+        self.cache_inference_quant_act = False
+        self.cache_quant_io_metadata_only = True
+        self._requires_quant_input = self.quant_injector.requires_quant_input
+
+    @property
+    def requires_quant_input(self):
+        return self._requires_quant_input
+
     def pre_scale(self):
+        if self.requires_quant_input:
+            raise NotImplementedError
         if not self.is_quant_enabled:
             return None
         output_tuple = self.tensor_quant(self.tracked_parameter_list[0])
@@ -243,6 +257,8 @@ class DecoupledWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
         return pre_scale
 
     def pre_zero_point(self):
+        if self.requires_quant_input:
+            raise NotImplementedError
         if not self.is_quant_enabled:
             return None
         output_tuple = self.tensor_quant(self.tracked_parameter_list[0])
@@ -253,46 +269,26 @@ class DecoupledWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
         out, scale, zero_point, bit_width, pre_scale, pre_zero_point = qt_args
         return IntQuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
 
-
-class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFromInjector):
-
-    def __init__(self, quant_layer: nn.Module, quant_injector: Injector) -> None:
-        super().__init__(quant_layer, quant_injector)
-        # Necessary for export
-        self._cached_act = None
-        self.cache_inference_quant_act = False
-        self.cache_quant_io_metadata_only = True
-
-    @property
-    def requires_quant_input(self):
-        return True
-
-    def pre_scale(self):
-        raise NotImplementedError
-
-    def pre_zero_point(self):
-        raise NotImplementedError
-
     def forward(
         self,
         x: torch.Tensor,
         quant_input: Optional[Union[Tensor,
                                     IntQuantTensor]] = None) -> Union[Tensor, IntQuantTensor]:
+        if not self.requires_quant_input:
+            return super().forward(x)
+
         if isinstance(quant_input,
                       IntQuantTensor) and not self.training and self.cache_inference_quant_act:
             cached_inp = _CachedIO(quant_input.detach(), self.cache_quant_io_metadata_only)
             self._cached_act = cached_inp
-
         if self.is_quant_enabled:
             if quant_input is None or isinstance(quant_input, Tensor):
                 assert self._cached_act is not None, "No cached quant input found. Enable caching and perform a forward pass"
                 quant_input = self._cached_act
             else:
                 assert isinstance(quant_input, IntQuantTensor), "Input must be quantized"
-
             input_bit_width = quant_input.bit_width
             input_is_signed = quant_input.signed
-
             impl = self.export_handler if self.export_mode else self.tensor_quant
             out, scale, zero_point, bit_width, pre_scale, pre_zero_point = impl(x, input_bit_width, input_is_signed)
             if self.skip_create_quant_tensor:

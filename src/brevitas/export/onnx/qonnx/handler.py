@@ -12,7 +12,6 @@ from brevitas.export.onnx.handler import QuantLSTMLayerHandler
 from brevitas.proxy import ActQuantProxyFromInjector
 from brevitas.proxy import BiasQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
-from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
 from brevitas.proxy import WeightQuantProxyFromInjector
 from brevitas.proxy.float_parameter_quant import WeightFloatQuantProxyFromInjector
 from brevitas.proxy.float_runtime_quant import ActFloatQuantProxyFromInjector
@@ -188,17 +187,12 @@ class BrevitasWeightQuantProxyHandler(BrevitasQuantProxyHandler):
 class BrevitasDecoupledWeightQuantProxyHandler(BrevitasWeightQuantProxyHandler):
     handled_layer = DecoupledWeightQuantProxyFromInjector
 
-    def symbolic_execution(
-            self, x: Tensor, *args):  # args supports DecoupledWeightQuantWithInputProxyFromInjector
+    def symbolic_execution(self, x: Tensor, *args):
         out, scale, zero_point, bit_width = super().symbolic_execution(x)
-        # TODO fix retrieval for DecoupledWeightQuantWithInputProxyFromInjector
+        # TODO fix retrieval when quant_injector requires quant_input
         # In practice it doesn't make a difference since the pre_* values are unused during export
         pre_scale, pre_zero_point = scale, zero_point
         return out, scale, zero_point, bit_width, pre_scale, pre_zero_point
-
-
-class BrevitasDecoupledWeightQuantWithInputProxyHandler(BrevitasDecoupledWeightQuantProxyHandler):
-    handled_layer = DecoupledWeightQuantWithInputProxyFromInjector
 
 
 class BrevitasActQuantProxyHandler(BrevitasQuantProxyHandler):
