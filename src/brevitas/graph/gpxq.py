@@ -104,6 +104,39 @@ def process_layer_input(
     return inp_processed, quant_metadata
 
 
+def accumulate_hessian(
+        hessian: torch.Tensor,
+        nsamples: int,
+        inp: torch.Tensor,
+        other_inp: Optional[torch.Tensor] = None,
+        buffer: Optional[torch.Tensor] = None) -> int:
+    """Add a batch of layer inputs to a running Hessian estimate, in place.
+
+    hessian holds the mean of 2 x y^T over the nsamples samples seen so far, where x
+    are the samples of inp and y those of other_inp, or of inp again when other_inp is
+    None. Both are in the [groups, in_features, batch] layout of process_layer_input.
+    If buffer is given, the batch contribution is copied into it before it is added,
+    e.g. to move it through pinned memory when hessian lives on the CPU.
+
+    Returns the updated number of samples.
+    """
+    batch_size = inp.shape[-1]
+    hessian *= nsamples / (nsamples + batch_size)
+    nsamples += batch_size
+    inp = math.sqrt(2 / nsamples) * inp.to(hessian.dtype)
+    if other_inp is None:
+        other_inp = inp
+    else:
+        other_inp = math.sqrt(2 / nsamples) * other_inp.to(hessian.dtype)
+    update = inp.bmm(other_inp.transpose(2, 1))
+    if buffer is None:
+        hessian += update
+    else:
+        buffer.copy_(update)
+        hessian += buffer
+    return nsamples
+
+
 class gpxq_mode(layerwise_hook_mode):
     """
     Apply GPxQ algorithm.
@@ -186,20 +219,25 @@ class gpxq_mode(layerwise_hook_mode):
             return False
 
 
-class GPxQ(ABC):
+class ModuleOptimizer(ABC):
+    """Base of the per-layer objects that a layerwise_hook_mode attaches to each layer.
+
+    Holds what every layer-wise algorithm needs: the layer and its shape, where its
+    statistics are stored, and the processing of the layer inputs. update_batch, the
+    forward pre-hook, accumulates statistics from the inputs; single_layer_update then
+    runs the algorithm on them.
+    """
 
     def __init__(
             self,
             layer,
             name,
-            act_order,
             len_parallel_layers=1,
             create_weight_orig=True,
             device='cpu',
             dtype=torch.float32) -> None:
         self.layer = layer
         self.name = name
-        self.act_order = act_order
         self.create_weight_orig = create_weight_orig
         # device and dtype of buffers; 'same' means using the same device for the buffer as the layer weights
         self.device = layer.weight.device if device == 'same' else device
@@ -247,6 +285,22 @@ class GPxQ(ABC):
     @abstractmethod
     def single_layer_update(self):
         pass
+
+
+class GPxQ(ModuleOptimizer):
+    """Base of the error-correction algorithms (GPTQ, GPFQ, Qronos)."""
+
+    def __init__(
+            self,
+            layer,
+            name,
+            act_order,
+            len_parallel_layers=1,
+            create_weight_orig=True,
+            device='cpu',
+            dtype=torch.float32) -> None:
+        super().__init__(layer, name, len_parallel_layers, create_weight_orig, device, dtype)
+        self.act_order = act_order
 
     # -------------------------------------------------------------------------
     # Extension hooks.

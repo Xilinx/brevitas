@@ -14,6 +14,7 @@ try:
 except:
     LinAlgError = RuntimeError
 
+from brevitas.graph.gpxq import accumulate_hessian
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
@@ -74,23 +75,13 @@ class GPTQ(GPxQ):
         current_layer.layer_names.add(self.name)
         # NOTE: batch_size = seqlen for language models here
         inp_processed = self.process_input(input)  # [groups, in_features, batch_size]
-        batch_size = inp_processed.shape[-1]
-        # Calcuate the covariance matrix
-        self.H *= self.nsamples / (self.nsamples + batch_size)
-        self.nsamples += batch_size
-        inp_processed = math.sqrt(2 / self.nsamples) * inp_processed.to(self.dtype)
-        if self.use_intermediate_buffer:
-            # Optimizing CPU to GPU transfer using in-place copy to pinned memory
-            self.B.copy_(inp_processed.bmm(inp_processed.transpose(2, 1)))
-            self.H += self.B
-        else:
-            self.H += inp_processed.bmm(inp_processed.transpose(2, 1))
+        # Optimizing CPU to GPU transfer using in-place copy to pinned memory
+        buffer = self.B if self.use_intermediate_buffer else None
+        self.nsamples = accumulate_hessian(self.H, self.nsamples, inp_processed, buffer=buffer)
 
     def update_batch(self, module, input, current_layer):
         if self.disable_pre_forward_hook:
             return input
-        # Workaround to avoid duplication with GPTQ and MagR, will have the same method
-        # across GPxQ classes
         self.compute_iterative_covariance(module, input, current_layer)
         # If we are executing GPTQ with group of parallel layers, we keep track of how many forward
         # we executed. Once we executed as many as the number of parallel_layers, we raise
