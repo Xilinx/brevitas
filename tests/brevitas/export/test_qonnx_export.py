@@ -1,11 +1,11 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from packaging.version import parse
+import numpy as np
+import onnx
 import pytest
 import torch
 
-from brevitas import torch_version
 from brevitas.export import enable_debug
 from brevitas.export import export_qonnx
 from brevitas.nn import QuantConv2d
@@ -18,6 +18,7 @@ from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int16Bias
 from brevitas_examples import imagenet_classification
 from tests.marker import jit_disabled_for_export
+from tests.marker import requires_pt_ge
 
 from ...export_fixture import qonnx_export_fn
 from ...export_fixture import rm_onnx
@@ -234,11 +235,47 @@ def test_debug_brevitas_onnx_export(request, qonnx_export_fn):
     assert debug_hook.values
 
 
-@pytest.mark.skipif(torch_version < parse('2.8'), reason='Dynamo export requires PyTorch >= 2.8')
-def test_quant_lstm_qonnx_dynamo_export_raises():
-    model = QuantLSTM(input_size=IN_CH, hidden_size=OUT_CH)
+@jit_disabled_for_export()
+@requires_pt_ge('2.8')
+@pytest.mark.parametrize(
+    'lstm_kwargs',
+    [
+        pytest.param({}, id='default'),
+        pytest.param({'batch_first': True}, id='batch_first'),
+        pytest.param({'coupled_input_forget_gates': True}, id='cifg'),
+        pytest.param({
+            'bidirectional': True, 'num_layers': 2}, id='bidirectional_2_layers')])
+def test_quant_lstm_qonnx_dynamo_export_matches_torchscript(request, lstm_kwargs):
+    # No runtime implements QuantLSTMCell, so the dynamo export is checked against TorchScript
+    model = QuantLSTM(input_size=IN_CH, hidden_size=OUT_CH, **lstm_kwargs)
+    inp = torch.randn(2, 5, IN_CH) if lstm_kwargs.get('batch_first') else torch.randn(5, 2, IN_CH)
+    model(inp)  # collect scale factors
     model.eval()
-    inp = torch.randn(5, 1, IN_CH)
-    outfile = 'quant_lstm_qonnx_dynamo.onnx'
-    with pytest.raises(RuntimeError, match='does not support quantized LSTM cells'):
-        export_qonnx(model, inp, export_path=outfile, dynamo=True, optimize=True)
+    torchscript_file = f'quant_lstm_torchscript_{request.node.callspec.id}.onnx'
+    dynamo_file = f'quant_lstm_dynamo_{request.node.callspec.id}.onnx'
+    torchscript_model = export_qonnx(model, inp, export_path=torchscript_file, dynamo=False)
+    dynamo_model = export_qonnx(model, inp, export_path=dynamo_file, dynamo=True, optimize=True)
+    rm_onnx(torchscript_file)
+    rm_onnx(dynamo_file)
+
+    torchscript_cells = [n for n in torchscript_model.graph.node if n.op_type == 'QuantLSTMCell']
+    dynamo_cells = [n for n in dynamo_model.graph.node if n.op_type == 'QuantLSTMCell']
+    # One cell per layer and direction
+    assert len(torchscript_cells) == len(dynamo_cells) == sum(len(layer) for layer in model.layers)
+    torchscript_values = {
+        i.name: onnx.numpy_helper.to_array(i) for i in torchscript_model.graph.initializer}
+    dynamo_values = {i.name: onnx.numpy_helper.to_array(i) for i in dynamo_model.graph.initializer}
+    for torchscript_cell, dynamo_cell in zip(torchscript_cells, dynamo_cells):
+        assert dynamo_cell.domain == torchscript_cell.domain
+        assert len(dynamo_cell.input) == len(torchscript_cell.input)
+        assert len(dynamo_cell.output) == len(torchscript_cell.output)
+        torchscript_attrs = {
+            a.name: onnx.helper.get_attribute_value(a) for a in torchscript_cell.attribute}
+        dynamo_attrs = {a.name: onnx.helper.get_attribute_value(a) for a in dynamo_cell.attribute}
+        assert dynamo_attrs == torchscript_attrs
+        # The first 15 inputs are the input, state, weight and bias tensors. The rest are the
+        # scale, zero-point and bit-width of each cell quantizer, constants in both graphs
+        torchscript_params = [torchscript_values[name] for name in torchscript_cell.input[15:]]
+        dynamo_params = [dynamo_values[name] for name in dynamo_cell.input[15:]]
+        for torchscript_param, dynamo_param in zip(torchscript_params, dynamo_params):
+            np.testing.assert_array_equal(dynamo_param.flatten(), torchscript_param.flatten())
