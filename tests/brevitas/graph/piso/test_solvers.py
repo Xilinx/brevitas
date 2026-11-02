@@ -6,10 +6,9 @@
 Each solver returns, in closed form, the weight-quantization scale that minimizes
 the reconstruction objective
 
-    E(s) = s^2 * (q^T H q) - 2 s * (w^T G q),     q = clamp(round(w / s), grid)
+    E(s) = s^2 * (q^T H q) - 2 s * (q^T G w),     q = clamp(round(w / s), grid)
 
-(with G defaulting to H), where H = X_tilde^T X_tilde and G = X^T X_tilde, the layout
-GPTQ and Qronos accumulate. This is the scale-dependent part of
+(with G defaulting to H). This is the scale-dependent part of
 ||X w - s X_tilde q||^2 up to the s-independent constant w^T X^T X w.
 
 These tests evaluate that objective directly and compare each solver's result
@@ -122,9 +121,9 @@ def eval_dense(w, s, H, grid, G=None):
     q = quantize_to_grid(w, s, grid)
     Hq = (H @ q.T).T
     qHq = (q * Hq).sum(-1)
-    Gq = (G @ q.T).T
-    wGq = (w * Gq).sum(-1)
-    return s ** 2 * qHq - 2 * s * wGq
+    Gw = (G @ w.T).T
+    qGw = (q * Gw).sum(-1)
+    return s ** 2 * qHq - 2 * s * qGw
 
 
 def eval_diag(w, s, h_diag, grid, g_diag=None):
@@ -132,8 +131,8 @@ def eval_diag(w, s, h_diag, grid, g_diag=None):
     g_diag = h_diag if g_diag is None else g_diag
     q = quantize_to_grid(w, s, grid)
     qHq = (q * h_diag * q).sum(-1)
-    wGq = (w * g_diag * q).sum(-1)
-    return s ** 2 * qHq - 2 * s * wGq
+    qGw = (q * g_diag * w).sum(-1)
+    return s ** 2 * qHq - 2 * s * qGw
 
 
 def grid_search_scales(w, eval_fn, grid, allow_negative_s, n_candidates=N_GRID_CANDIDATES):
@@ -211,18 +210,6 @@ def spd_matrix(D, seed):
     return A @ A.T + D * torch.eye(D, dtype=DTYPE)
 
 
-def cross_matrix(D, seed):
-    """Random non-symmetric [D, D] with a dominant SPD part, for G = X^T X_tilde.
-
-    G is not symmetric in general, and the dense solvers read it as w^T G q, so the
-    tests that evaluate dense G need one that a transpose would change: with
-    spd_matrix alone, G and G^T are the same matrix and a wrong orientation passes.
-    """
-    g = torch.Generator().manual_seed(seed + 1000)
-    K = torch.randn(D, D, generator=g, dtype=DTYPE)
-    return spd_matrix(D, seed) + 0.5 * (K - K.T)
-
-
 def random_weights(B, D, seed):
     g = torch.Generator().manual_seed(seed)
     return torch.randn(B, D, generator=g, dtype=DTYPE)
@@ -283,7 +270,7 @@ def test_per_channel_dense_matches_grid_search(solver_name, grid_name, D, use_G,
     B = 16
     w = random_weights(B, D, seed=1)
     H = spd_matrix(D, seed=2)
-    G = cross_matrix(D, seed=3) if use_G else None
+    G = spd_matrix(D, seed=3) if use_G else None
 
     s_solver = solver(
         w_b=w, H=H, unscaled_grid=grid, G=G, eps=SOLVER_EPS, allow_negative_s=neg).squeeze(1)
@@ -370,21 +357,21 @@ def eval_group_dense(w_bg, s_bg, H, grid, group_size, G=None):
 
     Mirrors the solver's per-group block extraction exactly:
       qHq  = q^T H_block q          (H_block: diagonal block of H)
-      wGq  = w^T G_block q          (G_block: diagonal block of G; the solver
-                                     computes Hw = w @ G_block, so wHq = w^T G_block q)
+      qGw  = q^T G_block^T w        (G_block: diagonal block of G.T; the solver
+                                     computes Hw = w @ G_block, so wHq = q^T G_block^T w)
     """
     B, ng, gs = w_bg.shape
     G = H if G is None else G
     # per-group diagonal blocks (identical to the solver's extraction)
     Hb = H.reshape(ng, gs, ng, gs).diagonal(dim1=0, dim2=2).permute(2, 0, 1)  # [ng,gs,gs]
-    Gb = G.reshape(ng, gs, ng, gs).diagonal(dim1=0, dim2=2).permute(2, 0, 1)  # [ng,gs,gs]
+    Gb = G.T.reshape(ng, gs, ng, gs).diagonal(dim1=0, dim2=2).permute(2, 0, 1)  # G.T blocks
     q = quantize_to_grid(w_bg, s_bg, grid)  # [B,ng,gs]
     Hq = torch.einsum('gij,bgj->bgi', Hb, q)
     qHq = (q * Hq).sum(-1)  # [B,ng]
-    # Hw[b,g,j] = sum_i w[b,g,i] Gb[g,i,j]  -> wHq = sum_j Hw[b,g,j] q[b,g,j] = w^T Gb q
-    Hw = torch.einsum('gij,bgi->bgj', Gb, w_bg)
-    wGq = (q * Hw).sum(-1)  # [B,ng]
-    return s_bg ** 2 * qHq - 2 * s_bg * wGq
+    # Hw[b,g,j] = sum_i w[b,g,i] Gb[g,i,j]  -> wHq = q^T Gb^T w  (note 'gji' below)
+    Gw = torch.einsum('gji,bgj->bgi', Gb, w_bg)
+    qGw = (q * Gw).sum(-1)  # [B,ng]
+    return s_bg ** 2 * qHq - 2 * s_bg * qGw
 
 
 @pytest.mark.parametrize("solver_name", dense_params(PER_GROUP_DENSE_SOLVERS))
@@ -400,7 +387,7 @@ def test_per_group_matches_grid_search(solver_name, grid_name, n_groups, group_s
     D = n_groups * group_size
     w = random_weights(B, D, seed=11).reshape(B, n_groups, group_size)
     H = spd_matrix(D, seed=12)
-    G = cross_matrix(D, seed=13) if use_G else None
+    G = spd_matrix(D, seed=13) if use_G else None
 
     s_solver = solver(
         w_b=w, H=H, unscaled_grid=grid, G=G, eps=SOLVER_EPS,
@@ -410,10 +397,10 @@ def test_per_group_matches_grid_search(solver_name, grid_name, n_groups, group_s
 
     # Grid-search each group independently by reusing the per-channel search on
     # the group slice with that group's diagonal H block. The G term uses the
-    # same block convention as the solver / eval_group_dense: wGq = w^T Gb q.
+    # same block convention as the solver / eval_group_dense: qGw = q^T Gb^T w.
     Hb = H.reshape(n_groups, group_size, n_groups, group_size).diagonal(
         dim1=0, dim2=2).permute(2, 0, 1)
-    Gb = (G if G is not None else H).reshape(n_groups, group_size, n_groups, group_size).diagonal(
+    Gb = (G if G is not None else H).T.reshape(n_groups, group_size, n_groups, group_size).diagonal(
         dim1=0, dim2=2).permute(2, 0, 1)
     for g in range(n_groups):
         wg = w[:, g, :]  # [B, gs]
@@ -423,8 +410,8 @@ def test_per_group_matches_grid_search(solver_name, grid_name, n_groups, group_s
         def eval_fn(ww, ss, gr, Hg=Hg, Gg=Gg):
             q = quantize_to_grid(ww, ss, gr)
             qHq = (q * (Hg @ q.T).T).sum(-1)
-            wGq = (ww * (Gg @ q.T).T).sum(-1)  # w^T Gg q
-            return ss ** 2 * qHq - 2 * ss * wGq
+            qGw = (q * (Gg.T @ ww.T).T).sum(-1)  # q^T Gg^T w
+            return ss ** 2 * qHq - 2 * ss * qGw
 
         _, E_grid_g = grid_search_scales(wg, eval_fn, grid, allow_negative_s=neg)
         assert objective_leq(E_solver[:, g], E_grid_g), (
@@ -819,7 +806,7 @@ def test_chunked_per_channel_matches_positive_grid_search(grid_name, D, use_G):
     B = 16
     w = random_weights(B, D, seed=1)
     H = spd_matrix(D, seed=2)
-    G = cross_matrix(D, seed=3) if use_G else None
+    G = spd_matrix(D, seed=3) if use_G else None
 
     s_solver = _chunked_piso_sweep_per_channel(
         w_b=w, H=H, unscaled_grid=grid, G=G, eps=SOLVER_EPS, allow_negative_s=False).squeeze(1)
@@ -858,7 +845,7 @@ def test_chunked_matches_sequential_objective(grid_name, D, use_G):
     B = 16
     w = random_weights(B, D, seed=4)
     H = spd_matrix(D, seed=5)
-    G = cross_matrix(D, seed=6) if use_G else None
+    G = spd_matrix(D, seed=6) if use_G else None
 
     s_seq = _piso_sweep_per_channel(
         w_b=w, H=H, unscaled_grid=grid, G=G, eps=SOLVER_EPS, allow_negative_s=False).squeeze(1)
@@ -921,7 +908,7 @@ def test_chunked_group_matches_sequential_objective(
     D = n_groups * group_size
     w = random_weights(B, D, seed=11).reshape(B, n_groups, group_size)
     H = spd_matrix(D, seed=12)
-    G = cross_matrix(D, seed=13) if use_G else None
+    G = spd_matrix(D, seed=13) if use_G else None
 
     if solver_diag:
         h_diag = H.diag().contiguous()
@@ -951,12 +938,12 @@ def test_chunked_group_matches_sequential_objective(
 
 
 def _eval_groups_sequential_obj(w_bg, s_bg, H, grid, group_size, G=None):
-    """Full cross-group-aware objective E(sq) = sq^T H sq - 2 w^T G sq."""
+    """Full cross-group-aware objective E(sq) = sq^T H sq - 2 sq^T G w."""
     B, ng, gs = w_bg.shape
     G = H if G is None else G
     sq = (s_bg.unsqueeze(-1) * quantize_to_grid(w_bg, s_bg, grid)).reshape(B, ng * gs)
     w = w_bg.reshape(B, ng * gs)
-    return (sq * (H @ sq.T).T).sum(-1) - 2 * (w * (G @ sq.T).T).sum(-1)
+    return (sq * (H @ sq.T).T).sum(-1) - 2 * (sq * (G @ w.T).T).sum(-1)
 
 
 def _eval_single_group_obj(w_orig, w_upd, s, H, grid, gs, gi, G=None):
@@ -965,8 +952,7 @@ def _eval_single_group_obj(w_orig, w_upd, s, H, grid, gs, gi, G=None):
     G = H if G is None else G
     gstart, gend = gi * gs, gi * gs + gs
     others = torch.cat((torch.arange(gstart), torch.arange(gend, D)))
-    # The group's slice of G^T w_orig, i.e. w_orig @ G[:, group], from w^T G q.
-    num = w_orig @ G[:, gstart:gend] - (H[gstart:gend][:, others] @ w_upd[:, others].T).T
+    num = (G[gstart:gend, :] @ w_orig.T).T - (H[gstart:gend][:, others] @ w_upd[:, others].T).T
     sg = s.unsqueeze(-1) * quantize_to_grid(w_upd[:, gstart:gend], s, grid)
     Hgg = H[gstart:gend, gstart:gend]
     return (sg * (Hgg @ sg.T).T).sum(-1) - 2 * (sg * num).sum(-1)
@@ -989,7 +975,7 @@ def test_chunked_groups_sequential_matches_sequential_objective(
     D = n_groups * group_size
     w = random_weights(B, D, seed=11).reshape(B, n_groups, group_size)
     H = spd_matrix(D, seed=12)
-    G = cross_matrix(D, seed=13) if use_G else None
+    G = spd_matrix(D, seed=13) if use_G else None
 
     kw = dict(w_b=w, H=H, unscaled_grid=grid, G=G, eps=SOLVER_EPS, allow_negative_s=False)
     s_seq = _piso_sweep_groups_sequential(**kw).squeeze(-1)
@@ -1020,7 +1006,7 @@ def test_chunked_single_group_sequential_matches_sequential_objective(
     w_orig = random_weights(B, D, seed=21)
     w_upd = random_weights(B, D, seed=22)
     H = spd_matrix(D, seed=23)
-    G = cross_matrix(D, seed=24) if use_G else None
+    G = spd_matrix(D, seed=24) if use_G else None
 
     for gi in range(n_groups):
         kw = dict(

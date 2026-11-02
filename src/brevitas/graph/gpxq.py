@@ -270,19 +270,15 @@ class GPxQ(ABC):
 
         Only called from the act_order branch of the algorithms. Default:
         descending diagonal-Hessian order. PiSOMixin overrides this to keep
-        quantization groups contiguous for groupwise layers.
+        quantization groups contiguous when scales are optimized group by group.
         """
         return torch.argsort(torch.diag(hessian_group), descending=True)
 
     def _on_error_correction_starts(self, perm: torch.Tensor) -> None:
         """Called once the Hessians are ready, before error correction.
 
-        self.H ([groups, columns, columns], damped for GPTQ) and, for algorithms
-        with a cross term (Qronos), self.G ([groups, columns, columns]) are in the
-        column order given by perm. With x_n and x_tilde_n the layer inputs of sample
-        n from the float and the quantized model, H = sum_n x_tilde_n x_tilde_n^T and
-        G = sum_n x_n x_tilde_n^T, up to a common positive scale. Algorithms without
-        a cross term have no G, i.e. the quantized inputs are also the target.
+        The column order of the Hessians depends on the algorithm: GPTQ calls it with
+        its damped H permuted by perm, Qronos with H and G in the natural column order.
 
         No-op by default; PiSO uses it to optimize the layer scale on the fixed
         grid before weights are error-corrected.
