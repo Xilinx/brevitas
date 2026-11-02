@@ -28,8 +28,8 @@ class LayerHandler:
 class layerwise_hook_mode(quantization_status_manager):
     """Base context manager for layer-wise calibration driven by forward hooks.
 
-    Shared by GPxQ (GPTQ / GPFQ / MagR / Qronos) and PiSO scale optimization
-    (optimize_scale_mode). On entry it selects the supported layers, attaches a
+    Shared by GPxQ (GPTQ / GPFQ / MagR / Qronos) and grid optimization
+    (grid_optimization_mode). On entry it selects the supported layers, attaches a
     per-layer forward-pre-hook that accumulates statistics as calibration data
     flows through, and (optionally) swaps in a forward that catches the early-stop
     exception. Once enough data has been fed, update() runs the per-layer solver

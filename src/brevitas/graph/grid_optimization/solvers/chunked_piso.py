@@ -29,9 +29,9 @@ from typing import Tuple
 
 import torch
 
-from brevitas.graph.piso.solvers.common import _piso_grid_deltas
-from brevitas.graph.piso.solvers.common import SCALE_SOLVER_REGISTRY
-from brevitas.graph.piso.solvers.common import ScaleSolverFamily
+from brevitas.graph.grid_optimization.solvers.common import _piso_grid_deltas
+from brevitas.graph.grid_optimization.solvers.common import SCALE_SOLVER_REGISTRY
+from brevitas.graph.grid_optimization.solvers.common import ScaleSolverFamily
 
 # Number of transitions processed per chunk. Larger chunks trade more within-chunk
 # O(C^2) work for fewer sequential iterations (kernel launches on GPU).

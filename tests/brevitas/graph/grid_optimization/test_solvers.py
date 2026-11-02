@@ -1,7 +1,7 @@
 # Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Tests for the PiSO interval-sweep solvers (brevitas.graph.piso.solvers).
+"""Tests for the PiSO interval-sweep solvers (brevitas.graph.grid_optimization.solvers).
 
 Each solver returns, in closed form, the weight-quantization scale that minimizes
 the reconstruction objective
@@ -26,11 +26,11 @@ import math
 import pytest
 import torch
 
-from brevitas.graph.piso.solvers import ChunkedPiSOSolverFamily
-from brevitas.graph.piso.solvers import PiSOSolverFamily
-from brevitas.graph.piso.solvers import ScaleSolverFamily
-from brevitas.graph.piso.utils import make_fp_grid
-from brevitas.graph.piso.utils import make_int_grid
+from brevitas.graph.grid_optimization.solvers import ChunkedPiSOSolverFamily
+from brevitas.graph.grid_optimization.solvers import PiSOSolverFamily
+from brevitas.graph.grid_optimization.solvers import ScaleSolverFamily
+from brevitas.graph.grid_optimization.utils import make_fp_grid
+from brevitas.graph.grid_optimization.utils import make_int_grid
 
 # The sweeps are reached through the family slots rather than imported directly,
 # so a slot that is not implemented resolves to the ScaleSolverFamily stub (which
@@ -1085,7 +1085,7 @@ def test_chunked_rejects_negative_scales():
         (True, True, False, _chunked_piso_sweep_per_group_diag, "diag"),
         (True, False, True, _chunked_piso_sweep_groups_sequential, "greedy"),])
 def test_chunked_piso_family_layer_dispatches(is_group, use_diag, is_greedy, expected, arg_kind):
-    from brevitas.graph.piso.solvers import SCALE_SOLVER_REGISTRY
+    from brevitas.graph.grid_optimization.solvers import SCALE_SOLVER_REGISTRY
     fam = SCALE_SOLVER_REGISTRY.get("chunked-piso")
     solver, kind = fam.get_layer_solver(is_group=is_group, use_diag=use_diag, is_greedy=is_greedy)
     assert solver is expected and kind == arg_kind
@@ -1098,7 +1098,7 @@ def test_chunked_piso_family_layer_dispatches(is_group, use_diag, is_greedy, exp
         (True, False, _chunked_piso_sweep_per_channel_diag, "group-diag"),
         (False, True, _chunked_piso_sweep_single_group_sequential, "group-greedy"),])
 def test_chunked_piso_family_group_dispatches(use_diag, per_group_greedy, expected, tag):
-    from brevitas.graph.piso.solvers import SCALE_SOLVER_REGISTRY
+    from brevitas.graph.grid_optimization.solvers import SCALE_SOLVER_REGISTRY
     fam = SCALE_SOLVER_REGISTRY.get("chunked-piso")
     solver, kind = fam.get_group_solver(use_diag=use_diag, per_group_greedy=per_group_greedy)
     assert solver is expected and kind == tag

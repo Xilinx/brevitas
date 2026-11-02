@@ -17,10 +17,10 @@ from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gptq import gptq_mode
 from brevitas.graph.gpxq import GPxQ
+from brevitas.graph.grid_optimization import GridOptimizationGPTQ
+from brevitas.graph.grid_optimization import GridOptimizationMixin
+from brevitas.graph.grid_optimization import GridOptimizationQronos
 from brevitas.graph.magr import magr_mode
-from brevitas.graph.piso import PiSOInterleavedGPTQ
-from brevitas.graph.piso import PiSOInterleavedQronos
-from brevitas.graph.piso import PiSOMixin
 from brevitas.graph.qronos import Qronos
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas.utils.torch_utils import StopFwdException
@@ -241,10 +241,11 @@ def _block_optimization(
 
 
 def _select_gpxq_class(
-        base_class: Type[GPxQ], piso_class: Type[PiSOMixin],
-        piso_kwargs: Optional[dict]) -> Type[GPxQ]:
-    if piso_kwargs is not None:
-        return partial(piso_class, **piso_kwargs)
+        base_class: Type[GPxQ],
+        grid_optimization_class: Type[GridOptimizationMixin],
+        grid_optimization_kwargs: Optional[dict]) -> Type[GPxQ]:
+    if grid_optimization_kwargs is not None:
+        return partial(grid_optimization_class, **grid_optimization_kwargs)
     return base_class
 
 
@@ -261,7 +262,7 @@ def apply_gptq(
         max_accumulator_tile_size=None,
         buffer_device='cpu',
         buffer_dtype=torch.float32,
-        piso_kwargs=None):
+        grid_optimization_kwargs=None):
     context_manager_kwargs = {
         'act_order': act_order,
         'group_of_parallel_layers': group_of_parallel_layers,
@@ -277,7 +278,7 @@ def apply_gptq(
             max_accumulator_tile_size=max_accumulator_tile_size)
     else:
         context_manager_kwargs['gptq_class'] = _select_gpxq_class(
-            GPTQ, PiSOInterleavedGPTQ, piso_kwargs)
+            GPTQ, GridOptimizationGPTQ, grid_optimization_kwargs)
     if block_name is not None:
         _block_optimization(
             model, dataloader, block_name, context_manager_func, context_manager_kwargs)
@@ -364,10 +365,10 @@ def apply_qronos(
     alpha=1e-6,
     buffer_device='cpu',
     buffer_dtype=torch.float32,
-    piso_kwargs=None,
+    grid_optimization_kwargs=None,
 ):
     assert alpha > 0, "Error: alpha needs to be strictly positive"
-    qronos_class = _select_gpxq_class(Qronos, PiSOInterleavedQronos, piso_kwargs)
+    qronos_class = _select_gpxq_class(Qronos, GridOptimizationQronos, grid_optimization_kwargs)
     # Use paired quantized and float passes to correct errors from previous layers.
     _apply_gpfq_or_qronos(
         model,

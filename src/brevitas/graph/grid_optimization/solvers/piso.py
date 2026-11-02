@@ -31,11 +31,11 @@ from typing import Optional
 
 import torch
 
-from brevitas.graph.piso.solvers.common import _piso_grid_deltas
-from brevitas.graph.piso.solvers.common import _piso_select_optimal
-from brevitas.graph.piso.solvers.common import _piso_select_optimal_straddle
-from brevitas.graph.piso.solvers.common import SCALE_SOLVER_REGISTRY
-from brevitas.graph.piso.solvers.common import ScaleSolverFamily
+from brevitas.graph.grid_optimization.solvers.common import _piso_grid_deltas
+from brevitas.graph.grid_optimization.solvers.common import _piso_select_optimal
+from brevitas.graph.grid_optimization.solvers.common import _piso_select_optimal_straddle
+from brevitas.graph.grid_optimization.solvers.common import SCALE_SOLVER_REGISTRY
+from brevitas.graph.grid_optimization.solvers.common import ScaleSolverFamily
 
 
 def _piso_sweep_per_channel_diag(

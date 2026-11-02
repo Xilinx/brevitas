@@ -11,7 +11,7 @@ from warnings import warn
 from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import create_entrypoint_args_parser
 from brevitas_examples.common.parse_utils import quant_format_validator
-from brevitas_examples.llm.llm_args.calibrate import ScaleOptimizerArgumentParser
+from brevitas_examples.llm.llm_args.calibrate import GridOptimizationArgumentParser
 
 # Export targets that do not require the (optional) `gguf` dependency
 BASE_EXPORT_TARGETS = [
@@ -359,7 +359,9 @@ def create_args_parser() -> ArgumentParser:
     parser.add_argument(
         '--act-calibration', action='store_true', help='Apply activation calibration.')
     parser.add_argument(
-        '--weight-calibration', action='store_true', help='Apply weight calibration.')
+        '--grid-optimization',
+        action='store_true',
+        help='Optimize the weight quantization grids on the calibration data (see --grid-opt-*).')
     parser.add_argument('--bias-corr', action='store_true', help='Apply bias correction.')
     parser.add_argument('--ln-affine-merge', action='store_true', help='Merge LN affine params.')
     parser.add_argument(
@@ -595,8 +597,8 @@ def create_args_parser() -> ArgumentParser:
         default=1,
         help='Batch size for calibration data loader. (default: %(default)s).')
 
-    # Adds Scale Optimization (--sopt-*) flags (PiSO being the current solver instance behind them).
-    ScaleOptimizerArgumentParser.add_arguments(parser)
+    # Adds grid optimization (--grid-opt-*) flags (PiSO being the default scale solver).
+    GridOptimizationArgumentParser.add_arguments(parser)
 
     return parser
 
@@ -707,8 +709,8 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
         if args.input_bit_width and args.input_scale_type == 'static':
             assert args.act_calibration, "Static input quantization is being applied without activation calibration. Set --act-calibration."
 
-    # Validate Scale Optimization (--sopt-*) flags
-    ScaleOptimizerArgumentParser.validate(args, extra_args)
+    # Validate grid optimization (--grid-opt-*) flags
+    GridOptimizationArgumentParser.validate(args, extra_args)
 
 
 def attn_quant_format_validator(value):

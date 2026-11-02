@@ -9,39 +9,39 @@ from warnings import warn
 
 from brevitas_examples.common.parse_utils import AlgorithmArgumentParser
 
-SOPT_PREFIX = "sopt"
-# Reconstruction objectives of --weight-calibration, see apply_weight_calibration.
-SOPT_OBJECTIVES = ['unquantized', 'self-activation', 'cross-activation']
+GRID_OPT_PREFIX = "grid-opt"
+# Reconstruction objectives of --grid-optimization, see apply_grid_optimization.
+GRID_OPT_OBJECTIVES = ['unquantized', 'self-activation', 'cross-activation']
 
 
-class ScaleOptimizerArgumentParser(AlgorithmArgumentParser):
-    """Add and validate the scale optimization arguments."""
+class GridOptimizationArgumentParser(AlgorithmArgumentParser):
+    """Add and validate the grid optimization arguments."""
 
-    prefix = SOPT_PREFIX
+    prefix = GRID_OPT_PREFIX
 
     @staticmethod
-    def add_arguments(parser: ArgumentParser, prefix: str = SOPT_PREFIX) -> None:
+    def add_arguments(parser: ArgumentParser, prefix: str = GRID_OPT_PREFIX) -> None:
 
-        ScaleOptimizerArgumentParser._add(
+        GridOptimizationArgumentParser._add(
             parser,
             prefix,
             'solver',
             type=str,
             default='piso',
             choices=['piso', 'chunked-piso'],
-            help='Scale optimization solver family. chunked-piso is a faster '
-            'per-channel variant that only supports positive scales (symmetric '
-            'grids). Default: piso')
+            help='Solver that optimizes the scale. piso is PiSO (Piecewise Scale '
+            'Optimization); chunked-piso is a faster per-channel variant that only supports '
+            'positive scales (symmetric grids). Default: piso')
 
-        ScaleOptimizerArgumentParser._add_bool(
+        GridOptimizationArgumentParser._add_bool(
             parser,
             prefix,
             'use-quant-activations',
             default=True,
-            help='Use quantized activations during weight calibration. '
+            help='Use quantized activations with --grid-optimization. '
             'Default: enabled')
 
-        ScaleOptimizerArgumentParser._add(
+        GridOptimizationArgumentParser._add(
             parser,
             prefix,
             'solver-batch-size',
@@ -51,14 +51,14 @@ class ScaleOptimizerArgumentParser(AlgorithmArgumentParser):
             'for which the scale is optimized in parallel. When set to None all the scales in the '
             'layer are optimized at the same time (fastest but more memory required).')
 
-        ScaleOptimizerArgumentParser._add(
+        GridOptimizationArgumentParser._add(
             parser,
             prefix,
             'objective',
             type=str,
             default='unquantized',
-            choices=SOPT_OBJECTIVES,
-            help='Reconstruction objective of --weight-calibration, ||X w - s X_tilde q(w)||^2, '
+            choices=GRID_OPT_OBJECTIVES,
+            help='Reconstruction objective of --grid-optimization, ||X w - s X_tilde q(w)||^2, '
             'where X_tilde are the activations the layer sees. '
             'unquantized: X_tilde = X, with the previous layers left unquantized. '
             'self-activation: X_tilde = X, from the quantized previous layers. '
@@ -66,7 +66,7 @@ class ScaleOptimizerArgumentParser(AlgorithmArgumentParser):
             'With --gpxq-use-grid-optimization the objective follows the error-correction '
             'algorithm (GPTQ: self-activation, Qronos: cross-activation). Default: unquantized')
 
-        ScaleOptimizerArgumentParser._add_bool(
+        GridOptimizationArgumentParser._add_bool(
             parser,
             prefix,
             'group-sequential',
@@ -75,17 +75,17 @@ class ScaleOptimizerArgumentParser(AlgorithmArgumentParser):
             'the error from previous groups (sequential heuristic). When disabled, groups are '
             'optimized independently. Default: disabled')
 
-        ScaleOptimizerArgumentParser._add_bool(
+        GridOptimizationArgumentParser._add_bool(
             parser,
             prefix,
             'group-sequential-act-order',
             default=True,
-            help=f'With --{prefix}-group-sequential during weight calibration, process '
+            help=f'With --{prefix}-group-sequential and --grid-optimization, process '
             'groups by descending sum of diag(H) (most important first) instead of natural order. '
             'Ignored with --gpxq-use-grid-optimization, where the column order is controlled by '
             '--gpxq-act-order. Default: enabled')
 
-        ScaleOptimizerArgumentParser._add(
+        GridOptimizationArgumentParser._add(
             parser,
             prefix,
             'hessian-mode',
@@ -99,7 +99,7 @@ class ScaleOptimizerArgumentParser(AlgorithmArgumentParser):
             'identity: ignore the calibration data entirely and use H=I, G=None (pure '
             'weight MSE). Default: dense')
 
-        ScaleOptimizerArgumentParser._add_bool(
+        GridOptimizationArgumentParser._add_bool(
             parser,
             prefix,
             'group-gpxq-layer-interleaved',
@@ -115,20 +115,20 @@ class ScaleOptimizerArgumentParser(AlgorithmArgumentParser):
     def validate(
             args: Namespace,
             extra_args: Optional[List[str]] = None,
-            prefix: str = SOPT_PREFIX) -> None:
+            prefix: str = GRID_OPT_PREFIX) -> None:
 
         def a(suffix: str):
-            return getattr(args, ScaleOptimizerArgumentParser._dest(prefix, suffix))
+            return getattr(args, GridOptimizationArgumentParser._dest(prefix, suffix))
 
-        weight_calibration = args.weight_calibration
+        grid_optimization = args.grid_optimization
         gpxq_use_grid_optimization = args.gpxq_use_grid_optimization
         objective = a('objective')
         layer_interleaved = a('group-gpxq-layer-interleaved')
         hessian_mode = a('hessian-mode')
 
         # Arguments built without argparse (e.g., benchmark sweeps) skip `choices`.
-        assert objective in SOPT_OBJECTIVES, \
-            f"--{prefix}-objective must be one of {SOPT_OBJECTIVES}, got {objective!r}."
+        assert objective in GRID_OPT_OBJECTIVES, \
+            f"--{prefix}-objective must be one of {GRID_OPT_OBJECTIVES}, got {objective!r}."
 
         if gpxq_use_grid_optimization:
             assert args.gptq or args.qronos, \
@@ -136,7 +136,7 @@ class ScaleOptimizerArgumentParser(AlgorithmArgumentParser):
             if layer_interleaved:
                 assert args.weight_quant_granularity == 'per_group', \
                     f"--{prefix}-group-gpxq-layer-interleaved only applies to per-group weight quantization."
-            if not weight_calibration:
+            if not grid_optimization:
                 # The interleaved objective follows the algorithm, so an explicit
                 # objective that disagrees with it would otherwise be ignored silently.
                 implied_objective = 'self-activation' if args.gptq else 'cross-activation'
@@ -149,13 +149,13 @@ class ScaleOptimizerArgumentParser(AlgorithmArgumentParser):
             assert not layer_interleaved, \
                 f"--{prefix}-group-gpxq-layer-interleaved requires --gpxq-use-grid-optimization."
 
-        if weight_calibration or gpxq_use_grid_optimization:
+        if grid_optimization or gpxq_use_grid_optimization:
             if hessian_mode == 'diagonal':
                 warn(
                     f"--{prefix}-hessian-mode diagonal: only the diagonal of H (and G) is used for "
-                    "scale optimization; off-diagonal cross-weight interactions are discarded.")
+                    "grid optimization; off-diagonal cross-weight interactions are discarded.")
             elif hessian_mode == 'identity':
                 warn(
-                    f"--{prefix}-hessian-mode identity: scale optimization is data-free (H=I, "
+                    f"--{prefix}-hessian-mode identity: grid optimization is data-free (H=I, "
                     "G=None, pure weight MSE). Note the calibration forward passes still run with "
                     "the current implementation, but the computed H and G matrices are ignored.")

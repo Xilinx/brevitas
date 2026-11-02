@@ -3,7 +3,7 @@
 
 """Benchmark entry point reproducing the tables of the PiSO paper.
 
-The YAML configs sweep the scale-selection axis (``--sopt-*``) against the error
+The YAML configs sweep the scale-selection axis (``--grid-opt-*``) against the error
 correction axis (``--gptq`` / ``--qronos``). Their Cartesian product contains many
 combinations that do not correspond to a row of the paper, e.g. an ``absmax`` run
 repeated for each objective, or a data-free run combined with a group
@@ -28,31 +28,31 @@ class PiSOEntryPointUtils(LLMEntryPointUtils):
     def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
         LLMEntryPointUtils.validate(args=args, extra_args=extra_args)
 
-        grid_optimization = args.weight_calibration or args.gpxq_use_grid_optimization
-        assert not (args.weight_calibration and args.gpxq_use_grid_optimization), \
+        optimizes_grid = args.grid_optimization or args.gpxq_use_grid_optimization
+        assert not (args.grid_optimization and args.gpxq_use_grid_optimization), \
             "The paper applies grid optimization either before or during error correction."
-        assert args.sopt_objective != 'unquantized', \
+        assert args.grid_opt_objective != 'unquantized', \
             "The paper uses quantized activations for scale reconstruction."
 
-        if not grid_optimization:
-            # absmax baseline: without scale optimization every --sopt-* modifier is
+        if not optimizes_grid:
+            # absmax baseline: without grid optimization every --grid-opt-* modifier is
             # inert, so pin them to discard the duplicates they would generate.
-            assert args.sopt_hessian_mode != 'identity', \
+            assert args.grid_opt_hessian_mode != 'identity', \
                 "The data-free baseline requires grid optimization."
-            assert not args.sopt_group_sequential, \
+            assert not args.grid_opt_group_sequential, \
                 "Group heuristics require grid optimization."
-            assert args.sopt_objective == 'cross-activation', \
+            assert args.grid_opt_objective == 'cross-activation', \
                 "The objective is pinned to deduplicate this baseline."
             return
 
         expected_objective = 'self-activation' if args.gptq else 'cross-activation'
-        assert args.sopt_objective == expected_objective, \
+        assert args.grid_opt_objective == expected_objective, \
             "The scale objective must match the error correction algorithm."
 
-        if args.sopt_hessian_mode == 'identity':
+        if args.grid_opt_hessian_mode == 'identity':
             # Data-free baseline: minimizes ||w - s q(w)||^2 through the diagonal
             # path, which never reads the group heuristic.
-            assert not args.sopt_group_sequential, \
+            assert not args.grid_opt_group_sequential, \
                 "Group heuristics are inert for the data-free baseline; pinned to deduplicate."
             # Layer-interleaved optimizes the scale before error correction starts on
             # the layer, so the weights are still the original ones and the scales
@@ -60,14 +60,14 @@ class PiSOEntryPointUtils(LLMEntryPointUtils):
             # different: each group is fitted on weights that already carry the error
             # diffused by the preceding groups.
             if args.gpxq_use_grid_optimization:
-                assert not args.sopt_group_gpxq_layer_interleaved, \
+                assert not args.grid_opt_group_gpxq_layer_interleaved, \
                     "Layer-interleaved data-free reproduces the decoupled run; deduplicated."
                 assert args.weight_quant_granularity == 'per_group', \
                     "Per-channel data-free is always layer-interleaved; deduplicated."
 
         if args.weight_quant_granularity == 'per_channel':
-            assert not args.sopt_group_sequential, \
-                "--sopt-group-sequential requires per-group weights."
+            assert not args.grid_opt_group_sequential, \
+                "--grid-opt-group-sequential requires per-group weights."
 
 
 class PiSOBenchmark(LLMGridBenchmark):

@@ -1,29 +1,28 @@
 # Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Applying PiSO to a model.
+"""Applying grid optimization to a model.
 
-The layer-level and group-wise updaters (ScaleOptimizer / ScaleOptimizerGroupInterleaved)
+The layer-level and group-wise updaters (GridOptimizer / GridOptimizerGroupInterleaved)
 that run the solvers and write scales into a layer's weight quantizer, the
-calibration hook (PiSOLayerHandler) and standalone driver (optimize_scale_mode),
-and the mixins that interleave PiSO with GPTQ / Qronos error correction.
+calibration hook (GridOptimizationHandler) and standalone driver
+(grid_optimization_mode), and the mixins that interleave grid optimization with
+GPTQ / Qronos error correction.
 
-PiSO computes the weight quantization scale that minimizes the layer output
-reconstruction error ||X w - s X_tilde q(w; s)||^2 exactly, under
-round-to-nearest quantization. Two objectives are supported through the choice of
-Hessians H = X_tilde^T X_tilde and G = X_tilde^T X (see ScaleOptimizer):
+Grid optimization chooses the weight quantization grid that minimizes the layer output
+reconstruction error ||X w - s X_tilde q(w; s)||^2; currently, the scale s of the grid.
+Two objectives are supported through the choice of Hessians H = X_tilde^T X_tilde
+and G = X_tilde^T X (see GridOptimizer):
   - self-activation (GPTQ-style): pass only H (G defaults to H);
   - cross-activation (Qronos/GPTAQ-style): pass both H and G.
 Which activations X_tilde and X are (e.g. whether the previous layers are quantized)
 is decided by whoever produces H and G: the GPTQ / Qronos classes composed with
-PiSOMixin below, or the caller of optimize_scale_mode, which runs the forward passes.
+GridOptimizationMixin below, or the caller of grid_optimization_mode, which runs the
+forward passes.
 
-The algorithm core (the _piso_sweep_* solvers) lives in .solvers and the grid
-builders / ordering helpers in .utils. Entry points for the LLM example live in
+The scale solvers live in .solvers and the grid builders / ordering helpers in
+.utils. Entry points for the LLM example live in
 brevitas_examples.llm.llm_quant.calibrate.
-
-Reference: "Optimal Post-Training Quantization Scales and Where to Find Them"
-(https://arxiv.org/abs/2606.10890).
 """
 
 from functools import partial
@@ -38,17 +37,17 @@ import torch.nn as nn
 from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gpxq import accumulate_hessian
 from brevitas.graph.gpxq import ModuleOptimizer
+from brevitas.graph.grid_optimization.solvers import SCALE_SOLVER_REGISTRY
+from brevitas.graph.grid_optimization.utils import _build_grid
+from brevitas.graph.grid_optimization.utils import _get_base_scale
+from brevitas.graph.grid_optimization.utils import _grid_threshold
+from brevitas.graph.grid_optimization.utils import _has_base_scale
+from brevitas.graph.grid_optimization.utils import _has_zero_zero_point
+from brevitas.graph.grid_optimization.utils import _is_float_weight_quant
+from brevitas.graph.grid_optimization.utils import _is_int_weight_quant
+from brevitas.graph.grid_optimization.utils import _set_base_scale
+from brevitas.graph.grid_optimization.utils import compute_group_importance_permutation
 from brevitas.graph.layerwise_hook import layerwise_hook_mode
-from brevitas.graph.piso.solvers import SCALE_SOLVER_REGISTRY
-from brevitas.graph.piso.utils import _build_grid
-from brevitas.graph.piso.utils import _get_base_scale
-from brevitas.graph.piso.utils import _grid_threshold
-from brevitas.graph.piso.utils import _has_base_scale
-from brevitas.graph.piso.utils import _has_zero_zero_point
-from brevitas.graph.piso.utils import _is_float_weight_quant
-from brevitas.graph.piso.utils import _is_int_weight_quant
-from brevitas.graph.piso.utils import _set_base_scale
-from brevitas.graph.piso.utils import compute_group_importance_permutation
 from brevitas.graph.qronos import Qronos
 from brevitas.graph.utils import is_quant_module
 from brevitas.utils.torch_utils import StopFwdException
@@ -59,19 +58,19 @@ from brevitas.utils.torch_utils import StopFwdException
 HESSIAN_MODES = ('dense', 'diagonal', 'identity')
 
 
-class ScaleOptimizer:
-    """Applies PiSO to a layer, writing optimized scales into its weight quantizer.
+class GridOptimizer:
+    """Optimizes a layer's weight quantization grid, writing the result into its quantizer.
 
     This is the layer-level updater: single_layer_update takes the Hessians
     H (and optional G), runs the appropriate solver for the layer's granularity
     (per-channel or per-group) and configuration, and writes all scales at once.
     It therefore holds no per-group state. The solver family is selected by name
-    from SCALE_SOLVER_REGISTRY (default 'piso').
+    from SCALE_SOLVER_REGISTRY (default 'piso', see .solvers).
 
-    ScaleOptimizerGroupInterleaved is the alternative for interleaving with error
+    GridOptimizerGroupInterleaved is the alternative for interleaving with error
     correction: it defers work, updating one group's scale at a time as GPTQ/Qronos
     reaches it. The error-correction code (gptq.py / qronos.py) drives both through
-    a common protocol (single_group_update, clear_scale_optimizer_params)
+    a common protocol (single_group_update, clear_grid_optimizer_params)
     so it never needs to know which concrete class it holds. The base class provides
     no-op versions of the group-wise hooks.
     """
@@ -113,7 +112,7 @@ class ScaleOptimizer:
         """Compute and write the optimized scales for layer in one shot.
 
         Builds the quantization grid from the layer's quantizer, selects the
-        matching _piso_sweep_* solver (per-channel vs per-group, full vs
+        matching solver of the family (per-channel vs per-group, full vs
         diagonal H, greedy sequential), runs it in batches over output
         channels, and stores optimal_s * threshold into the weight quantizer's
         scaling parameter. H/G are the Hessians of Eq. H,G-def (H = X_tilde^T X_tilde,
@@ -126,7 +125,7 @@ class ScaleOptimizer:
         _prepare_matrices (shape/permute H/G/W) and _bind_solver_matrices (bind
         its arguments); the rest is solver-agnostic.
         """
-        if not ScaleOptimizer.is_layer_valid(layer):
+        if not GridOptimizer.is_layer_valid(layer):
             return
 
         # Extract the quantization configuration from the layer's weight quantizer
@@ -311,45 +310,44 @@ class ScaleOptimizer:
 
     @staticmethod
     def is_layer_valid(layer: nn.Module) -> bool:
-        """Whether PiSO supports layer: a signed, weight-quantized QuantLinear
+        """Whether grid optimization supports layer: a signed, weight-quantized QuantLinear
         with a parameter-from-stats scale, per-channel or per-group, int (with zero
         zero-point) or float. Returns False (warning that the layer is skipped)
         instead of raising on any mismatch."""
         try:
             if not is_quant_module(layer):
-                warnings.warn("Skipping scale optimization: layer is not a quant module.")
+                warnings.warn("Skipping grid optimization: layer is not a quant module.")
                 return False
             if not layer.weight_quant.is_quant_enabled:
                 warnings.warn(
-                    "Skipping scale optimization: layer weight quantization is not enabled.")
+                    "Skipping grid optimization: layer weight quantization is not enabled.")
                 return False
             if not isinstance(layer, nn.Linear):
-                warnings.warn("Skipping scale optimization: PiSO only supports nn.Linear layers.")
+                warnings.warn("Skipping grid optimization: only nn.Linear layers are supported.")
                 return False
             if not _has_base_scale(layer):
                 warnings.warn(
-                    "Skipping scale optimization: layer scale is not a "
+                    "Skipping grid optimization: layer scale is not a "
                     "ParameterFromStatsFromParameterScaling.")
                 return False
             if not layer.weight_quant.is_signed:
-                warnings.warn(
-                    "Skipping scale optimization: PiSO requires a signed weight quantizer.")
+                warnings.warn("Skipping grid optimization: a signed weight quantizer is required.")
                 return False
             if _is_float_weight_quant(layer.weight_quant):
                 pass  # float weight quantizers have no zero-point requirement
             elif _is_int_weight_quant(layer.weight_quant):
                 if not _has_zero_zero_point(layer):
                     warnings.warn(
-                        "Skipping scale optimization: int weight quantizer must have a zero "
+                        "Skipping grid optimization: int weight quantizer must have a zero "
                         "zero-point.")
                     return False
             else:
                 warnings.warn(
-                    "Skipping scale optimization: only int and float weight quantizers are "
+                    "Skipping grid optimization: only int and float weight quantizers are "
                     "supported.")
                 return False
         except Exception:
-            warnings.warn("Skipping scale optimization: layer validity check raised.")
+            warnings.warn("Skipping grid optimization: layer validity check raised.")
             return False
         return True
 
@@ -358,35 +356,35 @@ class ScaleOptimizer:
 
         No-op here: the layer-level updater computes every scale in
         single_layer_update. Error-correction code may call this on any updater;
-        only ScaleOptimizerGroupInterleaved acts on it.
+        only GridOptimizerGroupInterleaved acts on it.
         """
         pass
 
-    def clear_scale_optimizer_params(self) -> None:
+    def clear_grid_optimizer_params(self) -> None:
         """Release any per-layer state held for interleaved updates.
 
         No-op here (the layer-level updater keeps none). Overridden by
-        ScaleOptimizerGroupInterleaved and safe to call unconditionally.
+        GridOptimizerGroupInterleaved and safe to call unconditionally.
         """
         pass
 
 
-class ScaleOptimizerGroupInterleaved(ScaleOptimizer):
-    """Group-wise PiSO updater for interleaving with error correction.
+class GridOptimizerGroupInterleaved(GridOptimizer):
+    """Group-wise updater for interleaving with error correction.
 
     Instead of computing all scales at once, this defers to per-group updates:
-    init_scale_optimizer_params stores the layer's Hessians/grid/permutation, then GPTQ or
+    init_grid_optimizer_params stores the layer's Hessians/grid/permutation, then GPTQ or
     Qronos calls single_group_update as it reaches each group (so the scale is
     fit on weights already carrying earlier groups' error-diffusion updates), and
-    clear_scale_optimizer_params releases the state when the layer is done.
+    clear_grid_optimizer_params releases the state when the layer is done.
     """
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # Indicates whether init_scale_optimizer_params has been called and the layer state is valid.
+        # Indicates whether init_grid_optimizer_params has been called and the layer state is valid.
         self._params_initialized = False
 
-    def init_scale_optimizer_params(
+    def init_grid_optimizer_params(
             self,
             layer: nn.Module,
             perm: torch.Tensor,
@@ -398,15 +396,15 @@ class ScaleOptimizerGroupInterleaved(ScaleOptimizer):
         Records the Hessians (natural column order, in the layout documented in
         single_layer_update), the quantization grid, and perm (the group-aware
         column order the caller is using) so later single_group_update calls can
-        map a column index to its group. Must be paired with clear_scale_optimizer_params.
+        map a column index to its group. Must be paired with clear_grid_optimizer_params.
 
         Expects layer's params to be allocated already: GPTQ and Qronos both call
         allocate_params at the top of single_layer_update.
         """
         if self._params_initialized:
             raise RuntimeError(
-                "Scale optimizer params already initialized; call "
-                "clear_scale_optimizer_params before initializing a new layer.")
+                "Grid optimizer params already initialized; call "
+                "clear_grid_optimizer_params before initializing a new layer.")
         self._params_initialized = True
 
         # Extract the quantization configuration from the layer's weight quantizer
@@ -464,8 +462,8 @@ class ScaleOptimizerGroupInterleaved(ScaleOptimizer):
             self.H = H
             self.G = G
 
-    def clear_scale_optimizer_params(self) -> None:
-        """Release the per-layer state recorded by init_scale_optimizer_params.
+    def clear_grid_optimizer_params(self) -> None:
+        """Release the per-layer state recorded by init_grid_optimizer_params.
 
         Idempotent: safe to call even if no layer is set, so callers can invoke it
         unconditionally (e.g. on error paths) without tracking state.
@@ -499,8 +497,8 @@ class ScaleOptimizerGroupInterleaved(ScaleOptimizer):
         """
         if not self._params_initialized:
             raise RuntimeError(
-                "Scale optimizer params not initialized; call "
-                "init_scale_optimizer_params before single_group_update.")
+                "Grid optimizer params not initialized; call "
+                "init_grid_optimizer_params before single_group_update.")
         if incoming_idx % self.group_size != 0:
             return
         incoming_group_idx = self.perm[incoming_idx] // self.group_size
@@ -553,13 +551,13 @@ class ScaleOptimizerGroupInterleaved(ScaleOptimizer):
                 self.G[start:end, start:end]))
 
 
-class PiSOLayerHandler(ModuleOptimizer):
-    """Per-layer forward hook that accumulates the Hessians PiSO needs.
+class GridOptimizationHandler(ModuleOptimizer):
+    """Per-layer forward hook that accumulates the Hessians grid optimization needs.
 
-    One is attached to each supported layer by optimize_scale_mode. As calibration
+    One is attached to each supported layer by grid_optimization_mode. As calibration
     data flows through, update_batch incrementally builds the Hessians H and G
     from the layer inputs. Once calibration is done, single_layer_update hands
-    them to the ScaleOptimizer to compute and write the scales.
+    them to the GridOptimizer to compute and write the scales.
     """
 
     def __init__(
@@ -569,7 +567,7 @@ class PiSOLayerHandler(ModuleOptimizer):
             len_parallel_layers: int,
             cross_act_objective: bool,
             matrix_dtype: torch.dtype,
-            scale_optimizer: ScaleOptimizer) -> None:
+            grid_optimizer: GridOptimizer) -> None:
         # The Hessians are kept on the device of the layer weights, and the scales are
         # optimized without a copy of the original weights.
         super().__init__(
@@ -580,7 +578,7 @@ class PiSOLayerHandler(ModuleOptimizer):
             device='same',
             dtype=matrix_dtype)
         self.cross_act_objective = cross_act_objective
-        self.scale_optimizer = scale_optimizer
+        self.grid_optimizer = grid_optimizer
 
         self.H = torch.zeros((self.groups, self.columns, self.columns),
                              device=self.device,
@@ -612,20 +610,20 @@ class PiSOLayerHandler(ModuleOptimizer):
         raise StopFwdException
 
     def single_layer_update(self):
-        # ScaleOptimizer.single_layer_update owns the allocate/offload pair here.
-        self.scale_optimizer.single_layer_update(layer=self.layer, H=self.H, G=self.G)
+        # GridOptimizer.single_layer_update owns the allocate/offload pair here.
+        self.grid_optimizer.single_layer_update(layer=self.layer, H=self.H, G=self.G)
         del self.H, self.G
 
 
-class optimize_scale_mode(layerwise_hook_mode):
-    """Context manager that runs standalone (decoupled) PiSO over a whole model.
+class grid_optimization_mode(layerwise_hook_mode):
+    """Context manager that runs standalone (decoupled) grid optimization over a model.
 
-    On entry it selects the supported layers, attaches a PiSOLayerHandler hook to
+    On entry it selects the supported layers, attaches a GridOptimizationHandler hook to
     each, and swaps in a forward that catches the early-stop exception. The caller
     feeds calibration data through the model to
     accumulate Hessians, then calls update to optimize every layer's scales. This is
-    the standalone path; the interleaved path instead runs PiSO inside GPTQ/Qronos
-    (PiSOInterleavedGPTQ / PiSOInterleavedQronos).
+    the standalone path; the interleaved path instead runs it inside GPTQ/Qronos
+    (GridOptimizationGPTQ / GridOptimizationQronos).
 
     Like gpfq_mode, it never enables or disables quantization: the caller runs
     every forward pass under the quantization state its objective needs.
@@ -656,7 +654,7 @@ class optimize_scale_mode(layerwise_hook_mode):
             hessian_mode: str = 'dense',
             solver: str = 'piso') -> None:
 
-        self.scale_optimizer = ScaleOptimizer(
+        self.grid_optimizer = GridOptimizer(
             solver_dtype=solver_dtype,
             solver_device='cuda' if torch.cuda.is_available() else 'cpu',
             tolerance=tolerance,
@@ -682,7 +680,7 @@ class optimize_scale_mode(layerwise_hook_mode):
         )
 
     def _is_module_supported(self, module) -> bool:
-        return ScaleOptimizer.is_layer_valid(module)
+        return GridOptimizer.is_layer_valid(module)
 
     def catch_stopfwd(self, *args, **kwargs):
         try:
@@ -696,24 +694,24 @@ class optimize_scale_mode(layerwise_hook_mode):
 
     def initialize_module_optimizer(self, layer, name, len_parallel_layers, create_weight_orig):
         # create_weight_orig is part of the shared initialize_module_optimizer contract
-        # but unused: PiSO keeps no copy of the original weights.
-        return PiSOLayerHandler(
+        # but unused: grid optimization keeps no copy of the original weights.
+        return GridOptimizationHandler(
             layer=layer,
             name=name,
             len_parallel_layers=len_parallel_layers,
             cross_act_objective=self.cross_act_objective,
             matrix_dtype=self.matrix_dtype,
-            scale_optimizer=self.scale_optimizer)
+            grid_optimizer=self.grid_optimizer)
 
     def _validate_args(self) -> None:
         # TODO (jpga) Move this to LLM args maybe? unsure about it, as the class could be used in other wrokflows
-        if self.scale_optimizer.hessian_mode == 'diagonal':
+        if self.grid_optimizer.hessian_mode == 'diagonal':
             warnings.warn(
                 'hessian_mode="diagonal": only the diagonal of H (and G) is used, so off-diagonal '
                 'cross-weight interactions are discarded.')
-        elif self.scale_optimizer.hessian_mode == 'identity':
+        elif self.grid_optimizer.hessian_mode == 'identity':
             warnings.warn(
-                'hessian_mode="identity": scale optimization is data-free (H=I, G=None, pure weight '
+                'hessian_mode="identity": grid optimization is data-free (H=I, G=None, pure weight '
                 'MSE). The calibration forward passes still run, but the computed H and G are ignored.'
             )
 
@@ -722,18 +720,18 @@ class optimize_scale_mode(layerwise_hook_mode):
 # Integration with error correction (GPTQ / Qronos).
 #
 # GPTQ and Qronos expose extension hooks on the base GPxQ class (see
-# brevitas.graph.gpxq). PiSOMixin overrides them to interleave PiSO scale optimization
-# with error correction. The concrete classes at the bottom compose it with GPTQ /
+# brevitas.graph.gpxq). GridOptimizationMixin overrides them to interleave grid
+# optimization with error correction. The concrete classes at the bottom compose it with GPTQ /
 # Qronos, mirroring the A2GPTQ(_AXE, GPTQ) pattern already used in brevitas for AXE.
 #
 # TODO: Consider moving these mixins to a separate file.
 # -----------------------------------------------------------------------------
 
 
-class PiSOMixin:
-    """Interleave PiSO scale optimization with error correction.
+class GridOptimizationMixin:
+    """Interleave grid optimization with error correction.
 
-    Builds the layer's updater from scale_optimizer_kwargs: group-wise for groupwise
+    Builds the layer's updater from grid_optimizer_kwargs: group-wise for groupwise
     layers unless layer_interleaved is set, layer-level otherwise. It overrides the
     GPxQ hooks so GPTQ / Qronos stay free of scale-specific branching:
       - _resolve_blocksize: align error-correction blocks with quantization groups;
@@ -744,16 +742,16 @@ class PiSOMixin:
       - _on_column_reached: optimize a group's scale at its first column;
       - _on_layer_finished: release the updater's per-layer state.
 
-    Concrete subclasses provide _prepare_input_scale_optimizer to return the (H, G) matrices in
+    Concrete subclasses provide _prepare_input_grid_optimizer to return the (H, G) matrices in
     the layout the updater expects; G is None for the GPTQ objective.
     """
 
-    def __init__(self, *args, scale_optimizer_kwargs, layer_interleaved=False, **kwargs):
+    def __init__(self, *args, grid_optimizer_kwargs, layer_interleaved=False, **kwargs):
         super().__init__(*args, **kwargs)
         if self.layer.weight_quant.is_groupwise and not layer_interleaved:
-            self.scale_optimizer = ScaleOptimizerGroupInterleaved(**scale_optimizer_kwargs)
+            self.grid_optimizer = GridOptimizerGroupInterleaved(**grid_optimizer_kwargs)
         else:
-            self.scale_optimizer = ScaleOptimizer(**scale_optimizer_kwargs)
+            self.grid_optimizer = GridOptimizer(**grid_optimizer_kwargs)
 
     def _resolve_blocksize(self, num_blocks: int) -> int:
         weight_quant = self.layer.weight_quant
@@ -765,28 +763,28 @@ class PiSOMixin:
         # The group-wise updater optimizes a group's scale when its first column is
         # reached, so it needs the groups processed contiguously. The layer-level updater
         # fixes every scale before error correction and keeps the plain order.
-        if isinstance(self.scale_optimizer, ScaleOptimizerGroupInterleaved):
+        if isinstance(self.grid_optimizer, GridOptimizerGroupInterleaved):
             perm, _ = compute_group_importance_permutation(
                 x=hessian_group.diag(), group_size=self.layer.weight_quant.group_size)
             return perm
         return super()._act_order_permutation(hessian_group)
 
     def _on_error_correction_starts(self, perm: torch.Tensor) -> None:
-        H, G = self._prepare_input_scale_optimizer(perm)
-        if isinstance(self.scale_optimizer, ScaleOptimizerGroupInterleaved):
-            self.scale_optimizer.init_scale_optimizer_params(layer=self.layer, perm=perm, H=H, G=G)
+        H, G = self._prepare_input_grid_optimizer(perm)
+        if isinstance(self.grid_optimizer, GridOptimizerGroupInterleaved):
+            self.grid_optimizer.init_grid_optimizer_params(layer=self.layer, perm=perm, H=H, G=G)
         else:
             G = None if G is None else G.unsqueeze(0)
-            self.scale_optimizer.single_layer_update(
+            self.grid_optimizer.single_layer_update(
                 self.layer, H.unsqueeze(0), G, skip_offload=True)
 
     def _on_column_reached(self, column_idx: int) -> None:
-        self.scale_optimizer.single_group_update(column_idx)
+        self.grid_optimizer.single_group_update(column_idx)
 
     def _on_layer_finished(self) -> None:
-        self.scale_optimizer.clear_scale_optimizer_params()
+        self.grid_optimizer.clear_grid_optimizer_params()
 
-    def _prepare_input_scale_optimizer(
+    def _prepare_input_grid_optimizer(
             self, perm: torch.Tensor) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         """Return (H, G) for the updater, in the layer's natural column order.
 
@@ -795,8 +793,8 @@ class PiSOMixin:
         raise NotImplementedError
 
 
-class PiSOInterleavedGPTQ(PiSOMixin, GPTQ):
-    """GPTQ with PiSO scale optimization interleaved with error correction.
+class GridOptimizationGPTQ(GridOptimizationMixin, GPTQ):
+    """GPTQ with grid optimization interleaved with error correction.
 
     The updater built for each layer selects the variant. The layer-level updater is the
     layer-interleaved one (paper "Interleaved layer-wise optimization"): the layer scale is
@@ -805,30 +803,30 @@ class PiSOInterleavedGPTQ(PiSOMixin, GPTQ):
     before error correction quantizes that group, with the groups processed contiguously.
     """
 
-    def _prepare_input_scale_optimizer(
+    def _prepare_input_grid_optimizer(
             self, perm: torch.Tensor) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         # GPTQ only keeps H; undo the act_order permutation so H is in the layer's
-        # natural column order, which is what the ScaleOptimizer expects.
+        # natural column order, which is what the GridOptimizer expects.
         if self.groups != 1:
-            raise ValueError("Scale optimization inside gptq requires groups == 1")
+            raise ValueError("Grid optimization inside GPTQ requires groups == 1")
         inv_perm = torch.empty_like(perm, device=self.H.device)
         inv_perm[perm] = torch.arange(len(perm), device=self.H.device)
         H = self.H.squeeze()[:, inv_perm][inv_perm, :]
         return H, None
 
 
-class PiSOInterleavedQronos(PiSOMixin, Qronos):
-    """Qronos with PiSO scale optimization interleaved with error correction.
+class GridOptimizationQronos(GridOptimizationMixin, Qronos):
+    """Qronos with grid optimization interleaved with error correction.
 
-    See PiSOInterleavedGPTQ for the layer- and group-interleaved variants.
+    See GridOptimizationGPTQ for the layer- and group-interleaved variants.
     """
 
-    def _prepare_input_scale_optimizer(
+    def _prepare_input_grid_optimizer(
             self, perm: torch.Tensor) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         # Qronos keeps H and G in the natural column order. G is transposed to match the
-        # ScaleOptimizer's convention (G = X_tilde^T X).
+        # GridOptimizer's convention (G = X_tilde^T X).
         if self.groups != 1:
-            raise ValueError("scale optimization inside qronos requires groups == 1")
+            raise ValueError("Grid optimization inside Qronos requires groups == 1")
         H = self.H.squeeze()
         G = self.G.squeeze().T
         return H, G

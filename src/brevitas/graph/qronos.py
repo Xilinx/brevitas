@@ -42,7 +42,7 @@ class Qronos(GPFQ):
         super().__init__(
             layer, name, act_order, len_parallel_layers, create_weight_orig, device, dtype)
 
-        # Mixins may override _resolve_blocksize (e.g. PiSO aligns blocks with groups).
+        # Mixins may override _resolve_blocksize (e.g. grid optimization aligns blocks with groups).
         self.blocksize = self._resolve_blocksize(num_blocks)
 
         self.alpha = alpha
@@ -177,9 +177,10 @@ class Qronos(GPFQ):
             permutation_list.append(perm.to(dev))
             self.iH[group_index] = self.iH[group_index, perm, :][:, perm]
 
-        # Hook before error correction. PiSO optimizes the layer scale here.
+        # Hook before error correction. Grid optimization sets the layer scale here.
         # Error correction starts after the least-squares projection.
-        # H and G keep the natural column order at this point. PiSO supports one group only.
+        # H and G keep the natural column order at this point. Grid optimization supports
+        # one group only.
         self._on_error_correction_starts(permutation_list[0])
 
         del self.G, self.H  # memory management
