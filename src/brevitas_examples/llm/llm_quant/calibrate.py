@@ -4,6 +4,7 @@
 from argparse import Namespace
 from functools import partial
 from typing import List
+from warnings import warn
 
 import torch
 import torch.nn as nn
@@ -34,10 +35,16 @@ def build_piso_kwargs(args: Namespace) -> dict:
     self-activation, Qronos: cross-activation), whose PiSO classes decide whether
     the optimizer receives G.
     """
+    if args.weight_quant_granularity not in ("per_group", "per_channel"):
+        raise NotImplementedError(
+            "Scale optimization inside GPTQ/Qronos supports per-channel and per-group "
+            f"weight quantization, got {args.weight_quant_granularity}.")
+    # Use the GPU for the solver when it is available.
+    solver_device = 'cuda' if torch.cuda.is_available() else 'cpu'
     return {
         'scale_optimizer_kwargs': {
-            'solver_dtype': S_DTYPE,  # Use the GPU for the solver when it is available.
-            'solver_device': 'cuda' if torch.cuda.is_available() else 'cpu',
+            'solver_dtype': S_DTYPE,
+            'solver_device': solver_device,
             'tolerance': S_TOLERANCE,
             'solver_batch_size': args.sopt_solver_batch_size,
             'per_group_greedy': args.sopt_group_sequential,
@@ -80,6 +87,11 @@ def _pass_managers(model: nn.Module, objective: str,
 @torch.no_grad()
 def apply_weight_calibration(
         model: nn.Module, dataloader: torch.utils.data.DataLoader, args: Namespace) -> None:
+
+    if args.input_bit_width is not None:
+        warn(
+            "Scale optimization with activation (input) quantization is untested; "
+            "results may be unreliable.")
 
     objective = args.sopt_objective
     pass_managers = partial(

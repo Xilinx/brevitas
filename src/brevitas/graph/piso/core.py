@@ -12,12 +12,9 @@ correction.
 PiSO computes the weight quantization scale that minimizes the layer output
 reconstruction error ||X w - s X_tilde q(w; s)||^2 exactly, under
 round-to-nearest quantization. Two objectives are supported through the choice of
-Hessians H = X_tilde^T X_tilde and G = X^T X_tilde (see ScaleOptimizer), so that the
-cross term of the objective is w^T G q:
+Hessians H = X_tilde^T X_tilde and G = X_tilde^T X (see ScaleOptimizer):
   - self-activation (GPTQ-style): pass only H (G defaults to H);
   - cross-activation (Qronos/GPTAQ-style): pass both H and G.
-These are the Hessians GPTQ and Qronos accumulate themselves (G = sum_n x_n x_tilde_n^T
-over the float and quantized layer inputs), so PiSO consumes them without conversion.
 Which activations X_tilde and X are (e.g. whether the previous layers are quantized)
 is decided by whoever produces H and G: the GPTQ / Qronos classes composed with
 PiSOMixin below, or the caller of optimize_scale_mode, which runs the forward passes.
@@ -118,12 +115,11 @@ class ScaleOptimizer:
         matching _piso_sweep_* solver (per-channel vs per-group, full vs
         diagonal H, greedy sequential), runs it in batches over output
         channels, and stores optimal_s * threshold into the weight quantizer's
-        scaling parameter. H/G are the Hessians of Eq. H,G-def in the layout GPTQ and
-        Qronos use (H = X_tilde^T X_tilde, G = X^T X_tilde, so the cross term is
-        w^T G q); G=None selects the self-activation objective (the solvers then use
-        H in place of G). skip_offload means the caller manages the layer params: it
-        has allocated them already and will offload them later, so neither is done
-        here.
+        scaling parameter. H/G are the Hessians of Eq. H,G-def (H = X_tilde^T X_tilde,
+        G = X_tilde^T X); G=None selects the self-activation objective (the solvers
+        then use H in place of G). skip_offload means the caller manages the layer
+        params: it has allocated them already and will offload them later, so neither
+        is done here.
 
         Solver-specific work is split across _select_solver (choose the function),
         _prepare_matrices (shape/permute H/G/W) and _bind_solver_matrices (bind
@@ -562,8 +558,8 @@ class PiSODecoupledMixin:
     optimize_scale_mode attaches a GPTQ (self-activation) or Qronos (cross-activation)
     instance to each layer, so the Hessians are accumulated by the same code that
     error correction uses. single_layer_update then hands the accumulated, undamped H
-    (and G) to the ScaleOptimizer, and frees the matrices so they do not stay alive
-    for the rest of the calibration.
+    (and G, in the layout the ScaleOptimizer expects) to the ScaleOptimizer, and frees
+    the matrices so they do not stay alive for the rest of the calibration.
     """
 
     def __init__(self, *args, scale_optimizer, **kwargs):
@@ -571,9 +567,12 @@ class PiSODecoupledMixin:
         self.scale_optimizer = scale_optimizer
 
     def single_layer_update(self):
+        # Qronos accumulates G = X^T X_tilde; the ScaleOptimizer expects X_tilde^T X.
+        G = getattr(self, 'G', None)
+        if G is not None:
+            G = G.transpose(-1, -2)
         # ScaleOptimizer.single_layer_update owns the allocate/offload pair here.
-        self.scale_optimizer.single_layer_update(
-            layer=self.layer, H=self.H, G=getattr(self, 'G', None))
+        self.scale_optimizer.single_layer_update(layer=self.layer, H=self.H, G=G)
         for buffer in ('H', 'G', 'B'):
             if hasattr(self, buffer):
                 delattr(self, buffer)
@@ -594,8 +593,8 @@ class optimize_scale_mode(layerwise_hook_mode):
     PiSODecoupledQronos hook to each, and swaps in a forward that catches the
     early-stop exception. The caller feeds calibration data through the model to
     accumulate Hessians, then calls update to optimize every layer's scales. This is
-    the standalone path; the interleaved path instead passes a ScaleOptimizer into
-    GPTQ/Qronos.
+    the standalone path; the interleaved path instead runs PiSO inside GPTQ/Qronos
+    (PiSOInterleavedGPTQ / PiSOInterleavedQronos).
 
     Like gpfq_mode, it never enables or disables quantization: the caller runs
     every forward pass under the quantization state its objective needs.
@@ -712,17 +711,15 @@ class PiSOMixin:
     layers unless layer_interleaved is set, layer-level otherwise. It overrides the
     GPxQ hooks so GPTQ / Qronos stay free of scale-specific branching:
       - _resolve_blocksize: align error-correction blocks with quantization groups;
-      - _act_order_permutation: keep each group's columns contiguous for groupwise layers;
+      - _act_order_permutation: with the group-wise updater, keep each group's columns
+        contiguous;
       - _on_error_correction_starts: optimize the layer scale on the fixed grid
         (layer-level updater) or hand the Hessians to the group-wise updater;
       - _on_column_reached: optimize a group's scale at its first column;
       - _on_layer_finished: release the updater's per-layer state.
 
-    It works with any GPxQ algorithm that calls these hooks, with no per-algorithm
-    adapter: the Hessians are the algorithm's own, self.H and, for algorithms with a
-    cross term (Qronos), self.G (see GPxQ._on_error_correction_starts for their
-    layout, which is the one the ScaleOptimizer expects). Without a G (GPTQ) the
-    updater optimizes the self-activation objective.
+    Concrete subclasses provide _prepare_input_scale_optimizer to return the (H, G) matrices in
+    the layout the updater expects; G is None for the GPTQ objective.
     """
 
     def __init__(self, *args, scale_optimizer_kwargs, layer_interleaved=False, **kwargs):
@@ -739,26 +736,17 @@ class PiSOMixin:
         return super()._resolve_blocksize(num_blocks)
 
     def _act_order_permutation(self, hessian_group: torch.Tensor) -> torch.Tensor:
-        weight_quant = self.layer.weight_quant
-        if weight_quant.is_groupwise:
+        # The group-wise updater optimizes a group's scale when its first column is
+        # reached, so it needs the groups processed contiguously. The layer-level updater
+        # fixes every scale before error correction and keeps the plain order.
+        if isinstance(self.scale_optimizer, ScaleOptimizerGroupInterleaved):
             perm, _ = compute_group_importance_permutation(
-                x=hessian_group.diag(), group_size=weight_quant.group_size)
+                x=hessian_group.diag(), group_size=self.layer.weight_quant.group_size)
             return perm
         return super()._act_order_permutation(hessian_group)
 
     def _on_error_correction_starts(self, perm: torch.Tensor) -> None:
-        if self.groups != 1:
-            raise ValueError("Scale optimization inside GPxQ requires groups == 1")
-        # Undo the act_order permutation so the matrices are in the layer's natural
-        # column order, which is what the ScaleOptimizer expects. Indexing copies, so
-        # the updater never aliases Hessians that the algorithm later modifies in place.
-        inv_perm = torch.empty_like(perm, device=self.H.device)
-        inv_perm[perm] = torch.arange(len(perm), device=self.H.device)
-        H = self.H.squeeze()[:, inv_perm][inv_perm, :]
-        # Algorithms without a cross term (GPTQ) have no G: self-activation objective.
-        G = getattr(self, 'G', None)
-        if G is not None:
-            G = G.squeeze()[:, inv_perm][inv_perm, :]
+        H, G = self._prepare_input_scale_optimizer(perm)
         if isinstance(self.scale_optimizer, ScaleOptimizerGroupInterleaved):
             self.scale_optimizer.init_scale_optimizer_params(layer=self.layer, perm=perm, H=H, G=G)
         else:
@@ -772,16 +760,35 @@ class PiSOMixin:
     def _on_layer_finished(self) -> None:
         self.scale_optimizer.clear_scale_optimizer_params()
 
+    def _prepare_input_scale_optimizer(
+            self, perm: torch.Tensor) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+        """Return (H, G) for the updater, in the layer's natural column order.
+
+        G is None for the GPTQ (self-activation) objective.
+        """
+        raise NotImplementedError
+
 
 class PiSOInterleavedGPTQ(PiSOMixin, GPTQ):
     """GPTQ with PiSO scale optimization interleaved with error correction.
 
-    Layer-interleaved (paper "Interleaved layer-wise optimization") when the
-    scale optimizer is ScaleOptimizer: the layer scale is optimized once before
-    error correction. Group-interleaved (paper "Interleaved group-wise optimization")
-    with ScaleOptimizerGroupInterleaved: each group's scale is optimized just before
-    error correction quantizes that group.
+    The updater built for each layer selects the variant. The layer-level updater is the
+    layer-interleaved one (paper "Interleaved layer-wise optimization"): the layer scale is
+    optimized once before error correction. The group-wise updater is the group-interleaved
+    one (paper "Interleaved group-wise optimization"): each group's scale is optimized just
+    before error correction quantizes that group, with the groups processed contiguously.
     """
+
+    def _prepare_input_scale_optimizer(
+            self, perm: torch.Tensor) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+        # GPTQ only keeps H; undo the act_order permutation so H is in the layer's
+        # natural column order, which is what the ScaleOptimizer expects.
+        if self.groups != 1:
+            raise ValueError("Scale optimization inside gptq requires groups == 1")
+        inv_perm = torch.empty_like(perm, device=self.H.device)
+        inv_perm[perm] = torch.arange(len(perm), device=self.H.device)
+        H = self.H.squeeze()[:, inv_perm][inv_perm, :]
+        return H, None
 
 
 class PiSOInterleavedQronos(PiSOMixin, Qronos):
@@ -789,3 +796,13 @@ class PiSOInterleavedQronos(PiSOMixin, Qronos):
 
     See PiSOInterleavedGPTQ for the layer- and group-interleaved variants.
     """
+
+    def _prepare_input_scale_optimizer(
+            self, perm: torch.Tensor) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+        # Qronos keeps H and G in the natural column order. G is transposed to match the
+        # ScaleOptimizer's convention (G = X_tilde^T X).
+        if self.groups != 1:
+            raise ValueError("scale optimization inside qronos requires groups == 1")
+        H = self.H.squeeze()
+        G = self.G.squeeze().T
+        return H, G
