@@ -17,7 +17,6 @@ class GroupwiseWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
     def __init__(self, quant_layer: nn.Module, quant_injector: Injector) -> None:
         super().__init__(quant_layer, quant_injector)
         self.cache_class = _CachedIOGroupwiseInt
-        self.quant_tensor_class = GroupwiseIntQuantTensor
         self._group_dim = self.quant_injector.group_dim
         self._group_size = self.quant_injector.group_size
         if self._group_dim is None or self._group_size is None:
@@ -46,7 +45,7 @@ class GroupwiseWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
     def create_quant_tensor(self, qt_args: Tuple[Any]) -> GroupwiseIntQuantTensor:
         shape = self.tracked_parameter_list[0].shape
         out, scale, zero_point, bit_width = qt_args
-        return self.quant_tensor_class(
+        return GroupwiseIntQuantTensor(
             out,
             scale,
             zero_point,

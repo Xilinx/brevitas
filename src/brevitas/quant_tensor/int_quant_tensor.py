@@ -3,6 +3,7 @@
 
 import torch
 
+import brevitas.compiler as brevitas_compiler
 from brevitas.function.ops import max_int
 from brevitas.function.ops import min_int
 from brevitas.function.ops_ste import ceil_ste
@@ -24,19 +25,14 @@ class IntQuantTensor(IntMixin, QuantTensor):
         '_training',
     )
 
-    def __new__(cls, value, scale, zero_point, bit_width, signed, training):
-        if not isinstance(value, torch.Tensor):
-            value = torch.tensor(value, dtype=torch.float)
-        # Use as_subclass to preserve grad_fn and requires_grad
-        return value.as_subclass(cls)
-
+    @brevitas_compiler.disable
     def __init__(self, value, scale, zero_point, bit_width, signed, training):
         device = self._value.device
         scale = self._as_tensor(scale, torch.float, device)
         zero_point = self._as_tensor(zero_point, torch.float, device)
         bit_width = self._as_tensor(bit_width, torch.float, device)
-        signed = self._as_tensor(signed, torch.bool, device)
-        training = self._as_tensor(training, torch.bool, device)
+        signed = self._as_bool(signed)
+        training = self._as_bool(training)
         self._scale = scale
         self._zero_point = zero_point
         self._bit_width = bit_width
@@ -71,9 +67,6 @@ class IntQuantTensor(IntMixin, QuantTensor):
     def check_input_type(tensor):
         if not isinstance(tensor, IntQuantTensor):
             raise RuntimeError("Tensor is not a IntQuantTensor")
-
-    def size(self, *args, **kwargs):
-        return self.value.size(*args, **kwargs)
 
     @staticmethod
     def cat(tensors, dim=0, *, out=None):
