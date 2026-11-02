@@ -91,16 +91,15 @@ class ActFloatQuantProxyFromInjector(ActFloatQuantProxyFromInjectorBase):
     def __init__(self, quant_layer: nn.Module, quant_injector: Injector):
         super().__init__(quant_layer, quant_injector)
         self.cache_class = _CachedIOFloat
-        self.quant_tensor_class = FloatQuantTensor
 
     def create_quant_tensor(
             self,
             qt_args: Union[torch.Tensor, Tuple[Any]],
             x: Optional[FloatQuantTensor] = None) -> FloatQuantTensor:
         if isinstance(qt_args, tuple):
-            out = self.quant_tensor_class(*qt_args, signed=self.is_signed, training=self.training)
+            out = FloatQuantTensor(*qt_args, signed=self.is_signed, training=self.training)
         else:
-            out = self.quant_tensor_class(
+            out = FloatQuantTensor(
                 qt_args,
                 x.scale,
                 x.zero_point,

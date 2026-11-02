@@ -3,6 +3,7 @@
 
 import torch
 
+import brevitas.compiler as brevitas_compiler
 from brevitas.function.ops_ste import round_ste
 from brevitas.quant_tensor.base_quant_tensor import GroupwiseQuantTensorMixin
 from brevitas.quant_tensor.base_quant_tensor import IntMixin
@@ -19,9 +20,9 @@ class GroupwiseIntQuantTensor(GroupwiseQuantTensorMixin, IntMixin, QuantTensor):
         '_bit_width',
         '_signed',
         '_training',
-        '_dequant_shape',
     )
 
+    @brevitas_compiler.disable
     def __init__(
             self,
             value,
@@ -33,15 +34,15 @@ class GroupwiseIntQuantTensor(GroupwiseQuantTensorMixin, IntMixin, QuantTensor):
             signed,
             training,
             dequant_shape=None):
+        # dequant_shape sets the logical shape of the wrapper, see QuantTensor.__new__
         device = self._value.device
         scale = self._as_tensor(scale, torch.float, device)
         zero_point = self._as_tensor(zero_point, torch.float, device)
         bit_width = self._as_tensor(bit_width, torch.float, device)
-        signed = self._as_tensor(signed, torch.bool, device)
-        training = self._as_tensor(training, torch.bool, device)
+        signed = self._as_bool(signed)
+        training = self._as_bool(training)
         self._bit_width = bit_width
-        self._set_groupwise_metadata(
-            scale, zero_point, group_size, group_dim, signed, training, dequant_shape)
+        self._set_groupwise_metadata(scale, zero_point, group_size, group_dim, signed, training)
 
     @staticmethod
     def is_zero_zero_point(tensor):

@@ -209,7 +209,7 @@ def test_int_quant_tensor(metadata_only, bit_width=8):
     assert torch.equal(cache.quant_tensor.zero_point, q.zero_point)
     assert torch.equal(cache.bit_width, q.bit_width)
     assert cache.signed == q.signed
-    assert torch.equal(cache._training, q._training)
+    assert cache._training == q._training
 
 
 @pytest.mark.parametrize("metadata_only", [True, False])
@@ -246,7 +246,7 @@ def test_float_quant_tensor(metadata_only, bit_width=8, exponent_bit_width=4, ma
     assert cache.inf_values == q.inf_values
     assert cache.nan_values == q.nan_values
     assert cache.signed == q.signed
-    assert torch.equal(cache._training, q._training)
+    assert cache._training == q._training
 
 
 @pytest.mark.parametrize("metadata_only", [True, False])
@@ -288,7 +288,7 @@ def test_mx_quant_tensor(metadata_only, bit_width=8, exponent_bit_width=4, manti
     assert cache.nan_values == q.nan_values
     assert cache.signed == q.signed
     assert cache.dequant_shape == q.dequant_shape
-    assert torch.equal(cache._training, q._training)
+    assert cache._training == q._training
     reconstructed = cache.quant_tensor.set(value=q._value)
     assert torch.equal(reconstructed.value, q.value)
     assert torch.equal(reconstructed.scale, q.scale)
@@ -327,7 +327,7 @@ def test_groupwise_int_quant_tensor_cache(metadata_only):
     assert cache.quant_tensor.group_dim == q.group_dim
     assert cache.signed == q.signed
     assert cache.dequant_shape == q.dequant_shape
-    assert torch.equal(cache._training, q._training)
+    assert cache._training == q._training
     reconstructed = cache.quant_tensor.set(value=q._value)
     assert torch.equal(reconstructed.value, q.value)
     assert torch.equal(reconstructed.scale, q.scale)
@@ -346,15 +346,15 @@ def test_groupwise_quant_tensor_device(device, quant_tensor_class):
         zero_point=torch.tensor(0.0, device=device),
         group_size=2,
         group_dim=1,
-        signed=torch.tensor(True, device=device),
-        training=torch.tensor(False, device=device),
+        signed=True,
+        training=False,
         dequant_shape=(1, 2))
     if quant_tensor_class is GroupwiseFloatQuantTensor:
         kwargs.update(
             exponent_bit_width=torch.tensor(4.0, device=device),
             mantissa_bit_width=torch.tensor(3.0, device=device),
             exponent_bias=torch.tensor(7.0, device=device),
-            saturating=torch.tensor(True, device=device),
+            saturating=True,
             inf_values=[],
             nan_values=[])
     else:

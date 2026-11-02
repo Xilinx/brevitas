@@ -101,7 +101,6 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         self.cache_inference_quant_act = False
         self.cache_quant_io_metadata_only = True
         self.cache_class = None
-        self.quant_tensor_class = None
         self.skip_create_quant_tensor = False
 
     def compile_quant(self, compile_export=False):
@@ -226,7 +225,6 @@ class ActQuantProxyFromInjector(ActQuantProxyFromInjectorBase):
     def __init__(self, quant_layer, quant_injector):
         super().__init__(quant_layer, quant_injector)
         self.cache_class = _CachedIO
-        self.quant_tensor_class = IntQuantTensor
 
     def scale(self, force_eval=True):
         return self.retrieve_attribute('scale', force_eval)
@@ -241,9 +239,9 @@ class ActQuantProxyFromInjector(ActQuantProxyFromInjectorBase):
             self, qt_args: Union[torch.Tensor, Tuple[Any]],
             x: Union[Tensor, IntQuantTensor]) -> IntQuantTensor:
         if isinstance(qt_args, tuple):
-            out = self.quant_tensor_class(*qt_args, self.is_signed, self.training)
+            out = IntQuantTensor(*qt_args, self.is_signed, self.training)
         else:
-            out = self.quant_tensor_class(
+            out = IntQuantTensor(
                 qt_args, x.scale, x.zero_point, x.bit_width, x.signed, self.training)
         return out
 

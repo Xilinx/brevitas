@@ -7,4 +7,3 @@ from .float_quant_tensor import *
 from .groupwise_float_quant_tensor import *
 from .groupwise_int_quant_tensor import *
 from .int_quant_tensor import *
-from .traceable_quant_tensor import *
