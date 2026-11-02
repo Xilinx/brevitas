@@ -27,7 +27,7 @@ class _CachedIO:
 
     @property
     def signed(self):
-        return self._signed.item()
+        return self._signed
 
     @property
     def quant_tensor(self):
@@ -58,11 +58,11 @@ class _CachedIOFloat:
 
     @property
     def saturating(self):
-        return self._saturating.item()
+        return self._saturating
 
     @property
     def signed(self):
-        return self._signed.item()
+        return self._signed
 
     @property
     def quant_tensor(self):
@@ -107,11 +107,11 @@ class _CachedIOGroupwiseFloat:
 
     @property
     def saturating(self):
-        return self._saturating.item()
+        return self._saturating
 
     @property
     def signed(self):
-        return self._signed.item()
+        return self._signed
 
     @property
     def quant_tensor(self):
@@ -154,7 +154,7 @@ class _CachedIOGroupwiseInt:
 
     @property
     def signed(self):
-        return self._signed.item()
+        return self._signed
 
     @property
     def quant_tensor(self):

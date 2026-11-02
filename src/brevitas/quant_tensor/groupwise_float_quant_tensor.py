@@ -3,6 +3,7 @@
 
 import torch
 
+import brevitas.compiler as brevitas_compiler
 from brevitas.quant_tensor.base_quant_tensor import FloatMixin
 from brevitas.quant_tensor.base_quant_tensor import GroupwiseQuantTensorMixin
 from brevitas.quant_tensor.base_quant_tensor import QuantTensor
@@ -23,9 +24,9 @@ class GroupwiseFloatQuantTensor(GroupwiseQuantTensorMixin, FloatMixin, QuantTens
         '_nan_values',
         '_signed',
         '_training',
-        '_dequant_shape',
     )
 
+    @brevitas_compiler.disable
     def __init__(
             self,
             value,
@@ -42,23 +43,23 @@ class GroupwiseFloatQuantTensor(GroupwiseQuantTensorMixin, FloatMixin, QuantTens
             signed,
             training,
             dequant_shape=None):
+        # dequant_shape sets the logical shape of the wrapper, see QuantTensor.__new__
         device = self._value.device
         scale = self._as_tensor(scale, torch.float, device)
         zero_point = self._as_tensor(zero_point, torch.float, device)
         exponent_bit_width = self._as_tensor(exponent_bit_width, torch.float, device)
         mantissa_bit_width = self._as_tensor(mantissa_bit_width, torch.float, device)
         exponent_bias = self._as_tensor(exponent_bias, torch.float, device)
-        saturating = self._as_tensor(saturating, torch.bool, device)
-        signed = self._as_tensor(signed, torch.bool, device)
-        training = self._as_tensor(training, torch.bool, device)
+        saturating = self._as_bool(saturating)
+        signed = self._as_bool(signed)
+        training = self._as_bool(training)
         self._exponent_bit_width = exponent_bit_width
         self._mantissa_bit_width = mantissa_bit_width
         self._exponent_bias = exponent_bias
         self._saturating = saturating
         self._inf_values = inf_values
         self._nan_values = nan_values
-        self._set_groupwise_metadata(
-            scale, zero_point, group_size, group_dim, signed, training, dequant_shape)
+        self._set_groupwise_metadata(scale, zero_point, group_size, group_dim, signed, training)
 
     # Reference: https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
 

@@ -345,8 +345,8 @@ class TestTensorOps:
         assert qt16.value.dtype == torch.float16
         # Metadata should also be converted
         assert qt16.scale.dtype == torch.float16
-        assert qt16._signed.dtype == torch.bool
-        assert qt16._training.dtype == torch.bool
+        assert qt16.signed == qt.signed
+        assert qt16.training == qt.training
 
     def test_float_qt_detach(self):
         qt = _make_float_qt()
@@ -400,10 +400,10 @@ class TestTensorOps:
         assert result._scale.dtype == torch.float16
         assert result._zero_point.dtype == torch.float16
         assert result.value.dtype == torch.float16
-        assert result._signed.dtype == torch.bool
-        assert result._training.dtype == torch.bool
+        assert result.signed == qt.signed
+        assert result.training == qt.training
         if quant_tensor_class is GroupwiseFloatQuantTensor:
-            assert result._saturating.dtype == torch.bool
+            assert result.saturating == qt.saturating
         assert result.group_size == qt.group_size
         assert result.group_dim == qt.group_dim
         assert result.dequant_shape == qt.dequant_shape
