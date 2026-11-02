@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.calibrate import quantization_status_manager
-from brevitas.graph.piso import optimize_scale_mode
+from brevitas.graph.grid_optimization import grid_optimization_mode
 from brevitas_examples.llm.llm_quant.gpxq import _block_optimization
 from brevitas_examples.llm.llm_quant.gpxq import _calibrate_model
 
@@ -28,35 +28,35 @@ def apply_calibration(model, dataloader):
             model(**inps)
 
 
-def build_piso_kwargs(args: Namespace) -> dict:
-    """Arguments for the PiSO GPxQ classes, which build their own scale optimizer.
+def build_grid_optimization_kwargs(args: Namespace) -> dict:
+    """Arguments for the grid optimization GPxQ classes, which build their own grid optimizer.
 
     No objective is passed: it is implied by the error-correction algorithm (GPTQ:
-    self-activation, Qronos: cross-activation), whose PiSO classes decide whether
-    the optimizer receives G.
+    self-activation, Qronos: cross-activation), whose grid optimization classes decide
+    whether the optimizer receives G.
     """
     if args.weight_quant_granularity not in ("per_group", "per_channel"):
         raise NotImplementedError(
-            "Scale optimization inside GPTQ/Qronos supports per-channel and per-group "
+            "Grid optimization inside GPTQ/Qronos supports per-channel and per-group "
             f"weight quantization, got {args.weight_quant_granularity}.")
     # Use the GPU for the solver when it is available.
     solver_device = 'cuda' if torch.cuda.is_available() else 'cpu'
     return {
-        'scale_optimizer_kwargs': {
+        'grid_optimizer_kwargs': {
             'solver_dtype': S_DTYPE,
             'solver_device': solver_device,
             'tolerance': S_TOLERANCE,
-            'solver_batch_size': args.sopt_solver_batch_size,
-            'per_group_greedy': args.sopt_group_sequential,
-            'per_group_greedy_reorder': args.sopt_group_sequential_act_order,
-            'hessian_mode': args.sopt_hessian_mode,
-            'solver': args.sopt_solver,},
-        'layer_interleaved': args.sopt_group_gpxq_layer_interleaved,}
+            'solver_batch_size': args.grid_opt_solver_batch_size,
+            'per_group_greedy': args.grid_opt_group_sequential,
+            'per_group_greedy_reorder': args.grid_opt_group_sequential_act_order,
+            'hessian_mode': args.grid_opt_hessian_mode,
+            'solver': args.grid_opt_solver,},
+        'layer_interleaved': args.grid_opt_group_gpxq_layer_interleaved,}
 
 
 def _pass_managers(model: nn.Module, objective: str,
                    use_quant_activations: bool) -> List[quantization_status_manager]:
-    """Quantization state of each forward pass that feeds PiSO for every calibration batch.
+    """Quantization state of each forward pass that feeds grid optimization, per batch.
 
     The objective picks the activations X_tilde (reconstruction) and X (target) the
     scale is fit to in ||X w - s X_tilde q(w)||^2:
@@ -64,8 +64,8 @@ def _pass_managers(model: nn.Module, objective: str,
       - self-activation: both from the quantized model;
       - cross-activation: X_tilde from the quantized model, X from a float pass.
     Activation and bias quantization in the quantized pass follow use_quant_activations.
-    The float pass of cross-activation comes second: PiSO's hook pairs its input with
-    the one stored by the quantized pass.
+    The float pass of cross-activation comes second: the grid optimization hook pairs its
+    input with the one stored by the quantized pass.
     """
     quant_pass = quantization_status_manager(
         model=model,
@@ -85,40 +85,42 @@ def _pass_managers(model: nn.Module, objective: str,
 
 
 @torch.no_grad()
-def apply_weight_calibration(
+def apply_grid_optimization(
         model: nn.Module, dataloader: torch.utils.data.DataLoader, args: Namespace) -> None:
 
     if args.input_bit_width is not None:
         warn(
-            "Scale optimization with activation (input) quantization is untested; "
+            "Grid optimization with activation (input) quantization is untested; "
             "results may be unreliable.")
 
-    objective = args.sopt_objective
+    objective = args.grid_opt_objective
     pass_managers = partial(
-        _pass_managers, objective=objective, use_quant_activations=args.sopt_use_quant_activations)
+        _pass_managers,
+        objective=objective,
+        use_quant_activations=args.grid_opt_use_quant_activations)
     context_manager_kwargs = {
         'solver_dtype': S_DTYPE,
         'matrix_dtype': S_DTYPE,
         'tolerance': S_TOLERANCE,
-        'solver_batch_size': args.sopt_solver_batch_size,
+        'solver_batch_size': args.grid_opt_solver_batch_size,
         'cross_act_objective': objective == 'cross-activation',
-        'per_group_greedy': args.sopt_group_sequential,
-        'per_group_greedy_reorder': args.sopt_group_sequential_act_order,
-        'hessian_mode': args.sopt_hessian_mode,
-        'solver': args.sopt_solver,}
+        'per_group_greedy': args.grid_opt_group_sequential,
+        'per_group_greedy_reorder': args.grid_opt_group_sequential_act_order,
+        'hessian_mode': args.grid_opt_hessian_mode,
+        'solver': args.grid_opt_solver,}
 
     if args.gpxq_block_name is not None:
         _block_optimization(
             model,
             dataloader,
             args.gpxq_block_name,
-            optimize_scale_mode,
+            grid_optimization_mode,
             context_manager_kwargs,
             pass_managers=pass_managers)
     else:
         _calibrate_model(
             model,
             dataloader,
-            optimize_scale_mode,
+            grid_optimization_mode,
             context_manager_kwargs,
             pass_managers=pass_managers)

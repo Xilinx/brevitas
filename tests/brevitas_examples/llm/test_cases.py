@@ -130,66 +130,66 @@ class LLMRunCases:
     @pytest_cases.parametrize(
         "run_dict",
         [
-            # ---- Standalone scale optimization (--weight-calibration) ----
+            # ---- Standalone grid optimization (--grid-optimization) ----
             # Per-channel, one entry per objective.
             {
-                "weight_calibration": True, "sopt_hessian_mode": "diagonal"},
+                "grid_optimization": True, "grid_opt_hessian_mode": "diagonal"},
             {
-                "weight_calibration": True, "sopt_objective": "self-activation",
-                "sopt_hessian_mode": "diagonal"},
+                "grid_optimization": True, "grid_opt_objective": "self-activation",
+                "grid_opt_hessian_mode": "diagonal"},
             {
-                "weight_calibration": True, "sopt_objective": "cross-activation",
-                "sopt_hessian_mode": "diagonal"},
+                "grid_optimization": True, "grid_opt_objective": "cross-activation",
+                "grid_opt_hessian_mode": "diagonal"},
             # Debug Hessians: H=diag(H) and H=I.
             {
-                "weight_calibration": True, "sopt_hessian_mode": "diagonal"},
+                "grid_optimization": True, "grid_opt_hessian_mode": "diagonal"},
             {
-                "weight_calibration": True, "sopt_hessian_mode": "identity"},
+                "grid_optimization": True, "grid_opt_hessian_mode": "identity"},
             # Float weights and float (unquantized) activations.
             {
-                "weight_calibration": True, "sopt_use_quant_activations": False,
-                "sopt_hessian_mode": "diagonal"},
+                "grid_optimization": True, "grid_opt_use_quant_activations": False,
+                "grid_opt_hessian_mode": "diagonal"},
             # Batched over channels rather than all at once.
             {
-                "weight_calibration": True, "sopt_solver_batch_size": 4,
-                "sopt_hessian_mode": "diagonal"},
+                "grid_optimization": True, "grid_opt_solver_batch_size": 4,
+                "grid_opt_hessian_mode": "diagonal"},
             # Per-group: independent groups vs sequential heuristic (act-order on/off).
-            # PiSO requires group_size to divide every layer's channel size (no
+            # Grid optimization requires group_size to divide every layer's channel size (no
             # padding), so use the Llama tiny model (dims 16 and 64) with size 8.
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-                "weight_calibration": True,
+                "grid_optimization": True,
                 "weight_quant_granularity": "per_group",
                 "weight_group_size": 8,
-                "sopt_hessian_mode": "diagonal"},
+                "grid_opt_hessian_mode": "diagonal"},
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-                "weight_calibration": True,
+                "grid_optimization": True,
                 "weight_quant_granularity": "per_group",
                 "weight_group_size": 8,
-                "sopt_group_sequential": True,
-                "sopt_hessian_mode": "diagonal"},
+                "grid_opt_group_sequential": True,
+                "grid_opt_hessian_mode": "diagonal"},
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-                "weight_calibration": True,
+                "grid_optimization": True,
                 "weight_quant_granularity": "per_group",
                 "weight_group_size": 8,
-                "sopt_group_sequential": True,
-                "sopt_group_sequential_act_order": False,
-                "sopt_hessian_mode": "diagonal"},
+                "grid_opt_group_sequential": True,
+                "grid_opt_group_sequential_act_order": False,
+                "grid_opt_hessian_mode": "diagonal"},
             # Per-group with the diagonal-H fast path.
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-                "weight_calibration": True,
+                "grid_optimization": True,
                 "weight_quant_granularity": "per_group",
                 "weight_group_size": 8,
-                "sopt_hessian_mode": "diagonal"},
+                "grid_opt_hessian_mode": "diagonal"},
             # ---- Interleaved with GPTQ (self-activation objective) ----
             # Per-channel is always layer-interleaved.
             {
                 "gpxq_use_grid_optimization": True,
                 "gptq": True,
-                "sopt_hessian_mode": "diagonal"},
+                "grid_opt_hessian_mode": "diagonal"},
             # Per-group, group-interleaved (default).
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
@@ -197,7 +197,7 @@ class LLMRunCases:
                 "gptq": True,
                 "weight_quant_granularity": "per_group",
                 "weight_group_size": 8,
-                "sopt_hessian_mode": "diagonal"},
+                "grid_opt_hessian_mode": "diagonal"},
             # Per-group, layer-interleaved.
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
@@ -205,8 +205,8 @@ class LLMRunCases:
                 "gptq": True,
                 "weight_quant_granularity": "per_group",
                 "weight_group_size": 8,
-                "sopt_group_gpxq_layer_interleaved": True,
-                "sopt_hessian_mode": "diagonal"},
+                "grid_opt_group_gpxq_layer_interleaved": True,
+                "grid_opt_hessian_mode": "diagonal"},
             # Per-group, group-interleaved with act-order (group-aware ordering).
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
@@ -215,12 +215,12 @@ class LLMRunCases:
                 "gpxq_act_order": True,
                 "weight_quant_granularity": "per_group",
                 "weight_group_size": 8,
-                "sopt_hessian_mode": "diagonal"},
+                "grid_opt_hessian_mode": "diagonal"},
             # ---- Interleaved with Qronos (cross-activation objective) ----
             {
                 "gpxq_use_grid_optimization": True,
                 "qronos": True,
-                "sopt_hessian_mode": "diagonal"},
+                "grid_opt_hessian_mode": "diagonal"},
             # Per-group, group-interleaved (default).
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
@@ -228,7 +228,7 @@ class LLMRunCases:
                 "qronos": True,
                 "weight_quant_granularity": "per_group",
                 "weight_group_size": 8,
-                "sopt_hessian_mode": "diagonal"},
+                "grid_opt_hessian_mode": "diagonal"},
             # Per-group, layer-interleaved.
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
@@ -236,8 +236,8 @@ class LLMRunCases:
                 "qronos": True,
                 "weight_quant_granularity": "per_group",
                 "weight_group_size": 8,
-                "sopt_group_gpxq_layer_interleaved": True,
-                "sopt_hessian_mode": "diagonal"},
+                "grid_opt_group_gpxq_layer_interleaved": True,
+                "grid_opt_hessian_mode": "diagonal"},
         ],
         ids=[
             "standalone,obj=unquantized",
@@ -259,7 +259,7 @@ class LLMRunCases:
             "gpxq,qronos,per_group,group_interleaved",
             "gpxq,qronos,per_group,layer_interleaved",
         ],)
-    def case_small_models_scale_optimization(self, run_dict, default_run_args, request):
+    def case_small_models_grid_optimization(self, run_dict, default_run_args, request):
         yield process_args_and_metrics(default_run_args, run_dict)
 
 

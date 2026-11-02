@@ -28,7 +28,7 @@ usage: main.py [-h] [--config CONFIG] [--model MODEL] [--custom-quantizer CUSTOM
                [--learned-round-lr LEARNED_ROUND_LR] [--learned-round-scale-lr LEARNED_ROUND_SCALE_LR] [--learned-round-scale-momentum LEARNED_ROUND_SCALE_MOMENTUM]
                [--learned-round-iters LEARNED_ROUND_ITERS] [--learned-round-scale] [--quantize-input-zero-point] [--quantize-first-last-layer] [--magr] [--magr-alpha MAGR_ALPHA] [--qronos]
                [--qronos-alpha QRONOS_ALPHA] [--gptq] [--gpfq] [--gpxq-act-order] [--gpxq-use-quant-activations] [--gpxq-use-grid-optimization] [--disable-create-weight-orig]
-               [--gpxq-max-accumulator-bit-width GPXQ_MAX_ACCUMULATOR_BIT_WIDTH] [--gpxq-max-accumulator-tile-size GPXQ_MAX_ACCUMULATOR_TILE_SIZE] [--act-calibration] [--weight-calibration] [--bias-corr] [--ln-affine-merge]
+               [--gpxq-max-accumulator-bit-width GPXQ_MAX_ACCUMULATOR_BIT_WIDTH] [--gpxq-max-accumulator-tile-size GPXQ_MAX_ACCUMULATOR_TILE_SIZE] [--act-calibration] [--grid-optimization] [--bias-corr] [--ln-affine-merge]
                [--convert-layernorm-to-rmsnorm] [--replace-rmsnorm] [--no-quantize] [--scaling-min-val SCALING_MIN_VAL] [--quant-sdpa {eager,functional,fx}]
                [--eager-quant-sdpa-class EAGER_QUANT_SDPA_CLASS] [--weight-equalization] [--rotation {fx,layerwise,fused_no_fx}] [--fine-tune] [--optimize-rotations] [--custom-trainer CUSTOM_TRAINER]
                [--rotation-mode {had,ort}] [--rotation-orphan-sink] [--rotation-sdpa-regions] [--rotation-layers-to-expand [ROTATION_LAYERS_TO_EXPAND ...]] [--expansion-step EXPANSION_STEP]
@@ -37,10 +37,10 @@ usage: main.py [-h] [--config CONFIG] [--model MODEL] [--custom-quantizer CUSTOM
                [--export-prefix EXPORT_PREFIX] [--export-path EXPORT_PATH] [--checkpoint-name CHECKPOINT_NAME] [--load-checkpoint] [--learned-round {None,identity}] [--learned-round-fast-update]
                [--few-shot-eval {lm_eval,lighteval}] [--few-shot-override-batch-size FEW_SHOT_OVERRIDE_BATCH_SIZE] [--compile-ptq] [--compile-eval] [--few-shot-zeroshot]
                [--bos-preprocessing {None,document,sequence}] [--few-shot-limit FEW_SHOT_LIMIT] [--few-shot-tasks [FEW_SHOT_TASKS ...]] [--awq-scale] [--awq-clip]
-               [--calibration-batch-size CALIBRATION_BATCH_SIZE] [--sopt-solver {piso,chunked-piso}]
-               [--sopt-use-quant-activations | --no-sopt-use-quant-activations] [--sopt-solver-batch-size SOPT_SOLVER_BATCH_SIZE] [--sopt-objective {unquantized,self-activation,cross-activation}]
-               [--sopt-group-sequential | --no-sopt-group-sequential] [--sopt-group-sequential-act-order | --no-sopt-group-sequential-act-order] [--sopt-hessian-mode {dense,diagonal,identity}]
-               [--sopt-group-gpxq-layer-interleaved | --no-sopt-group-gpxq-layer-interleaved]
+               [--calibration-batch-size CALIBRATION_BATCH_SIZE] [--grid-opt-solver {piso,chunked-piso}]
+               [--grid-opt-use-quant-activations | --no-grid-opt-use-quant-activations] [--grid-opt-solver-batch-size GRID_OPT_SOLVER_BATCH_SIZE] [--grid-opt-objective {unquantized,self-activation,cross-activation}]
+               [--grid-opt-group-sequential | --no-grid-opt-group-sequential] [--grid-opt-group-sequential-act-order | --no-grid-opt-group-sequential-act-order] [--grid-opt-hessian-mode {dense,diagonal,identity}]
+               [--grid-opt-group-gpxq-layer-interleaved | --no-grid-opt-group-gpxq-layer-interleaved]
 
 LLM quantization
 
@@ -166,7 +166,7 @@ options:
   --gpxq-max-accumulator-tile-size GPXQ_MAX_ACCUMULATOR_TILE_SIZE
                         Maximum accumulator tile size for GPxQ using AXE.
   --act-calibration     Apply activation calibration.
-  --weight-calibration  Apply weight calibration.
+  --grid-optimization   Optimize the weight quantization grids on the calibration data (see --grid-opt-*).
   --bias-corr           Apply bias correction.
   --ln-affine-merge     Merge LN affine params.
   --convert-layernorm-to-rmsnorm
@@ -247,39 +247,40 @@ options:
   --awq-clip            Whether to apply AWQ clipping (default: False).
   --calibration-batch-size CALIBRATION_BATCH_SIZE
                         Batch size for calibration data loader. (default: 1).
-  --sopt-solver {piso,chunked-piso}
-                        Scale optimization solver family. chunked-piso is a faster per-channel variant that only supports positive scales (symmetric grids). Default: piso
-  --sopt-use-quant-activations
-                        Enable Use quantized activations during weight calibration. Default: enabled
-  --no-sopt-use-quant-activations
-                        Disable Use quantized activations during weight calibration. Default: enabled
-  --sopt-solver-batch-size SOPT_SOLVER_BATCH_SIZE
+  --grid-opt-solver {piso,chunked-piso}
+                        Solver that optimizes the scale. piso is PiSO (Piecewise Scale Optimization); chunked-piso is a faster per-channel variant that only supports positive scales (symmetric
+                        grids). Default: piso
+  --grid-opt-use-quant-activations
+                        Enable Use quantized activations with --grid-optimization. Default: enabled
+  --no-grid-opt-use-quant-activations
+                        Disable Use quantized activations with --grid-optimization. Default: enabled
+  --grid-opt-solver-batch-size GRID_OPT_SOLVER_BATCH_SIZE
                         The number of weight rows/channels in a given layer for which the scale is optimized in parallel. When set to None all the scales in the layer are optimized at the same time
                         (fastest but more memory required).
-  --sopt-objective {unquantized,self-activation,cross-activation}
-                        Reconstruction objective of --weight-calibration, ||X w - s X_tilde q(w)||^2, where X_tilde are the activations the layer sees. unquantized: X_tilde = X, with the previous layers
+  --grid-opt-objective {unquantized,self-activation,cross-activation}
+                        Reconstruction objective of --grid-optimization, ||X w - s X_tilde q(w)||^2, where X_tilde are the activations the layer sees. unquantized: X_tilde = X, with the previous layers
                         left unquantized. self-activation: X_tilde = X, from the quantized previous layers. cross-activation: X_tilde from the quantized previous layers, X from the float model. With --gpxq-
                         use-grid-optimization the objective follows the error-correction algorithm (GPTQ: self-activation, Qronos: cross-activation). Default: unquantized
-  --sopt-group-sequential
+  --grid-opt-group-sequential
                         Enable With per-group weights, optimize each group while correcting the error from previous groups (sequential heuristic). When disabled, groups are optimized independently.
                         Default: disabled
-  --no-sopt-group-sequential
+  --no-grid-opt-group-sequential
                         Disable With per-group weights, optimize each group while correcting the error from previous groups (sequential heuristic). When disabled, groups are optimized independently.
                         Default: disabled
-  --sopt-group-sequential-act-order
-                        Enable With --sopt-group-sequential during weight calibration, process groups by descending sum of diag(H) (most important first) instead of natural order. Ignored with --gpxq-
+  --grid-opt-group-sequential-act-order
+                        Enable With --grid-opt-group-sequential and --grid-optimization, process groups by descending sum of diag(H) (most important first) instead of natural order. Ignored with --gpxq-
                         use-grid-optimization, where the column order is controlled by --gpxq-act-order. Default: enabled
-  --no-sopt-group-sequential-act-order
-                        Disable With --sopt-group-sequential during weight calibration, process groups by descending sum of diag(H) (most important first) instead of natural order. Ignored with --gpxq-
+  --no-grid-opt-group-sequential-act-order
+                        Disable With --grid-opt-group-sequential and --grid-optimization, process groups by descending sum of diag(H) (most important first) instead of natural order. Ignored with --gpxq-
                         use-grid-optimization, where the column order is controlled by --gpxq-act-order. Default: enabled
-  --sopt-hessian-mode {dense,diagonal,identity}
+  --grid-opt-hessian-mode {dense,diagonal,identity}
                         How the solver uses the Hessian H and matrix G. dense: the full matrices accumulated from the calibration data; not implemented, so it currently raises NotImplementedError.
                         diagonal: only diag(H) (and diag(G)), discarding cross-weight interactions. identity: ignore the calibration data entirely and use H=I, G=None (pure weight MSE). Default: dense
-  --sopt-group-gpxq-layer-interleaved
+  --grid-opt-group-gpxq-layer-interleaved
                         Enable Selects how the solver is interleaved with GPxQ for group-wise weight quantization (paper: interleaved integration strategies). When enabled, all group scales are optimized
                         once per layer (layer-interleaved). When disabled (default), each group scale is optimized at its boundary during GPxQ (group-interleaved). Only applies with --gpxq-use-grid-
                         optimization and per-group weights; per-channel quantization is always layer-interleaved regardless. Default: disabled
-  --no-sopt-group-gpxq-layer-interleaved
+  --no-grid-opt-group-gpxq-layer-interleaved
                         Disable Selects how the solver is interleaved with GPxQ for group-wise weight quantization (paper: interleaved integration strategies). When enabled, all group scales are
                         optimized once per layer (layer-interleaved). When disabled (default), each group scale is optimized at its boundary during GPxQ (group-interleaved). Only applies with --gpxq-
                         use-grid-optimization and per-group weights; per-channel quantization is always layer-interleaved regardless. Default: disabled

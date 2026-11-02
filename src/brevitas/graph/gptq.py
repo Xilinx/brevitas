@@ -55,7 +55,7 @@ class GPTQ(GPxQ):
             layer, name, act_order, len_parallel_layers, create_weight_orig, device, dtype)
 
         # Define how many columns to update in each mini-block. Mixins may override
-        # _resolve_blocksize (e.g. PiSO aligns blocks with quantization groups).
+        # _resolve_blocksize (e.g. grid optimization aligns blocks with quantization groups).
         self.blocksize = self._resolve_blocksize(num_blocks)
 
         # Initialize Hessian matrix and counter. We need it in float32 to compute the inverse
@@ -144,7 +144,7 @@ class GPTQ(GPxQ):
                 diag = torch.arange(self.columns, device=self.device)
                 self.H[i, diag, diag] += damp
 
-                # Hook before error correction (PiSO optimizes the layer scale here);
+                # Hook before error correction (grid optimization sets the layer scale here);
                 # no-op otherwise. Assumes a single group when it acts.
                 self._on_error_correction_starts(perm)
 

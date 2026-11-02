@@ -34,13 +34,13 @@ def process_layer_input(
         groups: int,
         quant_metadata: Optional[object] = None) -> Tuple[torch.Tensor, Optional[object]]:
     """Preprocess a layer's input into the [groups, in_features, batch] layout used
-    to accumulate the Hessian, shared by GPxQ and PiSO.
+    to accumulate the Hessian, shared by GPxQ and grid optimization.
 
     quant_metadata is threaded in/out (rather than mutated on an instance) so
     the helper can stay a free function: if the input is a quantized activation and
     quant_metadata is still None, it is captured and returned so a caller that
     needs quant-input-dependent weight quantization can reuse it. Callers that do
-    not need it (PiSO) can ignore the returned value.
+    not need it (grid optimization) can ignore the returned value.
 
     Returns (inp_processed, quant_metadata).
     """
@@ -306,16 +306,16 @@ class GPxQ(ModuleOptimizer):
     # Extension hooks.
     #
     # These provide the default (plain GPxQ) behaviour and are overridden by
-    # mixins to plug in group-aware permutations or PiSO scale optimization
-    # (PiSOMixin, see brevitas.graph.piso).
+    # mixins to plug in group-aware permutations or grid optimization
+    # (GridOptimizationMixin, see brevitas.graph.grid_optimization).
     # -------------------------------------------------------------------------
 
     def _resolve_blocksize(self, num_blocks: int) -> int:
         """Number of columns processed per error-correction block.
 
         Default: split the columns into num_blocks blocks (plain GPxQ). Blocks start
-        at multiples of the block size, so PiSO returns the group size to make every
-        block cover exactly one quantization group.
+        at multiples of the block size, so grid optimization returns the group size to
+        make every block cover exactly one quantization group.
         """
         return math.ceil(self.columns / num_blocks)
 
@@ -323,8 +323,8 @@ class GPxQ(ModuleOptimizer):
         """Column ordering used when act_order is enabled, for one group.
 
         Only called from the act_order branch of the algorithms. Default:
-        descending diagonal-Hessian order. PiSOMixin overrides this to keep
-        quantization groups contiguous when scales are optimized group by group.
+        descending diagonal-Hessian order. GridOptimizationMixin overrides this to
+        keep quantization groups contiguous when scales are optimized group by group.
         """
         return torch.argsort(torch.diag(hessian_group), descending=True)
 
@@ -334,24 +334,24 @@ class GPxQ(ModuleOptimizer):
         The column order of the Hessians depends on the algorithm: GPTQ calls it with
         its damped H permuted by perm, Qronos with H and G in the natural column order.
 
-        No-op by default; PiSO uses it to optimize the layer scale on the fixed
-        grid before weights are error-corrected.
+        No-op by default; grid optimization uses it to optimize the layer scale on
+        the fixed grid before weights are error-corrected.
         """
         pass
 
     def _on_column_reached(self, column_idx: int) -> None:
         """Signal that error correction is about to process column column_idx.
 
-        Called once per column. No-op by default; PiSO uses it to optimize a
-        group's scale when column_idx starts a new group, before its weights
-        are quantized.
+        Called once per column. No-op by default; grid optimization uses it to
+        optimize a group's scale when column_idx starts a new group, before its
+        weights are quantized.
         """
         pass
 
     def _on_layer_finished(self) -> None:
         """Called after the layer is fully processed. No-op by default.
 
-        A teardown hook (e.g. PiSO releases its per-layer state here); also
+        A teardown hook (e.g. grid optimization releases its per-layer state here); also
         invoked on the error path when the layer is skipped.
         """
         pass
