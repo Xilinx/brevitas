@@ -44,13 +44,13 @@ def create_args_parser() -> ArgumentParser:
         '--model',
         type=str,
         default="facebook/opt-125m",
-        help='HF model name. Default: facebook/opt-125m.')
+        help='HF model name. Default: %(default)s.')
     parser.add_argument(
         '--custom-quantizer',
         type=str,
         default=None,
         help=
-        'Override the quantization list and/or post-process the quantized model with a user-defined quantization plugin. The plugin can be a registered name or a .py file path followed by :plugin_name. Default: None.'
+        'Override the quantization list and/or post-process the quantized model with a user-defined quantization plugin. The plugin can be a registered name or a .py file path followed by :plugin_name. Default: %(default)s.'
     )
     parser.add_argument(
         '--dtype',
@@ -59,26 +59,31 @@ def create_args_parser() -> ArgumentParser:
         choices=["auto", "float32", "float16", "bfloat16"],
         help='Data type for model. Default: %(default)s')
     parser.add_argument(
-        '--seed', type=int, default=0, help='Seed for sampling the calibration data. Default: 0.')
+        '--seed',
+        type=int,
+        default=0,
+        help='Seed for sampling the calibration data. Default: %(default)s.')
     parser.add_argument(
         '--nsamples',
         type=int,
         default=128,
         help=
-        'Number of calibration data samples. Set to -1 to load the entire dataset. Default: 128.')
+        'Number of calibration data samples. Set to -1 to load the entire dataset. Default: %(default)s.'
+    )
     parser.add_argument(
         '--nsamples-rot-calibration',
         type=int,
         default=800,
         help='Number of calibration data samples for rotation. Default: %(default)d.')
-    parser.add_argument('--seqlen', type=int, default=2048, help='Sequence length. Default: 2048.')
+    parser.add_argument(
+        '--seqlen', type=int, default=2048, help='Sequence length. Default: %(default)s.')
     parser.add_argument(
         '--eval', action='store_true', help='Eval model PPL, EAR, and KLD on the chosen dataset.')
     parser.add_argument(
         '--eval-top-k',
         type=int,
         default=10,
-        help='Number of tokens to evaluate EAR and KLD on. Default: 10.')
+        help='Number of tokens to evaluate EAR and KLD on. Default: %(default)s.')
     parser.add_argument(
         '--dataset',
         type=str,
@@ -105,16 +110,16 @@ def create_args_parser() -> ArgumentParser:
         choices=['cpu', 'same'],
         default='cpu',
         help=
-        'Device for GPxQ buffers. "same" means using the same device for the buffer as the layer weights. Default %(default)s'
+        'Device for GPxQ buffers. "same" means using the same device for the buffer as the layer weights. Default: %(default)s.'
     )
     parser.add_argument(
-        '--weight-bit-width', type=int, default=8, help='Weight bit width. Default: 8.')
+        '--weight-bit-width', type=int, default=8, help='Weight bit width. Default: %(default)s.')
     parser.add_argument(
         '--weight-param-method',
         type=str,
         default='stats',
         choices=['stats', 'mse', 'hqo'],
-        help='How scales/zero-point are determined. Default: stats.')
+        help='How scales/zero-point are determined. Default: %(default)s.')
     parser.add_argument(
         '--weight-scale-precision',
         type=str,
@@ -125,60 +130,62 @@ def create_args_parser() -> ArgumentParser:
         '--weight-quant-rescaling-init',
         type=float,
         default=None,
-        help='Value to rescale weight quantization grid. Default: None (no rescaling).')
+        help='Value to rescale weight quantization grid. Default: %(default)s (no rescaling).')
     parser.add_argument(
         '--weight-narrow-range',
         action="store_true",
-        help='Use narrow range for weight quantization. Default: False.')
+        help='Use narrow range for weight quantization. Default: %(default)s.')
     parser.add_argument(
         '--weight-quant-type',
         type=str,
         default='sym',
         choices=['sym', 'asym'],
-        help='Weight quantization type. Default: asym.')
+        help='Weight quantization type. Default: %(default)s.')
     parser.add_argument(
         '--weight-quant-format',
         type=quant_format_validator,
         default='int',
         help=
-        'Weight quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. It\'s possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. Default: int.'
+        'Weight quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. It\'s possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. Default: %(default)s.'
     )
     parser.add_argument(
         '--weight-quant-granularity',
         type=str,
         default='per_group',
         choices=['per_channel', 'per_tensor', 'per_group'],
-        help='Granularity for scales/zero-point of weights. Default: per_group.')
+        help='Granularity for scales/zero-point of weights. Default: %(default)s.')
     parser.add_argument(
         '--scale-rounding-func-type',
         type=str,
         default=None,
         choices=['round', 'ceil', 'floor', 'midmax'],
-        help='Rounding function to use with Po2 scale. Default: None.')
+        help='Rounding function to use with Po2 scale. Default: %(default)s.')
     parser.add_argument(
         '--weight-group-dim',
         type=int,
         default=None,
         choices=[1, 0],
-        help='Override default group_dim for groupsize quantization. Default: layer-dependant')
+        help=
+        'Override default group_dim for groupsize quantization. Default: %(default)s (layer-dependent).'
+    )
     parser.add_argument(
         '--weight-group-size',
         type=int,
         default=128,
-        help='Group size for per_group weight quantization. Default: 128.')
+        help='Group size for per_group weight quantization. Default: %(default)s.')
     parser.add_argument(
         '--quantize-weight-zero-point', action='store_true', help='Quantize weight zero-point.')
     parser.add_argument(
         '--input-bit-width',
         type=int,
         default=None,
-        help='Input bit width. Default: None (disables input quantization).')
+        help='Input bit width. Default: %(default)s (disables input quantization).')
     parser.add_argument(
         '--input-quant-format',
         type=quant_format_validator,
         default='int',
         help=
-        'Input quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. It\'s possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. Default: int.'
+        'Input quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. It\'s possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. Default: %(default)s.'
     )
     parser.add_argument(
         '--input-param-method',
@@ -186,14 +193,14 @@ def create_args_parser() -> ArgumentParser:
         default='stats',
         choices=['stats', 'mse'],
         help=
-        'How scales/zero-point are determined. Default: stats (percentile for static, absmax or minmax for dynamic).'
+        'How scales/zero-point are determined. Default: %(default)s (percentile for static, absmax or minmax for dynamic).'
     )
     parser.add_argument(
         '--input-scale-precision',
         type=str,
         default='float_scale',
         choices=['signed_float_scale', 'float_scale', 'po2_scale'],
-        help='Whether input scale is a float value or a po2. Default: float.')
+        help='Whether input scale is a float value or a po2. Default: %(default)s.')
     parser.add_argument(
         '--input-scale-type',
         type=str,
@@ -205,22 +212,22 @@ def create_args_parser() -> ArgumentParser:
         type=str,
         default='asym',
         choices=['sym', 'asym'],
-        help='Input quantization type. Default: asym.')
+        help='Input quantization type. Default: %(default)s.')
     parser.add_argument(
         '--input-narrow-range',
         action="store_true",
-        help='Use narrow range for input quantization. Default: False.')
+        help='Use narrow range for input quantization. Default: %(default)s.')
     parser.add_argument(
         '--input-quant-granularity',
         type=str,
         default='per_tensor',
         choices=['per_tensor', 'per_row', 'per_group'],
-        help='Granularity for scales/zero-point of inputs. Default: per_tensor.')
+        help='Granularity for scales/zero-point of inputs. Default: %(default)s.')
     parser.add_argument(
         '--input-group-size',
         type=int,
         default=64,
-        help='Group size for per_group input quantization. Default: 64.')
+        help='Group size for per_group input quantization. Default: %(default)s.')
     parser.add_argument(
         '--attn-quant-config',
         type=str,
@@ -233,49 +240,51 @@ def create_args_parser() -> ArgumentParser:
         '--attn-bit-width',
         type=int,
         default=None,
-        help='Attention bit width. Default: None (same as input).')
+        help='Attention bit width. Default: %(default)s (same as input).')
     parser.add_argument(
         '--attn-quant-format',
         type=attn_quant_format_validator,
         default=None,
         help=
-        'Attention quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. It\'s possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. Default: None (same as input).'
+        'Attention quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. It\'s possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. Default: %(default)s (same as input).'
     )
     parser.add_argument(
         '--attn-param-method',
         type=str,
         default=None,
         choices=['stats', 'mse'],
-        help='How scales/zero-point are determined. Default: None (same as input).')
+        help='How scales/zero-point are determined. Default: %(default)s (same as input).')
     parser.add_argument(
         '--attn-scale-precision',
         type=str,
         default=None,
         choices=['signed_float_scale', 'float_scale', 'po2_scale'],
-        help='Whether input scale is a float value or a po2. Default: (same as input).')
+        help='Whether input scale is a float value or a po2. Default: %(default)s (same as input).')
     parser.add_argument(
         '--attn-scale-type',
         type=None,
         default=None,
         choices=['static', 'dynamic', 'no_scale'],
-        help='Whether input scale is a static value or a dynamic value. Default: (same as input).')
+        help=
+        'Whether input scale is a static value or a dynamic value. Default: %(default)s (same as input).'
+    )
     parser.add_argument(
         '--attn-quant-type',
         type=str,
         default=None,
         choices=['sym', 'asym'],
-        help='Input quantization type. Default: (same as input).')
+        help='Input quantization type. Default: %(default)s (same as input).')
     parser.add_argument(
         '--attn-quant-granularity',
         type=str,
         default=None,
         choices=['per_tensor', 'per_row', 'per_group'],
-        help='Granularity for scales/zero-point of inputs. Default: (same as input).')
+        help='Granularity for scales/zero-point of inputs. Default: %(default)s (same as input).')
     parser.add_argument(
         '--attn-group-size',
         type=int,
         default=None,
-        help='Group size for per_group input quantization. Default: (same as input).')
+        help='Group size for per_group input quantization. Default: %(default)s (same as input).')
     parser.add_argument(
         '--learned-round-lr',
         type=float,
@@ -295,7 +304,7 @@ def create_args_parser() -> ArgumentParser:
         '--learned-round-iters',
         type=int,
         default=200,
-        help='Number of iterations for learned round. Default: 200.')
+        help='Number of iterations for learned round. Default: %(default)s.')
     parser.add_argument(
         '--learned-round-scale',
         action='store_true',
@@ -311,10 +320,10 @@ def create_args_parser() -> ArgumentParser:
         'definition from a custom quantizer.')
     parser.add_argument('--magr', action='store_true', help='Apply MagR.')
     parser.add_argument(
-        '--magr-alpha', type=float, default=0.01, help='Alpha for MagR. Default: 0.01.')
+        '--magr-alpha', type=float, default=0.01, help='Alpha for MagR. Default: %(default)s.')
     parser.add_argument('--qronos', action='store_true', help='Apply Qronos.')
     parser.add_argument(
-        '--qronos-alpha', default=1e-6, type=float, help='Alpha for Qronos. Default: 1e-6')
+        '--qronos-alpha', default=1e-6, type=float, help='Alpha for Qronos. Default: %(default)s.')
     parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
     parser.add_argument('--gpfq', action='store_true', help='Apply GPFQ.')
     parser.add_argument(
@@ -326,7 +335,8 @@ def create_args_parser() -> ArgumentParser:
     parser.add_argument(
         '--disable-create-weight-orig',
         action='store_true',
-        help='Disable maintaining original weights for non-quant forward pass. Default: false')
+        help='Disable maintaining original weights for non-quant forward pass. Default: %(default)s.'
+    )
     parser.add_argument(
         '--gpxq-max-accumulator-bit-width',
         type=int,
@@ -400,7 +410,7 @@ def create_args_parser() -> ArgumentParser:
         'expose a "training_args_cls" class attribute to customise the training '
         'arguments (including the optimizer setup via "optimizer_scheduler_args"); '
         'otherwise the LLM example defaults are used. Implies --fine-tune. '
-        'Default: None.',
+        'Default: %(default)s.',
     )
     parser.add_argument(
         '--rotation-mode',
@@ -503,7 +513,7 @@ def create_args_parser() -> ArgumentParser:
     parser.add_argument(
         '--load-checkpoint',
         action="store_true",
-        help='Boolean flag to load_checkpoint, uses checkpoint_name. Default %(default)s)')
+        help='Boolean flag to load_checkpoint, uses checkpoint_name. Default: %(default)s.')
     parser.add_argument(
         '--learned-round',
         default=None,
@@ -519,33 +529,33 @@ def create_args_parser() -> ArgumentParser:
         type=str,
         default=None,
         choices=['lm_eval', 'lighteval'],
-        help='Perform zero_shot evaluation with lm_eval or lighteval. Default %(default)s)')
+        help='Perform zero_shot evaluation with lm_eval or lighteval. Default: %(default)s.')
     parser.add_argument('--few-shot-override-batch-size', type=int, default=None)
     parser.add_argument(
         '--compile-ptq',
         default=False,
         action="store_true",
-        help='Compile for PTQ algorithms. Default %(default)s)')
+        help='Compile for PTQ algorithms. Default: %(default)s.')
     parser.add_argument(
         '--compile-eval',
         default=False,
         action="store_true",
-        help='Compile during evaluation. Default %(default)s)')
+        help='Compile during evaluation. Default: %(default)s.')
     parser.add_argument(
         '--few-shot-zeroshot',
         default=False,
         action="store_true",
-        help='Whether to do zero or few shot eval. Default %(default)s)')
+        help='Whether to do zero or few shot eval. Default: %(default)s.')
     parser.add_argument(
         '--bos-preprocessing',
         type=str,
         default=None,
         choices=[None, 'document', 'sequence'],
         help=
-        'Type of BOS token pre-processing for training and evaluation datasets. Default %(default)s)'
+        'Type of BOS token pre-processing for training and evaluation datasets. Default: %(default)s.'
     )
     parser.add_argument(
-        '--few-shot-limit', type=int, default=None, help='Few shot limit. Default %(default)s)')
+        '--few-shot-limit', type=int, default=None, help='Few shot limit. Default: %(default)s.')
     parser.add_argument(
         '--few-shot-tasks',
         default=['arc_challenge', 'arc_easy', 'winogrande', 'piqa'],

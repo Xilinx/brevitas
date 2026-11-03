@@ -68,7 +68,7 @@ options:
   --gpxq-block-name GPXQ_BLOCK_NAME, --block-name GPXQ_BLOCK_NAME
                         Attribute for model blocks. Used for faster GPxQ optimization (if FX is not needed) and learned round (default: None)
   --gpxq-buffer-device {cpu,same}
-                        Device for GPxQ buffers. "same" means using the same device for the buffer as the layer weights. Default cpu
+                        Device for GPxQ buffers. "same" means using the same device for the buffer as the layer weights. Default: cpu.
   --weight-bit-width WEIGHT_BIT_WIDTH
                         Weight bit width. Default: 8.
   --weight-param-method {stats,mse,hqo}
@@ -80,7 +80,7 @@ options:
   --weight-narrow-range
                         Use narrow range for weight quantization. Default: False.
   --weight-quant-type {sym,asym}
-                        Weight quantization type. Default: asym.
+                        Weight quantization type. Default: sym.
   --weight-quant-format WEIGHT_QUANT_FORMAT
                         Weight quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. It's possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. Default: int.
   --weight-quant-granularity {per_channel,per_tensor,per_group}
@@ -88,7 +88,7 @@ options:
   --scale-rounding-func-type {round,ceil,floor,midmax}
                         Rounding function to use with Po2 scale. Default: None.
   --weight-group-dim {1,0}
-                        Override default group_dim for groupsize quantization. Default: layer-dependant
+                        Override default group_dim for groupsize quantization. Default: None (layer-dependent).
   --weight-group-size WEIGHT_GROUP_SIZE
                         Group size for per_group weight quantization. Default: 128.
   --quantize-weight-zero-point
@@ -100,7 +100,7 @@ options:
   --input-param-method {stats,mse}
                         How scales/zero-point are determined. Default: stats (percentile for static, absmax or minmax for dynamic).
   --input-scale-precision {signed_float_scale,float_scale,po2_scale}
-                        Whether input scale is a float value or a po2. Default: float.
+                        Whether input scale is a float value or a po2. Default: float_scale.
   --input-scale-type {static,dynamic,no_scale}
                         Whether input scale is a static value or a dynamic value.
   --input-quant-type {sym,asym}
@@ -121,15 +121,15 @@ options:
   --attn-param-method {stats,mse}
                         How scales/zero-point are determined. Default: None (same as input).
   --attn-scale-precision {signed_float_scale,float_scale,po2_scale}
-                        Whether input scale is a float value or a po2. Default: (same as input).
+                        Whether input scale is a float value or a po2. Default: None (same as input).
   --attn-scale-type {static,dynamic,no_scale}
-                        Whether input scale is a static value or a dynamic value. Default: (same as input).
+                        Whether input scale is a static value or a dynamic value. Default: None (same as input).
   --attn-quant-type {sym,asym}
-                        Input quantization type. Default: (same as input).
+                        Input quantization type. Default: None (same as input).
   --attn-quant-granularity {per_tensor,per_row,per_group}
-                        Granularity for scales/zero-point of inputs. Default: (same as input).
+                        Granularity for scales/zero-point of inputs. Default: None (same as input).
   --attn-group-size ATTN_GROUP_SIZE
-                        Group size for per_group input quantization. Default: (same as input).
+                        Group size for per_group input quantization. Default: None (same as input).
   --learned-round-lr LEARNED_ROUND_LR
                         Learning rate for learned round parameter optimization. Default: 0.005
   --learned-round-scale-lr LEARNED_ROUND_SCALE_LR
@@ -150,14 +150,14 @@ options:
                         Alpha for MagR. Default: 0.01.
   --qronos              Apply Qronos.
   --qronos-alpha QRONOS_ALPHA
-                        Alpha for Qronos. Default: 1e-6
+                        Alpha for Qronos. Default: 1e-06.
   --gptq                Apply GPTQ.
   --gpfq                Apply GPFQ.
   --gpxq-act-order      Apply GPxQ activation ordering.
   --gpxq-use-quant-activations
                         Use quantized activations in GPxQ.
   --disable-create-weight-orig
-                        Disable maintaining original weights for non-quant forward pass. Default: false
+                        Disable maintaining original weights for non-quant forward pass. Default: False.
   --gpxq-max-accumulator-bit-width GPXQ_MAX_ACCUMULATOR_BIT_WIDTH
                         Maximum accumulator bit width for GPxQ using AXE.
   --gpxq-max-accumulator-tile-size GPXQ_MAX_ACCUMULATOR_TILE_SIZE
@@ -222,21 +222,21 @@ options:
                         gguf-py's auto-derived filename. If None, writes to the current working directory. Default: None
   --checkpoint-name CHECKPOINT_NAME
                         Filename to save checkpoint. If `None`, no checkpoint is saved (default: None)
-  --load-checkpoint     Boolean flag to load_checkpoint, uses checkpoint_name. Default False)
+  --load-checkpoint     Boolean flag to load_checkpoint, uses checkpoint_name. Default: False.
   --learned-round {None,identity}
                         Whether to use learned round. If `None`, RTN is used (default: None)
   --learned-round-fast-update
                         Whether to use fast update with learned round. Prototype (default: False)
   --few-shot-eval {lm_eval,lighteval}
-                        Perform zero_shot evaluation with lm_eval or lighteval. Default None)
+                        Perform zero_shot evaluation with lm_eval or lighteval. Default: None.
   --few-shot-override-batch-size FEW_SHOT_OVERRIDE_BATCH_SIZE
-  --compile-ptq         Compile for PTQ algorithms. Default False)
-  --compile-eval        Compile during evaluation. Default False)
-  --few-shot-zeroshot   Whether to do zero or few shot eval. Default False)
+  --compile-ptq         Compile for PTQ algorithms. Default: False.
+  --compile-eval        Compile during evaluation. Default: False.
+  --few-shot-zeroshot   Whether to do zero or few shot eval. Default: False.
   --bos-preprocessing {None,document,sequence}
-                        Type of BOS token pre-processing for training and evaluation datasets. Default None)
+                        Type of BOS token pre-processing for training and evaluation datasets. Default: None.
   --few-shot-limit FEW_SHOT_LIMIT
-                        Few shot limit. Default None)
+                        Few shot limit. Default: None.
   --few-shot-tasks [FEW_SHOT_TASKS ...]
                         A list of tasks for zero_shot evaluation. Default: ['arc_challenge', 'arc_easy', 'winogrande', 'piqa']
   --awq-scale           Whether to apply AWQ scaling (default: False).
