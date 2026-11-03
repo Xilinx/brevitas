@@ -81,8 +81,7 @@ class QuantTensor(Tensor):
     def _get_metadata_kwargs(self):
         """Return constructor metadata from its private backing attributes."""
         # Private metadata attributes map to constructor keyword names without the prefix.
-        return {
-            attribute[1:]: getattr(self, attribute) for attribute in self._quant_tensor_metadata}
+        return {attribute[1:]: getattr(self, attribute) for attribute in self._quant_tensor_metadata}
 
     def _reconstruct(self, value, metadata_kwargs=None):
         """
