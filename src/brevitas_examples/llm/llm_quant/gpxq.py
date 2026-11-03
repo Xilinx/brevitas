@@ -3,6 +3,8 @@
 
 from copy import deepcopy
 from functools import partial
+from typing import Optional
+from typing import Type
 
 from accelerate.utils.operations import send_to_device
 import torch
@@ -11,8 +13,20 @@ from tqdm import tqdm
 from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
+from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gptq import gptq_mode
+from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.magr import magr_mode
+from brevitas.graph.piso import GroupAwarePermGPTQ
+from brevitas.graph.piso import GroupAwarePermQronos
+from brevitas.graph.piso import GroupAwarePermutationMixin
+from brevitas.graph.piso import PiSOGroupInterleavedGPTQ
+from brevitas.graph.piso import PiSOGroupInterleavedQronos
+from brevitas.graph.piso import PiSOLayerInterleavedGPTQ
+from brevitas.graph.piso import PiSOLayerInterleavedQronos
+from brevitas.graph.piso import PiSOMixin
+from brevitas.graph.piso import ScaleOptimizer
+from brevitas.graph.piso import ScaleOptimizerGroupInterleaved
 from brevitas.graph.qronos import Qronos
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas.utils.torch_utils import StopFwdException
@@ -20,61 +34,133 @@ from brevitas_examples.common.axe import a2gpfq_mode
 from brevitas_examples.common.axe import a2gptq_mode
 
 
-def _gpxq_block_optimization_callback(block, gpxq, cached_args, cached_kwargs):
-    for _ in tqdm(range(gpxq.num_layers), desc="Layers", leave=False):
+def _gptq_block_optimization_callback(
+        gptq,
+        cached_args,
+        cached_kwargs,
+        _unused_cached_args,
+        _unused_cached_kwargs,
+        _unused_context_manager):
+    for _ in tqdm(range(gptq.num_layers), desc="Layers", leave=False):
         for args, kwargs in zip(cached_args, cached_kwargs):
             args = send_to_device(args, 'cuda')
             kwargs = send_to_device(kwargs, 'cuda')
-            block(*args, **kwargs)
-        gpxq.update()
+            gptq.model(*args, **kwargs)
+        gptq.update()
 
 
-def _magr_block_optimization_callback(block, magr, cached_args, cached_kwargs):
+def _magr_block_optimization_callback(
+        magr,
+        cached_args,
+        cached_kwargs,
+        _unused_cached_args,
+        _unused_cached_kwargs,
+        _unused_context_manager):
     for args, kwargs in zip(cached_args, cached_kwargs):
         args = send_to_device(args, 'cuda')
         kwargs = send_to_device(kwargs, 'cuda')
-        block(*args, **kwargs)
+        magr.model(*args, **kwargs)
     magr.update()
 
 
-@torch.no_grad()
-def block_optimization(
+def _gpfq_or_qronos_block_optimization_callback(
+        gpxq,
+        float_cached_args,
+        float_cached_kwargs,
+        quant_cached_args,
+        quant_cached_kwargs,
+        disable_quantization_cm):
+    for _ in tqdm(range(gpxq.num_layers), desc="Layers", leave=False):
+        for quant_args, quant_kwargs, float_args, float_kwargs in zip(
+                quant_cached_args,
+                quant_cached_kwargs,
+                float_cached_args,
+                float_cached_kwargs):
+            # Run the quantized pass first. GPFQ and Qronos store its input.
+            quant_args = send_to_device(quant_args, 'cuda')
+            quant_kwargs = send_to_device(quant_kwargs, 'cuda')
+            gpxq.model(*quant_args, **quant_kwargs)
+            # Run the float pass second. GPFQ and Qronos use the input pair to update G.
+            # NOTE: gpxq_mode inherits from quantization_status_manager. gpfq_mode makes
+            # the inherited manager a no-op (see graph/gpfq.py), so it does not interact
+            # with this manager. This manager disables quantization only for the float pass.
+            with disable_quantization_cm:
+                float_args = send_to_device(float_args, 'cuda')
+                float_kwargs = send_to_device(float_kwargs, 'cuda')
+                gpxq.model(*float_args, **float_kwargs)
+        # Update after all input pairs are available for the current layer.
+        gpxq.update()
+
+
+def _intercept_input(module, args, kwargs, cached_args, cached_kwargs):
+    """Cache a block input on the CPU and stop the forward pass."""
+    cached_args.append(send_to_device(args, 'cpu'))
+    cached_kwargs.append(send_to_device(kwargs, 'cpu'))
+    raise StopFwdException
+
+
+def _intercept_output(module, args, kwargs, output, cached_args):
+    """Cache a block output on the CPU and stop the forward pass."""
+    if isinstance(output, tuple):
+        output = output[0]
+    cached_args.append((send_to_device(output, 'cpu'),))
+    raise StopFwdException
+
+
+# TODO: consider refactoring this into a class where GPTQ, MagR, GPFQ, Qronos, etc.
+# can each inherit from and implement/override their own logic.
+def _block_optimization(
         model,
         dataloader,
         block_name,
         context_manager_func,
         context_manager_kwargs,
-        block_optimization_callback=_gpxq_block_optimization_callback):
+        block_optimization_callback=_gptq_block_optimization_callback,
+        reset_float_cache_every=None):
+
+    if reset_float_cache_every is not None:
+        if not isinstance(reset_float_cache_every, int) or reset_float_cache_every <= 0:
+            raise ValueError("reset_float_cache_every must be None or a positive integer.")
+
+    # Algorithms such as GPFQ and Qronos aim to solve the mismatched objective by using
+    # float inputs and (possibly quantized) inputs from the previously quantized layers.
+    use_quant_activations = context_manager_kwargs.get('use_quant_activations', True)
+    solves_mismatched_objective = context_manager_func.solves_mismatched_objective
+    if solves_mismatched_objective and not use_quant_activations:
+        raise ValueError("Mismatched objective requires use_quant_activations=True.")
+
     disable_quantization_cm = quantization_status_manager(
         model=model,
-        disable_act_quant=not context_manager_kwargs.get('use_quant_activations', True),
-        disable_weight_quant=False,
-        disable_bias_quant=not context_manager_kwargs.get('use_quant_activations', True),
-    )
+        disable_act_quant=solves_mismatched_objective or not use_quant_activations,
+        disable_weight_quant=solves_mismatched_objective,
+        disable_bias_quant=solves_mismatched_objective or not use_quant_activations)
+
     cache_state = model.config.use_cache
     model.config.use_cache = False
     blocks = recurse_getattr(model, block_name)
     first_block = blocks[0]
-    cached_args, cached_kwargs = [], []
 
-    # Intercept input to first block
-    def intercept_input(module, args, kwargs):
-        args = send_to_device(args, 'cpu')
-        kwargs = send_to_device(kwargs, 'cpu')
-        cached_args.append(args)
-        cached_kwargs.append(kwargs)
-        raise StopFwdException
+    # Cached inputs from the model under the context manager.
+    float_cached_args, float_cached_kwargs = [], []
+    # Cached inputs from the quantized model if solves_mismatched_objective is True.
+    quant_cached_args, quant_cached_kwargs = [], []
 
-    # Intercept output from block N-1 to set it as input to block N
-    def intercept_output(module, args, kwargs, output):
-        if isinstance(output, tuple):
-            output = output[0]
-        output = send_to_device(output, 'cpu')
-        cached_args.append((output,))
-        raise StopFwdException
+    if solves_mismatched_objective:
+        # Cache inputs from the quantized model first.
+        hook = first_block.register_forward_pre_hook(
+            partial(
+                _intercept_input, cached_args=quant_cached_args, cached_kwargs=quant_cached_kwargs),
+            with_kwargs=True)
+        for inps in dataloader:
+            try:
+                model(**inps)
+            except StopFwdException:
+                pass
+        hook.remove()
 
-    # Collect input to first block
-    hook = first_block.register_forward_pre_hook(intercept_input, with_kwargs=True)
+    hook = first_block.register_forward_pre_hook(
+        partial(_intercept_input, cached_args=float_cached_args, cached_kwargs=float_cached_kwargs),
+        with_kwargs=True)
     with disable_quantization_cm:
         for inps in dataloader:
             try:
@@ -85,17 +171,53 @@ def block_optimization(
 
     # Iterate through all the blocks
     for index, block in tqdm(enumerate(blocks), desc="Blocks", total=len(blocks)):
+        # Create a new context manager for the current block.
+        # Disabling quantization for the current block is cheaper than disabling it for the entire model.
+        disable_quantization_cm = quantization_status_manager(
+            model=block,
+            disable_act_quant=solves_mismatched_objective or not use_quant_activations,
+            disable_weight_quant=solves_mismatched_objective,
+            disable_bias_quant=solves_mismatched_objective or not use_quant_activations)
+        # The context manager installs hooks for the current block.
+        # The callback runs the passes expected by these hooks.
         with context_manager_func(block, **context_manager_kwargs) as gpxq:
-            block_optimization_callback(block, gpxq, cached_args, cached_kwargs)
+            block_optimization_callback(
+                gpxq,
+                float_cached_args,
+                float_cached_kwargs,
+                quant_cached_args,
+                quant_cached_kwargs,
+                disable_quantization_cm)
 
         if index < len(blocks) - 1:
             # Once the block is done, we need to update the input to the next block
-            past_cached_args, past_cached_kwargs = deepcopy(cached_args), deepcopy(cached_kwargs)
-            cached_args = []
-            hook = block.register_forward_hook(intercept_output, with_kwargs=True)
+            if solves_mismatched_objective:
+                past_quant_cached_args = deepcopy(quant_cached_args)
+                quant_cached_args = []
+                hook = block.register_forward_hook(
+                    partial(_intercept_output, cached_args=quant_cached_args), with_kwargs=True)
+                for args, kwargs in zip(past_quant_cached_args, quant_cached_kwargs):
+                    try:
+                        args = send_to_device(args, 'cuda')
+                        kwargs = send_to_device(kwargs, 'cuda')
+                        block(*args, **kwargs)
+                    except StopFwdException:
+                        pass
+                hook.remove()
 
+                if reset_float_cache_every is not None and (index +
+                                                            1) % reset_float_cache_every == 0:
+                    float_cached_args = deepcopy(quant_cached_args)
+                    float_cached_kwargs = deepcopy(quant_cached_kwargs)
+                    continue
+
+            past_float_cached_args = deepcopy(float_cached_args)
+            past_float_cached_kwargs = deepcopy(float_cached_kwargs)
+            float_cached_args = []
+            hook = block.register_forward_hook(
+                partial(_intercept_output, cached_args=float_cached_args), with_kwargs=True)
             with disable_quantization_cm:
-                for args, kwargs in zip(past_cached_args, past_cached_kwargs):
+                for args, kwargs in zip(past_float_cached_args, past_float_cached_kwargs):
                     try:
                         args = send_to_device(args, 'cuda')
                         kwargs = send_to_device(kwargs, 'cuda')
@@ -105,6 +227,28 @@ def block_optimization(
             hook.remove()
     # Restore cache state
     model.config.use_cache = cache_state
+
+
+def _select_gpxq_class(
+        base_class: Type[GPxQ],
+        piso_class: Type[PiSOMixin],
+        groupwise_piso_class: Type[PiSOMixin],
+        group_aware_class: Type[GroupAwarePermutationMixin],
+        scale_optimizer: Optional[ScaleOptimizer],
+        block_sum_act_order: bool) -> Type[GPxQ]:
+    """Pick the GPxQ variant given the requested scale-opt / permutation options.
+
+    - scale optimization on: PiSO class, group-wise variant if the updater is;
+    - scale optimization off but group-aware act_order requested: group-aware class;
+    - otherwise: the plain base class.
+    """
+    if scale_optimizer is not None:
+        if isinstance(scale_optimizer, ScaleOptimizerGroupInterleaved):
+            return partial(groupwise_piso_class, scale_optimizer=scale_optimizer)
+        return partial(piso_class, scale_optimizer=scale_optimizer)
+    if block_sum_act_order:
+        return group_aware_class
+    return base_class
 
 
 @torch.no_grad()
@@ -119,7 +263,9 @@ def apply_gptq(
         max_accumulator_bit_width=None,
         max_accumulator_tile_size=None,
         buffer_device='cpu',
-        buffer_dtype=torch.float32):
+        buffer_dtype=torch.float32,
+        scale_optimizer=None,
+        block_sum_act_order=False):
     context_manager_kwargs = {
         'act_order': act_order,
         'group_of_parallel_layers': group_of_parallel_layers,
@@ -133,8 +279,16 @@ def apply_gptq(
         context_manager_kwargs.update(
             max_accumulator_bit_width=max_accumulator_bit_width,
             max_accumulator_tile_size=max_accumulator_tile_size)
+    else:
+        context_manager_kwargs['gptq_class'] = _select_gpxq_class(
+            GPTQ,
+            PiSOLayerInterleavedGPTQ,
+            PiSOGroupInterleavedGPTQ,
+            GroupAwarePermGPTQ,
+            scale_optimizer,
+            block_sum_act_order)
     if block_name is not None:
-        block_optimization(
+        _block_optimization(
             model, dataloader, block_name, context_manager_func, context_manager_kwargs)
     else:
         with context_manager_func(model, **context_manager_kwargs) as gptq:
@@ -145,7 +299,7 @@ def apply_gptq(
                 gptq.update()
 
 
-def _dual_optimization_callback(
+def _apply_gpfq_or_qronos(
         model,
         dataloader,
         act_order=True,
@@ -178,14 +332,27 @@ def _dual_optimization_callback(
             max_accumulator_bit_width=max_accumulator_bit_width,
             max_accumulator_tile_size=max_accumulator_tile_size)
     if block_name is not None:
-        block_optimization(
-            model, dataloader, block_name, context_manager_func, context_manager_kwargs)
+        _block_optimization(
+            model,
+            dataloader,
+            block_name,
+            context_manager_func,
+            context_manager_kwargs,
+            block_optimization_callback=_gpfq_or_qronos_block_optimization_callback,
+            reset_float_cache_every=1)
     else:
+        disable_quantization_cm = quantization_status_manager(
+            model=model, disable_act_quant=True, disable_weight_quant=True, disable_bias_quant=True)
+        # The context manager installs hooks used by GPFQ or Qronos.
+        # Run both passes before update consumes their collected inputs.
         with context_manager_func(model, **context_manager_kwargs) as algo:
-            algo_model = algo.model
             for _ in tqdm(range(algo.num_layers)):
                 for inps in dataloader:
-                    algo_model(**inps)
+                    # Run the quantized pass first. GPFQ and Qronos store its input.
+                    algo.model(**inps)
+                    # Run the float pass second. GPFQ and Qronos use the input pair to update G.
+                    with disable_quantization_cm:
+                        algo.model(**inps)
                 algo.update()
 
 
@@ -200,9 +367,8 @@ def apply_gpfq(
         max_accumulator_tile_size=None,
         buffer_device='cpu',
         buffer_dtype=torch.float32):
-    # We use the dual optimization callback, which uses two forward passes to correct
-    # quantization error in both the weights and activations from previous layers
-    _dual_optimization_callback(
+    # Use paired quantized and float passes to correct errors from previous layers.
+    _apply_gpfq_or_qronos(
         model,
         dataloader,
         act_order=act_order,
@@ -217,24 +383,33 @@ def apply_gpfq(
 
 @torch.no_grad()
 def apply_qronos(
-        model,
-        dataloader,
-        act_order=True,
-        group_of_parallel_layers=None,
-        block_name=None,
-        alpha=1e-6,
-        buffer_device='cpu',
-        buffer_dtype=torch.float32):
+    model,
+    dataloader,
+    act_order=True,
+    group_of_parallel_layers=None,
+    block_name=None,
+    alpha=1e-6,
+    buffer_device='cpu',
+    buffer_dtype=torch.float32,
+    scale_optimizer=None,
+    block_sum_act_order=False,
+):
     assert alpha > 0, "Error: alpha needs to be strictly positive"
-    # We use the dual optimization callback, which uses two forward passes to correct
-    # quantization error in both the weights and activations from previous layers
-    _dual_optimization_callback(
+    qronos_class = _select_gpxq_class(
+        Qronos,
+        PiSOLayerInterleavedQronos,
+        PiSOGroupInterleavedQronos,
+        GroupAwarePermQronos,
+        scale_optimizer,
+        block_sum_act_order)
+    # Use paired quantized and float passes to correct errors from previous layers.
+    _apply_gpfq_or_qronos(
         model,
         dataloader,
         act_order=act_order,
         block_name=block_name,
         group_of_parallel_layers=group_of_parallel_layers,
-        algorithm_impl=partial(Qronos, alpha=alpha),
+        algorithm_impl=partial(qronos_class, alpha=alpha),
         device=buffer_device,
         dtype=buffer_dtype)
 
@@ -258,7 +433,7 @@ def apply_magr(
             'num_steps': num_steps,
             'device': buffer_device,
             'dtype': buffer_dtype}
-        block_optimization(
+        _block_optimization(
             model,
             dataloader,
             block_name,

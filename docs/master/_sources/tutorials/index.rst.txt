@@ -13,3 +13,4 @@ Tutorials
     anatomy_quantizer
     quant_recurrent
     onnx_export
+    minifloat_mx

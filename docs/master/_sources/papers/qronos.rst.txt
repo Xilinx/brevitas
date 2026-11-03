@@ -243,7 +243,7 @@ QuaRot with INT4 and MXFP4
 QuaRot [3] is a rotation-based quantization method that applies Hadamard transformations to 
 neural network weights and activations to remove outliers before quantization, enabling 
 accurate low-bit quantization. With Brevitas, you can similarly apply and fuse Hadamard 
-rotations then apply Qronos (or other adaptive rounding alorithms). The following table 
+rotations then apply Qronos (or other adaptive rounding algorithms). The following table 
 summarizes the results of quantizing the weights and activations of Llama-3.2-1B to INT4 or 
 MXFP4. We compare Qronos with GPTQ and GPFQ and provide RTN as a baseline.
 

@@ -63,6 +63,7 @@ from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.scaled_int import Int32Bias
 from brevitas.quant.scaled_int import Uint8ActPerTensorFloat
 from brevitas.quant_tensor import QuantTensor
+from brevitas.utils.torch_utils import rename_tensor
 from brevitas.utils.torch_utils import rename_tensor_
 
 
@@ -421,7 +422,10 @@ class QuantMultiheadAttention(Module):
             if check_tensors_same_ptr([key, query, value]):
                 # Mark dimensions through named tensors.
                 if not torch._C._get_tracing_state():
-                    _rename_(query, 'L', 'N', 'E')
+                    if isinstance(query, QuantTensor):
+                        query = query.set(value=rename_tensor(query.value, 'L', 'N', 'E'))
+                    else:
+                        query = rename_tensor(query, 'L', 'N', 'E')
                 # self-attention
                 q, k, v = self.in_proj(query).chunk(3, dim=-1)
             else:
@@ -434,8 +438,14 @@ class QuantMultiheadAttention(Module):
             assert self.v_proj is not None, "use_separate_proj_weight is True but v_proj is None"
             # Mark dimensions through named tensors.
             if not torch._C._get_tracing_state():
+                renamed_qkv = []
                 for t in [query, key, value]:
-                    _rename_(t, 'L', 'N', 'E')
+                    if isinstance(t, QuantTensor):
+                        t = t.set(value=rename_tensor(t.value, 'L', 'N', 'E'))
+                    else:
+                        t = rename_tensor(t, 'L', 'N', 'E')
+                    renamed_qkv.append(t)
+                query, key, value = renamed_qkv
             q, k, v = self.q_proj(query), self.k_proj(key), self.v_proj(value)
         # Remove names to avoid errors downstream
         if not torch._C._get_tracing_state():

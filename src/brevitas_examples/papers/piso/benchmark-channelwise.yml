@@ -1,0 +1,137 @@
+# Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+#
+# Channel-wise weight-only quantization: paper Table 1 (2-bit) and Table 2 (3- and
+# 4-bit).
+#
+# This is a grid config: every key holds a list, and the benchmark runs the
+# Cartesian product of all of them. Most of that product is not meaningful, so
+# `benchmark.py` filters it down to the rows of the paper. Per model and bit width
+# the 11 surviving runs are:
+#
+#   absmax     RTN, GPTQ, Qronos
+#   data-free  RTN, GPTQ, Qronos
+#   PiSO       RTN, GPTQ +, GPTQ *, Qronos +, Qronos *
+#
+# where + is the decoupled and * the layer-interleaved integration. The BF16
+# reference row of each table needs no run of its own: it is reported as
+# `float_ppl` alongside the quantized perplexity of every experiment.
+#
+# Beacon (Tables 1 and 2) is not reproducible here, as it has no Brevitas
+# implementation.
+
+# Models evaluated in Table 1. Only the first is enabled to keep the default sweep
+# short; uncomment the others to reproduce the full table. Table 2 covers the three
+# Llama models only, so the Qwen runs it produces belong to Appendix Table 9.
+model:
+- meta-llama/Llama-3.2-1B
+# - meta-llama/Llama-3.2-3B
+# - meta-llama/Llama-3.1-8B
+# - Qwen/Qwen2.5-1.5B-Instruct
+# - Qwen/Qwen2.5-3B-Instruct
+# - Qwen/Qwen2.5-7B-Instruct
+
+# Quantization grid. `stats` is the absmax scale heuristic, which is both the
+# baseline and the starting point that scale optimization replaces.
+weight_quant_format:
+- int
+weight_quant_granularity:
+- per_channel
+weight_param_method:
+- stats
+# 2-bit reproduces Table 1; 3- and 4-bit reproduce Table 2.
+weight_bit_width:
+- 2
+- 3
+- 4
+
+# Scale selection. The three flags below are swept jointly and select one scale
+# method per run:
+#   sopt_optimize: false                                 -> absmax (data-free heuristic)
+#   sopt_optimize: true,  sopt_hessian_mode: identity    -> data-free solver, H = I
+#   sopt_optimize: true,  sopt_hessian_mode: dense       -> PiSO
+sopt_optimize:
+- false
+- true
+# How scale optimization composes with error correction: false runs it as a
+# separate pass beforehand (decoupled, +), true runs it inside GPTQ/Qronos just
+# before each layer is corrected (layer-interleaved, *). Per-channel quantization
+# is always layer-interleaved, so no further flag is needed here.
+sopt_optimize_in_gpxq:
+- false
+- true
+# `identity` ignores the calibration statistics and minimizes the weight-only
+# objective ||w - s q(w)||^2, i.e. the paper's `data-free` baseline.
+sopt_hessian_mode:
+- dense
+- identity
+# PiSO minimizes the same objective as the algorithm it is combined with, so this
+# is not a free axis: `benchmark.py` keeps `self-activation` with GPTQ and
+# `cross-activation` with Qronos or standalone RTN, and discards the mismatches.
+sopt_objective:
+- cross-activation
+- self-activation
+# Channels solved in parallel. Throughput/memory knob only; does not affect results.
+sopt_solver_batch_size:
+- 512
+# Calibrate block by block so activations are only materialized one block at a time.
+gpxq_block_name:
+- model.layers
+
+# Error correction. Sweeping both flags yields the three families of rows: no error
+# correction (RTN), GPTQ, and Qronos. Enabling both at once is rejected upstream.
+disable_create_weight_orig:
+- false
+gptq:
+- true
+- false
+qronos:
+- true
+- false
+# Quantize columns in decreasing order of Hessian importance.
+gpxq_act_order:
+- true
+
+# Calibration and evaluation, held fixed across the sweep. The paper calibrates on
+# 128 WikiText2 sequences of 2048 tokens; 512 is used here for tighter estimates.
+bos_preprocessing:
+- sequence
+seed:
+- 0
+seqlen:
+- 2048
+nsamples:
+- 512
+dataset:
+- wikitext2
+dtype:
+- float32
+eval:
+- true
+scaling_min_val:
+- 0.0001
+weight_group_dim:
+- null
+# Symmetric weights with unconstrained BF16 scales, as assumed throughout the paper.
+weight_quant_type:
+- sym
+weight_scale_precision:
+- float_scale
+calibration_batch_size:
+- 2
+
+# Zero-shot evaluation. The paper averages ARC-Challenge, ARC-Easy and HellaSwag;
+# WinoGrande is also measured here and should be left out of that average.
+few_shot_eval:
+- lighteval
+few_shot_limit:
+- null
+few_shot_override_batch_size:
+- 1
+few_shot_tasks:
+- - leaderboard|arc:challenge|0
+  - leaderboard|winogrande|0
+  - lighteval|arc:easy|0
+  - leaderboard|hellaswag|0
+few_shot_zeroshot:
+- true

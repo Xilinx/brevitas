@@ -1,0 +1,28 @@
+# non-defaults only; see default_template.yaml for defaults
+model: Qwen/Qwen3-8B
+dtype: float16  # llama.cpp uses FP16 internally
+
+# Q2_K mixed-precision recipe for Qwen3 8B.
+custom_quantizer: recipes/Qwen3-8B.py:gguf_q2_k
+# Quantize the base-format embedding and Q6_K output tensors.
+quantize_first_last_layer: true
+
+# Evaluate perplexity on the WikiText-2 test split.
+eval: true
+bos_preprocessing: sequence
+dataset: wikitext2
+dataset_eval_split: test
+nsamples: 128
+seqlen: 2048
+
+# Run Qronos.
+qronos: true
+qronos_alpha: 1e-6
+gpxq_act_order: true
+gpxq_block_name: model.layers
+gpxq_use_quant_activations: true
+gpxq_buffer_device: same
+
+# Export GGUF.
+export_target: gguf:q2_k
+export_path: outputs/Qwen3-8B-Q2_K.gguf

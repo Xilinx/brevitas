@@ -200,7 +200,7 @@ class magr_mode(gpxq_mode):
 
     def update(self):
         for name in tqdm(self.current_layer.layer_names, desc='Updating weights...', leave=True):
-            self.gpxq_layers[name].single_layer_update()
+            self.layers[name].single_layer_update()
             self.hook_dict[name].remove()
         self.current_layer.layer_names.clear()
 
@@ -208,10 +208,10 @@ class magr_mode(gpxq_mode):
         self.orig_forward(*args, **kwargs)
         if self.return_forward_output:
             # If we want to return the output of the network, we need to disable all hooks
-            for name, gpxq_class in self.gpxq_layers.items():
+            for name, gpxq_class in self.layers.items():
                 gpxq_class.disable_pre_forward_hook = True
             out = self.orig_forward(*args, **kwargs)
-            for name, gpxq_class in self.gpxq_layers.items():
+            for name, gpxq_class in self.layers.items():
                 gpxq_class.disable_pre_forward_hook = False
             return out
 

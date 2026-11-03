@@ -54,7 +54,8 @@ from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
 from brevitas_examples.llm.llm_quant.data_utils import llm_collate
 from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
 from brevitas_examples.llm.llm_quant.equalize import apply_weight_equalization
-from brevitas_examples.llm.llm_quant.eval import compute_perplexity
+from brevitas_examples.llm.llm_quant.eval import compute_float_evaluation_metrics
+from brevitas_examples.llm.llm_quant.eval import compute_quantized_evaluation_metrics
 from brevitas_examples.llm.llm_quant.export import _get_dataset_props
 from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.export import convert_hf_hparams_to_gguf
@@ -69,6 +70,8 @@ from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_to_r
 from brevitas_examples.llm.llm_quant.ln_affine_merge import rmsnorm_patch
 from brevitas_examples.llm.llm_quant.parse_utils import parse_custom_quantizer
 from brevitas_examples.llm.llm_quant.parse_utils import parse_custom_trainer
+from brevitas_examples.llm.llm_quant.piso import apply_scale_optimization
+from brevitas_examples.llm.llm_quant.piso import build_scale_optimizer
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_to_linear
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import make_dynamo_compatible
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
@@ -103,6 +106,25 @@ def filter_results(results, tasks):
     return eval_results
 
 
+def tie_weights(args):
+    _should_tie = True
+    # Affine normalization merging updates the embedding and output weights independently, breaking
+    # the tie between them.
+    if args.ln_affine_merge:
+        _should_tie = False
+    # If any equalization has taken places, the embedding layer and the fully connected one are
+    # not tied anymore, and they need to be treated as standalone, separate layers.
+    # TODO: Consider conditionally disabling equalization for the output layer.
+    if args.act_equalization or args.weight_equalization:
+        _should_tie = False
+    # Layerwise rotation transforms the output linear layer.
+    # TODO: Consider conditionally disabling layerwise rotation for the output layer.
+    if args.rotation == 'layerwise':
+        _should_tie = False
+    # In all other cases we can tie them back so as to reduce memory usage.
+    return _should_tie
+
+
 def fused_rotation_no_fx(model, calibration_loader, args):
     with torch.no_grad(), rmsnorm_patch(model, model.config) as patcher:
         rmsnorm_classes = patcher.rmsnorm_classes
@@ -118,21 +140,23 @@ def fused_rotation_no_fx(model, calibration_loader, args):
             if any(map(lambda x: x in name, args.rotation_layers_to_expand)):
                 layers_to_expand.append(name)
 
-    apply_layernorm_affine_merge(fx_model, rmsnorm_classes)
-    # NOTE: This call breaks ties between the the lm_head and the embedding layer
+    if args.ln_affine_merge:
+        warnings.warn(
+            "Applying LN affine merge. Note that this call breaks ties between the the lm_head and the embedding layer"
+        )
+        apply_layernorm_affine_merge(fx_model, rmsnorm_classes)
     fx_model, rewriters = apply_layernorm_to_rmsnorm(fx_model, return_rewriters=True)
     rewriters = fix_rewriter(rewriters, model, 'weight')
 
     for r in rewriters:
         r.apply(model)
     fx_model = offload_model(fx_model)
-
     # Since we apply the rewriters to a different, non-fx model, we need only to compute them
     # And apply them in a second moment on the non-fx model
     delay_rewriters = True
     return_rewriters = True
 
-    extra_state_kwargs = {'scale_invariant_layers': rmsnorm_classes}
+    extra_state_kwargs = {'equivariant_layers': rmsnorm_classes}
     eq = GraphRotationEqualization(
         orphan_sink=args.rotation_orphan_sink,
         full_rotation_method=args.rotation_mode,
@@ -182,6 +206,11 @@ def set_seed(seed):
 
 
 def model_export(model, tokenizer, ref_input, args, config=None):
+    # Use a float32 container by default; preserve the dtype for GGUF export.
+    # Observed issues with llama.cpp and Qwen3 when upcasting to float32.
+    if 'gguf' not in args.export_target:
+        model = model.to(dtype=torch.float32)
+
     if args.export_target == 'onnx_qcdq':
         export_device = torch.device('cpu')
         model = model.to(export_device)
@@ -207,16 +236,7 @@ def model_export(model, tokenizer, ref_input, args, config=None):
                 do_validation=False,
                 device=str(export_device))
     elif 'gguf' in args.export_target:
-        import gguf
-
-        # High-impact tensors (token_embd/output) are quantized
-        # to either Q8_0 or Q6_K, based on the GGUF format.
-        if args.export_target.split(":")[-1].lower() in ('q4_0', 'q4_1'):
-            override_qtype = gguf.GGMLQuantizationType.Q6_K
-        else:
-            override_qtype = gguf.GGMLQuantizationType.Q8_0
-        save_quantized_as_gguf(
-            '.', model, tokenizer, args.export_target, override_qtype=override_qtype)
+        save_quantized_as_gguf(model, tokenizer, args.export_target, export_path=args.export_path)
     elif args.export_target == 'vllm':
         from brevitas.export.inference.vLLM.manager import vLLMExportManager
 
@@ -283,8 +303,11 @@ def quantize_llm(args, extra_args=None):
     print("Model loaded.")
     model.eval()
     tokenizer = AutoTokenizer.from_pretrained(args.model)
+    float_probabilities = None
     float_ppl = None
     quant_ppl = None
+    quant_ear = None
+    quant_kld = None
 
     require_fx = fx_required(args)
     if require_fx and args.calibration_batch_size > 1:
@@ -304,6 +327,7 @@ def quantize_llm(args, extra_args=None):
         seqlen=args.seqlen,
         split="train",
         seed=args.seed)
+
     # Batched data loader to accelerate GPXQ algorithms
     calibration_loader = DataLoader(
         dataset=calibration_dataset, batch_size=args.calibration_batch_size, collate_fn=collate_fn)
@@ -336,8 +360,14 @@ def quantize_llm(args, extra_args=None):
     if args.eval:
         print("Float model eval...")
         model = offload_model(model)
-        float_ppl = compute_perplexity(
-            model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
+        float_metrics = compute_float_evaluation_metrics(
+            model=model,
+            data=validation_loader,
+            context_length=args.seqlen // 2,
+            tokenizer=tokenizer,
+            seed=args.seed)
+        float_ppl = float_metrics.ppl
+        float_probabilities = float_metrics.probabilities
         remove_hooks(model)
         print(f"Float perplexity ({args.dataset}): {float_ppl:.3f}")
 
@@ -353,7 +383,8 @@ def quantize_llm(args, extra_args=None):
 
     # Apply LN affine merging before inserting MHA layers
     # since currently there is support only for merging into Linear
-    if args.ln_affine_merge:
+    # Delay affine merging to fused_rotation_no_fx() for fused rotations and permutations.
+    if args.ln_affine_merge and args.rotation != 'fused_no_fx' and args.permute_fn is None:
         print("Apply LN affine merge...")
         apply_layernorm_affine_merge(model, rmsnorm_classes)
         print("LN affine merge applied.")
@@ -396,7 +427,7 @@ def quantize_llm(args, extra_args=None):
             layers_to_expand=layers_to_expand,
             rotation_block_size=args.rotation_block_size,
             disable_block_rotation_for_fused=args.disable_block_rotation_for_fused,
-            extra_state_kwargs={'scale_invariant_layers': rmsnorm_classes})
+            extra_state_kwargs={'equivariant_layers': rmsnorm_classes})
         model = eq.apply(model)
         remove_hooks(model)
 
@@ -506,9 +537,15 @@ def quantize_llm(args, extra_args=None):
             quantizer_name = parse_custom_quantizer(args.custom_quantizer)
             custom_quantizer = QUANTIZERS_REGISTRY.get(quantizer_name)
             quantizers_dict = custom_quantizer.override_quantizers_dict(quantizers_dict)
+        # Quantize the embedding only when first/last-layer quantization is requested.
+        # The embedding uses the same weight quantizer as the linear layers.
+        # A custom quantizer that branches on module name or type still applies.
         layer_map = generate_quant_maps(
-            **quantizers_dict, dtype=dtype, device=device, quantize_embedding=False)
-        if not args.quantize_last_layer:
+            **quantizers_dict,
+            dtype=dtype,
+            device=device,
+            quantize_embedding=args.quantize_first_last_layer)
+        if not args.quantize_first_last_layer:
             # Dynamo tracing changes the name of the modules, thus we need this workaround to pick
             # up the last module.
             if require_fx:
@@ -519,6 +556,8 @@ def quantize_llm(args, extra_args=None):
                 last_layer_kwargs = layer_map[type(last_module)][1]
                 prev_weight_quant = deepcopy(last_layer_kwargs['weight_quant'])
                 prev_input_quant = deepcopy(last_layer_kwargs['input_quant'])
+                # Force the last layer to be unquantized, overriding any custom
+                # quantizer definition for it.
                 weight_quant = lambda module: prev_weight_quant if id(module) != id(
                     last_module) else None
                 input_quant = lambda module: prev_input_quant if id(module) != id(
@@ -551,10 +590,7 @@ def quantize_llm(args, extra_args=None):
             mse_range=args.awq_clip,
         )
 
-    # If any equalization has taken places, the embedding layer and the fully connected one are
-    # not tied anymore, and they need to be treated as standalone, separate layers.
-    # In all other cases we can tie them back so to preserve memory.
-    if args.act_equalization is None and not require_fx and args.rotation is None:
+    if not require_fx and tie_weights(args):
         model.tie_weights()
 
     if args.bias_corr:
@@ -594,6 +630,11 @@ def quantize_llm(args, extra_args=None):
             for m in model.modules():
                 if hasattr(m, 'compile_quant'):
                     m.compile_quant()
+
+        if args.sopt_optimize and not args.sopt_optimize_in_gpxq:
+            print("Applying Scale Opt...")
+            apply_scale_optimization(model, calibration_loader, args)
+            print("Scale Optimization applied.")
 
         if args.act_calibration and not args.load_checkpoint:
             print("Apply act calibration...")
@@ -670,6 +711,8 @@ def quantize_llm(args, extra_args=None):
 
         if args.gptq and not args.load_checkpoint:
             print("Applying GPTQ...")
+            scale_optimizer = build_scale_optimizer(
+                args, cross_act_objective=False) if args.sopt_optimize_in_gpxq else None
             apply_gptq(
                 model,
                 calibration_loader,
@@ -679,7 +722,9 @@ def quantize_llm(args, extra_args=None):
                 block_name=args.gpxq_block_name,
                 buffer_device=args.gpxq_buffer_device,
                 max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
-                max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
+                max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size,
+                scale_optimizer=scale_optimizer)
+
             print("GPTQ applied.")
 
         if args.gpfq and not args.load_checkpoint:
@@ -696,13 +741,18 @@ def quantize_llm(args, extra_args=None):
 
         if args.qronos and not args.load_checkpoint:
             print("Applying Qronos...")
+            # Interleaved Qronos always uses the cross-activation objective
+            # (enforced in validate()).
+            scale_optimizer = build_scale_optimizer(
+                args, cross_act_objective=True) if args.sopt_optimize_in_gpxq else None
             apply_qronos(
                 model,
                 calibration_loader,
                 alpha=args.qronos_alpha,
                 act_order=args.gpxq_act_order,
                 block_name=args.gpxq_block_name,
-                buffer_device=args.gpxq_buffer_device)
+                buffer_device=args.gpxq_buffer_device,
+                scale_optimizer=scale_optimizer)
             print("Qronos applied.")
 
         if args.bias_corr and not args.load_checkpoint:
@@ -724,9 +774,20 @@ def quantize_llm(args, extra_args=None):
             print("Model eval...")
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
                 model(**next(iter(calibration_loader)))
-                quant_ppl = compute_perplexity(
-                    model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
+                quant_metrics = compute_quantized_evaluation_metrics(
+                    model=model,
+                    data=validation_loader,
+                    context_length=args.seqlen // 2,
+                    tokenizer=tokenizer,
+                    reference_probabilities=float_probabilities,
+                    seed=args.seed)
+            quant_ppl = quant_metrics.ppl
+            # NOTE: EAR and KLD are by default normalized by reference top-K probability mass.
+            quant_ear = quant_metrics.ear
+            quant_kld = quant_metrics.kld
             print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
+            print(f"Quantized expected acceptance rate ({args.dataset}): {quant_ear:.6f}")
+            print(f"Quantized KL divergence ({args.dataset}): {quant_kld:.6f}")
         few_shot_eval_results = dict()
         if args.few_shot_eval == 'lm_eval':
             from lm_eval import evaluator
@@ -775,11 +836,14 @@ def quantize_llm(args, extra_args=None):
 
         if args.export_target:
             print(f"Export to {args.export_target}")
-            # Currently we always export with a float32 container to avoid float16 CPU errors
-            model = model.to(dtype=torch.float32)
             model_export(model, tokenizer, next(iter(calibration_loader)), args, config)
 
-    return {"float_ppl": float_ppl, "quant_ppl": quant_ppl, **few_shot_eval_results}, model
+    eval_results = {
+        "float_ppl": float_ppl,
+        "quant_ppl": quant_ppl,
+        "quant_ear": quant_ear,
+        "quant_kld": quant_kld}
+    return {**eval_results, **few_shot_eval_results}, model
 
 
 def main():

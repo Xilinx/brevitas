@@ -27,11 +27,11 @@ few_shot_limit:
 few_shot_override_batch_size:
 - 16
 few_shot_tasks:
-- - leaderboard|arc:challenge|0|0
-  - leaderboard|winogrande|0|0
-  - lighteval|arc:easy|0|0
-  - leaderboard|hellaswag|0|0
-  - lighteval|piqa|0|0
+- - arc:challenge|0
+  - arc:easy|0
+  - winogrande|0
+  - hellaswag_lm_eval|0
+  - piqa_lm_eval|0
 few_shot_zeroshot:
 - true
 gpfq:
@@ -79,7 +79,7 @@ learned_round_scale_lr:
 learned_round_scale_momentum:
 - 0.9
 ln_affine_merge:
-- false
+- true
 load_checkpoint:
 - false
 model:
@@ -94,9 +94,9 @@ optimize_rotations:
 - false
 quant_sdpa:
 - null
-quantize_input_zero_point:
+quantize_first_last_layer:
 - false
-quantize_last_layer:
+quantize_input_zero_point:
 - false
 quantize_weight_zero_point:
 - false

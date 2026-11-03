@@ -28,6 +28,7 @@ from brevitas.utils.quant_utils import _CachedIO
 from brevitas.utils.torch_utils import compute_channel_view_shape
 from brevitas.utils.torch_utils import is_broadcastable
 
+from .quant_proxy import _restrict_scale_positive
 from .quant_proxy import QuantProxyFromInjector
 from .quant_proxy import QuantProxyProtocol
 
@@ -103,11 +104,9 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
     def compile_quant(self, compile_export=False):
         if compile_export and hasattr(self, 'export_handler') and self.export_handler is not None:
             self.export_handler.inner_forward = torch.compile(
-                self.export_handler.inner_forward, dynamic=True, fullgraph=True)
+                self.export_handler.inner_forward, fullgraph=True)
         elif self.tensor_quant is not None:
-            # For groupwise weight quantization, we have graph breaks
-            fullgraph = not self.is_groupwise
-            self.tensor_quant = torch.compile(self.tensor_quant, dynamic=True, fullgraph=fullgraph)
+            self.tensor_quant = torch.compile(self.tensor_quant, fullgraph=True)
 
     @property
     def is_proxy_compiled(self):
@@ -119,6 +118,10 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
             return self.tensor_quant.int_quant.input_view_impl
         else:
             return Identity()
+
+    @property
+    def restrict_scale_positive(self):
+        return _restrict_scale_positive(self.quant_injector)
 
     @property
     def cache_inference_quant_weight(self):

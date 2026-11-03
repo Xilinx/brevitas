@@ -142,8 +142,7 @@ def auto_scale_block(
             region_block_args = [] if region.block is None else list(
                 inspect.signature(region.block.forward).parameters.keys())
             # Assume the first argument is the `hidden_states` that are propagated across blocks
-            kwargs = {
-                arg: block_kwargs[arg] for arg in region_block_args[1:] if arg in block_kwargs}
+            kwargs = {arg: block_kwargs[arg] for arg in region_block_args[1:] if arg in block_kwargs}
             scales_dict[id(region)] = _auto_get_scale(
                 sinks=[region.get_module_from_name(sink_name) for sink_name in region.sinks],
                 inp=input_feat[id(region)],

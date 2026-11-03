@@ -51,8 +51,8 @@ optimize_rotations: false
 qronos: false
 qronos_alpha: 1e-6
 quant_sdpa: null
+quantize_first_last_layer: false
 quantize_input_zero_point: false
-quantize_last_layer: false
 quantize_weight_zero_point: false
 replace_rmsnorm: false
 rotation: null
@@ -74,4 +74,3 @@ weight_scale_precision: float_scale
 # TrainingArguments for HF Trainer (see https://huggingface.co/docs/transformers/en/main_classes/trainer#transformers.TrainingArguments)
 learning_rate: 1.5
 lr_scheduler_type: cosine
-save_safetensors: false

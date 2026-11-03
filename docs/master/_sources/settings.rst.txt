@@ -2,7 +2,7 @@
 Settings
 ========
 
-Brevitas supports a few boolean global flags can be set through enviromental variables and/or at runtime in the `brevitas.config` package.
+Brevitas supports a few boolean global flags can be set through environmental variables and/or at runtime in the `brevitas.config` package.
 
 `BREVITAS_JIT` (Default: 0) - `brevitas.config.JIT_ENABLED`
 Enable just-in-time compilation of built-in quantizers written in TorchScript and of gradient estimators written in C++.

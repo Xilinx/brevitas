@@ -135,8 +135,8 @@ def test_clm_tokenization(
     texts = ["", "a", "", "bbb"]
     tokenizer = DummyTokenizer(bos_token_id=bos_token_id, eos_token_id=eos_token_id)
     expected_tokenized_text = EXPECTED_CLM_TOKENIZED_TEXTS[
-        "none" if bos_token_id is None or bos_preprocessing is None else bos_preprocessing][
-            fuse_documents][add_eos_token and eos_token_id is not None]
+        "none" if bos_token_id is None or bos_preprocessing is
+        None else bos_preprocessing][fuse_documents][add_eos_token and eos_token_id is not None]
     tokenized_text = tokenize_and_group_texts(
         texts=texts,
         tokenizer=tokenizer,

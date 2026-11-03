@@ -116,7 +116,13 @@ piqa_lm_eval = LightevalTaskConfig(
     name="piqa_lm_eval",
     prompt_function=piqa_harness,
     hf_repo="ybisk/piqa",
-    hf_subset="plain_text",
+    # datasets>=4.0 dropped support for dataset loading scripts, and the default
+    # revision of ybisk/piqa is script-based (piqa.py), which raises:
+    #   RuntimeError: Dataset scripts are no longer supported, but found piqa.py
+    # Load the auto-converted parquet branch instead, where the subset is named
+    # "default" rather than "plain_text". Contents are unchanged.
+    hf_subset="default",
+    hf_revision="refs/convert/parquet",
     hf_avail_splits=["train", "test", "validation"],
     evaluation_splits=["validation"],
     few_shots_split=None,

@@ -33,16 +33,18 @@ few_shot_limit:
 few_shot_override_batch_size:
 - 16
 few_shot_tasks:
-- - leaderboard|arc:challenge|0|0
-  - leaderboard|winogrande|0|0
-  - lighteval|arc:easy|0|0
-  - leaderboard|hellaswag|0|0
-  - lighteval|piqa|0|0
+- - arc:challenge|0
+  - arc:easy|0
+  - winogrande|0
+  - hellaswag_lm_eval|0
+  - piqa_lm_eval|0
 few_shot_zeroshot:
 - true
 # ==================
 # Stage 1: Transform
 # ==================
+ln_affine_merge:
+- true
 rotation:
 - fused_no_fx
 optimize_rotations:
@@ -140,8 +142,6 @@ per_device_train_batch_size:
 - 1
 rotation_sdpa_regions:
 - true
-save_safetensors:
-- false
 torch_empty_cache_steps:
 - 1
 weight_decay:

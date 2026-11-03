@@ -52,7 +52,7 @@ except for some distributed training scenarios with ``BREVITAS_JIT=1``.
 .. note::
 
     The custom C++ autograd functions are implemented in a single `.cpp` file distributed together with Brevitas that is internally compiled and loaded at runtime through the ``torch.utils.cpp_extension.load()`` mechanism.
-    This simplifies the packaging of Brevitas, since it avoids to mantain precompiled binaries for every possible supported platform, but it puts on the user the burden of making sure an appropriate compiler is present.
+    This simplifies the packaging of Brevitas, since it avoids to maintain precompiled binaries for every possible supported platform, but it puts on the user the burden of making sure an appropriate compiler is present.
 
 
 Optional Inference Requirements

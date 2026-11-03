@@ -31,8 +31,8 @@ repos:
         name: isort (python)
 
 
--   repo: https://github.com/pre-commit/mirrors-yapf
-    rev: v0.32.0  # Use the sha / tag you want to point at
+-   repo: https://github.com/google/yapf
+    rev: v0.40.2  # Use the sha / tag you want to point at
     hooks:
     - id: yapf
       args: ["-i"]

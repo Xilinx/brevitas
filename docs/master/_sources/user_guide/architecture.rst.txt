@@ -15,7 +15,7 @@ and C++, found under *brevitas/csrc*.
 This is because to date Python Autograd functions cannot be compiled
 by Pytorch's JIT compiler, but C++ Autograd functions can. Compiling the C++ extension is performed at runtime
 in order to simplify packaging and distribution (only a single .cpp source file is distributed).
-This requires the user to have an appropriate C++ compiler, so a Python implemention is provided as fallback.
+This requires the user to have an appropriate C++ compiler, so a Python implementation is provided as fallback.
 
 Because of this, as long as `BREVITAS_JIT=0` (which it is by default), the C++ backend is not loaded.
 Wrapping and switching between the two implementations happens in `brevitas.function.ops_ste`.
@@ -28,7 +28,7 @@ Core ScriptModules
 
 The algorithmic core of Brevitas can be found under `brevitas.core`.
 The core implements all the various building blocks required to assemble an affine quantizer.
-All building blocks are implemented as a ScriptModule in the *old-style* TorchScript scriping API
+All building blocks are implemented as a ScriptModule in the *old-style* TorchScript scripting API
 (i.e. inheriting from `torch.jit.ScriptModule`). Many of the functions described in the section above
 are called from within one of the core ScriptModules.
 Any module within `brevitas.core` is required to be a ScriptModule compatible with Pytorch 1.3.0 JIT compiler,
@@ -37,7 +37,7 @@ Implementing everything in TorchScript enables compute and memory optimizations 
 which for more complicated quantization pipelines can be quite significant, thus reducing the intrinsic
 training-time cost of quantization-aware training.
 
-Adhering to the restriction imposed by TorchScript pose a challange in terms of how to achieve flexibility
+Adhering to the restriction imposed by TorchScript pose a challenge in terms of how to achieve flexibility
 while minimizing redundancy. Because the flavour of TorchScript adopted by Brevitas does not allow
 for inheritance, Brevitas' core is highly biased towards leveraging composition.
 In particular, the implementation favours inversion of control through dependency injection (DI),

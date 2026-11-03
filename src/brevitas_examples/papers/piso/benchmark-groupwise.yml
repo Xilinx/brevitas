@@ -1,0 +1,159 @@
+# Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+#
+# Group-wise weight-only quantization: paper Table 3.
+#
+# This is a grid config: every key holds a list, and the benchmark runs the
+# Cartesian product of all of them. Most of that product is not meaningful, so
+# `benchmark.py` filters it down to the rows of the paper. Per model, bit width and
+# group size the 22 surviving runs are:
+#
+#   absmax     RTN, GPTQ, Qronos
+#   data-free  RTN, {GPTQ, Qronos} +         decoupled
+#              {GPTQ, Qronos} †              group-interleaved
+#   PiSO       RTN + PiSO_I/S
+#              {GPTQ, Qronos} +  PiSO_I/S    decoupled
+#              {GPTQ, Qronos} *  PiSO_I/S    layer-interleaved
+#              {GPTQ, Qronos} †  PiSO_I/S    group-interleaved
+#
+# I and S are the independent and sequential group heuristics. Table 3 entries
+# without a subscript report the best of the two, so both are always run. The BF16
+# reference row needs no run of its own: it is reported as `float_ppl` alongside the
+# quantized perplexity of every experiment.
+#
+# Table 3 restricts the error-correction comparison to GPTQ; the Qronos rows above
+# are an extension and can be removed by setting `qronos: [false]`.
+
+# Models evaluated in Table 3 are Llama-3.2-3B and Qwen2.5-3B. Only the 1B model is
+# enabled by default to keep the sweep short; uncomment the ones you need. Runs for
+# the remaining model sizes correspond to Appendix Tables 12 and 13.
+model:
+- meta-llama/Llama-3.2-1B
+# - meta-llama/Llama-3.2-3B
+# - meta-llama/Llama-3.1-8B
+# - Qwen/Qwen2.5-1.5B-Instruct
+# - Qwen/Qwen2.5-3B-Instruct
+# - Qwen/Qwen2.5-7B-Instruct
+
+# Quantization grid. `stats` is the absmax scale heuristic, which is both the
+# baseline and the starting point that scale optimization replaces.
+weight_quant_format:
+- int
+weight_quant_granularity:
+- per_group
+# The two group sizes of Table 3 (G16 and G32).
+weight_group_size:
+- 16
+- 32
+weight_param_method:
+- stats
+weight_bit_width:
+- 2
+- 3
+- 4
+
+# Scale selection. The three flags below are swept jointly and select one scale
+# method per run:
+#   sopt_optimize: false                              -> absmax (data-free heuristic)
+#   sopt_optimize: true,  sopt_hessian_mode: identity -> data-free solver, H = I
+#   sopt_optimize: true,  sopt_hessian_mode: dense    -> PiSO
+sopt_optimize:
+- false
+- true
+# How scale optimization composes with error correction: false runs it as a
+# separate pass beforehand (decoupled, +), true runs it inside GPTQ/Qronos.
+sopt_optimize_in_gpxq:
+- false
+- true
+# Which interleaving to use when sopt_optimize_in_gpxq is set: true optimizes all
+# group scales once per layer (layer-interleaved, *), false optimizes each group
+# scale right before error correction reaches that group (group-interleaved, †).
+sopt_group_gpxq_layer_interleaved:
+- false
+- true
+# Group heuristic: false treats groups independently (PiSO_I), true optimizes each
+# group against the residual error of the groups already quantized (PiSO_S).
+sopt_group_sequential:
+- false
+- true
+# `identity` ignores the calibration statistics and minimizes the weight-only
+# objective ||w - s q(w)||^2, i.e. the paper's `data-free` baseline. It is reported
+# decoupled and group-interleaved: the latter differs because each group is then
+# fitted on weights that already carry the error diffused by the preceding groups.
+sopt_hessian_mode:
+- dense
+- identity
+# PiSO minimizes the same objective as the algorithm it is combined with, so this
+# is not a free axis: `benchmark.py` keeps `self-activation` with GPTQ and
+# `cross-activation` with Qronos or standalone RTN, and discards the mismatches.
+sopt_objective:
+- cross-activation
+- self-activation
+# Channels solved in parallel. Throughput/memory knob only; does not affect results.
+sopt_solver_batch_size:
+- 512
+# Calibrate block by block so activations are only materialized one block at a time.
+gpxq_block_name:
+- model.layers
+
+# Error correction. Sweeping both flags yields the three families of rows: no error
+# correction (RTN), GPTQ, and Qronos. Enabling both at once is rejected upstream.
+disable_create_weight_orig:
+- false
+gptq:
+- true
+- false
+qronos:
+- true
+- false
+# Order columns by Hessian importance. The group-interleaved runs additionally
+# require groups to be processed contiguously, which the group-aware ordering
+# handles internally.
+gpxq_act_order:
+- true
+
+# Calibration and evaluation, held fixed across the sweep. The paper calibrates on
+# 128 WikiText2 sequences of 2048 tokens; 512 is used here for tighter estimates.
+bos_preprocessing:
+- sequence
+seed:
+- 0
+seqlen:
+- 2048
+nsamples:
+- 512
+dataset:
+- wikitext2
+dtype:
+- float32
+eval:
+- true
+scaling_min_val:
+- 0.0001
+# Group along the input dimension, i.e. the layer-dependent default.
+weight_group_dim:
+- null
+# Symmetric weights with unconstrained BF16 scales, as assumed throughout the paper.
+weight_quant_type:
+- sym
+weight_scale_precision:
+- float_scale
+calibration_batch_size:
+- 2
+
+# Zero-shot evaluation. Table 3 reports perplexity only; these tasks populate the
+# accuracies of Appendix Table 13. The paper averages ARC-Challenge, ARC-Easy and
+# HellaSwag, so WinoGrande should be left out of that average.
+few_shot_eval:
+- lighteval
+few_shot_limit:
+- null
+few_shot_override_batch_size:
+- 1
+few_shot_tasks:
+- - leaderboard|arc:challenge|0
+  - leaderboard|winogrande|0
+  - lighteval|arc:easy|0
+  - leaderboard|hellaswag|0
+few_shot_zeroshot:
+- true

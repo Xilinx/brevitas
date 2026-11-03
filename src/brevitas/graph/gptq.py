@@ -53,8 +53,9 @@ class GPTQ(GPxQ):
         super().__init__(
             layer, name, act_order, len_parallel_layers, create_weight_orig, device, dtype)
 
-        # Define how many columns to update in each mini-block
-        self.blocksize = math.ceil(self.columns / num_blocks)
+        # Define how many columns to update in each mini-block. Mixins may override
+        # _resolve_blocksize (e.g. PiSO aligns blocks with quantization groups).
+        self.blocksize = self._resolve_blocksize(num_blocks)
 
         # Initialize Hessian matrix and counter. We need it in float32 to compute the inverse
         self.H = torch.zeros((self.groups, self.columns, self.columns),
@@ -135,12 +136,13 @@ class GPTQ(GPxQ):
             # If the diagonal of activations is zero, we set the weight to zero
             weight[i, :, dead] = 0
             if self.act_order:
-                # Re-order Hessian so that weights associated to
-                # higher magnitude activations are quantized first
-                perm = torch.argsort(torch.diag(self.H[i, :, :]), descending=True)
+                # Re-order Hessian so that weights associated to higher magnitude
+                # activations are quantized first. Mixins may override
+                # _act_order_permutation (e.g. group-aware ordering).
+                perm = self._act_order_permutation(self.H[i, :, :])
                 self.H[i, :, :] = self.H[i, perm, :][:, perm]
             else:
-                # No permutation, permutation tensor is a ordered index
+                # No permutation, permutation tensor is an ordered index
                 perm = torch.tensor(range(self.H.shape[-1]), device=dev)
             permutation_list.append(perm)
 
@@ -150,6 +152,11 @@ class GPTQ(GPxQ):
                 damp = percdamp * torch.mean(torch.diag(self.H[i, :, :]))
                 diag = torch.arange(self.columns, device=self.device)
                 self.H[i, diag, diag] += damp
+
+                # Hook before error correction (PiSO optimizes the layer scale here);
+                # no-op otherwise. Assumes a single group when it acts.
+                self._on_error_correction_starts(perm)
+
                 self.H[i, :, :] = torch.linalg.cholesky(self.H[i, :, :])
                 self.H[i, :, :] = torch.cholesky_inverse(self.H[i, :, :])
                 # stabilizing the Cholesky decomposition with a fairly large constant, c
@@ -161,6 +168,9 @@ class GPTQ(GPxQ):
                 f'Failed to compute the inverse of the Hessian for layer {self.name} '
                 f'GPTQ will not be applied. '
                 f'Increasing the number of samples might fix this issue')
+            self._on_layer_finished()
+            if hasattr(self.layer, 'offload_params'):
+                self.layer.offload_params(self.layer)
             return
         finally:
             del self.H
@@ -173,6 +183,10 @@ class GPTQ(GPxQ):
 
             h_inv_block = h_inv[:, i1:i2, i1:i2]
             for i in range(count):
+                # Let a PiSO mixin optimize a group's scale when column i1+i starts
+                # a new group, before its weights are quantized. No-op otherwise.
+                self._on_column_reached(i1 + i)
+
                 q_groups = self.get_quant_weights(i, i1, permutation_list)  # [groups, OC/groups]
                 for group_index in range(self.groups):
                     perm = permutation_list[group_index]
@@ -191,6 +205,8 @@ class GPTQ(GPxQ):
                 weight[group_index, :, perm[i2:]] -= (
                     error_block[group_index].matmul(h_inv[group_index, i1:i2,
                                                           i2:].to(dev))).to(dtype)
+        self._on_layer_finished()
+
         if hasattr(self.layer, 'offload_params'):
             self.layer.offload_params(self.layer)
 
@@ -265,10 +281,10 @@ class gptq_mode(gpxq_mode):
         finally:
             if self.return_forward_output:
                 # If we want to return the output of the network, we need to disable all hooks
-                for name, gpxq_class in self.gpxq_layers.items():
+                for name, gpxq_class in self.layers.items():
                     gpxq_class.disable_pre_forward_hook = True
                 out = self.orig_forward(*args, **kwargs)
-                for name, gpxq_class in self.gpxq_layers.items():
+                for name, gpxq_class in self.layers.items():
                     gpxq_class.disable_pre_forward_hook = False
                 return out
 

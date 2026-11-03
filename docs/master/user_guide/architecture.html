@@ -473,7 +473,7 @@ and C++, found under <em>brevitas/csrc</em>.
 This is because to date Python Autograd functions cannot be compiled
 by Pytorch’s JIT compiler, but C++ Autograd functions can. Compiling the C++ extension is performed at runtime
 in order to simplify packaging and distribution (only a single .cpp source file is distributed).
-This requires the user to have an appropriate C++ compiler, so a Python implemention is provided as fallback.</p>
+This requires the user to have an appropriate C++ compiler, so a Python implementation is provided as fallback.</p>
 <p>Because of this, as long as <cite>BREVITAS_JIT=0</cite> (which it is by default), the C++ backend is not loaded.
 Wrapping and switching between the two implementations happens in <cite>brevitas.function.ops_ste</cite>.</p>
 <p>TorchScript functions implements various bits and pieces used commonly across Brevitas that are
@@ -483,7 +483,7 @@ required to be JIT-compilable. They can be found under <cite>brevitas.function.o
 <h2>Core ScriptModules<a class="headerlink" href="#core-scriptmodules" title="Permalink to this heading">#</a></h2>
 <p>The algorithmic core of Brevitas can be found under <cite>brevitas.core</cite>.
 The core implements all the various building blocks required to assemble an affine quantizer.
-All building blocks are implemented as a ScriptModule in the <em>old-style</em> TorchScript scriping API
+All building blocks are implemented as a ScriptModule in the <em>old-style</em> TorchScript scripting API
 (i.e. inheriting from <cite>torch.jit.ScriptModule</cite>). Many of the functions described in the section above
 are called from within one of the core ScriptModules.
 Any module within <cite>brevitas.core</cite> is required to be a ScriptModule compatible with Pytorch 1.3.0 JIT compiler,
@@ -491,7 +491,7 @@ with most building blocks being compatible with Pytorch 1.1.0 JIT compiler.
 Implementing everything in TorchScript enables compute and memory optimizations at training time,
 which for more complicated quantization pipelines can be quite significant, thus reducing the intrinsic
 training-time cost of quantization-aware training.</p>
-<p>Adhering to the restriction imposed by TorchScript pose a challange in terms of how to achieve flexibility
+<p>Adhering to the restriction imposed by TorchScript pose a challenge in terms of how to achieve flexibility
 while minimizing redundancy. Because the flavour of TorchScript adopted by Brevitas does not allow
 for inheritance, Brevitas’ core is highly biased towards leveraging composition.
 In particular, the implementation favours inversion of control through dependency injection (DI),

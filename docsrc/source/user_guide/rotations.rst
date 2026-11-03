@@ -169,7 +169,6 @@ of a ``HuggingfaceTB/SmolLM2-135M`` model, with its weights quantized to 4 bits:
    max_steps: 100
    per_device_train_batch_size: 2
    gradient_accumulation_steps: 4
-   save_safetensors: false
    logging_steps: 10
    log_on_each_node: false
 
