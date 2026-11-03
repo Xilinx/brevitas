@@ -9,7 +9,6 @@ import torch
 from torch import Tensor
 from torch.utils._python_dispatch import return_and_correct_aliasing
 
-import brevitas.compiler as brevitas_compiler
 from brevitas.function.ops_ste import round_ste
 from brevitas.utils.torch_utils import float_internal_scale
 
@@ -60,6 +59,10 @@ _PRESERVE_WRAPPER_OPS = frozenset((
 # tensor-valued quantization metadata (scale, zero_point, bit_width, etc.) are kept as inner
 # tensors, which __tensor_flatten__ and __tensor_unflatten__ expose to torch.compile.
 # Other metadata (signed, training, group settings, etc.) is stored as plain Python values.
+# torch.compile records the construction of a QuantTensor inside the compiled region as a single
+# operation. It supports method calls on such a QuantTensor, but not reads of its tensor-valued
+# properties (value, scale, etc.), so code that can be compiled reads them through methods such as
+# _unpack_value and IntQuantTensor._unpack.
 class QuantTensor(Tensor):
 
     # Private metadata attributes used to reconstruct concrete QuantTensor types.
@@ -67,7 +70,6 @@ class QuantTensor(Tensor):
     _quant_tensor_metadata = ()
 
     @staticmethod
-    @brevitas_compiler.disable
     def __new__(cls, value, *args, _outer_size=None, _outer_stride=None, **kwargs):
         # _outer_size and _outer_stride are only passed by __tensor_unflatten__.
         if cls is QuantTensor:
@@ -117,6 +119,14 @@ class QuantTensor(Tensor):
     @property
     def value(self):
         return self._value
+
+    def _unpack_value(self):
+        """Return ``value``.
+
+        torch.compile can trace this method call also for QuantTensors created inside the compiled
+        region, where reading the property is not supported.
+        """
+        return self.value
 
     @property
     def signed(self):
@@ -211,10 +221,15 @@ class QuantTensor(Tensor):
 
     @staticmethod
     def _as_bool(value):
-        """Convert boolean metadata, given as a bool or a single-element tensor, to a bool."""
-        if value is None:
-            raise TypeError('Boolean QuantTensor metadata cannot be None.')
-        return bool(value)
+        """Check that boolean metadata is a Python bool.
+
+        Converting a tensor would depend on its data, which torch.compile cannot trace when the
+        QuantTensor is created inside the compiled region.
+        """
+        if not isinstance(value, bool):
+            raise TypeError(
+                f'Boolean QuantTensor metadata must be a Python bool, not {type(value).__name__}.')
+        return value
 
     def _get_metadata_kwargs(self):
         """Return constructor metadata from its private backing attributes."""
@@ -761,7 +776,7 @@ class FloatMixin:
 
 def _unpack_quant_tensor(input_data):
     if isinstance(input_data, QuantTensor):
-        return input_data.value
+        return input_data._unpack_value()
     elif isinstance(input_data, tuple):
         return tuple([_unpack_quant_tensor(v) for v in input_data])
     elif isinstance(input_data, list):

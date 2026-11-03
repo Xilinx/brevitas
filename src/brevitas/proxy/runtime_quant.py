@@ -186,7 +186,7 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
 
         y = x
         if isinstance(y, QuantTensor):
-            y = y.value
+            y = y._unpack_value()
 
         if not self.is_quant_enabled:
             # A tuple helps later with control flows
@@ -307,7 +307,7 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
         if not self.is_quant_enabled:
             return x
         if isinstance(x, IntQuantTensor):
-            x = (x.value, x.scale, x.zero_point, x.bit_width, x.signed)
+            x = x._unpack()
         elif not isinstance(x, tuple):
             raise TypeError(
                 "TruncQuantProxy expects an IntQuantTensor or a "
