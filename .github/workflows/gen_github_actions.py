@@ -45,7 +45,7 @@ ENDTOEND_YML = 'end_to_end.yml'
 # Reduced Test for PRs, except when a review is requested
 PYTHON_VERSIONS_REDUCED = ('3.10',)
 
-PYTORCH_LIST_REDUCED = ['2.11.0']
+PYTORCH_LIST_REDUCED = ['2.5.1', '2.8.0', '2.11.0']
 
 PLATFORM_LIST_REDUCED = ['ubuntu-latest']
 
@@ -57,13 +57,13 @@ EXAMPLES_LLM_PYTEST_MATRIX_REDUCED = od([('python_version', list(PYTHON_VERSIONS
                                          ('pytorch_version', list(
                                              ('2.7.1',))), ('platform', PLATFORM_LIST_REDUCED)])
 
-EXAMPLES_DIFFUSION_PYTEST_MATRIX_REDUCED = od([
-    ('python_version', list(PYTHON_VERSIONS_REDUCED)), ('pytorch_version', list(
-        ('2.11.0',))), ('platform', PLATFORM_LIST_REDUCED)])
+EXAMPLES_DIFFUSION_PYTEST_MATRIX_REDUCED = od([('python_version', list(PYTHON_VERSIONS_REDUCED)),
+                                               ('pytorch_version', list(PYTORCH_LIST_REDUCED)),
+                                               ('platform', PLATFORM_LIST_REDUCED)])
 
 EXAMPLES_VISION_PYTEST_MATRIX_REDUCED = od([('python_version', list(PYTHON_VERSIONS_REDUCED)),
-                                            ('pytorch_version', list(
-                                                ('2.11.0',))), ('platform', PLATFORM_LIST_REDUCED)])
+                                            ('pytorch_version', list(PYTORCH_LIST_REDUCED)),
+                                            ('platform', PLATFORM_LIST_REDUCED)])
 
 FINN_MATRIX_REDUCED = od([('python_version', list(PYTHON_VERSIONS_REDUCED)),
                           ('pytorch_version', list(PYTORCH_LIST_REDUCED)),
