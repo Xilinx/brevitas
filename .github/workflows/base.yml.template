@@ -7,9 +7,9 @@ on:
     types:
       - review_requested
 
-jobs:
+jobs:&{prepare_job}
   build:
-    runs-on: ${{ matrix.platform }}
+    runs-on: ${{ matrix.platform }}&{needs}
     strategy:
 &{strategy}
       matrix:

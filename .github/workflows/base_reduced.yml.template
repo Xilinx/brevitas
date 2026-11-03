@@ -9,9 +9,9 @@ on:
       - ready_for_review
 
 
-jobs:
+jobs:&{prepare_job}
   build:
-    runs-on: ${{ matrix.platform }}
+    runs-on: ${{ matrix.platform }}&{needs}
     strategy:
 &{strategy}
       matrix:

@@ -99,15 +99,6 @@ def decorator_get_image_processor_dict(
     return wrap_get_image_processor_dict
 
 
-def dec(fun: Callable):
-
-    def wrap_from_pretrained(*args, **kwargs):
-        kwargs["revision"] = "refs/pr/4"
-        return fun(*args, **kwargs)
-
-    return wrap_from_pretrained
-
-
 @pytest.fixture
 def main() -> Callable:
 
@@ -124,18 +115,8 @@ def main() -> Callable:
                     "crop_size": 30,
                     "size": 30,})
 
-            # Use "safetensors" revision for "hf-internal-testing/tiny-stable-diffusion-pipe"
-            def decorator_from_pretrained(fun: Callable):
-
-                def wrap_from_pretrained(*args, **kwargs):
-                    kwargs["revision"] = "refs/pr/4"
-                    return fun(*args, **kwargs)
-
-                return wrap_from_pretrained
-
-            from diffusers import DiffusionPipeline
-            DiffusionPipeline.from_pretrained = decorator_from_pretrained(
-                DiffusionPipeline.from_pretrained)
+            # The model is already resolved to a local snapshot above. Do not
+            # pass the remote PR revision again when loading that snapshot.
         # Create directory for storing the results
         os.makedirs(args.output_path, exist_ok=True)
         results, model = quantize_sd(args, extra_args=extra_args)

@@ -72,8 +72,8 @@ class TestLLMEntryPointUtils:
             "Float perplexity (wikitext2): 25.123\n"
             "Running quantization...\n"
             "Quantized perplexity (wikitext2): 30.456\n"
-            "Quantized expected acceptance rate (wikitext2): 0.987654\n"
-            "Quantized KL divergence (wikitext2): 0.012345\n")
+            "Quantized expected acceptance rate @ top-10 (wikitext2): 0.987654\n"
+            "Quantized KL divergence @ top-10 (wikitext2): 0.012345\n")
         result = LLMEntryPointUtils.parse_log(log)
         assert result["float_ppl"] == pytest.approx(25.123)
         assert result["quant_ppl"] == pytest.approx(30.456)

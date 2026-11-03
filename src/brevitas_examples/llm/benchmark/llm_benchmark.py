@@ -32,9 +32,10 @@ class LLMEntryPointUtils(EntryPointUtils):
         quant_ppl_line = re.search(r"Quantized perplexity \((.*?)\): (\d+\.\d+)", job_log)
         quant_ppl = float(quant_ppl_line.group(2)) if quant_ppl_line is not None else None
         quant_ear_line = re.search(
-            r"Quantized expected acceptance rate \((.*?)\): (\d+\.\d+)", job_log)
+            r"Quantized expected acceptance rate @ top-\d+ \((.*?)\): (\d+\.\d+)", job_log)
         quant_ear = float(quant_ear_line.group(2)) if quant_ear_line is not None else None
-        quant_kld_line = re.search(r"Quantized KL divergence \((.*?)\): (-?\d+\.\d+)", job_log)
+        quant_kld_line = re.search(
+            r"Quantized KL divergence @ top-\d+ \((.*?)\): (-?\d+\.\d+)", job_log)
         quant_kld = float(quant_kld_line.group(2)) if quant_kld_line is not None else None
         # Search for dictionary in log
         few_shot_eval_line = re.findall(r"({.*?})", job_log)
