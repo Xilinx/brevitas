@@ -36,6 +36,7 @@ from brevitas.utils.logging import setup_logger
 
 from ..manager import _override_act_caching_mode
 from ..manager import _restore_act_caching_mode
+from ..manager import _traceable_quant_tensor_io
 from ..manager import BaseManager
 from ..manager import ExportContext
 
@@ -185,8 +186,15 @@ class ONNXBaseManager(BaseManager, ABC):
                             fp8_export_patch = True
 
                     patch_export = PatchFp8Ops if fp8_export_patch else nullcontext
-                    with patch_export():
-                        torch.onnx.export(module, args, export_target, **onnx_export_kwargs)
+                    # The TorchScript tracer does not record the QuantTensors that enter and leave
+                    # the module. The dynamo exporter runs without QuantTensors, see
+                    # ONNXDynamoExportMixin.set_export_mode.
+                    if onnx_export_kwargs.get('dynamo', False):
+                        quant_tensor_io = nullcontext(args)
+                    else:
+                        quant_tensor_io = _traceable_quant_tensor_io(module, args)
+                    with patch_export(), quant_tensor_io as trace_args:
+                        torch.onnx.export(module, trace_args, export_target, **onnx_export_kwargs)
 
                     # restore the model to previous properties
                     module.apply(lambda m: _restore_act_caching_mode(m))

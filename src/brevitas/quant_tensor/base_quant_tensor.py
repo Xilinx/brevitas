@@ -63,6 +63,11 @@ _PRESERVE_WRAPPER_OPS = frozenset((
 # operation. It supports method calls on such a QuantTensor, but not reads of its tensor-valued
 # properties (value, scale, etc.), so code that can be compiled reads them through methods such as
 # _unpack_value and IntQuantTensor._unpack.
+# The TorchScript tracer records the operations on the inner tensors, but not the construction of a
+# QuantTensor. The export managers therefore trace the raw values of the input QuantTensors, rebuild
+# them inside the model, and return the values of the output QuantTensors (see
+# _traceable_quant_tensor_io). A model traced directly with torch.jit.trace fails if it returns a
+# QuantTensor, and its trace does not follow an input QuantTensor.
 class QuantTensor(Tensor):
 
     # Private metadata attributes used to reconstruct concrete QuantTensor types.
