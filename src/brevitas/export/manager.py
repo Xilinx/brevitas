@@ -3,6 +3,7 @@
 
 from abc import ABC
 from abc import abstractmethod
+from contextlib import contextmanager
 from io import BytesIO
 from typing import Tuple
 from typing import Union
@@ -18,6 +19,7 @@ from brevitas.common import LayerProtocol
 from brevitas.nn.mixin.base import QuantLayerMixin
 from brevitas.nn.mixin.base import QuantRecurrentLayerMixin
 from brevitas.proxy.quant_proxy import QuantProxyProtocol
+from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.jit_utils import clear_class_registry
 from brevitas.utils.logging import setup_logger
@@ -33,6 +35,39 @@ class _JitTraceExportWrapper(nn.Module):
 
     def forward(self, *args, **kwargs):
         return self.fn_to_trace(*args, **kwargs)
+
+
+@contextmanager
+def _traceable_quant_tensor_io(module: Module, args: Union[Tensor, QuantTensor, Tuple]):
+    """
+    Let the TorchScript tracer follow the QuantTensors that enter and leave ``module``.
+
+    The tracer records the operations on tensors, but not the construction of a QuantTensor.
+    The QuantTensors among ``args`` are traced through their raw values, from which ``module``
+    rebuilds them, and the QuantTensors that ``module`` returns are replaced by their values.
+    Yields the arguments to trace.
+    """
+    is_tuple = isinstance(args, tuple)
+    args = args if is_tuple else (args,)
+    quant_tensors = {i: arg for i, arg in enumerate(args) if isinstance(arg, QuantTensor)}
+    trace_args = tuple(arg._value if i in quant_tensors else arg for i, arg in enumerate(args))
+
+    def rebuild_quant_tensors(module, inputs):
+        return tuple(
+            quant_tensors[i].set(value=inp) if i in quant_tensors else inp for i,
+            inp in enumerate(inputs))
+
+    def unpack_quant_tensors(module, inputs, output):
+        return _unpack_quant_tensor(output)
+
+    handles = [module.register_forward_hook(unpack_quant_tensors)]
+    if quant_tensors:
+        handles.append(module.register_forward_pre_hook(rebuild_quant_tensors, prepend=True))
+    try:
+        yield trace_args if is_tuple else trace_args[0]
+    finally:
+        for handle in handles:
+            handle.remove()
 
 
 class ExportContext:
@@ -224,7 +259,8 @@ class BaseManager(ABC):
             requires_grad_backup_dict = _force_requires_grad_false(module)
             # wrapping with a lambda forces inlining during tracing,
             # converts everything to const and removes unused params/buffers
-            traced_model = torch.jit.trace(_JitTraceExportWrapper(module), args)
+            with _traceable_quant_tensor_io(module, args) as trace_args:
+                traced_model = torch.jit.trace(_JitTraceExportWrapper(module), trace_args)
 
             # Hack to clone the function, otherwise restoring requires_grad
             # on module will break traced_model
