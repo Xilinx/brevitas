@@ -304,8 +304,8 @@ def test_groupwise_int_quant_tensor_cache(metadata_only):
         group_size=2,
         group_dim=1,
         bit_width=torch.tensor(8.0),
-        signed=torch.tensor(True),
-        training=torch.tensor(False),
+        signed=True,
+        training=False,
         dequant_shape=(1, 2))
 
     cache = _CachedIOGroupwiseInt(q, metadata_only=metadata_only)

@@ -3,7 +3,6 @@
 
 import torch
 
-import brevitas.compiler as brevitas_compiler
 from brevitas.function.ops import max_int
 from brevitas.function.ops import min_int
 from brevitas.function.ops_ste import ceil_ste
@@ -25,7 +24,6 @@ class IntQuantTensor(IntMixin, QuantTensor):
         '_training',
     )
 
-    @brevitas_compiler.disable
     def __init__(self, value, scale, zero_point, bit_width, signed, training):
         device = self._value.device
         scale = self._as_tensor(scale, torch.float, device)
@@ -54,6 +52,14 @@ class IntQuantTensor(IntMixin, QuantTensor):
     @zero_point.setter
     def zero_point(self, value):
         self._zero_point = value
+
+    def _unpack(self):
+        """Return ``(value, scale, zero_point, bit_width, signed)``.
+
+        torch.compile can trace this method call also for IntQuantTensors created inside the
+        compiled region, where reading their tensor-valued properties is not supported.
+        """
+        return self.value, self.scale, self.zero_point, self.bit_width, self.signed
 
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
