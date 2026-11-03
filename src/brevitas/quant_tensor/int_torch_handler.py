@@ -3,6 +3,7 @@
 
 import functools
 import math
+import operator
 from typing import Callable
 import warnings
 
@@ -99,50 +100,63 @@ def embedding_handler(input, quant_weight, *args, **kwargs):
 @implements_int_qt(F.avg_pool2d)
 def avg_pool2d_handler(
         quant_input, kernel_size, stride, padding, ceil_mode, count_include_pad, divisor_override):
-    from brevitas.nn.quant_avg_pool import _avg_pool_accumulator_metadata
-    from brevitas.quant_tensor import _unpack_quant_tensor
-
-    x = F.avg_pool2d(
-        _unpack_quant_tensor(quant_input),
+    value, scale, bit_width = avg_pool2d_impl(
+        quant_input.value,
+        quant_input.scale,
+        quant_input.bit_width,
         kernel_size,
         stride,
         padding,
         ceil_mode,
         count_include_pad,
         divisor_override)
+    return quant_input.set(value=value, scale=scale, bit_width=bit_width)
 
+
+@implements_int_qt(F.adaptive_avg_pool2d)
+def adaptive_avg_pool2d_handler(quant_input, output_size):
+    value, scale, bit_width = adaptive_avg_pool2d_impl(
+        quant_input.value, quant_input.scale, quant_input.bit_width, output_size)
+    return quant_input.set(value=value, scale=scale, bit_width=bit_width)
+
+
+def avg_pool2d_impl(
+        value,
+        scale,
+        bit_width,
+        kernel_size,
+        stride,
+        padding,
+        ceil_mode,
+        count_include_pad,
+        divisor_override):
+    value = F.avg_pool2d(
+        value, kernel_size, stride, padding, ceil_mode, count_include_pad, divisor_override)
     if divisor_override is not None:
         avg_scaling = divisor_override
     elif isinstance(kernel_size, tuple):
         avg_scaling = kernel_size[0] * kernel_size[1]
     else:
         avg_scaling = kernel_size * kernel_size
-
-    scale, bit_width = _avg_pool_accumulator_metadata(
-        quant_input.scale, quant_input.bit_width, avg_scaling)
-    quant_input = quant_input.set(value=x, scale=scale, bit_width=bit_width)
-    return quant_input
+    return value, scale / avg_scaling, max_acc_bit_width_avg_pool2d(bit_width, avg_scaling)
 
 
-@implements_int_qt(F.adaptive_avg_pool2d)
-def adaptive_avg_pool2d_handler(quant_input, output_shape):
-    from functools import reduce
-    from operator import mul
+def adaptive_avg_pool2d_impl(value, scale, bit_width, output_size):
+    pooled = F.adaptive_avg_pool2d(value, output_size)
+    kernel_size, _ = compute_kernel_size_stride(value.shape[-2:], pooled.shape[-2:])
+    avg_scaling = functools.reduce(operator.mul, kernel_size, 1)
+    return pooled, scale / avg_scaling, max_acc_bit_width_avg_pool2d(bit_width, avg_scaling)
 
-    from brevitas.nn.quant_avg_pool import _avg_pool_accumulator_metadata
-    from brevitas.nn.quant_avg_pool import TruncAdaptiveAvgPool2d
-    from brevitas.quant_tensor import _unpack_quant_tensor
 
-    x = F.adaptive_avg_pool2d(_unpack_quant_tensor(quant_input), output_shape)
-    k_size, stride = TruncAdaptiveAvgPool2d.compute_kernel_size_stride(
-        quant_input.value.shape[-2:], x.shape[-2:])
-
-    reduce_size = reduce(mul, k_size, 1)
-
-    scale, bit_width = _avg_pool_accumulator_metadata(
-        quant_input.scale, quant_input.bit_width, reduce_size)
-    quant_input = quant_input.set(value=x, scale=scale, bit_width=bit_width)
-    return quant_input
+def compute_kernel_size_stride(input_shape, output_shape):
+    kernel_size_list = []
+    stride_list = []
+    for inp, out in zip(input_shape, output_shape):
+        stride = inp // out
+        kernel_size = inp - (out - 1) * stride
+        kernel_size_list.append(kernel_size)
+        stride_list.append(stride)
+    return kernel_size_list, stride_list
 
 
 def quant_layer(fn, quant_input, quant_weight, bias, *args, **kwargs):
@@ -285,6 +299,13 @@ def max_acc_bit_width_convtransposeNd(
     return max_output_bit_width
 
 
+def max_acc_bit_width_avg_pool2d(input_bit_width, avg_scaling):
+    max_uint_input = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
+    max_uint_output = max_uint_input * avg_scaling
+    max_output_bit_width = ceil_ste(torch.log2(max_uint_output))
+    return max_output_bit_width
+
+
 FN_ACC_BITWIDTH_MAPPING = {
     F.linear: max_acc_bit_width_linear,
     F.conv1d: max_acc_bit_width_convNd,
@@ -292,4 +313,5 @@ FN_ACC_BITWIDTH_MAPPING = {
     F.conv3d: max_acc_bit_width_convNd,
     F.conv_transpose1d: max_acc_bit_width_convtransposeNd,
     F.conv_transpose2d: max_acc_bit_width_convtransposeNd,
-    F.conv_transpose3d: max_acc_bit_width_convtransposeNd}
+    F.conv_transpose3d: max_acc_bit_width_convtransposeNd,
+    F.avg_pool2d: max_acc_bit_width_avg_pool2d}
