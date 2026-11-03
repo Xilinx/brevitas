@@ -3,7 +3,6 @@
 
 import torch
 
-import brevitas.compiler as brevitas_compiler
 from brevitas.function.ops_ste import round_ste
 from brevitas.quant_tensor.base_quant_tensor import GroupwiseQuantTensorMixin
 from brevitas.quant_tensor.base_quant_tensor import IntMixin
@@ -22,7 +21,6 @@ class GroupwiseIntQuantTensor(GroupwiseQuantTensorMixin, IntMixin, QuantTensor):
         '_training',
     )
 
-    @brevitas_compiler.disable
     def __init__(
             self,
             value,

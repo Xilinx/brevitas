@@ -24,6 +24,16 @@ from .mixin.acc import TruncMixin
 from .mixin.base import QuantLayerMixin
 
 
+def _unpack_trunc_input(x, cached_io):
+    """Return the input of a truncated average pool in the form of ``IntQuantTensor._unpack``.
+
+    A plain tensor input takes the metadata cached from a previous IntQuantTensor input.
+    """
+    if isinstance(x, QuantTensor):
+        return x._unpack()
+    return x, cached_io.scale, cached_io.zero_point, cached_io.bit_width, cached_io.signed
+
+
 class TruncAvgPool2d(TruncMixin, QuantLayerMixin, AvgPool2d):
     """
     Quantized AvgPool2d variant that replaces the division step in the average with a right shift
@@ -74,18 +84,18 @@ class TruncAvgPool2d(TruncMixin, QuantLayerMixin, AvgPool2d):
             if self.cache_inference_quant_act and isinstance(x, QuantTensor):
                 self.cache_class = _CachedIO(x, self.cache_quant_io_metadata_only)
             # Pool the plain value so tracing never reconstructs QuantTensor subclasses.
-            metadata = x if isinstance(x, QuantTensor) else self.cache_class
+            value, scale, zero_point, bit_width, signed = _unpack_trunc_input(x, self.cache_class)
             value, scale, bit_width = avg_pool2d_impl(
-                _unpack_quant_tensor(x),
-                metadata.scale,
-                metadata.bit_width,
+                value,
+                scale,
+                bit_width,
                 self.kernel_size,
                 self.stride,
                 self.padding,
                 self.ceil_mode,
                 self.count_include_pad,
                 self.divisor_override)
-            y = self.trunc_quant((value, scale, metadata.zero_point, bit_width, metadata.signed))
+            y = self.trunc_quant((value, scale, zero_point, bit_width, signed))
         else:
             y = AvgPool2d.forward(self, _unpack_quant_tensor(x))
 
@@ -144,10 +154,10 @@ class TruncAdaptiveAvgPool2d(TruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
             if self.cache_inference_quant_act and isinstance(x, QuantTensor):
                 self.cache_class = _CachedIO(x, self.cache_quant_io_metadata_only)
             # Pool the plain value so tracing never reconstructs QuantTensor subclasses.
-            metadata = x if isinstance(x, QuantTensor) else self.cache_class
+            value, scale, zero_point, bit_width, signed = _unpack_trunc_input(x, self.cache_class)
             value, scale, bit_width = adaptive_avg_pool2d_impl(
-                _unpack_quant_tensor(x), metadata.scale, metadata.bit_width, self.output_size)
-            y = self.trunc_quant((value, scale, metadata.zero_point, bit_width, metadata.signed))
+                value, scale, bit_width, self.output_size)
+            y = self.trunc_quant((value, scale, zero_point, bit_width, signed))
         else:
             y = AdaptiveAvgPool2d.forward(self, _unpack_quant_tensor(x))
 

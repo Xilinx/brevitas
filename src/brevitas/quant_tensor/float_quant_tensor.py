@@ -3,7 +3,6 @@
 
 import torch
 
-import brevitas.compiler as brevitas_compiler
 from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
 from brevitas.quant_tensor.base_quant_tensor import FloatMixin
@@ -26,7 +25,6 @@ class FloatQuantTensor(FloatMixin, QuantTensor):
         '_training',
     )
 
-    @brevitas_compiler.disable
     def __init__(
             self,
             value,
