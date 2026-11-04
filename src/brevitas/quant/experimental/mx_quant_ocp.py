@@ -22,7 +22,6 @@ from brevitas.quant.mx_quant_ocp import MXFloat8e4m3WeightMSE
 from brevitas.quant.mx_quant_ocp import MXInt8Act
 from brevitas.quant.mx_quant_ocp import MXInt8Weight
 from brevitas.quant.mx_quant_ocp import MXInt8WeightMSE
-from brevitas.quant.mx_quant_ocp import MXIntMixin
 from brevitas.quant.mx_quant_ocp import MXMixin
 from brevitas.quant.mx_quant_ocp import MXWeightMixin
 from brevitas.quant.mx_quant_ocp import RestrictThresholdMixin

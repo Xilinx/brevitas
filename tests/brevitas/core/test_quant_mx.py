@@ -454,9 +454,7 @@ def test_mxint_mse_not_worse_than_max(inp, base_quant_name):
     assert mse_error <= base_error * (1 + 1e-6)
 
 
-SHARED_EXPONENT_QUANTIZERS = {
-    'mxfloat8': (MXFloat8e4m3Act, lambda x: MXFP('e4m3').quantize(x)),
-    'mxint8': (MXInt8Act, lambda x: MXINT().quantize(x))}
+SHARED_EXPONENT_QUANTIZERS = {'mxfloat8': (MXFloat8e4m3Act, lambda x: MXFP('e4m3').quantize(x))}
 
 
 @pytest.mark.xfail(

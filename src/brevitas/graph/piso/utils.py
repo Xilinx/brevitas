@@ -155,20 +155,11 @@ def _build_grid(layer: nn.Module, dtype: torch.dtype, device) -> torch.Tensor:
 
 
 def _grid_threshold(grid: torch.Tensor, weight_quant: nn.Module) -> torch.Tensor:
-    """Scale threshold that maps an unscaled grid to the quantizer's convention.
-
-    For int quantizers this is the integer threshold the quantizer divides its
-    stored scale by (its int_scaling_impl), which is not always the largest grid
-    magnitude: e.g. power-of-two int scaling ignores narrow_range (128 for a narrow
-    int8 grid, 256 for uint8), and MX int quantizers use 2^(bit_width - 2).
-    """
+    """Scale threshold that maps an unscaled grid to the quantizer's convention."""
     if _is_float_weight_quant(weight_quant):
         # TODO: adapt this for float, thresholds is max_float here, so maybe it can be gathered from somewhere
         return grid[-1]
-    int_scaling_impl = getattr(weight_quant.tensor_quant, 'int_scaling_impl', None)
-    if int_scaling_impl is None:
-        return grid.abs().max()
-    return int_scaling_impl(weight_quant.bit_width()).to(dtype=grid.dtype, device=grid.device)
+    return grid.abs().max()
 
 
 def compute_group_importance_permutation(
