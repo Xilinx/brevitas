@@ -1,23 +1,22 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from functools import reduce
-from operator import mul
 from typing import Optional
 from typing import Tuple
 from typing import Type
 from typing import Union
 
-import torch
 from torch import Tensor
 from torch.nn import AdaptiveAvgPool2d
 from torch.nn import AvgPool2d
 
-from brevitas.function.ops import max_int
-from brevitas.function.ops_ste import ceil_ste
 from brevitas.inject.defaults import RoundTo8bit
 from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
+from brevitas.quant_tensor.int_torch_handler import adaptive_avg_pool2d_impl
+from brevitas.quant_tensor.int_torch_handler import avg_pool2d_impl
+from brevitas.quant_tensor.int_torch_handler import \
+    compute_kernel_size_stride as inner_compute_kernel_size_stride_impl
 from brevitas.utils.quant_utils import _CachedIO
 
 from .mixin.acc import AccQuantType
@@ -63,27 +62,30 @@ class TruncAvgPool2d(TruncMixin, QuantLayerMixin, AvgPool2d):
     def requires_export_handler(self):
         return True
 
-    @property
-    def _avg_scaling(self):
-        if isinstance(self.kernel_size, tuple):
-            return self.kernel_size[0] * self.kernel_size[1]
-        else:
-            return self.kernel_size * self.kernel_size
-
     def forward(self, input: Union[Tensor, QuantTensor]):
         x = self.unpack_input(input)
 
         if self.export_mode:
             return self.export_handler(_unpack_quant_tensor(x))
 
-        if (isinstance(x, QuantTensor) or
-                self.cache_class is not None) and self.is_trunc_quant_enabled:
-            if self.cache_inference_quant_act:
+        use_cached_input = self.cache_class is not None and (
+            self.cache_inference_quant_act or self.trunc_quant.export_mode)
+        if (isinstance(x, QuantTensor) or use_cached_input) and self.is_trunc_quant_enabled:
+            if self.cache_inference_quant_act and isinstance(x, QuantTensor):
                 self.cache_class = _CachedIO(x, self.cache_quant_io_metadata_only)
-            if not isinstance(x, QuantTensor):
-                x = self.cache_class.quant_tensor.set(value=x)
-            y = AvgPool2d.forward(self, x)
-            y = self.trunc_quant(y)
+            # Pool the plain value so tracing never reconstructs QuantTensor subclasses.
+            metadata = x if isinstance(x, QuantTensor) else self.cache_class
+            value, scale, bit_width = avg_pool2d_impl(
+                _unpack_quant_tensor(x),
+                metadata.scale,
+                metadata.bit_width,
+                self.kernel_size,
+                self.stride,
+                self.padding,
+                self.ceil_mode,
+                self.count_include_pad,
+                self.divisor_override)
+            y = self.trunc_quant((value, scale, metadata.zero_point, bit_width, metadata.signed))
         else:
             y = AvgPool2d.forward(self, _unpack_quant_tensor(x))
 
@@ -122,16 +124,10 @@ class TruncAdaptiveAvgPool2d(TruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
     def padding(self):
         return 0
 
+    # Kept for backward compatibility; the implementation lives in int_torch_handler.
     @staticmethod
     def compute_kernel_size_stride(input_shape, output_shape):
-        kernel_size_list = []
-        stride_list = []
-        for inp, out in zip(input_shape, output_shape):
-            stride = inp // out
-            kernel_size = inp - (out - 1) * stride
-            kernel_size_list.append(kernel_size)
-            stride_list.append(stride)
-        return kernel_size_list, stride_list
+        return inner_compute_kernel_size_stride_impl(input_shape, output_shape)
 
     def forward(self, input: Union[Tensor, QuantTensor]):
         x = self.unpack_input(input)
@@ -142,14 +138,16 @@ class TruncAdaptiveAvgPool2d(TruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
             self._set_global_is_quant_layer(False)
             return out
 
-        if (isinstance(x, QuantTensor) or
-                self.cache_class is not None) and self.is_trunc_quant_enabled:
-            if self.cache_inference_quant_act:
+        use_cached_input = self.cache_class is not None and (
+            self.cache_inference_quant_act or self.trunc_quant.export_mode)
+        if (isinstance(x, QuantTensor) or use_cached_input) and self.is_trunc_quant_enabled:
+            if self.cache_inference_quant_act and isinstance(x, QuantTensor):
                 self.cache_class = _CachedIO(x, self.cache_quant_io_metadata_only)
-            if not isinstance(x, QuantTensor):
-                x = self.cache_class.quant_tensor.set(value=x)
-            y = AdaptiveAvgPool2d.forward(self, x)
-            y = self.trunc_quant(y)
+            # Pool the plain value so tracing never reconstructs QuantTensor subclasses.
+            metadata = x if isinstance(x, QuantTensor) else self.cache_class
+            value, scale, bit_width = adaptive_avg_pool2d_impl(
+                _unpack_quant_tensor(x), metadata.scale, metadata.bit_width, self.output_size)
+            y = self.trunc_quant((value, scale, metadata.zero_point, bit_width, metadata.signed))
         else:
             y = AdaptiveAvgPool2d.forward(self, _unpack_quant_tensor(x))
 
