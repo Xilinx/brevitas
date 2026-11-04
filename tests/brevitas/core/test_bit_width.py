@@ -11,6 +11,7 @@ from brevitas.core.bit_width import BitWidthParameter
 from brevitas.core.bit_width import BitWidthStatefulConst
 from brevitas.core.function_wrapper import RoundSte
 from brevitas.core.restrict_val import IntRestrictValue
+from brevitas.nn import QuantIdentity
 from tests.brevitas.common import assert_allclose
 from tests.brevitas.core.bit_width_fixture import *  # noqa
 from tests.brevitas.hyp_helper import scalar_float_nz_tensor_st
@@ -57,6 +58,13 @@ class TestBitWidthParameterDefaults:
     def test_bit_width_offset(self, bit_width_parameter_defaults, bit_width_init):
         bit_width_module = bit_width_parameter_defaults
         assert bit_width_module.bit_width_offset == bit_width_init - 2
+
+    def test_bit_width_offset_shape(self, bit_width_parameter_defaults):
+        # FSDP2 cannot shard 0-dim parameters
+        assert bit_width_parameter_defaults.bit_width_offset.shape == (1,)
+
+    def test_return_value_shape(self, bit_width_parameter_defaults):
+        assert bit_width_parameter_defaults().shape == ()
 
     def test_override_pretrained(self, bit_width_parameter_defaults):
         bit_width_module = bit_width_parameter_defaults
@@ -157,6 +165,30 @@ class TestBitWidthParameter:
             assert bit_width_stateful_const_tensor == bit_width_init_two
             assert bit_width_stateful_const_tensor == bit_width_parameter_tensor
 
+    def test_load_scalar_offset(self, bit_width_parameter_defaults):
+        """
+        Test that a bit_width_offset saved as a scalar is loaded into the 1-element parameter
+        """
+        offset = bit_width_parameter_defaults.bit_width_offset.detach() + 1
+        bit_width_parameter_defaults.load_state_dict({'bit_width_offset': offset.reshape(())})
+        assert bit_width_parameter_defaults.bit_width_offset.shape == (1,)
+        assert bit_width_parameter_defaults.bit_width_offset == offset
+
+    def test_load_scalar_bit_width_const(self, bit_width_parameter_defaults):
+        """
+        Test that the scalar bit_width of a BitWidthStatefulConst is loaded as a 1-element offset
+        """
+        bit_width_parameter_defaults.load_state_dict(BitWidthStatefulConst(4).state_dict())
+        assert bit_width_parameter_defaults.bit_width_offset.shape == (1,)
+        assert bit_width_parameter_defaults() == 4
+
+    def test_load_offset_with_wrong_number_of_elements(self, bit_width_parameter_defaults):
+        """
+        Test that only offsets with a single element are reshaped when loading
+        """
+        with pytest.raises(RuntimeError):
+            bit_width_parameter_defaults.load_state_dict({'bit_width_offset': torch.zeros(2)})
+
     def _create_bit_width_param_with_clamp(
             self, min_bit_width, bit_width_offset_min_val, bit_width_offset_max_val):
         """
@@ -222,3 +254,9 @@ class TestBitWidthParameter:
         result = bit_width_param()
         expected = min_bit_width + 3.0
         assert_allclose(result, torch.tensor(expected))
+
+
+def test_learned_bit_width_is_scalar_in_quant_tensor():
+    model = QuantIdentity(bit_width_impl_type='parameter', bit_width=3, return_quant_tensor=True)
+    out = model(torch.randn(2, 5))
+    assert out.bit_width.shape == ()
