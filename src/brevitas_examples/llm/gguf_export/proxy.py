@@ -50,7 +50,7 @@ class GGUFGroupwiseWeightQuantProxyFromInjector(GroupwiseWeightQuantProxyFromInj
     @property
     def scale(self):
         # (possibly quantized) scale for each sub-group
-        return self.retrieve_attribute('scale_')
+        return self.retrieve_attribute('_scale')
 
     @property
     def zero_point(self):
@@ -61,7 +61,7 @@ class GGUFGroupwiseWeightQuantProxyFromInjector(GroupwiseWeightQuantProxyFromInj
         if zero_point is not None:
             return zero_point  # see `_GGUFCachedScaleShiftQuantZeroPoint`
         # real-valued (possibly de-quantized) zero-point for each sub-group
-        return self.retrieve_attribute('zero_point_')
+        return self.retrieve_attribute('_zero_point')
 
     @property
     def scale_of_scale(self):

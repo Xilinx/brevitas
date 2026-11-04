@@ -32,6 +32,7 @@ from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import DynamicActQuantProxyFromInjector
+from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 from brevitas.quant.mx_quant_ocp import GroupwiseActQuantProxyFromInjector
 from brevitas.quant.solver.act import solve_float_to_int_impl_from_enum
 from brevitas.quant.solver.common import solve_float_to_int_enum_from_impl
@@ -58,9 +59,9 @@ class StaticScaleZeroPointMixin(torch.nn.Module, ABC):
             super().prepare_for_export(module)
 
         if module.is_quant_enabled:
-            self.scale = module.scale_() if hasattr(module, 'scale_') else module.scale()
-            self.zero_point = module.zero_point_() if hasattr(
-                module, 'zero_point_') else module.zero_point()
+            self.scale = module._scale() if hasattr(module, '_scale') else module.scale()
+            self.zero_point = module._zero_point() if hasattr(
+                module, '_zero_point') else module.zero_point()
             # Continguous is used to be extra-safe with torch.compile
             self.zero_point = self.zero_point.contiguous()
             self.scale = self.scale.contiguous()
@@ -277,6 +278,24 @@ class IntInferenceHandler(IntInferenceHandlerBase, StaticScaleZeroPointMixin):
 
     def prepare_for_export(self, module: nn.Module):
         super().prepare_for_export(module)
+
+
+class TruncIntInferenceHandler(IntInferenceHandler):
+    handled_layer = TruncQuantProxyFromInjector
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.tensor_quant = None
+
+    def prepare_for_export(self, module: nn.Module):
+        super().prepare_for_export(module)
+        if module.is_quant_enabled:
+            self.tensor_quant = module.tensor_quant
+
+    def forward(
+            self, x: Tensor, scale: Tensor, zero_point: Tensor, input_bit_width: Tensor,
+            signed: Tensor) -> Tuple[Tensor]:
+        return self.tensor_quant(x, scale, zero_point, input_bit_width, signed)
 
 
 class IntWeightInferencetHandler(IntInferenceHandler):
