@@ -58,6 +58,8 @@ def solve_float_to_int_impl_from_enum(impl_type):
         return LearnedRoundSte
     elif impl_type == FloatToIntImplType.STOCHASTIC_ROUND:
         return StochasticRoundSte
+    elif impl_type == FloatToIntImplType.FLOOR_PLUS_ONE:
+        return FloorPlusOneSte
     else:
         raise NotImplementedError(f"{impl_type} not recognized.")
 

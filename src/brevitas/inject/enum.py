@@ -47,6 +47,7 @@ class FloatToIntImplType(AutoName):
     DPU = auto()
     LEARNED_ROUND = auto()
     STOCHASTIC_ROUND = auto()
+    FLOOR_PLUS_ONE = auto()
 
 
 class LearnedRoundImplType(AutoName):

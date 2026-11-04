@@ -19,6 +19,8 @@ import pytest_cases
 import torch
 
 from brevitas import config
+from brevitas.core.function_wrapper import FloorPlusOneSte
+from brevitas.core.function_wrapper import FloorSte
 from brevitas.core.scaling import RoundMidMaxSte
 from brevitas.export.inference import quant_inference_mode
 from brevitas.nn.quant_activation import QuantIdentity
@@ -454,7 +456,35 @@ def test_mxint_mse_not_worse_than_max(inp, base_quant_name):
     assert mse_error <= base_error * (1 + 1e-6)
 
 
-SHARED_EXPONENT_QUANTIZERS = {'mxfloat8': (MXFloat8e4m3Act, lambda x: MXFP('e4m3').quantize(x))}
+@pytest_cases.parametrize('quant_name', [None] + list(MXINT_WEIGHT_QUANTIZERS.keys()))
+def test_mxint_scale_rounding_keeps_threshold(quant_name):
+    """
+    MX int quantizers round the log2 of the scale with floor(x) + 1, while the integer threshold keeps
+    the power-of-two value max_int + 1 (2^(bit_width - 1) signed, 2^bit_width unsigned) with its own
+    floor rounding, so that tools relying on the threshold matching the integer grid are unaffected.
+    """
+    if quant_name is None:
+        tensor_quant = mxint_act_quant().act_quant.fused_activation_quant_proxy.tensor_quant
+    else:
+        skip_mse_under_jit(quant_name)
+        layer = mxint_weight_layer(TOP_OF_BINADE_BLOCK, quant=MXINT_WEIGHT_QUANTIZERS[quant_name])
+        tensor_quant = layer.weight_quant.tensor_quant
+    bit_width = tensor_quant.msb_clamp_bit_width_impl()
+    signed = quant_name is None or not quant_name.startswith('shifted')
+    assert tensor_quant.int_scaling_impl(bit_width) == 2 ** (bit_width - int(signed))
+    restrict_modules = dict(tensor_quant.scaling_impl.named_modules())
+    scaling = [m for n, m in restrict_modules.items() if n.endswith('restrict_clamp_scaling')]
+    threshold = [m for n, m in restrict_modules.items() if n.endswith('restrict_clamp_threshold')]
+    assert len(scaling) > 0 and len(threshold) > 0
+    for m in scaling:
+        assert isinstance(m.restrict_value_impl.float_to_int_impl, FloorPlusOneSte)
+    for m in threshold:
+        assert isinstance(m.restrict_value_impl.float_to_int_impl, FloorSte)
+
+
+SHARED_EXPONENT_QUANTIZERS = {
+    'mxfloat8': (MXFloat8e4m3Act, lambda x: MXFP('e4m3').quantize(x)),
+    'mxint8': (MXInt8Act, lambda x: MXINT().quantize(x))}
 
 
 @pytest.mark.xfail(

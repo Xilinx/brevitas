@@ -77,6 +77,39 @@ class DynamicScaleZeroPointMixin(torch.nn.Module, ABC):
         self.register_buffer('threshold', torch.ones((), dtype=dtype, device=device))
         self._scaling_restriction = 'power_of_two'
         self._threshold_restriction = 'power_of_two'
+        self.scale_float_to_int_impl_type = FloatToIntImplType.FLOOR
+
+    @property
+    def scale_float_to_int_impl_type(self) -> Optional[str]:
+        """
+        Rounding applied to the log2 of power-of-two scales, or None if it is not one of the
+        FloatToIntImplType implementations (e.g., RoundMidMaxSte) and so can not be reproduced by
+        handlers that recompute scales on their own.
+        """
+        return self._scale_float_to_int_impl_type
+
+    @scale_float_to_int_impl_type.setter
+    def scale_float_to_int_impl_type(self, value):
+        if value is None:
+            impl_type = None
+        elif isclass(value):
+            try:
+                impl_type = solve_float_to_int_enum_from_impl(value)
+            except NotImplementedError:
+                impl_type = None
+        elif isinstance(value, str):
+            impl_type = value
+        else:
+            raise ValueError("Unrecognized scale rounding")
+        impl = None
+        if impl_type is not None:
+            try:
+                impl = solve_float_to_int_impl_from_enum(impl_type)()
+            except TypeError:
+                # Stateful implementations (e.g., LearnedRoundSte) can not be rebuilt from the enum
+                impl_type = None
+        self._scale_float_to_int_impl_type = impl_type
+        self.scale_float_to_int_impl = impl
 
     @property
     def scaling_restriction(self) -> str:
@@ -129,10 +162,14 @@ class DynamicScaleZeroPointMixin(torch.nn.Module, ABC):
                     exponent_bit_width,
                     ComputeMaxMantissaModule()(mantissa_bit_width),
                     submodule.exponent_bias_impl())
-            self.scaling_restriction = type(
-                submodule.scaling_impl.restrict_clamp_scaling.restrict_value_impl)
+            scaling_restrict_value_impl = submodule.scaling_impl.restrict_clamp_scaling.restrict_value_impl
+            self.scaling_restriction = type(scaling_restrict_value_impl)
             self.threshold_restriction = type(
                 submodule.scaling_impl.restrict_clamp_threshold.restrict_value_impl)
+            scale_float_to_int_impl = getattr(
+                scaling_restrict_value_impl, 'float_to_int_impl', None)
+            self.scale_float_to_int_impl_type = type(
+                scale_float_to_int_impl) if scale_float_to_int_impl is not None else None
 
 
 class FloatToIntMixin(torch.nn.Module, ABC):

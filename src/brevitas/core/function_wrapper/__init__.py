@@ -13,6 +13,7 @@ from .misc import LogTwo
 from .misc import PowerOfTwo
 from .ops_ste import CeilSte
 from .ops_ste import DPURoundSte
+from .ops_ste import FloorPlusOneSte
 from .ops_ste import FloorSte
 from .ops_ste import InplaceTensorClampSte
 from .ops_ste import RoundSte

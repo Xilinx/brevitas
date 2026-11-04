@@ -19,7 +19,7 @@ usage: main.py [-h] [--config CONFIG] [--model MODEL] [--custom-quantizer CUSTOM
                [--nsamples-rot-calibration NSAMPLES_ROT_CALIBRATION] [--seqlen SEQLEN] [--eval] [--eval-top-k EVAL_TOP_K] [--dataset {wikitext2,c4,pile,fineweb,tulu3_sft}] [--dataset-eval-split {validation,test}]
                [--gpxq-block-name GPXQ_BLOCK_NAME] [--gpxq-buffer-device {cpu,same}] [--weight-bit-width WEIGHT_BIT_WIDTH] [--weight-param-method {stats,mse,hqo}]
                [--weight-scale-precision {signed_float_scale,float_scale,po2_scale}] [--weight-quant-rescaling-init WEIGHT_QUANT_RESCALING_INIT] [--weight-narrow-range] [--weight-quant-type {sym,asym}]
-               [--weight-quant-format WEIGHT_QUANT_FORMAT] [--weight-quant-granularity {per_channel,per_tensor,per_group}] [--scale-rounding-func-type {round,ceil,floor,midmax}]
+               [--weight-quant-format WEIGHT_QUANT_FORMAT] [--weight-quant-granularity {per_channel,per_tensor,per_group}] [--scale-rounding-func-type {round,ceil,floor,midmax,floor_plus_one}]
                [--weight-group-dim {1,0}] [--weight-group-size WEIGHT_GROUP_SIZE] [--quantize-weight-zero-point] [--input-bit-width INPUT_BIT_WIDTH] [--input-quant-format INPUT_QUANT_FORMAT]
                [--input-param-method {stats,mse}] [--input-scale-precision {signed_float_scale,float_scale,po2_scale}] [--input-scale-type {static,dynamic,no_scale}] [--input-quant-type {sym,asym}]
                [--input-narrow-range] [--input-quant-granularity {per_tensor,per_row,per_group}] [--input-group-size INPUT_GROUP_SIZE] [--attn-quant-config {qkvs,qkv,kv}]
@@ -85,8 +85,10 @@ options:
                         Weight quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. It's possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. Default: int.
   --weight-quant-granularity {per_channel,per_tensor,per_group}
                         Granularity for scales/zero-point of weights. Default: per_group.
-  --scale-rounding-func-type {round,ceil,floor,midmax}
-                        Rounding function to use with Po2 scale. Default: None.
+  --scale-rounding-func-type {round,ceil,floor,midmax,floor_plus_one}
+                        Rounding function to use with Po2 scale. Default: None (quantizer default;
+                        MX int quantizers use floor_plus_one, as in OCP MX, and floor clips their
+                        top binade).
   --weight-group-dim {1,0}
                         Override default group_dim for groupsize quantization. Default: layer-dependant
   --weight-group-size WEIGHT_GROUP_SIZE
