@@ -70,6 +70,18 @@ class MXMixin(ExtendedInjector):
         return get_midmax_mantissa_bit_bias(mantissa_bit_width, nan_values, inf_values)
 
 
+class MXIntMixin(ExtendedInjector):
+    """
+    Integer threshold for MX integer quantizers.
+
+    The shared exponent is floor(log2(amax)), so amax / 2^shared lies in [1, 2). With the
+    fixed-point threshold 2^(bit_width - 1) every value above 2^shared would saturate. Halving the
+    threshold matches OCP MX v1.0 section 6.3 for signed INT8: the largest power of two of the
+    element is 2^0 and its grid is 2^-6, so the integer step is 2^shared / 2^(bit_width - 2).
+    """
+    int_scaling_exponent_offset = -1
+
+
 class MXWeightMixin(MXMixin):
     pass
 
@@ -114,7 +126,8 @@ class MXFloat8e4m3WeightMSE(MSESymmetricScale, MXFloat8e4m3Weight):
     pass
 
 
-class MXInt8Weight(MXWeightMixin,
+class MXInt8Weight(MXIntMixin,
+                   MXWeightMixin,
                    GroupwiseWeightProxyMixin,
                    IntQuant,
                    MaxStatsScaling,
@@ -125,7 +138,8 @@ class MXInt8Weight(MXWeightMixin,
     bit_width = 8
 
 
-class ShiftedMXUInt8Weight(MXWeightMixin,
+class ShiftedMXUInt8Weight(MXIntMixin,
+                           MXWeightMixin,
                            GroupwiseWeightProxyMixin,
                            ShiftedMinUintQuant,
                            MinMaxStatsScaling,
@@ -136,7 +150,12 @@ class ShiftedMXUInt8Weight(MXWeightMixin,
     bit_width = 8
 
 
-class MXInt8Act(MXActMixin, GroupwiseActProxyMixin, IntQuant, MaxStatsScaling, ActQuantSolver):
+class MXInt8Act(MXIntMixin,
+                MXActMixin,
+                GroupwiseActProxyMixin,
+                IntQuant,
+                MaxStatsScaling,
+                ActQuantSolver):
     """
     MX Int signed activation quantizer.
     """

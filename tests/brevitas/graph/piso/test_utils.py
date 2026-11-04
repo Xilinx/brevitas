@@ -181,13 +181,37 @@ def test_build_grid_matches_injector(weight_quant, kwargs, dtype):
 def test_grid_threshold_int_vs_float():
     int_layer = _build_quant_linear(_IntPerChannelWeight)
     grid = _build_grid(int_layer, torch.float32, torch.device('cpu'))
-    # int: threshold is the largest magnitude of the (asymmetric) grid.
+    # int: threshold is the quantizer's integer threshold, here the largest magnitude of the grid.
     assert _grid_threshold(grid, int_layer.weight_quant) == grid.abs().max()
 
     float_layer = _build_quant_linear(_FloatPerChannelWeight)
     fgrid = _build_grid(float_layer, torch.float32, torch.device('cpu'))
     # float: threshold is the max representable value (grid top).
     assert _grid_threshold(fgrid, float_layer.weight_quant) == fgrid[-1]
+
+
+@pytest.mark.parametrize(
+    "weight_quant,kwargs,expected", [(_IntPerChannelWeight, {}, 127.),
+                                     (_IntPerGroupWeight, dict(weight_group_size=4), 64.)])
+def test_grid_threshold_int_matches_int_scaling(weight_quant, kwargs, expected):
+    # The threshold must be the one the quantizer divides its stored scale by, which is not the
+    # largest grid magnitude for MX int quantizers (2^(bit_width - 2) instead of 128).
+    layer = _build_quant_linear(weight_quant, **kwargs)
+    grid = _build_grid(layer, torch.float64, torch.device('cpu'))
+    tensor_quant = layer.weight_quant.tensor_quant
+    threshold = _grid_threshold(grid, layer.weight_quant)
+    assert threshold.dtype == grid.dtype
+    assert threshold == tensor_quant.int_scaling_impl(layer.weight_quant.bit_width())
+    assert threshold == expected
+
+
+def test_grid_threshold_round_trips_base_scale():
+    # PiSO stores optimal_s * threshold as the base scale: the quantizer must then use optimal_s.
+    layer = _build_quant_linear(_IntPerChannelWeight)
+    grid = _build_grid(layer, torch.float32, torch.device('cpu'))
+    optimal_s = torch.rand_like(_get_base_scale(layer)) + 0.5
+    _set_base_scale(layer, optimal_s * _grid_threshold(grid, layer.weight_quant))
+    assert torch.allclose(layer.quant_weight().scale, optimal_s)
 
 
 # -----------------------------------------------------------------------------

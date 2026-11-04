@@ -41,11 +41,26 @@ class IntScaling(brevitas.jit.ScriptModule):
 
 
 class PowerOfTwoIntScaling(brevitas.jit.ScriptModule):
-    __constants__ = ['signed']
+    """
+    Integer threshold for power-of-two scaling: 2^(bit_width - 1) when signed, 2^bit_width when
+    unsigned (i.e., max_int + 1, regardless of narrow_range), multiplied by
+    2^int_scaling_exponent_offset.
 
-    def __init__(self, signed: Optional[bool] = None):
+    The default offset of 0 pairs with scales rounded up to a power of two (fixed-point), which
+    puts amax / scale in (2^(bit_width - 2), 2^(bit_width - 1)] for signed values. Scales rounded
+    down to a power of two (e.g., the shared exponent of OCP MX) need an offset of -1 to leave
+    headroom for the top binade, so that amax / scale lies in [2^(bit_width - 2), 2^(bit_width - 1)).
+
+    Args:
+        signed (bool, optional): Whether the integer range is signed. Can be overridden at runtime.
+        int_scaling_exponent_offset (int): Power-of-two exponent added to the threshold. Default: 0
+    """
+    __constants__ = ['signed', 'int_scaling_exponent_offset']
+
+    def __init__(self, signed: Optional[bool] = None, int_scaling_exponent_offset: int = 0):
         super(PowerOfTwoIntScaling, self).__init__()
         self.signed = signed
+        self.int_scaling_exponent_offset = int_scaling_exponent_offset
 
     @brevitas.jit.script_method
     def forward(self, bit_width: Tensor, signed: Optional[Union[bool, Tensor]] = None) -> Tensor:
@@ -55,4 +70,4 @@ class PowerOfTwoIntScaling(brevitas.jit.ScriptModule):
             is_signed = True  # Workaround for JIT type inference
         # Workaround: required for compatibility with the JIT for PT=2.2.2
         is_signed = bool(is_signed.item()) if isinstance(is_signed, Tensor) else is_signed
-        return max_int(is_signed, False, bit_width) + 1
+        return (max_int(is_signed, False, bit_width) + 1) * 2.0 ** self.int_scaling_exponent_offset
