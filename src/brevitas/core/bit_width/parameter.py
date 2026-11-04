@@ -47,6 +47,10 @@ class BitWidthParameter(brevitas.jit.ScriptModule):
 
     Note:
         Maps to bit_width_impl_type == BitWidthImplType.PARAMETER == 'PARAMETER' == 'parameter' in higher-level APIs.
+
+    Note:
+        The learnable offset is stored as a 1-element tensor, since FSDP2 cannot shard 0-dim
+        parameters. The returned bit-width is still a scalar tensor.
     """
     __constants__ = ['bit_width_base', 'override_pretrained']
 
@@ -72,8 +76,9 @@ class BitWidthParameter(brevitas.jit.ScriptModule):
         bit_width_base = restrict_bit_width_impl.restrict_init_float(min_bit_width)
         bit_width = restrict_bit_width_impl.restrict_init_float(bit_width)
         bit_width_offset_init = bit_width - bit_width_base
+        # FSDP2 cannot shard 0-dim parameters, so the offset has one dimension
         self.bit_width_offset = Parameter(
-            torch.tensor(bit_width_offset_init, dtype=dtype, device=device))
+            torch.tensor([bit_width_offset_init], dtype=dtype, device=device))
         self.bit_width_base = bit_width_base
         self.restrict_clamp_bit_width_impl = _RestrictClampValue(
             min_val=bit_width_offset_min_val,
@@ -83,7 +88,7 @@ class BitWidthParameter(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self) -> Tensor:
-        bit_width = abs_binary_sign_grad(self.bit_width_offset) + self.bit_width_base
+        bit_width = abs_binary_sign_grad(self.bit_width_offset.squeeze()) + self.bit_width_base
         bit_width = self.restrict_clamp_bit_width_impl(bit_width)
         return bit_width
 
@@ -97,6 +102,13 @@ class BitWidthParameter(brevitas.jit.ScriptModule):
             bit_width = state_dict[bit_width_const_key]
             state_dict[bit_width_offset_key] = bit_width - self.bit_width_base
             del state_dict[bit_width_const_key]
+
+        # Offsets saved before they had one dimension are scalars
+        bit_width_offset = state_dict.get(bit_width_offset_key)
+        if (isinstance(bit_width_offset, Tensor) and
+                bit_width_offset.numel() == self.bit_width_offset.numel() and
+                bit_width_offset.shape != self.bit_width_offset.shape):
+            state_dict[bit_width_offset_key] = bit_width_offset.reshape_as(self.bit_width_offset)
 
         if self.override_pretrained and bit_width_offset_key in state_dict:
             del state_dict[bit_width_offset_key]

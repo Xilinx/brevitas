@@ -95,7 +95,7 @@ class LLMFSDPEntryPointUtils(EntryPointUtils):
     """
 
     argument_parser: ArgumentParser = create_llm_args_parser()
-    eval_metrics: List[str] = ["float_ppl", "quant_ppl"]
+    eval_metrics: List[str] = LLMEntryPointUtils.eval_metrics
 
     @staticmethod
     def parse_log(job_log: str) -> Dict[str, Any]:

@@ -700,7 +700,11 @@ def quantize_llm(args, extra_args=None):
                 return_state_dict=use_post_training_model)
             if fsdp_enabled:
                 if not use_post_training_model:
-                    results = {"float_ppl": float_ppl, "quant_ppl": None}
+                    results = {
+                        "float_ppl": float_ppl,
+                        "quant_ppl": None,
+                        "quant_ear": None,
+                        "quant_kld": None}
                     if args.job_folder is not None and is_main_process:
                         os.makedirs(args.job_folder, exist_ok=True)
                         with open(os.path.join(args.job_folder, "results.json"),
