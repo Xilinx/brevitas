@@ -52,7 +52,6 @@ class QONNXManager(ONNXBaseManager):
         BrevitasBiasQuantProxyHandler,
         BrevitasWeightQuantProxyHandler,
         BrevitasDecoupledWeightQuantProxyHandler,
-        BrevitasDecoupledWeightQuantWithInputProxyHandler,
         BrevitasTruncQuantProxyHandler,
         BrevitasQuantLSTMLayerHandler,
         BrevitasWeightFloatQuantProxyHandler,

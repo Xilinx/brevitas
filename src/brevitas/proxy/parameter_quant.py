@@ -281,14 +281,17 @@ class DecoupledWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
                       IntQuantTensor) and not self.training and self.cache_inference_quant_act:
             cached_inp = _CachedIO(quant_input.detach(), self.cache_quant_io_metadata_only)
             self._cached_act = cached_inp
+
         if self.is_quant_enabled:
             if quant_input is None or isinstance(quant_input, Tensor):
                 assert self._cached_act is not None, "No cached quant input found. Enable caching and perform a forward pass"
                 quant_input = self._cached_act
             else:
                 assert isinstance(quant_input, IntQuantTensor), "Input must be quantized"
+
             input_bit_width = quant_input.bit_width
             input_is_signed = quant_input.signed
+
             impl = self.export_handler if self.export_mode else self.tensor_quant
             out, scale, zero_point, bit_width, pre_scale, pre_zero_point = impl(x, input_bit_width, input_is_signed)
             if self.skip_create_quant_tensor:
