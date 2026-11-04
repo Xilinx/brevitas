@@ -15,6 +15,7 @@ from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
 from brevitas.quant_tensor.int_torch_handler import adaptive_avg_pool2d_impl
 from brevitas.quant_tensor.int_torch_handler import avg_pool2d_impl
+from brevitas.quant_tensor.int_torch_handler import compute_kernel_size_stride
 from brevitas.utils.quant_utils import _CachedIO
 
 from .mixin.acc import AccQuantType
@@ -121,6 +122,9 @@ class TruncAdaptiveAvgPool2d(TruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
     @property
     def padding(self):
         return 0
+
+    # Kept for backward compatibility; the implementation lives in int_torch_handler.
+    compute_kernel_size_stride = staticmethod(compute_kernel_size_stride)
 
     def forward(self, input: Union[Tensor, QuantTensor]):
         x = self.unpack_input(input)
