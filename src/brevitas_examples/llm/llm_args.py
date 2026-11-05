@@ -153,8 +153,9 @@ def create_args_parser() -> ArgumentParser:
         '--scale-rounding-func-type',
         type=str,
         default=None,
-        choices=['round', 'ceil', 'floor', 'midmax'],
-        help='Rounding function to use with Po2 scale. Default: None.')
+        choices=['round', 'ceil', 'floor', 'midmax', 'floor_plus_one'],
+        help='Rounding function to use with Po2 scale. Default: None (quantizer default; MX int '
+        'quantizers use floor_plus_one, as in OCP MX, and floor clips their top binade).')
     parser.add_argument(
         '--weight-group-dim',
         type=int,

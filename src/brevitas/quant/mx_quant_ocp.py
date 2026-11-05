@@ -5,6 +5,7 @@ from dependencies import this
 from dependencies import value
 
 from brevitas.core.function_wrapper.ops_ste import CeilSte
+from brevitas.core.function_wrapper.ops_ste import FloorPlusOneSte
 from brevitas.core.function_wrapper.ops_ste import FloorSte
 from brevitas.core.restrict_val import PowerOfTwo
 from brevitas.core.restrict_val import PowerOfTwoRestrictValue
@@ -70,6 +71,20 @@ class MXMixin(ExtendedInjector):
         return get_midmax_mantissa_bit_bias(mantissa_bit_width, nan_values, inf_values)
 
 
+class MXIntMixin(ExtendedInjector):
+    """
+    Scale rounding for MX integer quantizers.
+
+    OCP MX v1.0 section 6.3 sets the shared scale to X = 2^floor(log2(amax)) divided by the largest
+    power of two of the element (2^0 for INT8, whose grid is 2^-6), so the integer step is
+    2^floor(log2(amax)) / 2^(bit_width - 2). The integer threshold of power-of-two scaling is
+    2^(bit_width - 1), so the log2 of the scale is rounded with floor(x) + 1 instead of floor(x):
+    with floor every value above 2^floor(log2(amax)) in a block would saturate. The threshold keeps
+    its own floor rounding (see RestrictThresholdMixin).
+    """
+    restrict_value_float_to_int_impl = FloorPlusOneSte
+
+
 class MXWeightMixin(MXMixin):
     pass
 
@@ -114,7 +129,8 @@ class MXFloat8e4m3WeightMSE(MSESymmetricScale, MXFloat8e4m3Weight):
     pass
 
 
-class MXInt8Weight(MXWeightMixin,
+class MXInt8Weight(MXIntMixin,
+                   MXWeightMixin,
                    GroupwiseWeightProxyMixin,
                    IntQuant,
                    MaxStatsScaling,
@@ -125,7 +141,8 @@ class MXInt8Weight(MXWeightMixin,
     bit_width = 8
 
 
-class ShiftedMXUInt8Weight(MXWeightMixin,
+class ShiftedMXUInt8Weight(MXIntMixin,
+                           MXWeightMixin,
                            GroupwiseWeightProxyMixin,
                            ShiftedMinUintQuant,
                            MinMaxStatsScaling,
@@ -136,7 +153,12 @@ class ShiftedMXUInt8Weight(MXWeightMixin,
     bit_width = 8
 
 
-class MXInt8Act(MXActMixin, GroupwiseActProxyMixin, IntQuant, MaxStatsScaling, ActQuantSolver):
+class MXInt8Act(MXIntMixin,
+                MXActMixin,
+                GroupwiseActProxyMixin,
+                IntQuant,
+                MaxStatsScaling,
+                ActQuantSolver):
     """
     MX Int signed activation quantizer.
     """

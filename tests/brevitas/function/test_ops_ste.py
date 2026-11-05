@@ -12,15 +12,21 @@ import torch
 
 import brevitas
 from brevitas import config
+from brevitas.core.function_wrapper.ops_ste import CeilSte
+from brevitas.core.function_wrapper.ops_ste import FloorPlusOneSte
 from brevitas.core.function_wrapper.ops_ste import ScalarClampMinSte
 from brevitas.core.function_wrapper.ops_ste import ScalarSignedClampMinSte
 from brevitas.function import ops_ste
 from brevitas.function.ops_ste import *
+from brevitas.inject.enum import FloatToIntImplType
+from brevitas.quant.solver.common import solve_float_to_int_enum_from_impl
+from brevitas.quant.solver.common import solve_float_to_int_impl_from_enum
 from tests.brevitas.common import assert_allclose
 from tests.brevitas.common import BOOLS
 from tests.brevitas.function.hyp_helper import scalar_clamp_min_ste_test_st
 from tests.brevitas.function.hyp_helper import scalar_clamp_ste_test_st
 from tests.brevitas.function.hyp_helper import tensor_clamp_ste_test_st
+from tests.brevitas.hyp_helper import float_tensor_random_shape_st
 from tests.brevitas.hyp_helper import two_float_tensor_random_shape_st
 
 AUTOGRAD_OPS_PREFIX = 'brevitas.ops.autograd_ste_ops.'
@@ -262,3 +268,34 @@ class TestScalarSignedClampMinSte:
         # Compute reference output
         ref_output = ref_module(val)
         assert_allclose(output, ref_output)
+
+
+class TestFloorPlusOneSte:
+
+    def test_fwd_examples(self):
+        module = FloorPlusOneSte()
+        x = torch.tensor([-2.0, -1.5, -0.25, 0.0, 0.25, 6.9, 7.0])
+        assert torch.equal(module(x), torch.tensor([-1.0, -1.0, 0.0, 1.0, 1.0, 7.0, 8.0]))
+
+    @given(x=float_tensor_random_shape_st(min_val=-1e6, max_val=1e6))
+    def test_fwd(self, x):
+        output = FloorPlusOneSte()(x)
+        assert torch.equal(output, torch.floor(x) + 1.)
+        # Smallest integer strictly greater than x: same as ceil, except on integers
+        is_int = x == torch.floor(x)
+        ceil = CeilSte()(x)
+        assert torch.equal(output, torch.where(is_int, ceil + 1., ceil))
+
+    @given(x=two_float_tensor_random_shape_st(max_val=1e6, min_val=-1e6))
+    def test_bwd(self, x):
+        """ Gradients are passed through unchanged (straight-through estimator) """
+        val, val_grad = x
+        val.requires_grad_(True)
+        FloorPlusOneSte()(val).backward(val_grad)
+        assert_allclose(val_grad, val.grad)
+
+    def test_enum_round_trip(self):
+        assert solve_float_to_int_impl_from_enum(
+            FloatToIntImplType.FLOOR_PLUS_ONE) is FloorPlusOneSte
+        assert solve_float_to_int_enum_from_impl(
+            FloorPlusOneSte) == FloatToIntImplType.FLOOR_PLUS_ONE

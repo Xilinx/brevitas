@@ -221,6 +221,8 @@ class vLLMExportManager(BaseManager):
                             export_handler, 'threshold_restriction', None)
                         proxy_dict['scaling_restriction'] = getattr(
                             export_handler, 'scaling_restriction', None)
+                        proxy_dict['scale_float_to_int_impl_type'] = getattr(
+                            export_handler, 'scale_float_to_int_impl_type', None)
                         proxy_dict['float_to_int_impl_type'] = export_handler.float_to_int_impl_type
                         proxy_dict['class_type'] = export_handler.__class__.__name__
                         json_to_save[name][proxy_name] = proxy_dict

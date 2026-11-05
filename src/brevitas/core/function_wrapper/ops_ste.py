@@ -39,6 +39,30 @@ class FloorSte(brevitas.jit.ScriptModule):
         return floor_ste(x)
 
 
+class FloorPlusOneSte(brevitas.jit.ScriptModule):
+    """
+    Computes floor(x) + 1, i.e. the smallest integer strictly greater than x, with a straight-through
+    gradient estimator. It differs from :class:`CeilSte` only when x is an integer (x + 1 instead of x).
+
+    Used to round the log2 of a power-of-two scale for MX integer quantizers: with an integer threshold
+    of 2^(bit_width - 1), scale = 2^(floor(log2(amax)) + 1) / 2^(bit_width - 1)
+    = 2^floor(log2(amax)) / 2^(bit_width - 2), as in OCP MX v1.0 section 6.3. amax / scale then lies in
+    [2^(bit_width - 2), 2^(bit_width - 1)), so no value in the top binade of a block is clipped.
+
+    Examples:
+        >>> floor_plus_one = FloorPlusOneSte()
+        >>> floor_plus_one(torch.tensor([-1.5, 0.0, 6.9, 7.0]))
+        tensor([-1.,  1.,  7.,  8.])
+    """
+
+    def __init__(self) -> None:
+        super(FloorPlusOneSte, self).__init__()
+
+    @brevitas.jit.script_method
+    def forward(self, x: torch.Tensor):
+        return floor_ste(x) + 1.
+
+
 class RoundToZeroSte(brevitas.jit.ScriptModule):
     """
     ScriptModule wrapper for :func:`~brevitas.function.ops_ste.round_to_zero_ste`.

@@ -36,6 +36,16 @@ def maybe_permute(x: Tensor, permute_dims: Optional[Tuple[int, ...]]) -> Tensor:
 
 class StandaloneGroupwiseQuantMixin(DynamicScaleZeroPointMixin):
 
+    def prepare_for_export(self, module):
+        super().prepare_for_export(module)
+        # Scales are recomputed here, so their rounding must be reproducible (e.g., not midmax)
+        if (module.is_quant_enabled and
+                self.scaling_restriction == RestrictValueType.POWER_OF_TWO and
+                self.scale_float_to_int_impl_type is None):
+            raise NotImplementedError(
+                "vLLM export recomputes power-of-two scales and only supports rounding their log2 "
+                "with a FloatToIntImplType (e.g. floor, ceil, round, floor_plus_one).")
+
     def compute_scale(self, x: Tensor, group_dim: Optional[int] = None) -> Tensor:
         if group_dim is not None:
             max_abs = torch.max(torch.abs(x), dim=group_dim, keepdim=True)[0]
@@ -44,7 +54,7 @@ class StandaloneGroupwiseQuantMixin(DynamicScaleZeroPointMixin):
         scale = torch.clamp(max_abs, EPS)
         threshold = self.threshold
         if self.scaling_restriction == RestrictValueType.POWER_OF_TWO:
-            scale = torch.pow(2, torch.floor(torch.log2(scale)))
+            scale = torch.pow(2, self.scale_float_to_int_impl(torch.log2(scale)))
         if self.threshold_restriction == RestrictValueType.POWER_OF_TWO:
             threshold = torch.clamp(torch.pow(2, torch.floor(torch.log2(threshold))), EPS)
         scale = scale / threshold

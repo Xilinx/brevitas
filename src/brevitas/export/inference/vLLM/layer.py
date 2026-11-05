@@ -77,6 +77,8 @@ class QuantLinear(LinearMethodBase):
         float_to_int_impl_type = quant_config['float_to_int_impl_type']
         scaling_restriction = quant_config['scaling_restriction']
         threshold_restriction = quant_config['threshold_restriction']
+        # Configs exported before the scale rounding was recorded always used floor
+        scale_float_to_int_impl_type = quant_config.pop('scale_float_to_int_impl_type', 'floor')
         del quant_config['class_type']
         del quant_config['float_to_int_impl_type']
         del quant_config['scaling_restriction']
@@ -107,6 +109,8 @@ class QuantLinear(LinearMethodBase):
             quantizer.scaling_restriction = scaling_restriction
         if threshold_restriction is not None:
             quantizer.threshold_restriction = threshold_restriction
+        if hasattr(quantizer, 'scale_float_to_int_impl_type'):
+            quantizer.scale_float_to_int_impl_type = scale_float_to_int_impl_type
         quantizer.float_to_int_impl_type = float_to_int_impl_type
         quantizer.load_state_dict(quant_config)
         return quantizer
