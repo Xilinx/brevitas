@@ -105,7 +105,7 @@ class RotatedModule(torch.nn.Module):
             if self.had_mat is None or self.k is None:
                 had_K, K = get_hadK(inp.shape[-1])
             else:
-                had_K = self.had_mat
+                had_K = self.had_mat.to(dtype=inp.dtype)
                 K = self.k
             inp = matmul_hadU_cuda(inp, had_K, K)
         else:
