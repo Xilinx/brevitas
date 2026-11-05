@@ -15,6 +15,7 @@ from brevitas.function.ops import max_int
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.utils.torch_utils import compute_channel_view_shape
 from brevitas.utils.torch_utils import is_broadcastable
+from brevitas.utils.torch_utils import is_fake_mode_active
 
 INT_QUANT_TENSOR_FN_HANDLER = {}
 
@@ -201,23 +202,32 @@ def quant_layer(fn, quant_input, quant_weight, bias, *args, **kwargs):
 
     if bias is not None:
         if output_scale is not None:
-            if (isinstance(bias, IntQuantTensor) and
-                    not torch.allclose(bias.scale, output_scale)) or not isinstance(bias,
-                                                                                    IntQuantTensor):
-                channel_dim = -1 if isinstance(fn, torch.nn.Linear) else 1
-                output_scale_broadcast_shape = compute_channel_view_shape(
-                    quant_input, channel_dim=channel_dim)
-                output_zero_point = -_unpack_quant_tensor(bias).view(
-                    output_scale_broadcast_shape) / output_scale
+            channel_dim = -1 if isinstance(fn, torch.nn.Linear) else 1
+            output_scale_broadcast_shape = compute_channel_view_shape(
+                quant_input, channel_dim=channel_dim)
+            output_zero_point = -_unpack_quant_tensor(bias).view(
+                output_scale_broadcast_shape) / output_scale
+            if isinstance(bias, IntQuantTensor):
+                # A bias quantized with the scale of the accumulator needs no zero point. This is
+                # selected with torch.where, since the scales cannot be compared while tracing
+                bias_on_accumulator_grid = torch.isclose(bias.scale, output_scale).all()
+                output_zero_point = torch.where(
+                    bias_on_accumulator_grid,
+                    torch.zeros_like(output_zero_point),
+                    output_zero_point)
         if output_bit_width is not None and isinstance(bias, IntQuantTensor):
             output_bit_width = torch.where(
                 bias.bit_width > output_bit_width, bias.bit_width, output_bit_width)
             output_bit_width = output_bit_width + 1
 
     if compute_output_quant_tensor:
-        if (isinstance(quant_input, IntQuantTensor) and
-            (quant_input.zero_point != 0.0).any()) or (isinstance(quant_weight, IntQuantTensor) and
-                                                       (quant_weight.zero_point != 0.0).any()):
+        if is_fake_mode_active():
+            # The zero points cannot be read while tracing, so the worst case is assumed
+            warnings.warn(
+                "Cannot check that the zero points are zero while tracing with torch.compile or "
+                "torch.export, where tensor values are unknown. Returning Tensor.")
+            compute_output_quant_tensor = False
+        elif (quant_input.zero_point != 0.0).any() or (quant_weight.zero_point != 0.0).any():
             warnings.warn("Computing zero point of output accumulator not supported yet.")
             compute_output_quant_tensor = False
         if output_scale is None:

@@ -4,6 +4,7 @@
 from typing import List
 from typing import Optional
 from typing import Tuple
+import warnings
 
 import torch
 from torch import Tensor
@@ -11,9 +12,19 @@ from torch.utils._python_dispatch import return_and_correct_aliasing
 
 from brevitas.function.ops_ste import round_ste
 from brevitas.utils.torch_utils import float_internal_scale
+from brevitas.utils.torch_utils import is_fake_mode_active
 
 TOLERANCE = {torch.float64: 1e-1, torch.float32: 2e-1, torch.float16: 0.5, torch.bfloat16: 0.5}
 _MISSING = object()
+
+
+def _skip_check_while_tracing(check: str) -> bool:
+    if not is_fake_mode_active():
+        return False
+    warnings.warn(
+        f"Cannot check {check} while tracing with torch.compile or torch.export, where tensor "
+        "values are unknown. Assuming it holds.")
+    return True
 
 
 def _immutable(value):
@@ -386,6 +397,8 @@ class QuantTensor(Tensor):
 
     @staticmethod
     def is_zero_zero_point(tensor):
+        if _skip_check_while_tracing("that the zero points are zero"):
+            return True
         return (tensor.zero_point == 0.).all()
 
 
@@ -579,18 +592,20 @@ class IntMixin:
             raise RuntimeError(f"QuantTensor not valid.")
 
     def check_scaling_factors_same(self, other):
-        if self.training:
+        if self.training or _skip_check_while_tracing("that the scaling factors are the same"):
             return True
         if not torch.allclose(self.scale, other.scale):
             raise RuntimeError("Scaling factors are different")
 
     def check_zero_points_same(self, other):
-        if self.training:
+        if self.training or _skip_check_while_tracing("that the zero points are the same"):
             return True
         if not torch.allclose(self.zero_point, other.zero_point):
             raise RuntimeError("Zero points are different")
 
     def check_bit_width_same(self, other):
+        if _skip_check_while_tracing("that the bit widths are the same"):
+            return True
         if not torch.allclose(self.bit_width, other.bit_width):
             raise RuntimeError("Bit widths are different")
 
@@ -719,24 +734,28 @@ class FloatMixin:
             raise RuntimeError(f"FloatQuantTensor not valid.")
 
     def check_scaling_factors_same(self, other):
-        if self.training:
+        if self.training or _skip_check_while_tracing("that the scaling factors are the same"):
             return True
         if not torch.allclose(self.scale, other.scale):
             raise RuntimeError("Scaling factors are different")
 
     def check_zero_points_same(self, other):
-        if self.training:
+        if self.training or _skip_check_while_tracing("that the zero points are the same"):
             return True
         if not torch.allclose(self.zero_point, other.zero_point):
             raise RuntimeError("Zero points are different")
 
     def check_bit_width_same(self, other):
+        if _skip_check_while_tracing("that the bit widths are the same"):
+            return True
         if not torch.allclose(self.exponent_bit_width,
                               other.exponent_bit_width) and not torch.allclose(
                                   self.mantissa_bit_width, other.mantissa_bit_width):
             raise RuntimeError("Bit widths are different")
 
     def check_exponent_bias(self, other):
+        if _skip_check_while_tracing("that the exponent biases are the same"):
+            return True
         if not torch.allclose(self.exponent_bias, other.exponent_bias):
             raise RuntimeError("Bit widths are different")
 
