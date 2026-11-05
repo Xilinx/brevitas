@@ -12,6 +12,7 @@ from pytest_cases import parametrize_with_cases
 import torch
 
 from brevitas import torch_version
+from brevitas.nn import QuantLSTM
 
 from ..export_fixture import rm_onnx
 from .common import *
@@ -131,7 +132,8 @@ def test_ort_lstm(model, export_type, current_cases):
             'Execution of quantized LSTM not supported out of the box for QONNX IR + ORT (requires qonnx lib).'
         )
 
-    in_size = (FEATURES, 1, IN_CH)  # seq, batch, in_size
+    # A batch size other than 1 catches a squeeze of the wrong dimension of the LSTM outputs
+    in_size = (FEATURES, 2, IN_CH)  # seq, batch, in_size
     inp = gen_linspaced_data(reduce(mul, in_size)).reshape(in_size)
     model.eval()
     export_name = f'lstm_export_{case_id}.onnx'
@@ -144,4 +146,43 @@ def test_ort_lstm(model, export_type, current_cases):
         export_type,
         tolerance=FLOAT_TOLERANCE,
         export_q_weight=export_q_weight)
+    rm_onnx(export_name)
+
+
+@pytest.mark.parametrize('export_type', ['qonnx', 'qonnx_dynamo'])
+@pytest.mark.parametrize(
+    'bidirectional, cifg, num_layers',
+    [
+        pytest.param(False, False, 1, id='unidirectional'),
+        pytest.param(True, True, 2, id='bidirectional_cifg_2_layers'),
+        pytest.param('shared_input_hidden', False, 2, id='shared_input_hidden_2_layers')])
+@pytest.mark.parametrize(
+    'quantizer', ['symmetric_per_tensor_float', 'asymmetric_per_channel_float'])
+def test_ort_lstm_qonnx_weight_quant(
+        request, quantizer, bidirectional, cifg, num_layers, export_type):
+    # QONNX exports the weights through Quant nodes, so the graph runs on the qonnx executor
+    if export_type == 'qonnx_dynamo' and torch_version < parse('2.8'):
+        pytest.skip('Dynamo export requires PyTorch >= 2.8')
+
+    torch.random.manual_seed(SEED)
+    model = QuantLSTM(
+        input_size=IN_CH,
+        hidden_size=OUT_CH,
+        weight_quant=LSTM_QUANTIZERS[quantizer][0],
+        weight_bit_width=4,
+        bias_quant=None,
+        io_quant=None,
+        gate_acc_quant=None,
+        sigmoid_quant=None,
+        tanh_quant=None,
+        cell_state_quant=None,
+        num_layers=num_layers,
+        bidirectional=bool(bidirectional),
+        shared_input_hidden_weights=bidirectional == 'shared_input_hidden',
+        coupled_input_forget_gates=cifg)
+    model.eval()
+    in_size = (FEATURES, 2, IN_CH)  # seq, batch, in_size
+    inp = gen_linspaced_data(reduce(mul, in_size)).reshape(in_size)
+    export_name = f'lstm_qonnx_weight_quant_{request.node.callspec.id}.onnx'
+    assert is_brevitas_ort_close(model, inp, export_name, export_type, tolerance=FLOAT_TOLERANCE)
     rm_onnx(export_name)
