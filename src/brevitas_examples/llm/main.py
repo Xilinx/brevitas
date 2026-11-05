@@ -32,6 +32,7 @@ from brevitas.graph.utils import get_module
 from brevitas.graph.utils import remove_weight_orig
 from brevitas.nn.quant_sdpa import ScaledDotProductAttention
 from brevitas.utils.logging import setup_logger
+from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
 from brevitas.utils.python_utils import hooked_on_a_function
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
@@ -601,6 +602,12 @@ def quantize_llm(args, extra_args=None):
 
     if args.bias_corr:
         model = add_zero_bias_to_linear(model)
+
+    # model.to(dtype) after quantization also casts the trainable rotations.
+    # Restore their storage dtype before offloading and quant-proxy compilation.
+    if rotation_dtype is not None:
+        for rotation in extract_trainable_rotation_matrices(model):
+            rotation.data = rotation.data.to(rotation_dtype)
 
     model = offload_model(model)
 
