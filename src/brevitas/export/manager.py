@@ -40,31 +40,72 @@ class _JitTraceExportWrapper(nn.Module):
 @contextmanager
 def _traceable_quant_tensor_io(module: Module, args: Union[Tensor, QuantTensor, Tuple]):
     """
-    Let the TorchScript tracer follow the QuantTensors that enter and leave ``module``.
+    Make the QuantTensors that enter or leave ``module`` visible to the TorchScript tracer.
 
-    The tracer records the operations on tensors, but not the construction of a QuantTensor.
-    The QuantTensors among ``args`` are traced through their raw values, from which ``module``
-    rebuilds them, and the QuantTensors that ``module`` returns are replaced by their values.
-    Yields the arguments to trace.
+    The tracer follows tensors through the operations applied to them, but it does not record the
+    construction of a QuantTensor. A QuantTensor passed to or returned by the traced ``module``
+    would therefore be disconnected from the trace: the graph would not follow an input QuantTensor
+    (its value would be baked in as a constant), and the tracer would reject an output QuantTensor.
+
+    Inside the context, two hooks are registered on ``module``, and removed on exit, also if
+    tracing fails:
+
+    - A forward pre-hook handles the inputs. In the arguments to trace, each QuantTensor is
+      replaced by its raw value, and the hook rebuilds the QuantTensor around the traced value
+      before ``module`` runs, with the metadata of the QuantTensor in ``args``.
+    - A forward hook handles the outputs, and replaces each QuantTensor returned by ``module``
+      with its value.
+
+    This works because the tracer identifies tensors by identity and records only the operations
+    applied to them. The rebuilt QuantTensor keeps the traced tensor itself as its inner value (it
+    is stored as is, not copied), and every operation on a QuantTensor is applied to its inner
+    tensors, so the QuantTensor wrapper is never an operand of a recorded operation. The metadata
+    of a rebuilt QuantTensor are the ones of the QuantTensor in ``args``, and are constants of the
+    trace.
+
+    Hooks are used instead of a wrapper module, so that the names of the parameters of ``module``
+    in the traced graph do not change. Only QuantTensors that are positional arguments are
+    handled, not the ones in keyword arguments or in nested containers.
+
+    Args:
+        module (Module): The module that is traced.
+        args (Tensor, QuantTensor or Tuple): The example inputs of ``module``, either a single
+            argument or a tuple of positional arguments.
+
+    Yields:
+        The arguments to trace: ``args`` with each QuantTensor replaced by its raw value, as a
+        tuple if ``args`` is a tuple, and as a single value otherwise.
     """
     is_tuple = isinstance(args, tuple)
-    args = args if is_tuple else (args,)
-    quant_tensors = {i: arg for i, arg in enumerate(args) if isinstance(arg, QuantTensor)}
-    trace_args = tuple(arg._value if i in quant_tensors else arg for i, arg in enumerate(args))
+    positional_args = args if is_tuple else (args,)
 
-    def rebuild_quant_tensors(module, inputs):
-        return tuple(
-            quant_tensors[i].set(value=inp) if i in quant_tensors else inp for i,
-            inp in enumerate(inputs))
+    quant_tensor_args = {}  # position -> QuantTensor, for the QuantTensors among the arguments
+    trace_args = []
+    for position, arg in enumerate(positional_args):
+        if isinstance(arg, QuantTensor):
+            quant_tensor_args[position] = arg
+            arg = arg._value
+        trace_args.append(arg)
 
-    def unpack_quant_tensors(module, inputs, output):
+    def rebuild_inputs(_module, inputs):
+        """Forward pre-hook: rebuild each QuantTensor around its traced value."""
+        rebuilt_inputs = []
+        for position, inp in enumerate(inputs):
+            if position in quant_tensor_args:
+                inp = quant_tensor_args[position].set(value=inp)
+            rebuilt_inputs.append(inp)
+        return tuple(rebuilt_inputs)
+
+    def unpack_outputs(_module, _inputs, output):
+        """Forward hook: replace each QuantTensor in the output with its value."""
         return _unpack_quant_tensor(output)
 
-    handles = [module.register_forward_hook(unpack_quant_tensors)]
-    if quant_tensors:
-        handles.append(module.register_forward_pre_hook(rebuild_quant_tensors, prepend=True))
+    handles = [module.register_forward_hook(unpack_outputs)]
+    if quant_tensor_args:
+        # prepend, so that the other pre-hooks of ``module`` also receive the QuantTensors
+        handles.append(module.register_forward_pre_hook(rebuild_inputs, prepend=True))
     try:
-        yield trace_args if is_tuple else trace_args[0]
+        yield tuple(trace_args) if is_tuple else trace_args[0]
     finally:
         for handle in handles:
             handle.remove()
