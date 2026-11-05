@@ -28,6 +28,7 @@ from brevitas import config
 from brevitas import torch_version
 from brevitas.graph.equalize import _compute_rotations
 from brevitas.graph.equalize import Region
+from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
 from brevitas.utils.python_utils import Registry
 from brevitas_examples.common.generative.quantizers import BaseQuantizer
 from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
@@ -586,6 +587,37 @@ def test_small_models_rotation_optimization_layer_count(caplog, args_layer_count
     with patch('brevitas_examples.llm.main.fuse_parametrizations', lambda model: model):
         _, model = main(args, extra_args)
     assert_layer_types_count(model, exp_metrics["exp_layer_types_count"])
+
+
+@pytest.mark.llm
+def test_small_models_rotation_dtype(default_run_args, main):
+    if platform.system() != "Linux":
+        pytest.skip("Skipping dynamo + windows/macos")
+    # Mirror of the usual setup (bfloat16 model, float32 rotations) to stay on the float32 CPU
+    # path of the other rotation tests. Quantization casts the whole model to float32, but the
+    # trainable rotations must still reach training in the requested dtype.
+    args = default_run_args
+    args.update(
+        model="hf-internal-testing/tiny-random-LlamaForCausalLM",
+        dtype="float32",
+        eval=False,
+        act_calibration=False,
+        weight_bit_width=4,
+        input_bit_width=None,
+        replace_rmsnorm=True,
+        rotation="fused_no_fx",
+        fine_tune=True,
+        nsamples_rot_calibration=2,
+        rotation_dtype="bfloat16")
+    rotation_dtypes = set()
+
+    def record_rotation_dtypes(model, **kwargs):
+        rotation_dtypes.update(
+            rotation.dtype for rotation in extract_trainable_rotation_matrices(model))
+
+    with patch('brevitas_examples.llm.main.apply_fine_tuning', record_rotation_dtypes):
+        main(args)
+    assert rotation_dtypes == {torch.bfloat16}
 
 
 @pytest.mark.llm
