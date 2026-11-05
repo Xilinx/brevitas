@@ -414,7 +414,7 @@ def create_args_parser() -> ArgumentParser:
         type=str,
         default=None,
         choices=['float32', 'float16', 'bfloat16'],
-        help='Data type for rotation matrices. Default: model dtype.')
+        help='Data type for rotation matrices; None will use model dtype. Default: %(default)s')
     parser.add_argument(
         '--rotation-orphan-sink',
         action="store_true",
