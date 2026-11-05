@@ -5,7 +5,7 @@ rotation: fused_no_fx  # fuse rotations whenever possible
 rotation_block_size: 32
 # SpinQuant settings
 optimize_rotations: true
-optimizer_dtype: float32
+rotation_dtype: float32
 nsamples_rot_calibration: 800
 learning_rate: 1.5
 weight_decay: 0.0
