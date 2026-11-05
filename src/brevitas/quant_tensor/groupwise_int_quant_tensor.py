@@ -42,11 +42,6 @@ class GroupwiseIntQuantTensor(GroupwiseQuantTensorMixin, IntMixin, QuantTensor):
         self._bit_width = bit_width
         self._set_groupwise_metadata(scale, zero_point, group_size, group_dim, signed, training)
 
-    @staticmethod
-    def is_zero_zero_point(tensor):
-        GroupwiseIntQuantTensor.check_input_type(tensor)
-        return (tensor.zero_point == 0.).all()
-
     # Reference: https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
 
     def __neg__(self):
