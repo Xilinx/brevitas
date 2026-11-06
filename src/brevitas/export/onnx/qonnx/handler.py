@@ -20,7 +20,7 @@ from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 
 from .function import BrevitasBinaryQuantOp
 from .function import BrevitasFloatQuantOp
-from .function import BrevitasQuantLSTMCellFn
+from .function import BrevitasQuantLSTMCellOp
 from .function import BrevitasQuantOp
 from .function import BrevitasTruncOp
 
@@ -272,7 +272,8 @@ class BrevitasQuantLSTMLayerHandler(QuantLSTMLayerHandler):
             quant_bias_forget,
             quant_bias_cell,
             quant_bias_output):
-        return BrevitasQuantLSTMCellFn.apply(
+        return self.export_op(
+            BrevitasQuantLSTMCellOp,
             quant_input,
             quant_hidden_state,
             quant_cell_state,

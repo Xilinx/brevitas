@@ -522,3 +522,196 @@ class BrevitasQuantLSTMCellFn(Function):
             quant_hidden_state.size(1),
             device=quant_hidden_state.device)
         return quant_outputs, quant_hidden_state, quant_cell_state
+
+
+class BrevitasQuantLSTMCellDynamoFn(DynamoFn):
+
+    @staticmethod
+    def symbolic(
+            quant_input,  # args and kwargs passed from _QuantLSTMLayer
+            quant_hidden_state,
+            quant_cell_state,
+            quant_weight_ii,
+            quant_weight_if,
+            quant_weight_ic,
+            quant_weight_io,
+            quant_weight_hi,
+            quant_weight_hf,
+            quant_weight_hc,
+            quant_weight_ho,
+            quant_bias_input,
+            quant_bias_forget,
+            quant_bias_cell,
+            quant_bias_output,  # Symbolic kwargs passed from BrevitasQuantLSTMLayerHandler
+            batch_first,
+            reverse_input,
+            cifg,  # Output quant
+            output_scale,
+            output_zero_point,
+            output_bit_width,
+            output_narrow_range,
+            output_signed,
+            output_rounding_mode,  # Cell state quant
+            cell_state_scale,
+            cell_state_zero_point,
+            cell_state_bit_width,
+            cell_state_narrow_range,
+            cell_state_signed,
+            cell_state_rounding_mode,  # Input gate accumulator quant
+            input_acc_scale,
+            input_acc_zero_point,
+            input_acc_bit_width,
+            input_acc_narrow_range,
+            input_acc_signed,
+            input_acc_rounding_mode,  # Forget gate accumulator quant
+            forget_acc_scale,
+            forget_acc_zero_point,
+            forget_acc_bit_width,
+            forget_acc_narrow_range,
+            forget_acc_signed,
+            forget_acc_rounding_mode,  # Cell gate accumulator quant
+            cell_acc_scale,
+            cell_acc_zero_point,
+            cell_acc_bit_width,
+            cell_acc_narrow_range,
+            cell_acc_signed,
+            cell_acc_rounding_mode,  # Output gate accumulator quant
+            output_acc_scale,
+            output_acc_zero_point,
+            output_acc_bit_width,
+            output_acc_narrow_range,
+            output_acc_signed,
+            output_acc_rounding_mode,  # Input gate sigmoid quant
+            input_sigmoid_scale,
+            input_sigmoid_zero_point,
+            input_sigmoid_bit_width,
+            input_sigmoid_narrow_range,
+            input_sigmoid_signed,
+            input_sigmoid_rounding_mode,  # Forget gate sigmoid quant
+            forget_sigmoid_scale,
+            forget_sigmoid_zero_point,
+            forget_sigmoid_bit_width,
+            forget_sigmoid_narrow_range,
+            forget_sigmoid_signed,
+            forget_sigmoid_rounding_mode,  # Cell gate tanh quant
+            cell_tanh_scale,
+            cell_tanh_zero_point,
+            cell_tanh_bit_width,
+            cell_tanh_narrow_range,
+            cell_tanh_signed,
+            cell_tanh_rounding_mode,  # Output gate sigmoid quant
+            output_sigmoid_scale,
+            output_sigmoid_zero_point,
+            output_sigmoid_bit_width,
+            output_sigmoid_narrow_range,
+            output_sigmoid_signed,
+            output_sigmoid_rounding_mode,  # Hidden state tanh quant
+            hidden_state_tanh_scale,
+            hidden_state_tanh_zero_point,
+            hidden_state_tanh_bit_width,
+            hidden_state_tanh_narrow_range,
+            hidden_state_tanh_signed,
+            hidden_state_tanh_rounding_mode):
+        # Same node as BrevitasQuantLSTMCellFn.symbolic. As in its forward, the outputs are
+        # already concatenated over the sequence, i.e. shaped like the input but with hidden_size
+        dtype = quant_hidden_state.dtype
+        outputs_shape = [quant_input.shape[0], quant_input.shape[1], quant_hidden_state.shape[1]]
+        outputs, hidden_state, cell_state = torch.onnx.ops.symbolic_multi_out(
+            f'{DOMAIN_STRING}::QuantLSTMCell',
+            (
+                ## Input values
+                quant_input,
+                quant_hidden_state,
+                quant_cell_state,
+                quant_weight_ii,
+                quant_weight_if,
+                quant_weight_ic,
+                quant_weight_io,
+                quant_weight_hi,
+                quant_weight_hf,
+                quant_weight_hc,
+                quant_weight_ho,
+                quant_bias_input,
+                quant_bias_forget,
+                quant_bias_cell,
+                quant_bias_output,  ## Output quant
+                output_scale,
+                output_zero_point,
+                output_bit_width,  ## Cell state quant
+                cell_state_scale,
+                cell_state_zero_point,
+                cell_state_bit_width,  ## Input gate accumulator quant
+                input_acc_scale,
+                input_acc_zero_point,
+                input_acc_bit_width,  ## Forget gate accumulator quant
+                forget_acc_scale,
+                forget_acc_zero_point,
+                forget_acc_bit_width,  ## Cell gate accumulator quant
+                cell_acc_scale,
+                cell_acc_zero_point,
+                cell_acc_bit_width,  ## Output gate accumulator quant
+                output_acc_scale,
+                output_acc_zero_point,
+                output_acc_bit_width,  ## Input gate sigmoid quant
+                input_sigmoid_scale,
+                input_sigmoid_zero_point,
+                input_sigmoid_bit_width,  ## Forget gate sigmoid quant
+                forget_sigmoid_scale,
+                forget_sigmoid_zero_point,
+                forget_sigmoid_bit_width,  ## Cell gate tanh quant
+                cell_tanh_scale,
+                cell_tanh_zero_point,
+                cell_tanh_bit_width,  ## Output gate sigmoid quant
+                output_sigmoid_scale,
+                output_sigmoid_zero_point,
+                output_sigmoid_bit_width,  ## Hidden state tanh quant
+                hidden_state_tanh_scale,
+                hidden_state_tanh_zero_point,
+                hidden_state_tanh_bit_width),
+            {
+                'batch_first': int(batch_first),
+                'reverse_input': int(reverse_input),
+                'cifg': int(cifg),
+                'output_narrow': int(output_narrow_range),
+                'output_signed': int(output_signed),
+                'output_rounding_mode': output_rounding_mode,
+                'cell_state_narrow': int(cell_state_narrow_range),
+                'cell_state_signed': int(cell_state_signed),
+                'cell_state_rounding_mode': cell_state_rounding_mode,
+                'input_acc_narrow': int(input_acc_narrow_range),
+                'input_acc_signed': int(input_acc_signed),
+                'input_acc_rounding_mode': input_acc_rounding_mode,
+                'forget_acc_narrow': int(forget_acc_narrow_range),
+                'forget_acc_signed': int(forget_acc_signed),
+                'forget_acc_rounding_mode': forget_acc_rounding_mode,
+                'cell_acc_narrow': int(cell_acc_narrow_range),
+                'cell_acc_signed': int(cell_acc_signed),
+                'cell_acc_rounding_mode': cell_acc_rounding_mode,
+                'output_acc_narrow': int(output_acc_narrow_range),
+                'output_acc_signed': int(output_acc_signed),
+                'output_acc_rounding_mode': output_acc_rounding_mode,
+                'input_sigmoid_narrow': int(input_sigmoid_narrow_range),
+                'input_sigmoid_signed': int(input_sigmoid_signed),
+                'input_sigmoid_rounding_mode': input_sigmoid_rounding_mode,
+                'forget_sigmoid_narrow': int(forget_sigmoid_narrow_range),
+                'forget_sigmoid_signed': int(forget_sigmoid_signed),
+                'forget_sigmoid_rounding_mode': forget_sigmoid_rounding_mode,
+                'cell_tanh_narrow': int(cell_tanh_narrow_range),
+                'cell_tanh_signed': int(cell_tanh_signed),
+                'cell_tanh_rounding_mode': cell_tanh_rounding_mode,
+                # Not *_narrow like the others, to match the attribute emitted by TorchScript
+                'output_sigmoid_narrow_range': int(output_sigmoid_narrow_range),
+                'output_sigmoid_signed': int(output_sigmoid_signed),
+                'output_sigmoid_rounding_mode': output_sigmoid_rounding_mode,
+                'hidden_state_tanh_narrow': int(hidden_state_tanh_narrow_range),
+                'hidden_state_tanh_signed': int(hidden_state_tanh_signed),
+                'hidden_state_tanh_rounding_mode': hidden_state_tanh_rounding_mode},
+            dtypes=(dtype, dtype, dtype),
+            shapes=(outputs_shape, quant_hidden_state.shape, quant_cell_state.shape),
+            version=DOMAIN_VERSION)
+        return outputs, hidden_state, cell_state
+
+
+class BrevitasQuantLSTMCellOp:
+    torchscript = BrevitasQuantLSTMCellFn
+    dynamo = BrevitasQuantLSTMCellDynamoFn

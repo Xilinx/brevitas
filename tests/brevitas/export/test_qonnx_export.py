@@ -1,12 +1,16 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import numpy as np
+import onnx
+import pytest
 import torch
 
 from brevitas.export import enable_debug
 from brevitas.nn import QuantConv2d
 from brevitas.nn import QuantIdentity
 from brevitas.nn import QuantLinear
+from brevitas.nn import QuantLSTM
 from brevitas.nn import TruncAvgPool2d
 from brevitas.quant.scaled_int import Int4WeightPerTensorFloatDecoupled
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
@@ -227,3 +231,81 @@ def test_debug_brevitas_onnx_export(request, qonnx_export_fn):
     rm_onnx(outfile)
     model(input_tensor)
     assert debug_hook.values
+
+
+@jit_disabled_for_export()
+@pytest.mark.parametrize(
+    'lstm_kwargs',
+    [
+        pytest.param({}, id='default'),
+        pytest.param({'batch_first': True}, id='batch_first'),
+        pytest.param({'coupled_input_forget_gates': True}, id='cifg'),
+        pytest.param({
+            'bidirectional': True, 'num_layers': 2}, id='bidirectional_2_layers')])
+def test_quant_lstm_qonnx_export_matches_module(request, qonnx_export_fn, lstm_kwargs):
+    # No runtime implements QuantLSTMCell, so each exported cell is checked against the module
+    model = QuantLSTM(input_size=IN_CH, hidden_size=OUT_CH, **lstm_kwargs)
+    inp = torch.randn(2, 5, IN_CH) if lstm_kwargs.get('batch_first') else torch.randn(5, 2, IN_CH)
+    model(inp)  # collect scale factors
+    model.eval()
+    outfile = f'quant_lstm_{request.node.callspec.id}.onnx'
+    onnx_model = qonnx_export_fn(model, inp, export_path=outfile)
+    rm_onnx(outfile)
+
+    initializers = {i.name: onnx.numpy_helper.to_array(i) for i in onnx_model.graph.initializer}
+    producers = {output: node for node in onnx_model.graph.node for output in node.output}
+    cells = [node for node in onnx_model.graph.node if node.op_type == 'QuantLSTMCell']
+    layers = [layer for directions in model.layers for layer in directions]
+    # One cell per layer and direction
+    assert len(cells) == len(layers)
+    cell_quantizers = [
+        'output',
+        'cell_state',
+        'input_acc',
+        'forget_acc',
+        'cell_acc',
+        'output_acc',
+        'input_sigmoid',
+        'forget_sigmoid',
+        'cell_tanh',
+        'output_sigmoid',
+        'hidden_state_tanh']
+    for cell, layer in zip(cells, layers):
+        assert cell.domain == 'qonnx.custom_op.general'
+        assert (len(cell.input), len(cell.output)) == (48, 3)
+
+        expected_attrs = {
+            'batch_first': int(layer.cell.batch_first),
+            'reverse_input': int(layer.cell.reverse_input),
+            'cifg': int(layer.cifg)}
+        expected_quant_params = []
+        for name in cell_quantizers:
+            quant = getattr(layer.cell, f'{name}_quant')
+            # output_sigmoid is the only quantizer exported with a *_narrow_range attribute
+            narrow_attr = f'{name}_narrow_range' if name == 'output_sigmoid' else f'{name}_narrow'
+            expected_attrs[narrow_attr] = int(quant.is_narrow_range)
+            expected_attrs[f'{name}_signed'] = int(quant.is_signed)
+            expected_attrs[f'{name}_rounding_mode'] = quant.rounding_mode.encode()
+            expected_quant_params += [quant.scale(), quant.zero_point(), quant.bit_width()]
+        attrs = {a.name: onnx.helper.get_attribute_value(a) for a in cell.attribute}
+        assert attrs == expected_attrs
+        # The last 33 inputs are the scale, zero-point and bit-width of each cell quantizer
+        for name, expected in zip(cell.input[15:], expected_quant_params):
+            np.testing.assert_allclose(
+                initializers[name].flatten(), expected.detach().numpy().flatten())
+
+        # Inputs 3-14 are the ii, if, ic, io, hi, hf, hc, ho weights and the input, forget, cell
+        # and output biases, each fed to a Quant node. With cifg, the forget gate inputs are the
+        # input gate parameters, as in _QuantLSTMLayer.forward
+        forget_gate_params = layer.input_gate_params if layer.cifg else layer.forget_gate_params
+        gates = [
+            layer.input_gate_params,
+            forget_gate_params,
+            layer.cell_gate_params,
+            layer.output_gate_params]
+        expected_params = [g.input_weight.weight for g in gates]
+        expected_params += [g.hidden_weight.weight for g in gates]
+        expected_params += [g.bias for g in gates]
+        for name, expected in zip(cell.input[3:15], expected_params):
+            np.testing.assert_array_equal(
+                initializers[producers[name].input[0]], expected.detach().numpy())
