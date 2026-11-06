@@ -9,25 +9,31 @@ Holds the two pieces every solver family reuses:
     `_piso_select_optimal_straddle`): the grid-derived transition deltas and the
     closed-form/optimality tail, factored out so they are fixed once rather than
     duplicated across the per-variant sweeps;
-  - the solver registry (`SCALE_SOLVER_REGISTRY`) and the `ScaleSolverFamily`
-    base class, where a family binds its sweeps and gets the layer/group
-    dispatch the updaters need.
+  - the solver registry (`SCALE_SOLVER_REGISTRY`), the `ScaleSolverFamily`
+    base class every solver implements, and the `ScaleSolution` it may return.
 
-This module depends only on torch and the registry primitive; the concrete
-solver modules (`piso`, `chunked_piso`) import from here, never the other way
-around.
+This module depends only on torch, the registry primitive and the quantizer
+accessors in grid_optimization.utils; the concrete solver modules (`piso`,
+`chunked_piso`) import from here, never the other way around.
 
 Reference: "Optimal Post-Training Quantization Scales and Where to Find Them"
 (https://arxiv.org/abs/2606.10890).
 """
 
 from abc import ABC
-from typing import Callable
+from dataclasses import dataclass
+from typing import Any
 from typing import Optional
 from typing import Tuple
+from typing import Union
 
 import torch
+import torch.nn as nn
 
+from brevitas.graph.grid_optimization.utils import _get_scale_quant
+from brevitas.graph.grid_optimization.utils import _has_zero_zero_point
+from brevitas.graph.grid_optimization.utils import _is_float_weight_quant
+from brevitas.graph.grid_optimization.utils import _is_int_weight_quant
 from brevitas.utils.python_utils import Registry
 
 # -----------------------------------------------------------------------------
@@ -153,132 +159,122 @@ def _piso_select_optimal_straddle(
 # -----------------------------------------------------------------------------
 # Solver families.
 #
-# A ScaleSolverFamily subclass groups the sweeps for one scale-optimization
-# algorithm and exposes the two dispatches the updaters need: one per layer, one
-# per group. GridOptimizer resolves a family by name from SCALE_SOLVER_REGISTRY,
-# so selecting or adding a solver is a registry lookup, not an updater change.
-#
-# To add one: implement the sweeps in a new module, bind them to the slots of a
-# ScaleSolverFamily subclass, and register that class via
-# SCALE_SOLVER_REGISTRY.register. Families are registered as classes, never
-# instantiated.
+# GridOptimizer resolves a family by name from SCALE_SOLVER_REGISTRY, so selecting
+# or adding a solver is a registry lookup. To add one, from anywhere: subclass
+# ScaleSolverFamily, implement solve (and check_layer if the defaults do not
+# apply), and register the class via SCALE_SOLVER_REGISTRY.register. Families are
+# registered as classes, never instantiated.
 # -----------------------------------------------------------------------------
 
 SCALE_SOLVER_REGISTRY = Registry("SCALE_SOLVER_REGISTRY")
 
 
+@dataclass
+class ScaleSolution:
+    """What a solver returns for a batch of output channels, when a scale is not enough.
+
+    A solver may return the scale tensor alone; GridOptimizer then reads it as a
+    ScaleSolution with no offset.
+
+    - scale: the unscaled-grid step, as the plain tensor a solver returns;
+    - offset: the reconstruction of the lowest code q_min, in weight units, i.e. the
+      weight is reconstructed as (q - q_min) * scale + offset, which the quantizer
+      stores as its zero-point. None for a fit without one;
+    - scale_step / offset_step: for a layer whose scales (offsets) are quantized
+      in turn on a nested grid (see utils.NestedGrid), the step each run of
+      groups shares, one per row and run. Every scale (offset) is then that
+      step times an integer, which is how it is written into the quantizer.
+      None otherwise.
+
+    Every tensor has the output channels as its first dimension, so the batches
+    of a layer concatenate along dim 0.
+    """
+    scale: torch.Tensor
+    offset: Optional[torch.Tensor] = None
+    scale_step: Optional[torch.Tensor] = None
+    offset_step: Optional[torch.Tensor] = None
+
+
 class ScaleSolverFamily(ABC):
-    """A named set of scale-optimization sweeps + their layer/group dispatch.
+    """A scale-optimization method.
 
-    A family overrides the six static solver slots, usually by binding an
-    existing sweep (``_per_channel_diag = staticmethod(_piso_sweep_per_channel_diag)``).
-    Base slots raise NotImplementedError, so a family may implement only a
-    subset: an unimplemented slot still dispatches and fails when called, not
-    when selected. Slots take *args/**kwargs so a family can take extras.
+    Every solver solves, for each row and each group of w, the same problem
 
-    get_layer_solver returns (solver_fn, arg_kind) for a whole layer,
-    get_group_solver returns (solver_fn, tag) for one group. arg_kind
-    ('dense'|'diag'|'greedy') and tag ('group-dense'|'group-diag'|
-    'group-greedy') tell the caller which H/G kwargs to build. Pure dispatch:
-    no tensors are touched.
+        min  r^T H r - 2 r^T b,    r = the weights as the quantizer reconstructs them
+
+    over the scale (and offset) of the group. GridOptimizer builds H and b from the
+    covariance mode, the objective (b = H w, or G w for the cross-activation one)
+    and the schedule, so a solver never sees those. H is the diagonal of the
+    covariance matrix over the columns of w, or, for a family with supports_dense,
+    possibly the full matrix over them.
+
+    check_layer says whether the family can optimize a given layer's quantizer.
     """
 
-    # -- solver slots ---------------------------------------------------------
-
-    @staticmethod
-    def _per_channel(
-            w_b: torch.Tensor,
-            H: torch.Tensor,
-            unscaled_grid: torch.Tensor,
-            G: Optional[torch.Tensor] = None,
-            eps: float = 1.e-6,
-            allow_negative_s: bool = False,
-            *args,
-            **kwargs) -> torch.Tensor:
-        raise NotImplementedError("per-channel sweep not implemented by this family.")
-
-    @staticmethod
-    def _per_channel_diag(
-            w_b: torch.Tensor,
-            H_diag: torch.Tensor,
-            unscaled_grid: torch.Tensor,
-            G_diag: Optional[torch.Tensor] = None,
-            eps: float = 1.e-6,
-            allow_negative_s: bool = False,
-            *args,
-            **kwargs) -> torch.Tensor:
-        raise NotImplementedError("diagonal per-channel sweep not implemented by this family.")
-
-    @staticmethod
-    def _per_group(
-            w_b: torch.Tensor,
-            H: torch.Tensor,
-            unscaled_grid: torch.Tensor,
-            G: Optional[torch.Tensor] = None,
-            eps: float = 1.e-6,
-            allow_negative_s: bool = False,
-            *args,
-            **kwargs) -> torch.Tensor:
-        raise NotImplementedError("per-group sweep not implemented by this family.")
-
-    @staticmethod
-    def _per_group_diag(
-            w_b: torch.Tensor,
-            H_diag: torch.Tensor,
-            unscaled_grid: torch.Tensor,
-            G_diag: Optional[torch.Tensor] = None,
-            eps: float = 1.e-6,
-            allow_negative_s: bool = False,
-            *args,
-            **kwargs) -> torch.Tensor:
-        raise NotImplementedError("diagonal per-group sweep not implemented by this family.")
-
-    @staticmethod
-    def _groups_sequential(
-            w_b: torch.Tensor,
-            H: torch.Tensor,
-            unscaled_grid: torch.Tensor,
-            G: Optional[torch.Tensor] = None,
-            eps: float = 1.e-6,
-            allow_negative_s: bool = False,
-            *args,
-            **kwargs) -> torch.Tensor:
-        raise NotImplementedError("sequential groups sweep not implemented by this family.")
-
-    @staticmethod
-    def _single_group_sequential(
-            w_orig: torch.Tensor,
-            w_updated: torch.Tensor,
-            H: torch.Tensor,
-            unscaled_grid: torch.Tensor,
-            group_size: int,
-            group_idx: int,
-            G: Optional[torch.Tensor] = None,
-            eps: float = 1.e-6,
-            allow_negative_s: bool = False,
-            *args,
-            **kwargs) -> torch.Tensor:
-        raise NotImplementedError("single sequential group sweep not implemented by this family.")
-
-    # -- dispatch -------------------------------------------------------------
+    # Whether solve accepts a full covariance matrix. A family that does not is
+    # rejected for covariance_mode='dense' when the configuration is validated.
+    supports_dense: bool = False
 
     @classmethod
-    def get_layer_solver(cls, is_group: bool, use_diag: bool,
-                         is_greedy: bool) -> Tuple[Callable[..., torch.Tensor], str]:
-        if is_greedy:
-            return cls._groups_sequential, 'greedy'
-        dispatch = {
-            (True, True): (cls._per_group_diag, 'diag'),
-            (True, False): (cls._per_group, 'dense'),
-            (False, True): (cls._per_channel_diag, 'diag'),
-            (False, False): (cls._per_channel, 'dense'),}
-        return dispatch[(is_group, use_diag)]
+    def check_layer(cls, layer: nn.Module) -> Optional[str]:
+        """Return why the family cannot optimize layer, or None if it can.
+
+        Default, the requirements of a symmetric scale-only solver such as PiSO:
+        a signed quantizer, int with a zero zero-point or float, whose scale is
+        stored directly rather than quantized in turn on a grid of its own.
+        """
+        weight_quant = layer.weight_quant
+        if _get_scale_quant(layer) is not None:
+            return (
+                "the layer quantizes its scales on a grid of their own, which this solver "
+                "ignores")
+        if not weight_quant.is_signed:
+            return "a signed weight quantizer is required"
+        if _is_float_weight_quant(weight_quant):
+            return None
+        if _is_int_weight_quant(weight_quant):
+            return None if _has_zero_zero_point(layer) else (
+                "int weight quantizer must have a zero zero-point")
+        return "only int and float weight quantizers are supported"
 
     @classmethod
-    def get_group_solver(cls, use_diag: bool,
-                         per_group_greedy: bool) -> Tuple[Callable[..., torch.Tensor], str]:
-        if use_diag:
-            return cls._per_channel_diag, 'group-diag'
-        if per_group_greedy:
-            return cls._single_group_sequential, 'group-greedy'
-        return cls._per_channel, 'group-dense'
+    def solve(
+            cls,
+            w: torch.Tensor,
+            b: torch.Tensor,
+            H: torch.Tensor,
+            unscaled_grid: torch.Tensor,
+            *,
+            allow_negative_s: bool,
+            with_offset: bool,
+            eps: float = 1e-6,
+            scale_quant_grid: Optional[Any] = None,
+            zero_point_quant_grid: Optional[Any] = None,
+            **solver_kwargs) -> Union[torch.Tensor, ScaleSolution]:
+        """The scales of every group of a batch of rows.
+
+        Args:
+            w: weights, shape [rows, groups, group_size]. A per-channel layer has a
+                single group spanning the row.
+            b: the linear term, the same shape as w.
+            H: the diagonal of the covariance matrix over the columns of w, shape
+                [groups * group_size], or the full matrix over them for a family
+                with supports_dense.
+            unscaled_grid: the sorted integer (or minifloat) grid the weights are
+                rounded to.
+            allow_negative_s: whether a scale may be negative.
+            with_offset: whether the quantizer stores an offset (a zero-point) the
+                solver fits as well, or reconstructs q * scale alone.
+            eps: numerical tolerance, for the solvers that take one.
+            scale_quant_grid / zero_point_quant_grid: the nested grids the scales
+                (offsets) are quantized on, for a layer that has them (see
+                utils.NestedGrid); only a family whose check_layer accepts such a
+                layer receives them.
+            solver_kwargs: the options of the solver, the same for every layer; a
+                family ignores those it does not take.
+
+        Returns:
+            The scales, shape [rows, groups] (any shape with that many elements),
+            or a ScaleSolution.
+        """
+        raise NotImplementedError

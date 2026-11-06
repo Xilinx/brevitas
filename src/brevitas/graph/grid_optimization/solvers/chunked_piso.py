@@ -14,11 +14,11 @@ These are the positive-scales-only variants: they drop all sign-change handling
 and therefore only support symmetric grids (allow_negative_s=False). They raise a
 ValueError for allow_negative_s=True; use the 'piso' family for asymmetric grids.
 
-Only the diagonal slots are implemented. H is diagonal there, so (Hq)_i reduces
-to the entry's current grid value (a grid-derived constant) and no Hq recovery is
-needed; the per-transition setup and the per-chunk closed-form evaluation are
-shared between them, and the group variant adds a groups batch dimension over the
-flat per-channel math. The dense-H slots are not implemented.
+Only a diagonal H is supported, so (Hq)_i reduces to the entry's current grid
+value (a grid-derived constant) and no Hq recovery is needed; the per-transition
+setup and the per-chunk closed-form evaluation are shared between the per-channel
+and per-group variants, and the group variant adds a groups batch dimension over
+the flat per-channel math.
 
 Reference: "Equivalence of the Closed-Form and Chunked Interval-Sweep Scale
 Optimisers" and "Unrolling the Interval-Sweep Recurrence".
@@ -191,7 +191,7 @@ def _chunked_piso_sweep_per_channel_diag(
         w_b: torch.Tensor,
         H_diag: torch.Tensor,
         unscaled_grid: torch.Tensor,
-        G_diag: Optional[torch.Tensor] = None,
+        b: Optional[torch.Tensor] = None,
         eps: float = 1.e-6,
         allow_negative_s: bool = False) -> torch.Tensor:
     """Chunked PiSO sweep for per-channel quantization with a diagonal covariance matrix.
@@ -205,8 +205,8 @@ def _chunked_piso_sweep_per_channel_diag(
     Args:
         w_b: weights, shape [batch, D].
         H_diag: diagonal of H, shape [D].
-        G_diag: diagonal of G for the cross-activation objective, shape [D].
-            If None, H_diag is used for both terms.
+        b: the linear term of the objective, e.g. diag(G) * w for the
+            cross-activation objective, shape [batch, D]. If None, H_diag * w.
         unscaled_grid: sorted quantization grid with 0 included.
         eps: interval degeneracy threshold and clamping margin.
         allow_negative_s: must be False; negative scales are not supported.
@@ -220,8 +220,8 @@ def _chunked_piso_sweep_per_channel_diag(
     i_rev, delta_rev, sts_rev, k_curr_rev, j_min = _chunked_transition_setup(w_b, unscaled_grid)
     T = i_rev.shape[1]
 
-    # Hw = (G or H) elementwise * w -- fixed throughout the sweep.
-    Hw = (G_diag if G_diag is not None else H_diag) * w_b  # (B, D)
+    # Hw is fixed throughout the sweep.
+    Hw = H_diag * w_b if b is None else b  # (B, D)
 
     wHq = torch.zeros((batch_size,), dtype=w_b.dtype, device=w_b.device)
     qHq = torch.zeros((batch_size,), dtype=w_b.dtype, device=w_b.device)
@@ -257,7 +257,7 @@ def _chunked_piso_sweep_per_group_diag(
         w_b: torch.Tensor,
         H_diag: torch.Tensor,
         unscaled_grid: torch.Tensor,
-        G_diag: Optional[torch.Tensor] = None,
+        b: Optional[torch.Tensor] = None,
         eps: float = 1.e-6,
         allow_negative_s: bool = False) -> torch.Tensor:
     """Chunked PiSO sweep for group-wise quantization with a diagonal covariance matrix.
@@ -269,7 +269,9 @@ def _chunked_piso_sweep_per_group_diag(
     Args:
         w_b: weights, shape [batch, n_groups, group_size].
         H_diag: diagonal of H, shape [D] (D = n_groups * group_size).
-        G_diag: diagonal of G, shape [D]. If None, H_diag is used for both.
+        b: the linear term of the objective, e.g. diag(G) * w for the
+            cross-activation objective, shape [batch, n_groups, group_size].
+            If None, H_diag * w.
         unscaled_grid: sorted quantization grid with 0 included.
         eps: interval degeneracy threshold and clamping margin.
         allow_negative_s: must be False; negative scales are not supported.
@@ -286,13 +288,7 @@ def _chunked_piso_sweep_per_group_diag(
     # Per-group slices of the diagonals, expanded over the batch: (N, gs).
     H_diag_g = H_diag.reshape(n_groups, group_size).unsqueeze(0).expand(batch_size, -1,
                                                                         -1).reshape(N, group_size)
-    if G_diag is not None:
-        G_diag_g = G_diag.reshape(n_groups,
-                                  group_size).unsqueeze(0).expand(batch_size, -1,
-                                                                  -1).reshape(N, group_size)
-        Hw = G_diag_g * w_flat
-    else:
-        Hw = H_diag_g * w_flat
+    Hw = H_diag_g * w_flat if b is None else b.reshape(N, group_size)
 
     i_rev, delta_rev, sts_rev, k_curr_rev, j_min = _chunked_transition_setup(w_flat, unscaled_grid)
     T = i_rev.shape[1]
@@ -329,12 +325,12 @@ def _chunked_piso_sweep_per_group_diag(
 @SCALE_SOLVER_REGISTRY.register(names='chunked-piso')
 class ChunkedPiSOSolverFamily(ScaleSolverFamily):
     """Chunked reformulation of the interval sweep, diagonal H; positive scales
-    only (allow_negative_s=True raises ValueError).
+    only (allow_negative_s=True raises ValueError)."""
 
-    The dense-H slots (per_channel, per_group, groups_sequential,
-    single_group_sequential) are not implemented, so the base stubs raise
-    NotImplementedError.
-    """
-
-    _per_channel_diag = staticmethod(_chunked_piso_sweep_per_channel_diag)
-    _per_group_diag = staticmethod(_chunked_piso_sweep_per_group_diag)
+    @classmethod
+    def solve(cls, w, b, H, unscaled_grid, *, allow_negative_s, eps=1e-6, **kwargs):
+        if w.shape[1] == 1:
+            # A single group per row (e.g. per-channel): the per-channel sweep.
+            return _chunked_piso_sweep_per_channel_diag(
+                w[:, 0], H, unscaled_grid, b[:, 0], eps, allow_negative_s)
+        return _chunked_piso_sweep_per_group_diag(w, H, unscaled_grid, b, eps, allow_negative_s)

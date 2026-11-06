@@ -7,6 +7,7 @@ from typing import List
 from typing import Optional
 from warnings import warn
 
+from brevitas.graph.grid_optimization.solvers import SCALE_SOLVER_REGISTRY
 from brevitas_examples.common.parse_utils import AlgorithmArgumentParser
 
 GRID_OPT_PREFIX = "grid-opt"
@@ -21,17 +22,22 @@ class GridOptimizationArgumentParser(AlgorithmArgumentParser):
 
     @staticmethod
     def add_arguments(parser: ArgumentParser, prefix: str = GRID_OPT_PREFIX) -> None:
+        """Add the grid optimization flags.
 
+        The solver choices are the solvers registered in SCALE_SOLVER_REGISTRY when
+        this is called, so a solver defined elsewhere is offered once the module that
+        registers it has been imported.
+        """
         GridOptimizationArgumentParser._add(
             parser,
             prefix,
             'solver',
             type=str,
             default='piso',
-            choices=['piso', 'chunked-piso'],
+            choices=sorted(SCALE_SOLVER_REGISTRY.get_registered_keys()),
             help='Solver that optimizes the scale. piso is PiSO (Piecewise Scale '
-            'Optimization); chunked-piso is a faster per-channel variant that only supports '
-            'positive scales (symmetric grids). Default: piso')
+            'Optimization); chunked-piso is a faster variant that only supports positive '
+            'scales; the gguf-* solvers are llama.cpp\'s scale searches. Default: piso')
 
         GridOptimizationArgumentParser._add_bool(
             parser,
@@ -71,9 +77,11 @@ class GridOptimizationArgumentParser(AlgorithmArgumentParser):
             prefix,
             'group-sequential',
             default=False,
-            help='With per-group weights, optimize each group while correcting '
-            'the error from previous groups (sequential heuristic). When disabled, groups are '
-            'optimized independently. Default: disabled')
+            help='With per-group weights, optimize the groups one at a time, each against '
+            'the reconstruction of the groups before it. This only differs from optimizing them '
+            f'all at once with --{prefix}-covariance-mode dense. Not available with '
+            'group-interleaved --gpxq-use-grid-optimization, where error correction sets the '
+            'order. Default: disabled')
 
         GridOptimizationArgumentParser._add_bool(
             parser,
@@ -90,14 +98,14 @@ class GridOptimizationArgumentParser(AlgorithmArgumentParser):
             prefix,
             'covariance-mode',
             type=str,
-            default='dense',
+            default='diagonal',
             choices=['dense', 'diagonal', 'identity'],
             help='How the solver uses the covariance matrices H and G. '
-            'dense: the full matrices accumulated from the calibration data; not implemented, so '
-            'it currently raises NotImplementedError. '
+            'dense: the full matrices accumulated from the calibration data, for a solver that '
+            'supports them (none of the current ones does). '
             'diagonal: only diag(H) (and diag(G)), discarding cross-weight interactions. '
             'identity: ignore the calibration data entirely and use H=I, G=None (pure '
-            'weight MSE). Default: dense')
+            'weight MSE). Default: diagonal')
 
         GridOptimizationArgumentParser._add_bool(
             parser,
@@ -125,6 +133,7 @@ class GridOptimizationArgumentParser(AlgorithmArgumentParser):
         objective = a('objective')
         layer_interleaved = a('group-gpxq-layer-interleaved')
         covariance_mode = a('covariance-mode')
+        group_sequential = a('group-sequential')
 
         # Arguments built without argparse (e.g., benchmark sweeps) skip `choices`.
         assert objective in GRID_OPT_OBJECTIVES, \
@@ -138,6 +147,11 @@ class GridOptimizationArgumentParser(AlgorithmArgumentParser):
             if layer_interleaved:
                 assert args.weight_quant_granularity == 'per_group', \
                     f"--{prefix}-group-gpxq-layer-interleaved only applies to per-group weight quantization."
+            elif args.weight_quant_granularity == 'per_group':
+                assert not group_sequential, \
+                    f"--{prefix}-group-sequential sets the order the groups are optimized in, " \
+                    "which group-interleaved --gpxq-use-grid-optimization takes from error " \
+                    f"correction; add --{prefix}-group-gpxq-layer-interleaved to combine them."
             if not grid_optimization:
                 # The interleaved objective follows the algorithm, so an explicit
                 # objective that disagrees with it would otherwise be ignored silently.
@@ -152,11 +166,12 @@ class GridOptimizationArgumentParser(AlgorithmArgumentParser):
                 f"--{prefix}-group-gpxq-layer-interleaved requires --gpxq-use-grid-optimization."
 
         if grid_optimization or gpxq_use_grid_optimization:
-            if covariance_mode == 'diagonal':
-                warn(
-                    f"--{prefix}-covariance-mode diagonal: only the diagonal of H (and G) is used "
-                    "for grid optimization; off-diagonal cross-weight interactions are discarded.")
-            elif covariance_mode == 'identity':
+            solver = a('solver')
+            supports_dense = SCALE_SOLVER_REGISTRY.get(solver).supports_dense
+            assert covariance_mode != 'dense' or supports_dense, \
+                f"--{prefix}-solver {solver} only uses the diagonal of the covariance " \
+                f"matrix; use --{prefix}-covariance-mode diagonal or identity."
+            if covariance_mode == 'identity':
                 warn(
                     f"--{prefix}-covariance-mode identity: grid optimization is data-free (H=I, "
                     "G=None, pure weight MSE). Note the calibration forward passes still run with "

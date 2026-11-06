@@ -50,7 +50,8 @@ def build_grid_optimization_kwargs(args: Namespace) -> dict:
         'per_group_greedy': args.grid_opt_group_sequential,
         'per_group_greedy_reorder': args.grid_opt_group_sequential_act_order,
         'covariance_mode': args.grid_opt_covariance_mode,
-        'solver': args.grid_opt_solver,}
+        'solver': args.grid_opt_solver,
+        'solver_kwargs': _solver_kwargs(args),}
 
 
 def _pass_managers(model: nn.Module, objective: str,
@@ -83,6 +84,18 @@ def _pass_managers(model: nn.Module, objective: str,
     return [quant_pass, float_pass]
 
 
+def _solver_kwargs(args: Namespace) -> dict:
+    """Options of the solver itself, the same for every layer. Every solver receives
+    them and ignores those it does not take."""
+    return {
+        'magnitude': args.grid_opt_magnitude,
+        'magnitude_factor': args.grid_opt_magnitude_factor,
+        'magnitude_scope': args.grid_opt_magnitude_scope,
+        'sweep_steps': args.grid_opt_sweep_steps,
+        'sweep_step': args.grid_opt_sweep_step,
+        'scale_placement': args.grid_opt_scale_placement,}
+
+
 @torch.no_grad()
 def apply_grid_optimization(
         model: nn.Module, dataloader: torch.utils.data.DataLoader, args: Namespace) -> None:
@@ -106,7 +119,8 @@ def apply_grid_optimization(
         'per_group_greedy': args.grid_opt_group_sequential,
         'per_group_greedy_reorder': args.grid_opt_group_sequential_act_order,
         'covariance_mode': args.grid_opt_covariance_mode,
-        'solver': args.grid_opt_solver,}
+        'solver': args.grid_opt_solver,
+        'solver_kwargs': _solver_kwargs(args),}
 
     if args.gpxq_block_name is not None:
         _block_optimization(
