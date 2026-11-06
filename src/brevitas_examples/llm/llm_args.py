@@ -130,7 +130,8 @@ def create_args_parser() -> ArgumentParser:
         '--weight-quant-rescaling-init',
         type=float,
         default=None,
-        help='Value to rescale weight quantization grid. Default: %(default)s (no rescaling).')
+        help='Value to rescale weight quantization grid, None -> no rescaling. Default: %(default)s.'
+    )
     parser.add_argument(
         '--weight-narrow-range',
         action="store_true",
@@ -166,7 +167,7 @@ def create_args_parser() -> ArgumentParser:
         default=None,
         choices=[1, 0],
         help=
-        'Override default group_dim for groupsize quantization. Default: %(default)s (layer-dependent).'
+        'Override default group_dim for groupsize quantization, None -> layer-dependent. Default: %(default)s.'
     )
     parser.add_argument(
         '--weight-group-size',
@@ -179,7 +180,7 @@ def create_args_parser() -> ArgumentParser:
         '--input-bit-width',
         type=int,
         default=None,
-        help='Input bit width. Default: %(default)s (disables input quantization).')
+        help='Input bit width, None -> disables input quantization. Default: %(default)s.')
     parser.add_argument(
         '--input-quant-format',
         type=quant_format_validator,
@@ -193,7 +194,7 @@ def create_args_parser() -> ArgumentParser:
         default='stats',
         choices=['stats', 'mse'],
         help=
-        'How scales/zero-point are determined. Default: %(default)s (percentile for static, absmax or minmax for dynamic).'
+        'How scales/zero-point are determined. stats: percentile for static, absmax or minmax for dynamic. mse: grid-search the clipping range that minimises the quantization MSE, starting from absmax (sym) or minmax (asym); static int only. Default: %(default)s.'
     )
     parser.add_argument(
         '--input-scale-precision',
@@ -240,51 +241,55 @@ def create_args_parser() -> ArgumentParser:
         '--attn-bit-width',
         type=int,
         default=None,
-        help='Attention bit width. Default: %(default)s (same as input).')
+        help='Attention bit width, None -> same as input. Default: %(default)s.')
     parser.add_argument(
         '--attn-quant-format',
         type=attn_quant_format_validator,
         default=None,
         help=
-        'Attention quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. It\'s possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. Default: %(default)s (same as input).'
+        'Attention quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. It\'s possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. None -> same as input. Default: %(default)s.'
     )
     parser.add_argument(
         '--attn-param-method',
         type=str,
         default=None,
         choices=['stats', 'mse'],
-        help='How scales/zero-point are determined. Default: %(default)s (same as input).')
+        help='How scales/zero-point are determined, None -> same as input. Default: %(default)s.')
     parser.add_argument(
         '--attn-scale-precision',
         type=str,
         default=None,
         choices=['signed_float_scale', 'float_scale', 'po2_scale'],
-        help='Whether input scale is a float value or a po2. Default: %(default)s (same as input).')
+        help=
+        'Whether input scale is a float value or a po2, None -> same as input. Default: %(default)s.'
+    )
     parser.add_argument(
         '--attn-scale-type',
         type=None,
         default=None,
         choices=['static', 'dynamic', 'no_scale'],
         help=
-        'Whether input scale is a static value or a dynamic value. Default: %(default)s (same as input).'
+        'Whether input scale is a static value or a dynamic value, None -> same as input. Default: %(default)s.'
     )
     parser.add_argument(
         '--attn-quant-type',
         type=str,
         default=None,
         choices=['sym', 'asym'],
-        help='Input quantization type. Default: %(default)s (same as input).')
+        help='Input quantization type, None -> same as input. Default: %(default)s.')
     parser.add_argument(
         '--attn-quant-granularity',
         type=str,
         default=None,
         choices=['per_tensor', 'per_row', 'per_group'],
-        help='Granularity for scales/zero-point of inputs. Default: %(default)s (same as input).')
+        help=
+        'Granularity for scales/zero-point of inputs, None -> same as input. Default: %(default)s.')
     parser.add_argument(
         '--attn-group-size',
         type=int,
         default=None,
-        help='Group size for per_group input quantization. Default: %(default)s (same as input).')
+        help=
+        'Group size for per_group input quantization, None -> same as input. Default: %(default)s.')
     parser.add_argument(
         '--learned-round-lr',
         type=float,

@@ -76,7 +76,7 @@ options:
   --weight-scale-precision {signed_float_scale,float_scale,po2_scale}
                         Whether scale is a float value or a po2. Default: float_scale.
   --weight-quant-rescaling-init WEIGHT_QUANT_RESCALING_INIT
-                        Value to rescale weight quantization grid. Default: None (no rescaling).
+                        Value to rescale weight quantization grid, None -> no rescaling. Default: None.
   --weight-narrow-range
                         Use narrow range for weight quantization. Default: False.
   --weight-quant-type {sym,asym}
@@ -88,17 +88,18 @@ options:
   --scale-rounding-func-type {round,ceil,floor,midmax}
                         Rounding function to use with Po2 scale. Default: None.
   --weight-group-dim {1,0}
-                        Override default group_dim for groupsize quantization. Default: None (layer-dependent).
+                        Override default group_dim for groupsize quantization, None -> layer-dependent. Default: None.
   --weight-group-size WEIGHT_GROUP_SIZE
                         Group size for per_group weight quantization. Default: 128.
   --quantize-weight-zero-point
                         Quantize weight zero-point.
   --input-bit-width INPUT_BIT_WIDTH
-                        Input bit width. Default: None (disables input quantization).
+                        Input bit width, None -> disables input quantization. Default: None.
   --input-quant-format INPUT_QUANT_FORMAT
                         Input quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. It's possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. Default: int.
   --input-param-method {stats,mse}
-                        How scales/zero-point are determined. Default: stats (percentile for static, absmax or minmax for dynamic).
+                        How scales/zero-point are determined. stats: percentile for static, absmax or minmax for dynamic. mse: grid-search the clipping range that minimises the quantization MSE, starting
+                        from absmax (sym) or minmax (asym); static int only. Default: stats.
   --input-scale-precision {signed_float_scale,float_scale,po2_scale}
                         Whether input scale is a float value or a po2. Default: float_scale.
   --input-scale-type {static,dynamic,no_scale}
@@ -114,22 +115,22 @@ options:
                         Decide which parts of attention should be quantized. "kv" will only quantize KV, "qkvs" will quantize all MatMuls in attention (QKV & Softmax output). Note: --quant-sdpa needs be
                         set for this to have an effect. Default: qkvs
   --attn-bit-width ATTN_BIT_WIDTH
-                        Attention bit width. Default: None (same as input).
+                        Attention bit width, None -> same as input. Default: None.
   --attn-quant-format ATTN_QUANT_FORMAT
-                        Attention quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. It's possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. Default: None
-                        (same as input).
+                        Attention quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. It's possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. None -> same
+                        as input. Default: None.
   --attn-param-method {stats,mse}
-                        How scales/zero-point are determined. Default: None (same as input).
+                        How scales/zero-point are determined, None -> same as input. Default: None.
   --attn-scale-precision {signed_float_scale,float_scale,po2_scale}
-                        Whether input scale is a float value or a po2. Default: None (same as input).
+                        Whether input scale is a float value or a po2, None -> same as input. Default: None.
   --attn-scale-type {static,dynamic,no_scale}
-                        Whether input scale is a static value or a dynamic value. Default: None (same as input).
+                        Whether input scale is a static value or a dynamic value, None -> same as input. Default: None.
   --attn-quant-type {sym,asym}
-                        Input quantization type. Default: None (same as input).
+                        Input quantization type, None -> same as input. Default: None.
   --attn-quant-granularity {per_tensor,per_row,per_group}
-                        Granularity for scales/zero-point of inputs. Default: None (same as input).
+                        Granularity for scales/zero-point of inputs, None -> same as input. Default: None.
   --attn-group-size ATTN_GROUP_SIZE
-                        Group size for per_group input quantization. Default: None (same as input).
+                        Group size for per_group input quantization, None -> same as input. Default: None.
   --learned-round-lr LEARNED_ROUND_LR
                         Learning rate for learned round parameter optimization. Default: 0.005
   --learned-round-scale-lr LEARNED_ROUND_SCALE_LR
