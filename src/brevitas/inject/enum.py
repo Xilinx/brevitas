@@ -34,6 +34,7 @@ class RestrictValueType(AutoName):
     LOG_FP = auto()
     INT = auto()
     POWER_OF_TWO = auto()
+    QUANT = auto()
 
 
 class FloatToIntImplType(AutoName):
@@ -67,6 +68,8 @@ class ScalingImplType(AutoName):
     AFFINE_STATS = auto()
     PARAMETER = auto()
     PARAMETER_FROM_STATS = auto()
+    # Activation-only: a runtime scale recomputed per-forward
+    DYNAMIC = auto()
 
 
 class ScalingPerOutputType(AutoName):
@@ -95,6 +98,8 @@ class StatsOp(AutoName):
     MIN_MAX = auto()
     PERCENTILE_INTERVAL = auto()
     SIGNED_MAX = auto()
+    NEG_MIN_OR_ZERO = auto()
+    NEG_PERCENTILE_OR_ZERO = auto()
 
 
 class TruncScalingImplType(AutoName):

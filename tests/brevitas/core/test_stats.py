@@ -176,3 +176,34 @@ class TestMSE:
         assert torch.all(
             torch.abs(quant_linear.weight_quant.tensor_quant.scaling_impl.value -
                       exp_value) < ABS_TOL)
+
+    @pytest.mark.parametrize("keepdim", [False, True])
+    def test_mse_loss_fn_keepdim_matches_candidate(self, keepdim):
+        # mse_search compares the reduced loss against the candidate (shaped like
+        # mse_init_op's output) via torch.where, so mse_loss_fn must keep/drop the
+        # reduced dim exactly as keepdim says. Here the "candidate" is a groupwise
+        # (OUT, GROUPS[, 1]) tensor; the loss must broadcast against it.
+        from brevitas.core.function_wrapper.shape import OverSubChannelBlockView
+        from brevitas.core.stats.stats_op import MSE
+
+        out_features, num_groups, group_size = 4, 3, 8
+        in_features = num_groups * group_size
+        view = OverSubChannelBlockView(
+            expanded_groupwise_shape=(out_features, num_groups, group_size),
+            group_size=group_size,
+            group_dim=1)
+        # Build an MSE instance without the full injector: only mse_loss_fn is used.
+        mse = MSE.__new__(MSE)
+        torch.nn.Module.__init__(mse)
+        mse.input_view_shape_impl = view
+        mse.stats_reduce_dim = 2
+        mse.keepdim = keepdim
+
+        x = torch.randn(out_features, in_features)
+        quant_value = torch.randn(out_features, in_features)
+        loss = mse.mse_loss_fn(x, quant_value)
+        expected = (out_features, num_groups, 1) if keepdim else (out_features, num_groups)
+        assert loss.shape == expected
+        # The candidate has the matching shape; torch.where must not raise.
+        candidate = torch.randn(expected)
+        torch.where(loss < loss.mean(), candidate, candidate)

@@ -19,8 +19,8 @@ from brevitas.quant.mx_quant_ocp import MXFloat8e4m3Act
 from brevitas.quant.mx_quant_ocp import MXFloat8e4m3Weight
 from brevitas.quant.mx_quant_ocp import MXInt8Act
 from brevitas.quant.mx_quant_ocp import MXInt8Weight
-from brevitas_examples.common.generative.quantize import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import FP8e4m3OCPDynamicActPerRowFloat
+from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTensorFloat
 from tests.brevitas.hyp_helper import float_tensor_st
 from tests.marker import requires_pt_ge
 

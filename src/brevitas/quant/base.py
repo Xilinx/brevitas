@@ -56,8 +56,10 @@ from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.inject.enum import StatsOp
 from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
+from brevitas.quant.solver.common import inner_stats_input_view_shape_impl
 from brevitas.quant.solver.common import SolveRestrictScaleSign
 from brevitas.quant.solver.common import SolveStatsReduceDimFromEnum
+from brevitas.quant.solver.common import zero_point_stats_input_view_shape_impl
 from brevitas.quant.solver.parameter import SolveInputViewImpl
 from brevitas.quant.solver.parameter import SolveParameterScalingShape
 from brevitas.quant.solver.weight import SolveWeightScalingPerOutputChannelShapeFromModule
@@ -212,8 +214,8 @@ class ShiftedMinUintQuant(ExtendedInjector):
     zero_point_impl = StatsFromParameterZeroPoint
     zero_point_stats_impl = NegativeMinOrZero
     zero_point_shape = this.scaling_shape
-    zero_point_stats_input_view_shape_impl = this.scaling_stats_input_view_shape_impl
     zero_point_stats_input_concat_dim = this.scaling_stats_input_concat_dim
+    zero_point_stats_input_view_shape_impl = zero_point_stats_input_view_shape_impl
 
 
 class ShiftedParamFromPercentileUintQuant(ExtendedInjector):
@@ -229,7 +231,7 @@ class ShiftedParamFromPercentileUintQuant(ExtendedInjector):
     zero_point_stats_impl = NegativePercentileOrZero
     low_percentile_q = 0.001
     zero_point_shape = this.scaling_shape
-    zero_point_stats_input_view_shape_impl = this.scaling_stats_input_view_shape_impl
+    zero_point_stats_input_view_shape_impl = zero_point_stats_input_view_shape_impl
 
 
 class PerChannelFloatScaling8bit(ExtendedInjector):
@@ -377,6 +379,8 @@ class AccumulatorAwareZeroCenterPerChannelPreNorm(AccumulatorAwarePerChannelPreN
     pre_scaling_impl = AccumulatorAwareZeroCenterParameterPreScaling
     pre_zero_point_impl = PreZeroCenterZeroPoint
     pre_zero_point_shape = this.pre_scaling_shape  # TODO: decouple zero_point from scaling
+    # NOTE: same scale-view alias as the Shifted* quantizers, deliberately left
+    # as-is (A2Q pre-scaling path; not validated against a local-loss scale).
     pre_zero_point_stats_input_view_shape_impl = this.scaling_stats_input_view_shape_impl
     stats_reduce_dim = SCALING_STATS_REDUCE_DIM
     scaling_shape = (this << 1).scaling_shape
@@ -509,6 +513,7 @@ class MSESymmetricScaleSubInjector(ExtendedInjector):
     mse_iters = 20
     mse_base_op = MSEUniformStepBase
     stats_reduce_dim = (this << 1).stats_reduce_dim
+    keepdim = (this << 1).keepdim
     device = (this << 1).device
     dtype = (this << 1).dtype
     permute_dims = (this << 1).permute_dims
@@ -528,6 +533,7 @@ class MSEAsymmetricScaleSubInjector(ExtendedInjector):
     mse_iters = 20
     mse_base_op = MSEUniformStepBase
     stats_reduce_dim = (this << 1).stats_reduce_dim
+    keepdim = (this << 1).keepdim
     device = (this << 1).device
     dtype = (this << 1).dtype
     permute_dims = (this << 1).permute_dims
@@ -549,6 +555,7 @@ class MSEZeroPointSubInjector(ExtendedInjector):
     mse_iters = 20
     mse_base_op = MSEUniformStepBase
     stats_reduce_dim = (this << 1).stats_reduce_dim
+    keepdim = (this << 1).keepdim
     device = (this << 1).device
     dtype = (this << 1).dtype
     permute_dims = (this << 1).permute_dims
@@ -563,15 +570,7 @@ class MSEAsymmetricScale(ExtendedInjector):
     mse_scale = MSEAsymmetricScaleSubInjector
     scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
     scaling_stats_input_view_shape_impl = nn.Identity()
-
-    @value
-    def inner_stats_input_view_shape_impl(scaling_per_output):
-        if scaling_per_output == ScalingPerOutputType.CHANNEL:
-            return StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
-        elif scaling_per_output == ScalingPerOutputType.TENSOR:
-            return StatsInputViewShapeImpl.OVER_TENSOR
-        elif scaling_per_output == ScalingPerOutputType.GROUP:
-            return StatsInputViewShapeImpl.OVER_SUBCHANNEL_BLOCK
+    inner_stats_input_view_shape_impl = inner_stats_input_view_shape_impl
 
     @value
     def scaling_stats_impl():
@@ -586,15 +585,7 @@ class MSESymmetricScale(ExtendedInjector):
     mse_scale = MSESymmetricScaleSubInjector
     scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
     scaling_stats_input_view_shape_impl = nn.Identity()
-
-    @value
-    def inner_stats_input_view_shape_impl(scaling_per_output):
-        if scaling_per_output == ScalingPerOutputType.CHANNEL:
-            return StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
-        elif scaling_per_output == ScalingPerOutputType.TENSOR:
-            return StatsInputViewShapeImpl.OVER_TENSOR
-        elif scaling_per_output == ScalingPerOutputType.GROUP:
-            return StatsInputViewShapeImpl.OVER_SUBCHANNEL_BLOCK
+    inner_stats_input_view_shape_impl = inner_stats_input_view_shape_impl
 
     @value
     def scaling_stats_impl():
@@ -608,15 +599,7 @@ class MSEZeroPoint(ExtendedInjector):
 
     mse_zero_point = MSEZeroPointSubInjector
     zero_point_stats_input_view_shape_impl = nn.Identity()
-
-    @value
-    def inner_stats_input_view_shape_impl(scaling_per_output):
-        if scaling_per_output == ScalingPerOutputType.CHANNEL:
-            return StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
-        elif scaling_per_output == ScalingPerOutputType.TENSOR:
-            return StatsInputViewShapeImpl.OVER_TENSOR
-        elif scaling_per_output == ScalingPerOutputType.GROUP:
-            return StatsInputViewShapeImpl.OVER_SUBCHANNEL_BLOCK
+    inner_stats_input_view_shape_impl = inner_stats_input_view_shape_impl
 
     @value
     def zero_point_stats_impl():
@@ -634,7 +617,10 @@ class MSEActZeroPoint(MSEZeroPoint):
 class HQOZeroPoint(ExtendedInjector):
 
     hqo_init_op_zp = NegativeMinOrZero
-    inner_stats_input_view_shape_impl = this.zero_point_stats_input_view_shape_impl
+    # Same convention as the MSE injectors: the outer view is Identity and the
+    # HQO search applies inner_stats_input_view_shape_impl itself, exactly once.
+    zero_point_stats_input_view_shape_impl = nn.Identity()
+    inner_stats_input_view_shape_impl = inner_stats_input_view_shape_impl
     stats_impl_zp = HalfQuadraticOptimizerZeroPoint
 
     @value
@@ -644,16 +630,13 @@ class HQOZeroPoint(ExtendedInjector):
 
 class HQOScale(ExtendedInjector):
     scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
-    inner_stats_input_view_shape_impl = this.scaling_stats_input_view_shape_impl
+    scaling_stats_input_view_shape_impl = nn.Identity()
+    inner_stats_input_view_shape_impl = inner_stats_input_view_shape_impl
     stats_impl_scale = HalfQuadraticOptimizerScale
 
     @value
     def scaling_stats_impl():
         return this.stats_impl_scale
-
-    @value
-    def restrict_scale_positive():
-        return this.hqo_init_op_scale.restrict_scale_positive
 
 
 class HQOAsymmetricScale(HQOScale):
