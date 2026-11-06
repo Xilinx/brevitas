@@ -12,7 +12,7 @@ TORCHVISION_VERSION_DICT = {
     '1.12.1': '0.13.1',
     '1.13.1': '0.14.1',
     '2.0.1': '0.15.2',
-    '2.1.1': '0.16.1',
+    '2.1.2': '0.16.2',
     '2.2.2': '0.17.2',
     '2.3.1': '0.18.1',
     '2.4.1': '0.19.1',
@@ -24,7 +24,9 @@ TORCHVISION_VERSION_DICT = {
     '2.10.0': '0.25.0',
     '2.11.0': '0.26.0',
     '2.12.1': '0.27.1',
-    '2.13.0': '0.28.0'}
+    '2.13.0': '0.28.0',
+    '2.14.1': '0.29.1',
+    '2.15.0': '0.29.2'}
 
 BASE_YML_TEMPLATE = 'base.yml.template'
 BASE_YML_REDUCED_TEMPLATE = 'base_reduced.yml.template'
@@ -76,7 +78,7 @@ ALL_SUPPORTED_PYTHON_VERSIONS = ('3.10', '3.11', '3.12', '3.13', '3.14')
 ALL_SUPPORTED_PYTORCH_VERSIONS = (
     '1.13.1',
     '2.0.1',
-    '2.1.1',
+    '2.1.2',
     '2.2.2',
     '2.3.1',
     '2.4.1',
@@ -88,23 +90,27 @@ ALL_SUPPORTED_PYTORCH_VERSIONS = (
     '2.10.0',
     '2.11.0',
     '2.12.1',
-    '2.13.0')
+    '2.13.0',
+    '2.14.1',
+    '2.15.0')
 
 ALL_SUPPORTED_EXCLUSION_LIST = generate_exclusion_list([
     [['python_version', [
+        '3.10',]], ['pytorch_version', ['2.15.0']]],
+    [['python_version', [
         '3.11',]], ['pytorch_version', ['1.13.1']]],
     [['python_version', [
-        '3.12',]], ['pytorch_version', ['1.13.1', '2.0.1', '2.1.1']]],
+        '3.12',]], ['pytorch_version', ['1.13.1', '2.0.1', '2.1.2']]],
     [['python_version', [
         '3.13',]],
-     ['pytorch_version', ['1.13.1', '2.0.1', '2.1.1', '2.2.2', '2.3.1', '2.4.1', '2.5.1']]],
+     ['pytorch_version', ['1.13.1', '2.0.1', '2.1.2', '2.2.2', '2.3.1', '2.4.1', '2.5.1']]],
     [['python_version', [
         '3.14',]],
      [
          'pytorch_version', [
              '1.13.1',
              '2.0.1',
-             '2.1.1',
+             '2.1.2',
              '2.2.2',
              '2.3.1',
              '2.4.1',
