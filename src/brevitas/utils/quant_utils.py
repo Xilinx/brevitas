@@ -16,18 +16,19 @@ from brevitas.quant_tensor import IntQuantTensor
 class _CachedIO:
 
     def __init__(self, quant_tensor: IntQuantTensor, metadata_only: bool):
-        self.shape = quant_tensor.value.shape
-        self.value = None if metadata_only else quant_tensor.value
+        value, scale, zero_point, bit_width, signed = quant_tensor._unpack()
+        self.shape = value.shape
+        self.value = None if metadata_only else value
         self._quant_tensor = None if metadata_only else quant_tensor
-        self.scale = quant_tensor.scale
-        self.zero_point = quant_tensor.zero_point
-        self.bit_width = quant_tensor.bit_width
-        self._signed = quant_tensor._signed
+        self.scale = scale
+        self.zero_point = zero_point
+        self.bit_width = bit_width
+        self._signed = signed
         self._training = quant_tensor._training
 
     @property
     def signed(self):
-        return self._signed.item()
+        return self._signed
 
     @property
     def quant_tensor(self):
@@ -58,11 +59,11 @@ class _CachedIOFloat:
 
     @property
     def saturating(self):
-        return self._saturating.item()
+        return self._saturating
 
     @property
     def signed(self):
-        return self._signed.item()
+        return self._signed
 
     @property
     def quant_tensor(self):
@@ -107,11 +108,11 @@ class _CachedIOGroupwiseFloat:
 
     @property
     def saturating(self):
-        return self._saturating.item()
+        return self._saturating
 
     @property
     def signed(self):
-        return self._signed.item()
+        return self._signed
 
     @property
     def quant_tensor(self):
@@ -154,7 +155,7 @@ class _CachedIOGroupwiseInt:
 
     @property
     def signed(self):
-        return self._signed.item()
+        return self._signed
 
     @property
     def quant_tensor(self):

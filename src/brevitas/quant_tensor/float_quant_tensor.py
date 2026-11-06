@@ -25,24 +25,6 @@ class FloatQuantTensor(FloatMixin, QuantTensor):
         '_training',
     )
 
-    def __new__(
-            cls,
-            value,
-            scale,
-            zero_point,
-            exponent_bit_width,
-            mantissa_bit_width,
-            exponent_bias,
-            saturating,
-            inf_values,
-            nan_values,
-            signed,
-            training):
-        if not isinstance(value, torch.Tensor):
-            value = torch.tensor(value, dtype=torch.float)
-        # Use as_subclass to preserve grad_fn and requires_grad
-        return value.as_subclass(cls)
-
     def __init__(
             self,
             value,
@@ -62,9 +44,9 @@ class FloatQuantTensor(FloatMixin, QuantTensor):
         exponent_bit_width = self._as_tensor(exponent_bit_width, torch.float, device)
         mantissa_bit_width = self._as_tensor(mantissa_bit_width, torch.float, device)
         exponent_bias = self._as_tensor(exponent_bias, torch.float, device)
-        saturating = self._as_tensor(saturating, torch.bool, device)
-        signed = self._as_tensor(signed, torch.bool, device)
-        training = self._as_tensor(training, torch.bool, device)
+        saturating = self._as_bool(saturating)
+        signed = self._as_bool(signed)
+        training = self._as_bool(training)
         self._scale = scale
         self._zero_point = zero_point
         self._exponent_bit_width = exponent_bit_width
@@ -106,7 +88,7 @@ class FloatQuantTensor(FloatMixin, QuantTensor):
             raise RuntimeError("Tensor is not a FloatQuantTensor")
 
     @staticmethod
-    def cat(tensors, dim, out=None):
+    def cat(tensors, dim=0, *, out=None):
         if out is not None:
             raise RuntimeError("Out not supported.")
         if len(tensors) < 2:

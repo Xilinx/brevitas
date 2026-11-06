@@ -186,7 +186,7 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
 
         y = x
         if isinstance(y, QuantTensor):
-            y = y.value
+            y = y._unpack_value()
 
         if not self.is_quant_enabled:
             # A tuple helps later with control flows
@@ -302,17 +302,10 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
     def bit_width(self):
         return self.retrieve_attribute('bit_width')
 
-    def forward(self, x: Union[IntQuantTensor, Tuple[Tensor,
-                                                     ...]]) -> Union[Tensor, IntQuantTensor]:
+    def forward(self, x: IntQuantTensor) -> Union[Tensor, IntQuantTensor]:
         if not self.is_quant_enabled:
             return x
-        if isinstance(x, IntQuantTensor):
-            x = (x.value, x.scale, x.zero_point, x.bit_width, x.signed)
-        elif not isinstance(x, tuple):
-            raise TypeError(
-                "TruncQuantProxy expects an IntQuantTensor or a "
-                "(value, scale, zero_point, bit_width, signed) tuple.")
-        value, scale, zero_point, bit_width, signed = x
+        value, scale, zero_point, bit_width, signed = x._unpack()
 
         if self.export_mode:
             out_tuple = self.export_handler(value, scale, zero_point, bit_width, signed)

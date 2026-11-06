@@ -23,7 +23,6 @@ class GroupwiseFloatQuantTensor(GroupwiseQuantTensorMixin, FloatMixin, QuantTens
         '_nan_values',
         '_signed',
         '_training',
-        '_dequant_shape',
     )
 
     def __init__(
@@ -42,29 +41,29 @@ class GroupwiseFloatQuantTensor(GroupwiseQuantTensorMixin, FloatMixin, QuantTens
             signed,
             training,
             dequant_shape=None):
+        # dequant_shape sets the logical shape of the wrapper, see QuantTensor.__new__
         device = self._value.device
         scale = self._as_tensor(scale, torch.float, device)
         zero_point = self._as_tensor(zero_point, torch.float, device)
         exponent_bit_width = self._as_tensor(exponent_bit_width, torch.float, device)
         mantissa_bit_width = self._as_tensor(mantissa_bit_width, torch.float, device)
         exponent_bias = self._as_tensor(exponent_bias, torch.float, device)
-        saturating = self._as_tensor(saturating, torch.bool, device)
-        signed = self._as_tensor(signed, torch.bool, device)
-        training = self._as_tensor(training, torch.bool, device)
+        saturating = self._as_bool(saturating)
+        signed = self._as_bool(signed)
+        training = self._as_bool(training)
         self._exponent_bit_width = exponent_bit_width
         self._mantissa_bit_width = mantissa_bit_width
         self._exponent_bias = exponent_bias
         self._saturating = saturating
         self._inf_values = inf_values
         self._nan_values = nan_values
-        self._set_groupwise_metadata(
-            scale, zero_point, group_size, group_dim, signed, training, dequant_shape)
+        self._set_groupwise_metadata(scale, zero_point, group_size, group_dim, signed, training)
 
     # Reference: https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
 
     def __neg__(self):
         neg_deq = -self.minifloat(float_datatype=True)
-        _, scale, zp = self.expand()
+        _, scale, zp = self._expand_groupwise()
 
         neg_value = (-neg_deq - zp) * scale
         # In case the dtype of self.minifloat is different from the one of the scale
@@ -98,7 +97,7 @@ class GroupwiseFloatQuantTensor(GroupwiseQuantTensorMixin, FloatMixin, QuantTens
     def __abs__(self):
         if self.signed:
             neg_deq = self.minifloat(float_datatype=True)
-            _, scale, zp = self.expand()
+            _, scale, zp = self._expand_groupwise()
 
             # In case the dtype of self.minifloat is different from the one of the scale
             abs_value = (neg_deq - zp) * scale
