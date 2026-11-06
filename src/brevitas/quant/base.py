@@ -55,7 +55,6 @@ from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.inject.enum import StatsOp
 from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
-from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
 from brevitas.quant.solver.common import SolveRestrictScaleSign
 from brevitas.quant.solver.common import SolveStatsReduceDimFromEnum
 from brevitas.quant.solver.parameter import SolveInputViewImpl
@@ -292,6 +291,7 @@ class WeightPerTensorFloatDecoupledL2Param(SolveWeightScalingStatsInputDimsFromM
 
     proxy_class = DecoupledWeightQuantProxyFromInjector
     tensor_quant = DecoupledRescalingIntQuant
+    requires_quant_input = False
     decoupled_int_quant = DecoupledIntQuant
     tensor_clamp_impl = TensorClampSte
     pre_scaling_impl = StatsFromParameterScaling
@@ -326,6 +326,7 @@ class WeightPerChannelFloatDecoupled(SolveStatsReduceDimFromEnum,
 
     proxy_class = DecoupledWeightQuantProxyFromInjector
     tensor_quant = DecoupledRescalingIntQuant
+    requires_quant_input = False
     decoupled_int_quant = DecoupledIntQuant
     tensor_clamp_impl = TensorClampSte
     pre_scaling_impl = StatsFromParameterScaling
@@ -432,6 +433,7 @@ class WeightNormPerChannelFloatDecoupled(SolvePostScaleGranularity,
     force_parameter = True
     proxy_class = DecoupledWeightQuantProxyFromInjector
     tensor_quant = DecoupledRescalingIntQuant
+    requires_quant_input = False
     decoupled_int_quant = DecoupledIntQuant
     tensor_clamp_impl = TensorClamp
     scaling_impl = ParameterScaling
@@ -474,7 +476,8 @@ class AccumulatorAwareWeightQuant(WeightNormPerChannelFloatDecoupled):
     details on the arithmetic, see `AccumulatorAwareParameterPreScalingWeightNorm`. For further
     details on accumulator-aware quantization (A2Q) technique, see the referenced paper."""
 
-    proxy_class = DecoupledWeightQuantWithInputProxyFromInjector
+    proxy_class = DecoupledWeightQuantProxyFromInjector
+    requires_quant_input = True
     tensor_quant = DecoupledRescalingIntQuantWithInput
     per_channel_pre_norm = AccumulatorAwarePerChannelPreNorm
     normalize_stats_impl = PerChannelL1Norm.normalize_stats_impl  # required to align with derivations in paper

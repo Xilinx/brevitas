@@ -14,7 +14,6 @@ from brevitas.proxy import ActFloatQuantProxyFromInjector
 from brevitas.proxy import ActQuantProxyFromInjector
 from brevitas.proxy import BiasQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
-from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
 from brevitas.proxy import WeightFloatQuantProxyFromInjector
 from brevitas.proxy import WeightQuantProxyFromInjector
 from brevitas.proxy.float_parameter_quant import BiasFloatQuantProxyFromInjector
@@ -428,22 +427,17 @@ class QCDQCastWeightQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin):
 class QCDQCastDecoupledWeightQuantProxyHandlerMixin(QCDQCastWeightQuantProxyHandlerMixin, ABC):
     handled_layer = DecoupledWeightQuantProxyFromInjector
 
-    def symbolic_execution(self, x: Tensor):
+    def validate(self, module):
+        if module.requires_quant_input:
+            assert not self._export_q_node, "This proxy requires to export integer weights"
+        else:
+            super().validate(module)
+
+    def symbolic_execution(self, x: Tensor, *args):
         out, scale, zero_point, bit_width = super().symbolic_execution(x)
         # Return post-rounding scale and zero-point in place of pre-rounding as a placeholder
         # The order of arguments must match the order in the forward method of DecoupledRescalingIntQuant
         return out, scale, zero_point, bit_width, scale, zero_point
-
-
-class QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin(
-        QCDQCastDecoupledWeightQuantProxyHandlerMixin, ABC):
-    handled_layer = DecoupledWeightQuantWithInputProxyFromInjector
-
-    def validate(self, module):
-        assert not self._export_q_node, "This proxy requires to export integer weights"
-
-    def symbolic_execution(self, x: Tensor, input_bit_width: torch.Tensor, input_is_signed: bool):
-        return super().symbolic_execution(x)
 
 
 class FloatQCDQCastActQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandlerMixin, ABC):
