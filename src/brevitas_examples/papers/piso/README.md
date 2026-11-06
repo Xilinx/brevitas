@@ -56,8 +56,8 @@ validation raises). Each row below is therefore run exactly once.
 | Paper row | Flags |
 |---|---|
 | `+ absmax` | Both calibration flags are false (with `weight_param_method: stats`) |
-| `+ data-free` | `grid_optimization: true`, `grid_opt_hessian_mode: identity` |
-| `+ PiSO` | `grid_optimization: true`, `grid_opt_hessian_mode: dense` |
+| `+ data-free` | `grid_optimization: true`, `grid_opt_covariance_mode: identity` |
+| `+ PiSO` | `grid_optimization: true`, `grid_opt_covariance_mode: dense` |
 | `PiSO_I` / `PiSO_S` | `grid_opt_group_sequential: false` / `true` (group-wise only) |
 
 ### Integration with error correction
@@ -86,15 +86,15 @@ sweep still pins `grid_opt_objective` to it to avoid running duplicates.
 |---|---|
 | `grid_opt_objective` mismatching the error-correction algorithm | Not a paper configuration |
 | Objective variants without grid optimization | The objective is unused; deduplicated |
-| `grid_opt_hessian_mode: identity` without grid optimization | Data-free requires grid optimization |
-| `grid_opt_group_sequential` without grid optimization, with `grid_opt_hessian_mode: identity`, or with per-channel weights | The heuristic is inert; deduplicated |
-| Layer-interleaved `grid_opt_hessian_mode: identity` | Reproduces the decoupled run (see below); deduplicated |
+| `grid_opt_covariance_mode: identity` without grid optimization | Data-free requires grid optimization |
+| `grid_opt_group_sequential` without grid optimization, with `grid_opt_covariance_mode: identity`, or with per-channel weights | The heuristic is inert; deduplicated |
+| Layer-interleaved `grid_opt_covariance_mode: identity` | Reproduces the decoupled run (see below); deduplicated |
 
 Interleaving the data-free baseline is only redundant in the *layer*-interleaved case.
 The scale is then optimized in `_on_error_correction_starts`, before error correction
 touches the layer, so `||w - s q(w)||^2` sees the original weights and returns the
 decoupled scales. In the *group*-interleaved case the scale of each group is optimized in
-`single_group_update` as GPTQ/Qronos reaches it, reading weights that already carry the
+`optimize_group` as GPTQ/Qronos reaches it, reading weights that already carry the
 error diffused by the preceding groups, so `⊙ data-free †` is a genuinely distinct row and
 is kept. Per-channel quantization has no group-interleaved mode, so data-free is always
 deduplicated there.

@@ -191,7 +191,7 @@ grid_opt_group_sequential:
 - false
 grid_opt_group_sequential_act_order:
 - true
-grid_opt_hessian_mode:
+grid_opt_covariance_mode:
 - dense
 grid_opt_objective:
 - unquantized

@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 
-from brevitas.graph.gpxq import accumulate_hessian
+from brevitas.graph.gpxq import accumulate_covariance
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import ModuleOptimizer
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
@@ -95,7 +95,7 @@ class MagR(ModuleOptimizer):
         current_layer.layer_names.add(self.name)
         inp_processed = self.process_input(input)  # [groups, in_features, batch_size]
         buffer = self.B if self.use_intermediate_buffer else None
-        self.nsamples = accumulate_hessian(self.H, self.nsamples, inp_processed, buffer=buffer)
+        self.nsamples = accumulate_covariance(self.H, self.nsamples, inp_processed, buffer=buffer)
         # Unlike GPTQ, the forward is not stopped: MagR calibrates every layer in one pass.
 
     def single_layer_update(self):

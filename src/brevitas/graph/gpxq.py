@@ -5,6 +5,7 @@ from abc import ABC
 from abc import abstractmethod
 from copy import deepcopy
 import math
+from typing import Callable
 from typing import List
 from typing import Optional
 from typing import Tuple
@@ -34,7 +35,7 @@ def process_layer_input(
         groups: int,
         quant_metadata: Optional[object] = None) -> Tuple[torch.Tensor, Optional[object]]:
     """Preprocess a layer's input into the [groups, in_features, batch] layout used
-    to accumulate the Hessian, shared by GPxQ and grid optimization.
+    to accumulate the covariance matrices, shared by GPxQ and grid optimization.
 
     quant_metadata is threaded in/out (rather than mutated on an instance) so
     the helper can stay a free function: if the input is a quantized activation and
@@ -104,36 +105,36 @@ def process_layer_input(
     return inp_processed, quant_metadata
 
 
-def accumulate_hessian(
-        hessian: torch.Tensor,
+def accumulate_covariance(
+        covariance: torch.Tensor,
         nsamples: int,
         inp: torch.Tensor,
         other_inp: Optional[torch.Tensor] = None,
         buffer: Optional[torch.Tensor] = None) -> int:
-    """Add a batch of layer inputs to a running Hessian estimate, in place.
+    """Add a batch of layer inputs to a running covariance estimate, in place.
 
-    hessian holds the mean of 2 x y^T over the nsamples samples seen so far, where x
+    covariance holds the mean of 2 x y^T over the nsamples samples seen so far, where x
     are the samples of inp and y those of other_inp, or of inp again when other_inp is
     None. Both are in the [groups, in_features, batch] layout of process_layer_input.
     If buffer is given, the batch contribution is copied into it before it is added,
-    e.g. to move it through pinned memory when hessian lives on the CPU.
+    e.g. to move it through pinned memory when covariance lives on the CPU.
 
     Returns the updated number of samples.
     """
     batch_size = inp.shape[-1]
-    hessian *= nsamples / (nsamples + batch_size)
+    covariance *= nsamples / (nsamples + batch_size)
     nsamples += batch_size
-    inp = math.sqrt(2 / nsamples) * inp.to(hessian.dtype)
+    inp = math.sqrt(2 / nsamples) * inp.to(covariance.dtype)
     if other_inp is None:
         other_inp = inp
     else:
-        other_inp = math.sqrt(2 / nsamples) * other_inp.to(hessian.dtype)
+        other_inp = math.sqrt(2 / nsamples) * other_inp.to(covariance.dtype)
     update = inp.bmm(other_inp.transpose(2, 1))
     if buffer is None:
-        hessian += update
+        covariance += update
     else:
         buffer.copy_(update)
-        hessian += buffer
+        covariance += buffer
     return nsamples
 
 
@@ -288,7 +289,15 @@ class ModuleOptimizer(ABC):
 
 
 class GPxQ(ModuleOptimizer):
-    """Base of the error-correction algorithms (GPTQ, GPFQ, Qronos)."""
+    """Base of the error-correction algorithms (GPTQ, GPFQ, Qronos).
+
+    grid_optimizer_factory optionally interleaves grid optimization with error
+    correction. It is called as grid_optimizer_factory(layer=layer) and returns the
+    layer's grid optimizer (see
+    brevitas.graph.grid_optimization.InterleavedGridOptimizer.for_gpxq), or None when the
+    layer is not supported. The extension hooks below forward to it; GPTQ and Qronos call
+    them.
+    """
 
     def __init__(
             self,
@@ -298,16 +307,19 @@ class GPxQ(ModuleOptimizer):
             len_parallel_layers=1,
             create_weight_orig=True,
             device='cpu',
-            dtype=torch.float32) -> None:
+            dtype=torch.float32,
+            grid_optimizer_factory: Optional[Callable] = None) -> None:
         super().__init__(layer, name, len_parallel_layers, create_weight_orig, device, dtype)
         self.act_order = act_order
+        self.grid_optimizer = None
+        if grid_optimizer_factory is not None:
+            self.grid_optimizer = grid_optimizer_factory(layer=layer)
 
     # -------------------------------------------------------------------------
     # Extension hooks.
     #
-    # These provide the default (plain GPxQ) behaviour and are overridden by
-    # mixins to plug in group-aware permutations or grid optimization
-    # (GridOptimizationMixin, see brevitas.graph.grid_optimization).
+    # These provide the default (plain GPxQ) behaviour, and forward to the grid
+    # optimizer when there is one (see brevitas.graph.grid_optimization).
     # -------------------------------------------------------------------------
 
     def _resolve_blocksize(self, num_blocks: int) -> int:
@@ -317,44 +329,53 @@ class GPxQ(ModuleOptimizer):
         at multiples of the block size, so grid optimization returns the group size to
         make every block cover exactly one quantization group.
         """
-        return math.ceil(self.columns / num_blocks)
+        blocksize = math.ceil(self.columns / num_blocks)
+        if self.grid_optimizer is not None:
+            return self.grid_optimizer.resolve_blocksize(blocksize)
+        return blocksize
 
     def _act_order_permutation(self, hessian_group: torch.Tensor) -> torch.Tensor:
         """Column ordering used when act_order is enabled, for one group.
 
         Only called from the act_order branch of the algorithms. Default:
-        descending diagonal-Hessian order. GridOptimizationMixin overrides this to
-        keep quantization groups contiguous when scales are optimized group by group.
+        descending diagonal-Hessian order. Group-interleaved grid optimization keeps
+        quantization groups contiguous, since it optimizes scales group by group.
         """
+        if self.grid_optimizer is not None and self.grid_optimizer.group_interleaved:
+            return self.grid_optimizer.act_order_permutation(hessian_group)
         return torch.argsort(torch.diag(hessian_group), descending=True)
 
-    def _on_error_correction_starts(self, perm: torch.Tensor) -> None:
-        """Called once the Hessians are ready, before error correction.
+    def _on_error_correction_starts(
+            self, H: torch.Tensor, G: Optional[torch.Tensor], perm: torch.Tensor) -> None:
+        """Called once the covariance matrices are ready, before error correction.
 
-        The column order of the Hessians depends on the algorithm: GPTQ calls it with
-        its damped H permuted by perm, Qronos with H and G in the natural column order.
+        H and G are 2-D and in the layer's natural column order, with G = X_tilde^T X
+        (None for the self-activation objective); perm is the column order error
+        correction follows. The algorithm may modify H and G in place afterwards.
 
-        No-op by default; grid optimization uses it to optimize the layer scale on
-        the fixed grid before weights are error-corrected.
+        Grid optimization uses it to optimize the layer scale on the fixed grid before
+        weights are error-corrected, or to prepare its group-wise updates.
         """
-        pass
+        if self.grid_optimizer is not None:
+            self.grid_optimizer.on_error_correction_starts(H, G, perm)
 
     def _on_column_reached(self, column_idx: int) -> None:
         """Signal that error correction is about to process column column_idx.
 
-        Called once per column. No-op by default; grid optimization uses it to
-        optimize a group's scale when column_idx starts a new group, before its
-        weights are quantized.
+        Called once per column. Grid optimization uses it to optimize a group's scale
+        when column_idx starts a new group, before its weights are quantized.
         """
-        pass
+        if self.grid_optimizer is not None:
+            self.grid_optimizer.on_column_reached(column_idx)
 
     def _on_layer_finished(self) -> None:
-        """Called after the layer is fully processed. No-op by default.
+        """Called after the layer is fully processed.
 
-        A teardown hook (e.g. grid optimization releases its per-layer state here); also
+        A teardown hook (grid optimization releases its per-layer state here); also
         invoked on the error path when the layer is skipped.
         """
-        pass
+        if self.grid_optimizer is not None:
+            self.grid_optimizer.on_layer_finished()
 
     def get_quant_weights(self, i, i1, permutation_list, with_quant_history=False):
 

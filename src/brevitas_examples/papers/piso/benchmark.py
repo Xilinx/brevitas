@@ -37,7 +37,7 @@ class PiSOEntryPointUtils(LLMEntryPointUtils):
         if not optimizes_grid:
             # absmax baseline: without grid optimization every --grid-opt-* modifier is
             # inert, so pin them to discard the duplicates they would generate.
-            assert args.grid_opt_hessian_mode != 'identity', \
+            assert args.grid_opt_covariance_mode != 'identity', \
                 "The data-free baseline requires grid optimization."
             assert not args.grid_opt_group_sequential, \
                 "Group heuristics require grid optimization."
@@ -49,7 +49,7 @@ class PiSOEntryPointUtils(LLMEntryPointUtils):
         assert args.grid_opt_objective == expected_objective, \
             "The scale objective must match the error correction algorithm."
 
-        if args.grid_opt_hessian_mode == 'identity':
+        if args.grid_opt_covariance_mode == 'identity':
             # Data-free baseline: minimizes ||w - s q(w)||^2 through the diagonal
             # path, which never reads the group heuristic.
             assert not args.grid_opt_group_sequential, \

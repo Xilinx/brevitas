@@ -4,8 +4,6 @@
 from contextlib import nullcontext
 from copy import deepcopy
 from functools import partial
-from typing import Optional
-from typing import Type
 
 from accelerate.utils.operations import send_to_device
 import torch
@@ -16,10 +14,7 @@ from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gptq import gptq_mode
-from brevitas.graph.gpxq import GPxQ
-from brevitas.graph.grid_optimization import GridOptimizationGPTQ
-from brevitas.graph.grid_optimization import GridOptimizationMixin
-from brevitas.graph.grid_optimization import GridOptimizationQronos
+from brevitas.graph.grid_optimization import InterleavedGridOptimizer
 from brevitas.graph.magr import magr_mode
 from brevitas.graph.qronos import Qronos
 from brevitas.utils.python_utils import recurse_getattr
@@ -240,15 +235,6 @@ def _block_optimization(
     model.config.use_cache = cache_state
 
 
-def _select_gpxq_class(
-        base_class: Type[GPxQ],
-        grid_optimization_class: Type[GridOptimizationMixin],
-        grid_optimization_kwargs: Optional[dict]) -> Type[GPxQ]:
-    if grid_optimization_kwargs is not None:
-        return partial(grid_optimization_class, **grid_optimization_kwargs)
-    return base_class
-
-
 @torch.no_grad()
 def apply_gptq(
         model,
@@ -272,13 +258,16 @@ def apply_gptq(
         'dtype': buffer_dtype}
     context_manager_func = gptq_mode
     if max_accumulator_bit_width is not None:
+        assert grid_optimization_kwargs is None, "Grid optimization is not supported with AXE."
         context_manager_func = a2gptq_mode
         context_manager_kwargs.update(
             max_accumulator_bit_width=max_accumulator_bit_width,
             max_accumulator_tile_size=max_accumulator_tile_size)
     else:
-        context_manager_kwargs['gptq_class'] = _select_gpxq_class(
-            GPTQ, GridOptimizationGPTQ, grid_optimization_kwargs)
+        grid_optimizer_factory = None if grid_optimization_kwargs is None else partial(
+            InterleavedGridOptimizer.for_gpxq, **grid_optimization_kwargs)
+        context_manager_kwargs['gptq_class'] = partial(
+            GPTQ, grid_optimizer_factory=grid_optimizer_factory)
     if block_name is not None:
         _block_optimization(
             model, dataloader, block_name, context_manager_func, context_manager_kwargs)
@@ -368,7 +357,8 @@ def apply_qronos(
     grid_optimization_kwargs=None,
 ):
     assert alpha > 0, "Error: alpha needs to be strictly positive"
-    qronos_class = _select_gpxq_class(Qronos, GridOptimizationQronos, grid_optimization_kwargs)
+    grid_optimizer_factory = None if grid_optimization_kwargs is None else partial(
+        InterleavedGridOptimizer.for_gpxq, **grid_optimization_kwargs)
     # Use paired quantized and float passes to correct errors from previous layers.
     _apply_gpfq_or_qronos(
         model,
@@ -376,7 +366,7 @@ def apply_qronos(
         act_order=act_order,
         block_name=block_name,
         group_of_parallel_layers=group_of_parallel_layers,
-        algorithm_impl=partial(qronos_class, alpha=alpha),
+        algorithm_impl=partial(Qronos, alpha=alpha, grid_optimizer_factory=grid_optimizer_factory),
         device=buffer_device,
         dtype=buffer_dtype)
 

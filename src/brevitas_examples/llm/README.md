@@ -39,7 +39,7 @@ usage: main.py [-h] [--config CONFIG] [--model MODEL] [--custom-quantizer CUSTOM
                [--bos-preprocessing {None,document,sequence}] [--few-shot-limit FEW_SHOT_LIMIT] [--few-shot-tasks [FEW_SHOT_TASKS ...]] [--awq-scale] [--awq-clip]
                [--calibration-batch-size CALIBRATION_BATCH_SIZE] [--grid-opt-solver {piso,chunked-piso}]
                [--grid-opt-use-quant-activations | --no-grid-opt-use-quant-activations] [--grid-opt-solver-batch-size GRID_OPT_SOLVER_BATCH_SIZE] [--grid-opt-objective {unquantized,self-activation,cross-activation}]
-               [--grid-opt-group-sequential | --no-grid-opt-group-sequential] [--grid-opt-group-sequential-act-order | --no-grid-opt-group-sequential-act-order] [--grid-opt-hessian-mode {dense,diagonal,identity}]
+               [--grid-opt-group-sequential | --no-grid-opt-group-sequential] [--grid-opt-group-sequential-act-order | --no-grid-opt-group-sequential-act-order] [--grid-opt-covariance-mode {dense,diagonal,identity}]
                [--grid-opt-group-gpxq-layer-interleaved | --no-grid-opt-group-gpxq-layer-interleaved]
 
 LLM quantization
@@ -273,8 +273,8 @@ options:
   --no-grid-opt-group-sequential-act-order
                         Disable With --grid-opt-group-sequential and --grid-optimization, process groups by descending sum of diag(H) (most important first) instead of natural order. Ignored with --gpxq-
                         use-grid-optimization, where the column order is controlled by --gpxq-act-order. Default: enabled
-  --grid-opt-hessian-mode {dense,diagonal,identity}
-                        How the solver uses the Hessian H and matrix G. dense: the full matrices accumulated from the calibration data; not implemented, so it currently raises NotImplementedError.
+  --grid-opt-covariance-mode {dense,diagonal,identity}
+                        How the solver uses the covariance matrices H and G. dense: the full matrices accumulated from the calibration data; not implemented, so it currently raises NotImplementedError.
                         diagonal: only diag(H) (and diag(G)), discarding cross-weight interactions. identity: ignore the calibration data entirely and use H=I, G=None (pure weight MSE). Default: dense
   --grid-opt-group-gpxq-layer-interleaved
                         Enable Selects how the solver is interleaved with GPxQ for group-wise weight quantization (paper: interleaved integration strategies). When enabled, all group scales are optimized
