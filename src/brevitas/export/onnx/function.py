@@ -81,3 +81,56 @@ class LSTMCellFn(Function):
         hidden_state = hidden_state.squeeze(state_dir_axes.item())
         cell_state = cell_state.squeeze(state_dir_axes.item())
         return outputs, hidden_state, cell_state
+
+
+class LSTMCellDynamoFn(DynamoFn):
+
+    @staticmethod
+    def symbolic(
+            inp,
+            weight_i,
+            weight_h,
+            bias,
+            sequence_lens,
+            hidden_state,
+            cell_state,
+            direction,
+            hidden_size,
+            cifg,
+            layout,
+            output_dir_axes,
+            state_dir_axes):
+        dtype = hidden_state.dtype
+        if layout:
+            batch_size, seq_len = inp.shape[0], inp.shape[1]
+            outputs_shape = [batch_size, seq_len, 1, hidden_size]
+        else:
+            seq_len, batch_size = inp.shape[0], inp.shape[1]
+            outputs_shape = [seq_len, 1, batch_size, hidden_size]
+        outputs, hidden_state, cell_state = torch.onnx.ops.symbolic_multi_out(
+            'LSTM',
+            (inp, weight_i, weight_h, bias, sequence_lens, hidden_state, cell_state),
+            {
+                'direction': direction,
+                'hidden_size': hidden_size,
+                'input_forget': int(cifg),
+                'layout': int(layout)},
+            dtypes=(dtype, dtype, dtype),
+            shapes=(outputs_shape, hidden_state.shape, cell_state.shape),
+            version=None)
+        return (
+            LSTMCellDynamoFn._squeeze(outputs, output_dir_axes),
+            LSTMCellDynamoFn._squeeze(hidden_state, state_dir_axes),
+            LSTMCellDynamoFn._squeeze(cell_state, state_dir_axes))
+
+    @staticmethod
+    def _squeeze(x, axes):
+        axis = axes.item()
+        shape = [d for i, d in enumerate(x.shape) if i != axis]
+        return torch.onnx.ops.symbolic(
+            'Squeeze', (x, axes), dtype=x.dtype, shape=shape, version=None)
+
+
+class LSTMCellOp:
+    torchscript = LSTMCellFn
+    dynamo = LSTMCellDynamoFn

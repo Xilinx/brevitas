@@ -12,7 +12,7 @@ from brevitas.export.onnx import onnx_export_opset
 from brevitas.export.onnx.debug import DebugMarkerFunction
 from brevitas.nn.quant_rnn import _QuantLSTMLayer
 
-from .function import LSTMCellFn
+from .function import LSTMCellOp
 
 __all__ = [
     'Kernel1dApplHandlerMixin',
@@ -312,14 +312,17 @@ class QuantLSTMLayerHandler(ONNXBaseHandler, ABC):
                 quant_cell_state = quant_cell_state.permute(1, 0, 2)
             # The ONNX standards requires an extra dimension for the direction,
             # which we don't want here, so we squeeze it. We compute the Squeeze op
-            # manually within the function since tracing tend to overcomplicate things
+            # manually within the function since tracing tend to overcomplicate things.
+            # The direction is dim 1 of the outputs and dim 0 of the states, or dim 2 and dim 1
+            # with batch_first (see the layout attribute of the ONNX LSTM)
             if self.symbolic_kwargs['batch_first']:
-                output_dir_axes = torch.tensor([1], dtype=torch.int64)
+                output_dir_axes = torch.tensor([2], dtype=torch.int64)
                 state_dir_axes = torch.tensor([1], dtype=torch.int64)
             else:
-                output_dir_axes = torch.tensor([2], dtype=torch.int64)
+                output_dir_axes = torch.tensor([1], dtype=torch.int64)
                 state_dir_axes = torch.tensor([0], dtype=torch.int64)
-            return LSTMCellFn.apply(
+            return self.export_op(
+                LSTMCellOp,
                 quant_input,
                 quant_weight_i,
                 quant_weight_h,
