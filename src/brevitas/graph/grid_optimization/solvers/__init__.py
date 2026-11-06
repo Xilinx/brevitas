@@ -28,6 +28,7 @@ from brevitas.graph.grid_optimization.solvers.chunked_piso import \
 from brevitas.graph.grid_optimization.solvers.chunked_piso import _chunked_piso_sweep_per_group_diag
 from brevitas.graph.grid_optimization.solvers.chunked_piso import ChunkedPiSOSolverFamily
 from brevitas.graph.grid_optimization.solvers.common import SCALE_SOLVER_REGISTRY
+from brevitas.graph.grid_optimization.solvers.common import ScaleSolution
 from brevitas.graph.grid_optimization.solvers.common import ScaleSolverFamily
 from brevitas.graph.grid_optimization.solvers.piso import _piso_sweep_per_channel_diag
 from brevitas.graph.grid_optimization.solvers.piso import _piso_sweep_per_group_diag
@@ -35,6 +36,7 @@ from brevitas.graph.grid_optimization.solvers.piso import PiSOSolverFamily
 
 __all__ = [
     "SCALE_SOLVER_REGISTRY",
+    "ScaleSolution",
     "ScaleSolverFamily",
     "PiSOSolverFamily",
     "ChunkedPiSOSolverFamily",

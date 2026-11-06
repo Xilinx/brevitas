@@ -40,11 +40,18 @@ import torch.nn as nn
 from brevitas.graph.gpxq import accumulate_covariance
 from brevitas.graph.gpxq import ModuleOptimizer
 from brevitas.graph.grid_optimization.solvers import SCALE_SOLVER_REGISTRY
+from brevitas.graph.grid_optimization.solvers import ScaleSolution
 from brevitas.graph.grid_optimization.utils import _allows_negative_scale
 from brevitas.graph.grid_optimization.utils import _build_grid
+from brevitas.graph.grid_optimization.utils import _get_scale_quant_grid
+from brevitas.graph.grid_optimization.utils import _get_zero_point_quant_grid
 from brevitas.graph.grid_optimization.utils import _grid_threshold
 from brevitas.graph.grid_optimization.utils import _has_base_scale
+from brevitas.graph.grid_optimization.utils import _has_zero_zero_point
 from brevitas.graph.grid_optimization.utils import _set_base_scale
+from brevitas.graph.grid_optimization.utils import _set_base_zero_point
+from brevitas.graph.grid_optimization.utils import _set_nested_scale
+from brevitas.graph.grid_optimization.utils import _set_nested_zero_point
 from brevitas.graph.grid_optimization.utils import compute_group_importance_permutation
 from brevitas.graph.layerwise_hook import layerwise_hook_mode
 from brevitas.graph.utils import is_quant_module
@@ -184,9 +191,13 @@ class GridOptimizer:
 
     def _unit_columns(self) -> int:
         """Columns of the smallest set of groups whose scales can be chosen on their own:
-        a group. A per-channel layer is a single group spanning the row."""
+        a group, or the run of groups sharing a step on a nested grid. A per-channel
+        layer is a single group spanning the row."""
         weight_quant = self.layer.weight_quant
-        return weight_quant.group_size if weight_quant.is_groupwise else self.layer.weight.shape[1]
+        if not weight_quant.is_groupwise:
+            return self.layer.weight.shape[1]
+        nested = _get_scale_quant_grid(self.layer)
+        return weight_quant.group_size * (1 if nested is None else nested.groups_per_step)
 
     def update_grid(self, H: torch.Tensor, G: Optional[torch.Tensor] = None) -> None:
         """Compute and write the optimized scales of the layer.
@@ -234,25 +245,53 @@ class GridOptimizer:
         b = b.reshape(w.shape)
         grid = _build_grid(layer, dtype=w.dtype, device=w.device)
         allow_negative_s = _allows_negative_scale(layer)
+        with_offset = not _has_zero_zero_point(layer)
+        # Only a layer whose scales are quantized on a nested grid passes its grids, and
+        # only a family whose check_layer accepts such a layer receives them.
+        nested = {}
+        scale_quant_grid = _get_scale_quant_grid(layer)
+        if scale_quant_grid is not None:
+            nested = dict(
+                scale_quant_grid=scale_quant_grid,
+                zero_point_quant_grid=_get_zero_point_quant_grid(layer))
         batch_size = n_rows if self.solver_batch_size is None else self.solver_batch_size
-        scales = []
+        solutions = []
         with torch.inference_mode():
             for i in range(0, n_rows, batch_size):
                 rows = slice(i, i + batch_size)
-                scales.append(
-                    self._solver_family.solve(
-                        w[rows],
-                        b[rows],
-                        H,
-                        grid,
-                        allow_negative_s=allow_negative_s,
-                        eps=self.tolerance,
-                        **self.solver_kwargs))
+                solution = self._solver_family.solve(
+                    w[rows],
+                    b[rows],
+                    H,
+                    grid,
+                    allow_negative_s=allow_negative_s,
+                    with_offset=with_offset,
+                    eps=self.tolerance,
+                    **nested,
+                    **self.solver_kwargs)
+                if isinstance(solution, torch.Tensor):
+                    solution = ScaleSolution(scale=solution)
+                solutions.append(solution)
+
         # Concatenated outside inference mode, so that what is written into the layer
         # is an ordinary tensor.
-        scale = torch.cat(scales)
+        def concat(field):
+            parts = [getattr(s, field) for s in solutions]
+            return None if parts[0] is None else torch.cat(parts)
+
         groups = slice(columns.start // group_size, columns.stop // group_size)
-        _set_base_scale(layer, scale * _grid_threshold(grid, weight_quant), groups)
+        threshold = _grid_threshold(grid, weight_quant)
+        scale, scale_step = concat('scale'), concat('scale_step')
+        offset, offset_step = concat('offset'), concat('offset_step')
+        if scale_step is None:
+            _set_base_scale(layer, scale * threshold, groups)
+        else:
+            _set_nested_scale(layer, scale * threshold, scale_step * threshold, groups)
+        if offset is not None:
+            if offset_step is None:
+                _set_base_zero_point(layer, offset, groups)
+            else:
+                _set_nested_zero_point(layer, offset, offset_step, groups)
 
 
 class InterleavedGridOptimizer(GridOptimizer):
@@ -263,11 +302,11 @@ class InterleavedGridOptimizer(GridOptimizer):
     from its extension hooks, with the layer params already allocated.
 
     Per-group layers are group-interleaved unless layer_interleaved is set: the scales
-    of each group are optimized when error correction reaches its first column, on
-    weights that already carry the error diffused by the preceding groups, against
-    the group's own block of the covariance matrices (the PiSO paper, Eq. 15).
-    Otherwise every scale of the layer is optimized before error correction
-    (layer-interleaved).
+    of each unit (a group, or the run of groups sharing a step on a nested grid) are
+    optimized when error correction reaches its first column, on weights that already
+    carry the error diffused by the preceding units, against the unit's own block of
+    the covariance matrices (the PiSO paper, Eq. 15). Otherwise every scale of the
+    layer is optimized before error correction (layer-interleaved).
     """
 
     def __init__(self, layer: nn.Module, layer_interleaved: bool = False, **kwargs) -> None:
@@ -298,25 +337,25 @@ class InterleavedGridOptimizer(GridOptimizer):
         return cls(layer, solver=solver, **kwargs)
 
     def resolve_blocksize(self, blocksize: int) -> int:
-        """Error-correction block size: one group for per-group layers, so that every
-        block covers exactly the group whose scale is optimized at its start;
+        """Error-correction block size: one unit for per-group layers, so that every
+        block covers exactly the groups whose scales are optimized together;
         blocksize otherwise."""
         if self.layer.weight_quant.is_groupwise:
             return self._unit_columns()
         return blocksize
 
     def act_order_permutation(self, covariance_group: torch.Tensor) -> torch.Tensor:
-        """Act-order column ordering that keeps each group contiguous.
+        """Act-order column ordering that keeps each unit contiguous.
 
-        Group-interleaved optimization sets a group's scale when its first column is
-        reached, so it needs the groups processed contiguously."""
+        Group-interleaved optimization sets a unit's scales when its first column is
+        reached, so it needs the units processed contiguously."""
         perm, _ = compute_group_importance_permutation(
             x=covariance_group.diag(), group_size=self._unit_columns())
         return perm
 
     def on_error_correction_starts(
             self, H: torch.Tensor, G: Optional[torch.Tensor], perm: torch.Tensor) -> None:
-        """Optimize the layer scales (layer-interleaved), or keep what the group-wise
+        """Optimize the layer scales (layer-interleaved), or keep what the unit-wise
         updates need (group-interleaved). perm is the column order error correction
         follows. The caller may modify H and G in place once this returns, so what is
         kept is a copy, of the diagonals only when that is all the solver reads."""
@@ -329,7 +368,7 @@ class InterleavedGridOptimizer(GridOptimizer):
         self._state = (H.clone(), None if G is None else G.clone(), perm)
 
     def on_column_reached(self, column_idx: int) -> None:
-        """Optimize the scale of the group whose first column column_idx is, an index
+        """Optimize the scales of the unit whose first column column_idx is, an index
         into the column order error correction follows."""
         if not self.group_interleaved:
             return

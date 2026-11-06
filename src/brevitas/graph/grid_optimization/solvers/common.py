@@ -9,8 +9,8 @@ Holds the two pieces every solver family reuses:
     `_piso_select_optimal_straddle`): the grid-derived transition deltas and the
     closed-form/optimality tail, factored out so they are fixed once rather than
     duplicated across the per-variant sweeps;
-  - the solver registry (`SCALE_SOLVER_REGISTRY`) and the `ScaleSolverFamily`
-    base class every solver implements.
+  - the solver registry (`SCALE_SOLVER_REGISTRY`), the `ScaleSolverFamily`
+    base class every solver implements, and the `ScaleSolution` it may return.
 
 This module depends only on torch, the registry primitive and the quantizer
 accessors in grid_optimization.utils; the concrete solver modules (`piso`,
@@ -21,12 +21,16 @@ Reference: "Optimal Post-Training Quantization Scales and Where to Find Them"
 """
 
 from abc import ABC
+from dataclasses import dataclass
+from typing import Any
 from typing import Optional
 from typing import Tuple
+from typing import Union
 
 import torch
 import torch.nn as nn
 
+from brevitas.graph.grid_optimization.utils import _get_scale_quant
 from brevitas.graph.grid_optimization.utils import _has_zero_zero_point
 from brevitas.graph.grid_optimization.utils import _is_float_weight_quant
 from brevitas.graph.grid_optimization.utils import _is_int_weight_quant
@@ -165,6 +169,32 @@ def _piso_select_optimal_straddle(
 SCALE_SOLVER_REGISTRY = Registry("SCALE_SOLVER_REGISTRY")
 
 
+@dataclass
+class ScaleSolution:
+    """What a solver returns for a batch of output channels, when a scale is not enough.
+
+    A solver may return the scale tensor alone; GridOptimizer then reads it as a
+    ScaleSolution with no offset.
+
+    - scale: the unscaled-grid step, as the plain tensor a solver returns;
+    - offset: the reconstruction of the lowest code q_min, in weight units, i.e. the
+      weight is reconstructed as (q - q_min) * scale + offset, which the quantizer
+      stores as its zero-point. None for a fit without one;
+    - scale_step / offset_step: for a layer whose scales (offsets) are quantized
+      in turn on a nested grid (see utils.NestedGrid), the step each run of
+      groups shares, one per row and run. Every scale (offset) is then that
+      step times an integer, which is how it is written into the quantizer.
+      None otherwise.
+
+    Every tensor has the output channels as its first dimension, so the batches
+    of a layer concatenate along dim 0.
+    """
+    scale: torch.Tensor
+    offset: Optional[torch.Tensor] = None
+    scale_step: Optional[torch.Tensor] = None
+    offset_step: Optional[torch.Tensor] = None
+
+
 class ScaleSolverFamily(ABC):
     """A scale-optimization method.
 
@@ -172,8 +202,8 @@ class ScaleSolverFamily(ABC):
 
         min  r^T H r - 2 r^T b,    r = the weights as the quantizer reconstructs them
 
-    over the scale of the group. GridOptimizer builds H and b from the covariance
-    mode, the objective (b = H w, or G w for the mismatched one) and the
+    over the scale (and offset) of the group. GridOptimizer builds H and b from the
+    covariance mode, the objective (b = H w, or G w for the mismatched one) and the
     schedule, so a solver never sees those. H is the diagonal of the covariance
     matrix over the columns of w or, for a family with supports_dense, one diagonal
     block of it per group, which the groups are solved against independently.
@@ -191,9 +221,14 @@ class ScaleSolverFamily(ABC):
         """Return why the family cannot optimize layer, or None if it can.
 
         Default, the requirements of a symmetric scale-only solver such as PiSO:
-        a signed quantizer, int with a zero zero-point or float.
+        a signed quantizer, int with a zero zero-point or float, whose scale is
+        stored directly rather than quantized in turn on a grid of its own.
         """
         weight_quant = layer.weight_quant
+        if _get_scale_quant(layer) is not None:
+            return (
+                "the layer quantizes its scales on a grid of their own, which this solver "
+                "ignores")
         if not weight_quant.is_signed:
             return "a signed weight quantizer is required"
         if _is_float_weight_quant(weight_quant):
@@ -212,8 +247,11 @@ class ScaleSolverFamily(ABC):
             unscaled_grid: torch.Tensor,
             *,
             allow_negative_s: bool,
+            with_offset: bool,
             eps: float = 1e-6,
-            **solver_kwargs) -> torch.Tensor:
+            scale_quant_grid: Optional[Any] = None,
+            zero_point_quant_grid: Optional[Any] = None,
+            **solver_kwargs) -> Union[torch.Tensor, ScaleSolution]:
         """The scales of every group of a batch of rows.
 
         Args:
@@ -226,11 +264,18 @@ class ScaleSolverFamily(ABC):
             unscaled_grid: the sorted integer (or minifloat) grid the weights are
                 rounded to.
             allow_negative_s: whether a scale may be negative.
+            with_offset: whether the quantizer stores an offset (a zero-point) the
+                solver fits as well, or reconstructs q * scale alone.
             eps: numerical tolerance, for the solvers that take one.
+            scale_quant_grid / zero_point_quant_grid: the nested grids the scales
+                (offsets) are quantized on, for a layer that has them (see
+                utils.NestedGrid); only a family whose check_layer accepts such a
+                layer receives them.
             solver_kwargs: the options of the solver, the same for every layer; a
                 family ignores those it does not take.
 
         Returns:
-            The scales, shape [rows, groups] (any shape with that many elements).
+            The scales, shape [rows, groups] (any shape with that many elements),
+            or a ScaleSolution.
         """
         raise NotImplementedError
