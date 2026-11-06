@@ -167,7 +167,7 @@ def compute_group_importance_permutation(
         group_size: int,
         descending: bool = True,
         variant: str = "sum") -> torch.Tensor:
-    """Group-aware importance ordering over a Hessian diagonal x.
+    """Group-aware importance ordering over a covariance diagonal x.
 
     Splits x into contiguous blocks of group_size and orders whole blocks
     by aggregated score (sum or max of diag(H) per block), keeping each block's

@@ -47,9 +47,9 @@ weight_bit_width:
 
 # Scale selection. The flags below are swept jointly and select one scale
 # method per run:
-#   both grid optimization flags false             -> absmax (data-free heuristic)
-#   grid optimization with hessian mode identity   -> data-free solver, H = I
-#   grid optimization with hessian mode dense      -> PiSO
+#   both grid optimization flags false              -> absmax (data-free heuristic)
+#   grid optimization with covariance mode identity -> data-free solver, H = I
+#   grid optimization with covariance mode dense    -> PiSO
 grid_optimization:
 - false
 - true
@@ -62,7 +62,7 @@ gpxq_use_grid_optimization:
 - true
 # `identity` ignores the calibration statistics and minimizes the weight-only
 # objective ||w - s q(w)||^2, i.e. the paper's `data-free` baseline.
-grid_opt_hessian_mode:
+grid_opt_covariance_mode:
 - dense
 - identity
 # PiSO uses quantized activations for reconstruction. Qronos and standalone RTN
@@ -88,7 +88,7 @@ gptq:
 qronos:
 - true
 - false
-# Quantize columns in decreasing order of Hessian importance.
+# Quantize columns in decreasing order of covariance importance.
 gpxq_act_order:
 - true
 

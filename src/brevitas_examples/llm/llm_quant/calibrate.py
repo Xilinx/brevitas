@@ -29,11 +29,11 @@ def apply_calibration(model, dataloader):
 
 
 def build_grid_optimization_kwargs(args: Namespace) -> dict:
-    """Arguments for the grid optimization GPxQ classes, which build their own grid optimizer.
+    """Arguments of InterleavedGridOptimizer.for_gpxq, which GPTQ / Qronos call for each layer.
 
     No objective is passed: it is implied by the error-correction algorithm (GPTQ:
-    self-activation, Qronos: cross-activation), whose grid optimization classes decide
-    whether the optimizer receives G.
+    self-activation, Qronos: cross-activation), which decides whether the grid
+    optimizer receives G.
     """
     if args.weight_quant_granularity not in ("per_group", "per_channel"):
         raise NotImplementedError(
@@ -42,16 +42,15 @@ def build_grid_optimization_kwargs(args: Namespace) -> dict:
     # Use the GPU for the solver when it is available.
     solver_device = 'cuda' if torch.cuda.is_available() else 'cpu'
     return {
-        'grid_optimizer_kwargs': {
-            'solver_dtype': S_DTYPE,
-            'solver_device': solver_device,
-            'tolerance': S_TOLERANCE,
-            'solver_batch_size': args.grid_opt_solver_batch_size,
-            'per_group_greedy': args.grid_opt_group_sequential,
-            'per_group_greedy_reorder': args.grid_opt_group_sequential_act_order,
-            'hessian_mode': args.grid_opt_hessian_mode,
-            'solver': args.grid_opt_solver,},
-        'layer_interleaved': args.grid_opt_group_gpxq_layer_interleaved,}
+        'layer_interleaved': args.grid_opt_group_gpxq_layer_interleaved,
+        'solver_dtype': S_DTYPE,
+        'solver_device': solver_device,
+        'tolerance': S_TOLERANCE,
+        'solver_batch_size': args.grid_opt_solver_batch_size,
+        'per_group_greedy': args.grid_opt_group_sequential,
+        'per_group_greedy_reorder': args.grid_opt_group_sequential_act_order,
+        'covariance_mode': args.grid_opt_covariance_mode,
+        'solver': args.grid_opt_solver,}
 
 
 def _pass_managers(model: nn.Module, objective: str,
@@ -106,7 +105,7 @@ def apply_grid_optimization(
         'cross_act_objective': objective == 'cross-activation',
         'per_group_greedy': args.grid_opt_group_sequential,
         'per_group_greedy_reorder': args.grid_opt_group_sequential_act_order,
-        'hessian_mode': args.grid_opt_hessian_mode,
+        'covariance_mode': args.grid_opt_covariance_mode,
         'solver': args.grid_opt_solver,}
 
     if args.gpxq_block_name is not None:

@@ -88,11 +88,11 @@ class GridOptimizationArgumentParser(AlgorithmArgumentParser):
         GridOptimizationArgumentParser._add(
             parser,
             prefix,
-            'hessian-mode',
+            'covariance-mode',
             type=str,
             default='dense',
             choices=['dense', 'diagonal', 'identity'],
-            help='How the solver uses the Hessian H and matrix G. '
+            help='How the solver uses the covariance matrices H and G. '
             'dense: the full matrices accumulated from the calibration data; not implemented, so '
             'it currently raises NotImplementedError. '
             'diagonal: only diag(H) (and diag(G)), discarding cross-weight interactions. '
@@ -124,7 +124,7 @@ class GridOptimizationArgumentParser(AlgorithmArgumentParser):
         gpxq_use_grid_optimization = args.gpxq_use_grid_optimization
         objective = a('objective')
         layer_interleaved = a('group-gpxq-layer-interleaved')
-        hessian_mode = a('hessian-mode')
+        covariance_mode = a('covariance-mode')
 
         # Arguments built without argparse (e.g., benchmark sweeps) skip `choices`.
         assert objective in GRID_OPT_OBJECTIVES, \
@@ -133,6 +133,8 @@ class GridOptimizationArgumentParser(AlgorithmArgumentParser):
         if gpxq_use_grid_optimization:
             assert args.gptq or args.qronos, \
                 "--gpxq-use-grid-optimization requires --gptq or --qronos."
+            assert args.gpxq_max_accumulator_bit_width is None, \
+                "--gpxq-use-grid-optimization is not supported with --gpxq-max-accumulator-bit-width."
             if layer_interleaved:
                 assert args.weight_quant_granularity == 'per_group', \
                     f"--{prefix}-group-gpxq-layer-interleaved only applies to per-group weight quantization."
@@ -150,12 +152,12 @@ class GridOptimizationArgumentParser(AlgorithmArgumentParser):
                 f"--{prefix}-group-gpxq-layer-interleaved requires --gpxq-use-grid-optimization."
 
         if grid_optimization or gpxq_use_grid_optimization:
-            if hessian_mode == 'diagonal':
+            if covariance_mode == 'diagonal':
                 warn(
-                    f"--{prefix}-hessian-mode diagonal: only the diagonal of H (and G) is used for "
-                    "grid optimization; off-diagonal cross-weight interactions are discarded.")
-            elif hessian_mode == 'identity':
+                    f"--{prefix}-covariance-mode diagonal: only the diagonal of H (and G) is used "
+                    "for grid optimization; off-diagonal cross-weight interactions are discarded.")
+            elif covariance_mode == 'identity':
                 warn(
-                    f"--{prefix}-hessian-mode identity: grid optimization is data-free (H=I, "
+                    f"--{prefix}-covariance-mode identity: grid optimization is data-free (H=I, "
                     "G=None, pure weight MSE). Note the calibration forward passes still run with "
                     "the current implementation, but the computed H and G matrices are ignored.")

@@ -14,7 +14,7 @@ from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gptq import gptq_mode
-from brevitas.graph.gpxq import accumulate_hessian
+from brevitas.graph.gpxq import accumulate_covariance
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.magr import magr_mode
@@ -607,7 +607,7 @@ class TestAXEThresholds:
         assert torch.allclose(thresholds, expected, atol=1e-5, rtol=1e-4)
 
 
-def test_accumulate_hessian_is_running_mean():
+def test_accumulate_covariance_is_running_mean():
     # Batches of different sizes, in the [groups, in_features, batch] layout.
     g = torch.Generator().manual_seed(0)
     D = 6
@@ -619,9 +619,9 @@ def test_accumulate_hessian_is_running_mean():
     buffer = torch.zeros_like(H)
     n_H = n_G = n_buffered = 0
     for x, y in zip(x_batches, y_batches):
-        n_H = accumulate_hessian(H, n_H, x)
-        n_G = accumulate_hessian(G, n_G, x, y)
-        n_buffered = accumulate_hessian(H_buffered, n_buffered, x, buffer=buffer)
+        n_H = accumulate_covariance(H, n_H, x)
+        n_G = accumulate_covariance(G, n_G, x, y)
+        n_buffered = accumulate_covariance(H_buffered, n_buffered, x, buffer=buffer)
 
     X = torch.cat(x_batches, dim=-1)
     Y = torch.cat(y_batches, dim=-1)

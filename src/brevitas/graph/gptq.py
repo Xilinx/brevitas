@@ -3,6 +3,7 @@
 
 from copy import deepcopy
 import math
+from typing import Callable
 from typing import List
 from typing import Optional
 import warnings
@@ -14,7 +15,7 @@ try:
 except:
     LinAlgError = RuntimeError
 
-from brevitas.graph.gpxq import accumulate_hessian
+from brevitas.graph.gpxq import accumulate_covariance
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
@@ -50,12 +51,20 @@ class GPTQ(GPxQ):
             create_weight_orig,
             num_blocks,
             device='cpu',
-            dtype=torch.float32) -> None:
+            dtype=torch.float32,
+            grid_optimizer_factory: Optional[Callable] = None) -> None:
         super().__init__(
-            layer, name, act_order, len_parallel_layers, create_weight_orig, device, dtype)
+            layer,
+            name,
+            act_order,
+            len_parallel_layers,
+            create_weight_orig,
+            device,
+            dtype,
+            grid_optimizer_factory=grid_optimizer_factory)
 
-        # Define how many columns to update in each mini-block. Mixins may override
-        # _resolve_blocksize (e.g. grid optimization aligns blocks with quantization groups).
+        # Define how many columns to update in each mini-block. Grid optimization aligns
+        # blocks with quantization groups (see _resolve_blocksize).
         self.blocksize = self._resolve_blocksize(num_blocks)
 
         # Initialize Hessian matrix and counter. We need it in float32 to compute the inverse
@@ -77,7 +86,7 @@ class GPTQ(GPxQ):
         inp_processed = self.process_input(input)  # [groups, in_features, batch_size]
         # Optimizing CPU to GPU transfer using in-place copy to pinned memory
         buffer = self.B if self.use_intermediate_buffer else None
-        self.nsamples = accumulate_hessian(self.H, self.nsamples, inp_processed, buffer=buffer)
+        self.nsamples = accumulate_covariance(self.H, self.nsamples, inp_processed, buffer=buffer)
 
     def update_batch(self, module, input, current_layer):
         if self.disable_pre_forward_hook:
@@ -127,11 +136,10 @@ class GPTQ(GPxQ):
             # If the diagonal of activations is zero, we set the weight to zero
             weight[i, :, dead] = 0
             if self.act_order:
-                # Re-order Hessian so that weights associated to higher magnitude
-                # activations are quantized first. Mixins may override
-                # _act_order_permutation (e.g. group-aware ordering).
+                # Order the columns so that weights associated to higher magnitude
+                # activations are quantized first. See _act_order_permutation for the
+                # group-aware ordering used by grid optimization.
                 perm = self._act_order_permutation(self.H[i, :, :])
-                self.H[i, :, :] = self.H[i, perm, :][:, perm]
             else:
                 # No permutation, permutation tensor is an ordered index
                 perm = torch.tensor(range(self.H.shape[-1]), device=dev)
@@ -140,14 +148,20 @@ class GPTQ(GPxQ):
         # Try/Except in case the inverse Hessian cannot be computed
         try:
             for i in range(self.groups):
-                damp = percdamp * torch.mean(torch.diag(self.H[i, :, :]))
+                perm = permutation_list[i]
+                # The diagonal is averaged in the error-correction column order: the mean
+                # does not depend on the order, up to rounding.
+                damp = percdamp * torch.mean(torch.diag(self.H[i, :, :])[perm])
                 diag = torch.arange(self.columns, device=self.device)
                 self.H[i, diag, diag] += damp
 
-                # Hook before error correction (grid optimization sets the layer scale here);
-                # no-op otherwise. Assumes a single group when it acts.
-                self._on_error_correction_starts(perm)
+                # Hook before error correction, with the damped H in the layer's natural
+                # column order (grid optimization sets the layer scale here).
+                self._on_error_correction_starts(self.H[i, :, :], None, perm)
 
+                if self.act_order:
+                    # Re-order Hessian to the error-correction column order
+                    self.H[i, :, :] = self.H[i, perm, :][:, perm]
                 self.H[i, :, :] = torch.linalg.cholesky(self.H[i, :, :])
                 self.H[i, :, :] = torch.cholesky_inverse(self.H[i, :, :])
                 # stabilizing the Cholesky decomposition with a fairly large constant, c

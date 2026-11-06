@@ -194,13 +194,13 @@ def _chunked_piso_sweep_per_channel_diag(
         G_diag: Optional[torch.Tensor] = None,
         eps: float = 1.e-6,
         allow_negative_s: bool = False) -> torch.Tensor:
-    """Chunked PiSO sweep for per-channel quantization with a diagonal Hessian.
+    """Chunked PiSO sweep for per-channel quantization with a diagonal covariance matrix.
 
     Exact reformulation of _piso_sweep_per_channel_diag (positive scales only).
     With H diagonal there is no Hq cross-term: (Hq)_i at a transition reduces to
     H_ii times the entry's grid value *before* the update (k_curr), a grid-derived
     constant. So qHq_inc[c] = H_ii * (2 * k_curr_c * delta_c + delta_c^2) is a pure
-    per-position quantity and needs no V-cumulative or sub-Hessian.
+    per-position quantity and needs no V-cumulative or sub-covariance block.
 
     Args:
         w_b: weights, shape [batch, D].
@@ -260,7 +260,7 @@ def _chunked_piso_sweep_per_group_diag(
         G_diag: Optional[torch.Tensor] = None,
         eps: float = 1.e-6,
         allow_negative_s: bool = False) -> torch.Tensor:
-    """Chunked PiSO sweep for group-wise quantization with a diagonal Hessian.
+    """Chunked PiSO sweep for group-wise quantization with a diagonal covariance matrix.
 
     Exact reformulation of _piso_sweep_per_group_diag (positive scales only).
     Combines the independent-groups flattening with the diagonal fast path: no Hq

@@ -477,7 +477,7 @@ def test_positive_only_rejects_negative_scale_on_asymmetric_grid(grid_name, D, u
     assert allows_negative(grid)  # sanity: these grids are asymmetric
     B = 16
     # Sweep several seeds: the negative-scale-on-last-interval path only fires
-    # for some weight/Hessian draws, so a single fixed seed is a weak guard.
+    # for some weight/covariance draws, so a single fixed seed is a weak guard.
     for seed in range(16):
         w = random_weights(B, D, seed=seed)
         H = spd_matrix(D, seed=seed + 100)

@@ -133,26 +133,26 @@ class LLMRunCases:
             # ---- Standalone grid optimization (--grid-optimization) ----
             # Per-channel, one entry per objective.
             {
-                "grid_optimization": True, "grid_opt_hessian_mode": "diagonal"},
+                "grid_optimization": True, "grid_opt_covariance_mode": "diagonal"},
             {
                 "grid_optimization": True, "grid_opt_objective": "self-activation",
-                "grid_opt_hessian_mode": "diagonal"},
+                "grid_opt_covariance_mode": "diagonal"},
             {
                 "grid_optimization": True, "grid_opt_objective": "cross-activation",
-                "grid_opt_hessian_mode": "diagonal"},
-            # Debug Hessians: H=diag(H) and H=I.
+                "grid_opt_covariance_mode": "diagonal"},
+            # Debug covariance modes: H=diag(H) and H=I.
             {
-                "grid_optimization": True, "grid_opt_hessian_mode": "diagonal"},
+                "grid_optimization": True, "grid_opt_covariance_mode": "diagonal"},
             {
-                "grid_optimization": True, "grid_opt_hessian_mode": "identity"},
+                "grid_optimization": True, "grid_opt_covariance_mode": "identity"},
             # Float weights and float (unquantized) activations.
             {
                 "grid_optimization": True, "grid_opt_use_quant_activations": False,
-                "grid_opt_hessian_mode": "diagonal"},
+                "grid_opt_covariance_mode": "diagonal"},
             # Batched over channels rather than all at once.
             {
                 "grid_optimization": True, "grid_opt_solver_batch_size": 4,
-                "grid_opt_hessian_mode": "diagonal"},
+                "grid_opt_covariance_mode": "diagonal"},
             # Per-group: independent groups vs sequential heuristic (act-order on/off).
             # Grid optimization requires group_size to divide every layer's channel size (no
             # padding), so use the Llama tiny model (dims 16 and 64) with size 8.
@@ -161,14 +161,14 @@ class LLMRunCases:
                 "grid_optimization": True,
                 "weight_quant_granularity": "per_group",
                 "weight_group_size": 8,
-                "grid_opt_hessian_mode": "diagonal"},
+                "grid_opt_covariance_mode": "diagonal"},
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
                 "grid_optimization": True,
                 "weight_quant_granularity": "per_group",
                 "weight_group_size": 8,
                 "grid_opt_group_sequential": True,
-                "grid_opt_hessian_mode": "diagonal"},
+                "grid_opt_covariance_mode": "diagonal"},
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
                 "grid_optimization": True,
@@ -176,20 +176,20 @@ class LLMRunCases:
                 "weight_group_size": 8,
                 "grid_opt_group_sequential": True,
                 "grid_opt_group_sequential_act_order": False,
-                "grid_opt_hessian_mode": "diagonal"},
+                "grid_opt_covariance_mode": "diagonal"},
             # Per-group with the diagonal-H fast path.
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
                 "grid_optimization": True,
                 "weight_quant_granularity": "per_group",
                 "weight_group_size": 8,
-                "grid_opt_hessian_mode": "diagonal"},
+                "grid_opt_covariance_mode": "diagonal"},
             # ---- Interleaved with GPTQ (self-activation objective) ----
             # Per-channel is always layer-interleaved.
             {
                 "gpxq_use_grid_optimization": True,
                 "gptq": True,
-                "grid_opt_hessian_mode": "diagonal"},
+                "grid_opt_covariance_mode": "diagonal"},
             # Per-group, group-interleaved (default).
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
@@ -197,7 +197,7 @@ class LLMRunCases:
                 "gptq": True,
                 "weight_quant_granularity": "per_group",
                 "weight_group_size": 8,
-                "grid_opt_hessian_mode": "diagonal"},
+                "grid_opt_covariance_mode": "diagonal"},
             # Per-group, layer-interleaved.
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
@@ -206,7 +206,7 @@ class LLMRunCases:
                 "weight_quant_granularity": "per_group",
                 "weight_group_size": 8,
                 "grid_opt_group_gpxq_layer_interleaved": True,
-                "grid_opt_hessian_mode": "diagonal"},
+                "grid_opt_covariance_mode": "diagonal"},
             # Per-group, group-interleaved with act-order (group-aware ordering).
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
@@ -215,12 +215,12 @@ class LLMRunCases:
                 "gpxq_act_order": True,
                 "weight_quant_granularity": "per_group",
                 "weight_group_size": 8,
-                "grid_opt_hessian_mode": "diagonal"},
+                "grid_opt_covariance_mode": "diagonal"},
             # ---- Interleaved with Qronos (cross-activation objective) ----
             {
                 "gpxq_use_grid_optimization": True,
                 "qronos": True,
-                "grid_opt_hessian_mode": "diagonal"},
+                "grid_opt_covariance_mode": "diagonal"},
             # Per-group, group-interleaved (default).
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
@@ -228,7 +228,7 @@ class LLMRunCases:
                 "qronos": True,
                 "weight_quant_granularity": "per_group",
                 "weight_group_size": 8,
-                "grid_opt_hessian_mode": "diagonal"},
+                "grid_opt_covariance_mode": "diagonal"},
             # Per-group, layer-interleaved.
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
@@ -237,20 +237,20 @@ class LLMRunCases:
                 "weight_quant_granularity": "per_group",
                 "weight_group_size": 8,
                 "grid_opt_group_gpxq_layer_interleaved": True,
-                "grid_opt_hessian_mode": "diagonal"},
+                "grid_opt_covariance_mode": "diagonal"},
         ],
         ids=[
             "standalone,obj=unquantized",
             "standalone,obj=self-activation",
             "standalone,obj=cross-activation",
-            "standalone,hessian_mode=diagonal",
-            "standalone,hessian_mode=identity",
+            "standalone,covariance_mode=diagonal",
+            "standalone,covariance_mode=identity",
             "standalone,float_activations",
             "standalone,solver_batch_size=4",
             "standalone,per_group",
             "standalone,per_group,group_sequential",
             "standalone,per_group,group_sequential,no_act_order",
-            "standalone,per_group,hessian_mode=diagonal",
+            "standalone,per_group,covariance_mode=diagonal",
             "gpxq,gptq,per_channel",
             "gpxq,gptq,per_group,group_interleaved",
             "gpxq,gptq,per_group,layer_interleaved",

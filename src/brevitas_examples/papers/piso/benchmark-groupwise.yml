@@ -54,9 +54,9 @@ weight_bit_width:
 
 # Scale selection. The flags below are swept jointly and select one scale
 # method per run:
-#   both grid optimization flags false             -> absmax (data-free heuristic)
-#   grid optimization with hessian mode identity   -> data-free solver, H = I
-#   grid optimization with hessian mode dense      -> PiSO
+#   both grid optimization flags false              -> absmax (data-free heuristic)
+#   grid optimization with covariance mode identity -> data-free solver, H = I
+#   grid optimization with covariance mode dense    -> PiSO
 grid_optimization:
 - false
 - true
@@ -80,7 +80,7 @@ grid_opt_group_sequential:
 # objective ||w - s q(w)||^2, i.e. the paper's `data-free` baseline. It is reported
 # decoupled and group-interleaved: the latter differs because each group is then
 # fitted on weights that already carry the error diffused by the preceding groups.
-grid_opt_hessian_mode:
+grid_opt_covariance_mode:
 - dense
 - identity
 # PiSO uses quantized activations for reconstruction. Qronos and standalone RTN
@@ -106,7 +106,7 @@ gptq:
 qronos:
 - true
 - false
-# Order columns by Hessian importance. The group-interleaved runs additionally
+# Order columns by covariance importance. The group-interleaved runs additionally
 # require groups to be processed contiguously, which the group-aware ordering
 # handles internally.
 gpxq_act_order:
