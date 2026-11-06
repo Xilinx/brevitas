@@ -30,6 +30,8 @@ from typing import Tuple
 import torch
 
 from brevitas.graph.piso.solvers.common import _piso_grid_deltas
+from brevitas.graph.piso.solvers.common import _piso_sorted_transitions
+from brevitas.graph.piso.solvers.common import _piso_transition_lookup
 from brevitas.graph.piso.solvers.common import SCALE_SOLVER_REGISTRY
 from brevitas.graph.piso.solvers.common import ScaleSolverFamily
 
@@ -46,7 +48,9 @@ def _reject_negative_scales(allow_negative_s: bool) -> None:
 
 
 def _chunked_transition_setup(
-    w_flat: torch.Tensor, unscaled_grid: torch.Tensor
+    w_flat: torch.Tensor,
+    unscaled_grid: torch.Tensor,
+    zero_point: Optional[torch.Tensor] = None
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, int]:
     """Shared per-transition setup for every positive-only chunked sweep.
 
@@ -54,6 +58,10 @@ def _chunked_transition_setup(
     batch*n_groups (per-group) -- returns the per-transition data reversed so the
     sweep from large positive s toward zero is a contiguous slice, plus j_min (the
     number of leading, all-negative transitions to skip).
+
+    A zero point shifts the breakpoints; a translated grid (integer zero point)
+    makes the grid local, one row per flat row, so the per-transition lookups go
+    through _piso_transition_lookup instead of a plain index.
 
     Returns (i_rev, delta_rev, sts_rev, k_curr_val_rev, j_min):
       i_rev          (N, T): changed weight index per transition (into 0..D-1).
@@ -68,22 +76,27 @@ def _chunked_transition_setup(
 
     N, D = w_flat.shape
 
-    transition_scales = 2 * w_flat.unsqueeze(1) / (unscaled_grid[:-1] +
-                                                   unscaled_grid[1:]).unsqueeze(1).unsqueeze(0)
-    sorted_transition_scales, scales_sorting_indices = torch.sort(
-        transition_scales.reshape(N, -1), dim=1)
-    del transition_scales
+    # Shared with the reference sweeps; the unsorted transitions are freed on
+    # return.
+    sorted_transition_scales, scales_sorting_indices, _ = _piso_sorted_transitions(
+        w_flat, unscaled_grid, zero_point)
 
     grid_pair = scales_sorting_indices // D  # (N, T): which grid transition k
     all_i = scales_sorting_indices % D  # (N, T): which weight index
-    all_delta_base = delta_next_curr[grid_pair]  # (N, T)
-    all_k_curr = k_curr[grid_pair]  # (N, T): grid value before the transition
+    all_delta_base = _piso_transition_lookup(delta_next_curr, grid_pair)  # (N, T)
+    # grid value before the transition
+    all_k_curr = _piso_transition_lookup(k_curr, grid_pair)  # (N, T)
     del scales_sorting_indices, grid_pair
 
     # Skip all negative-scale transitions (they cannot yield s > 0). In the sorted
-    # order the negatives come first, so j_min is one before the first non-negative.
+    # order the negatives come first, so j_min is one before the first
+    # non-negative: that extra position is the interval reaching down to the
+    # smallest positive transition. Clamped at 0 because a row may have no
+    # negative transition at all -- the usual case for an unsigned grid, where
+    # every midpoint is positive and a calibrated zero point makes w + z
+    # non-negative. Without the clamp n_iterations would overrun T by one.
     neg_counts = (sorted_transition_scales < 0).sum(dim=1)  # (N,)
-    j_min = (neg_counts.min() - 1).item()
+    j_min = max(int(neg_counts.min().item()) - 1, 0)
 
     # Signed deltas: positive transitions keep the sign, negative ones flip it.
     all_delta = torch.where(sorted_transition_scales >= 0, all_delta_base, -all_delta_base)
@@ -193,7 +206,8 @@ def _chunked_piso_sweep_per_channel_diag(
         unscaled_grid: torch.Tensor,
         G_diag: Optional[torch.Tensor] = None,
         eps: float = 1.e-6,
-        allow_negative_s: bool = False) -> torch.Tensor:
+        allow_negative_s: bool = False,
+        zero_point: Optional[torch.Tensor] = None) -> torch.Tensor:
     """Chunked PiSO sweep for per-channel quantization with a diagonal Hessian.
 
     Exact reformulation of _piso_sweep_per_channel_diag (positive scales only).
@@ -217,11 +231,18 @@ def _chunked_piso_sweep_per_channel_diag(
     _reject_negative_scales(allow_negative_s)
 
     batch_size, D = w_b.shape
-    i_rev, delta_rev, sts_rev, k_curr_rev, j_min = _chunked_transition_setup(w_b, unscaled_grid)
+    i_rev, delta_rev, sts_rev, k_curr_rev, j_min = _chunked_transition_setup(
+        w_b, unscaled_grid, zero_point)
     T = i_rev.shape[1]
 
     # Hw = (G or H) elementwise * w -- fixed throughout the sweep.
     Hw = (G_diag if G_diag is not None else H_diag) * w_b  # (B, D)
+    # A zero point adds z q^T H 1 to the linear coefficient, which is linear in q
+    # just like q^T G w; folding z (H 1) into the precomputed vector therefore
+    # carries it through the chunk prefix sums with no extra accumulator. See the
+    # note in .piso for the derivation.
+    if zero_point is not None:
+        Hw = Hw + zero_point * H_diag
 
     wHq = torch.zeros((batch_size,), dtype=w_b.dtype, device=w_b.device)
     qHq = torch.zeros((batch_size,), dtype=w_b.dtype, device=w_b.device)
@@ -259,7 +280,8 @@ def _chunked_piso_sweep_per_group_diag(
         unscaled_grid: torch.Tensor,
         G_diag: Optional[torch.Tensor] = None,
         eps: float = 1.e-6,
-        allow_negative_s: bool = False) -> torch.Tensor:
+        allow_negative_s: bool = False,
+        zero_point: Optional[torch.Tensor] = None) -> torch.Tensor:
     """Chunked PiSO sweep for group-wise quantization with a diagonal Hessian.
 
     Exact reformulation of _piso_sweep_per_group_diag (positive scales only).
@@ -282,6 +304,10 @@ def _chunked_piso_sweep_per_group_diag(
     batch_size, n_groups, group_size = w_b.shape
     N = batch_size * n_groups
     w_flat = w_b.reshape(N, group_size)
+    # The group is solved as a flat row, so a per-group zero point and a
+    # translated (per-group) grid flatten the same way as the weights.
+    zero_point_flat = None if zero_point is None else zero_point.reshape(N, 1)
+    grid_flat = unscaled_grid if unscaled_grid.dim() == 1 else unscaled_grid.reshape(N, -1)
 
     # Per-group slices of the diagonals, expanded over the batch: (N, gs).
     H_diag_g = H_diag.reshape(n_groups, group_size).unsqueeze(0).expand(batch_size, -1,
@@ -293,8 +319,12 @@ def _chunked_piso_sweep_per_group_diag(
         Hw = G_diag_g * w_flat
     else:
         Hw = H_diag_g * w_flat
+    if zero_point_flat is not None:
+        # z (H 1) folded into the linear vector, as in the per-channel sweep above.
+        Hw = Hw + zero_point_flat * H_diag_g
 
-    i_rev, delta_rev, sts_rev, k_curr_rev, j_min = _chunked_transition_setup(w_flat, unscaled_grid)
+    i_rev, delta_rev, sts_rev, k_curr_rev, j_min = _chunked_transition_setup(
+        w_flat, grid_flat, zero_point_flat)
     T = i_rev.shape[1]
 
     wHq = torch.zeros((N,), dtype=w_b.dtype, device=w_b.device)
