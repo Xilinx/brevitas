@@ -155,7 +155,7 @@ def _piso_select_optimal_straddle(
 #
 # A ScaleSolverFamily subclass groups the sweeps for one scale-optimization
 # algorithm and exposes the two dispatches the updaters need: one per layer, one
-# per group. ScaleOptimizer resolves a family by name from SCALE_SOLVER_REGISTRY,
+# per group. GridOptimizer resolves a family by name from SCALE_SOLVER_REGISTRY,
 # so selecting or adding a solver is a registry lookup, not an updater change.
 #
 # To add one: implement the sweeps in a new module, bind them to the slots of a

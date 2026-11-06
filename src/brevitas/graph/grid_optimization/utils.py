@@ -1,7 +1,7 @@
 # Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Grid builders, scale accessors and ordering helpers for PiSO.
+"""Grid builders, scale accessors and ordering helpers for grid optimization.
 
 Weight-independent utilities: the integer/minifloat quantization grid builders,
 the grid/threshold derivation from a layer's quantizer (via its proxy
@@ -81,13 +81,13 @@ def _is_int_weight_quant(weight_quant: nn.Module) -> bool:
 
 
 def _has_base_scale(layer: nn.Module) -> bool:
-    """Whether layer stores a writable scale parameter PiSO can optimize.
+    """Whether layer stores a writable scale parameter grid optimization can optimize.
 
     True only for an enabled weight quantizer whose scaling_impl is a
     ParameterFromStatsFromParameterScaling, i.e. the one scaling implementation
     that keeps the scale as a plain stored Parameter. This is the single place
     that reaches through the proxy into tensor_quant; the accessors below and
-    ScaleOptimizer.is_layer_valid all go through it.
+    GridOptimizer.is_layer_valid all go through it.
     """
     weight_quant = getattr(layer, 'weight_quant', None)
     if weight_quant is None or not weight_quant.is_quant_enabled:
@@ -122,7 +122,7 @@ def _set_base_scale(layer: nn.Module, value: torch.Tensor, index: Any = slice(No
     """Write value into layer's stored scale Parameter at index.
 
     The write is in place so the registered Parameter keeps its identity, and
-    index lets a caller update a single group's column (PiSO's group-wise
+    index lets a caller update a single group's column (the group-wise
     updater) instead of the whole tensor.
     """
     if not _has_base_scale(layer):
@@ -167,11 +167,11 @@ def compute_group_importance_permutation(
         group_size: int,
         descending: bool = True,
         variant: str = "sum") -> torch.Tensor:
-    """Group-aware importance ordering over a Hessian diagonal x.
+    """Group-aware importance ordering over a covariance diagonal x.
 
     Splits x into contiguous blocks of group_size and orders whole blocks
     by aggregated score (sum or max of diag(H) per block), keeping each block's
-    weights contiguous. Used when scale optimization is interleaved group-wise
+    weights contiguous. Used when grid optimization is interleaved group-wise
     with error correction, where all weights of a group must be processed before
     the next group. Returns (perm, block_order).
     """

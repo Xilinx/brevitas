@@ -9,9 +9,9 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 
-from brevitas.graph.gptq import GPTQ
-from brevitas.graph.gpxq import GPxQ
+from brevitas.graph.gpxq import accumulate_covariance
 from brevitas.graph.gpxq import gpxq_mode
+from brevitas.graph.gpxq import ModuleOptimizer
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.utils import is_conv_transposed
 from brevitas.graph.utils import power_iteration
@@ -56,7 +56,7 @@ def _project_onto_l1_ball(x, eps=1.0):
     return x
 
 
-class MagR(GPTQ):
+class MagR(ModuleOptimizer):
     """
     Implementation of MagR algorithm for PTQ pre-processing.
     """
@@ -72,10 +72,7 @@ class MagR(GPTQ):
             alpha: float = 0.01,
             device='cpu',
             dtype=torch.float32) -> None:
-        # Note: using GPxQ initialization to avoid blocksize initialization and the
-        # torch versioning assertion
-        GPxQ.__init__(
-            self, layer, name, None, len_parallel_layers, create_weight_orig, device, dtype)
+        super().__init__(layer, name, len_parallel_layers, create_weight_orig, device, dtype)
         self.gradient_steps = gradient_steps
         self.power_steps = power_steps
         self.alpha = alpha
@@ -94,9 +91,12 @@ class MagR(GPTQ):
     def update_batch(self, module, input, current_layer):
         if self.disable_pre_forward_hook:
             return input
-        # Workaround to avoid duplication with GPTQ and MagR, will have the same method
-        # across GPxQ classes
-        self.compute_iterative_covariance(module, input, current_layer)
+        # Update reference to current layer
+        current_layer.layer_names.add(self.name)
+        inp_processed = self.process_input(input)  # [groups, in_features, batch_size]
+        buffer = self.B if self.use_intermediate_buffer else None
+        self.nsamples = accumulate_covariance(self.H, self.nsamples, inp_processed, buffer=buffer)
+        # Unlike GPTQ, the forward is not stopped: MagR calibrates every layer in one pass.
 
     def single_layer_update(self):
         if hasattr(self.layer, 'allocate_params'):

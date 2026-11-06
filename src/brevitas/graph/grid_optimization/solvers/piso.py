@@ -3,7 +3,7 @@
 
 """PiSO interval-sweep solvers (Algorithm 1).
 
-Given the Hessians H (and optional G) and the quantization grid, each solver
+Given the covariance matrices H (and optional G) and the quantization grid, each solver
 computes the reconstruction-optimal weight quantization scale by sweeping the
 intervals on which the round-to-nearest assignment q(w; s) is constant and
 evaluating the closed-form per-interval minimizer.
@@ -31,11 +31,11 @@ from typing import Optional
 
 import torch
 
-from brevitas.graph.piso.solvers.common import _piso_grid_deltas
-from brevitas.graph.piso.solvers.common import _piso_select_optimal
-from brevitas.graph.piso.solvers.common import _piso_select_optimal_straddle
-from brevitas.graph.piso.solvers.common import SCALE_SOLVER_REGISTRY
-from brevitas.graph.piso.solvers.common import ScaleSolverFamily
+from brevitas.graph.grid_optimization.solvers.common import _piso_grid_deltas
+from brevitas.graph.grid_optimization.solvers.common import _piso_select_optimal
+from brevitas.graph.grid_optimization.solvers.common import _piso_select_optimal_straddle
+from brevitas.graph.grid_optimization.solvers.common import SCALE_SOLVER_REGISTRY
+from brevitas.graph.grid_optimization.solvers.common import ScaleSolverFamily
 
 
 def _piso_sweep_per_channel_diag(
@@ -45,7 +45,7 @@ def _piso_sweep_per_channel_diag(
         G_diag: Optional[torch.Tensor] = None,
         eps: float = 1.e-6,
         allow_negative_s: bool = False) -> torch.Tensor:
-    """PiSO sweep for per-channel quantization with a diagonal Hessian (paper section 3.1).
+    """PiSO sweep for per-channel quantization with a diagonal covariance matrix (paper section 3.1).
 
     Fast path when H is forced diagonal (debug) or the data-free regime is used
     (H = I). No cross-weight interactions, so the auxiliary vector h = H q is not
@@ -161,7 +161,7 @@ def _piso_sweep_per_group_diag(
         G_diag: Optional[torch.Tensor] = None,
         eps: float = 1.e-6,
         allow_negative_s: bool = False) -> torch.Tensor:
-    """PiSO sweep for group-wise quantization, independent groups with a diagonal Hessian (paper section 3.1, section 3.2).
+    """PiSO sweep for group-wise quantization, independent groups with a diagonal covariance matrix (paper section 3.1, section 3.2).
 
     Combines the independent-groups approximation (section 3.2) with the diagonal-H fast
     path (section 3.1): groups are treated independently and H is diagonal within each
