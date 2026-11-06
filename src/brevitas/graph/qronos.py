@@ -28,6 +28,10 @@ class Qronos(GPFQ):
     Theoretical Analysis of OPTQ and Qronos` (https://arxiv.org/abs/2508.04853).
     """
 
+    # Unlike GPFQ, Qronos accumulates G = X \hat{X}^T, which already matches the
+    # convention expected by gpxq_compute_error_stats.
+    stats_g_is_transposed = False
+
     def __init__(
             self,
             layer,
@@ -74,6 +78,15 @@ class Qronos(GPFQ):
                 self.G += self.B
             else:
                 self.G += inp_processed.bmm(self.quant_input.transpose(2, 1))
+            # Accumulate the float covariance with the same normalization as H and G,
+            # so that the constants cancel in the reported relative errors.
+            if hasattr(self, 'R'):
+                self.R *= (self.nsamples - batch_size) / self.nsamples
+                if self.use_intermediate_buffer:
+                    self.B.copy_(inp_processed.bmm(inp_processed.transpose(2, 1)))
+                    self.R += self.B
+                else:
+                    self.R += inp_processed.bmm(inp_processed.transpose(2, 1))
             self.quant_input = None  # NOTE: set back to None now that we've used it
         else:
             # Computing the normalized H matrix

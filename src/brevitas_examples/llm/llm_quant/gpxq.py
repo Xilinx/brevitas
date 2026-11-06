@@ -1,8 +1,11 @@
 # Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from contextlib import contextmanager
+from contextlib import nullcontext
 from copy import deepcopy
 from functools import partial
+import math
 from typing import Optional
 from typing import Type
 
@@ -29,6 +32,11 @@ from brevitas.graph.piso import ScaleOptimizer
 from brevitas.graph.piso import ScaleOptimizerGroupInterleaved
 from brevitas.graph.qronos import Qronos
 from brevitas.utils.python_utils import recurse_getattr
+from brevitas.utils.stats_utils import collect_stats
+from brevitas.utils.stats_utils import DictStatsCollector
+from brevitas.utils.stats_utils import is_stats_collector_active
+from brevitas.utils.stats_utils import stats_prefix
+from brevitas.utils.stats_utils import StatsCollectorCtx
 from brevitas.utils.torch_utils import StopFwdException
 from brevitas_examples.common.axe import a2gpfq_mode
 from brevitas_examples.common.axe import a2gptq_mode
@@ -107,6 +115,57 @@ def _intercept_output(module, args, kwargs, output, cached_args):
     raise StopFwdException
 
 
+def _block_error_stat_fn(name, prefix, error):
+    return {"blocks": {name: {f"{prefix}_block_rel_out_err": error}}}
+
+
+def _compute_block_error(block, float_cm, float_inputs, quant_cm, quant_inputs):
+    """Relative Frobenius error between the quantized and float block outputs.
+
+    Returns ``||Y_quant - Y_float||_F / ||Y_float||_F`` accumulated over the
+    calibration set. Samples are processed in pairs so that only one pair of block
+    outputs is resident at a time.
+    """
+    sq_err, sq_ref = 0.0, 0.0
+    for (float_args, float_kwargs), (quant_args, quant_kwargs) in tqdm(zip(float_inputs,
+                                                                           quant_inputs),
+                                                                       desc="Block error",
+                                                                       total=len(float_inputs),
+                                                                       leave=False):
+        with float_cm:
+            out_float = block(
+                *send_to_device(float_args, 'cuda'), **send_to_device(float_kwargs, 'cuda'))
+        y_float = out_float[0] if isinstance(out_float, tuple) else out_float
+        with quant_cm:
+            out_quant = block(
+                *send_to_device(quant_args, 'cuda'), **send_to_device(quant_kwargs, 'cuda'))
+        y_quant = out_quant[0] if isinstance(out_quant, tuple) else out_quant
+
+        sq_err += torch.norm(y_quant.float() - y_float.float(), p='fro').item() ** 2
+        sq_ref += torch.norm(y_float.float(), p='fro').item() ** 2
+    return math.sqrt(sq_err / sq_ref)
+
+
+@contextmanager
+def _block_stats(block, block_fqn, float_cm, float_inputs, quant_cm, quant_inputs):
+    """Namespace the per-layer statistics by block and log the block output error.
+
+    A no-op unless a collector is installed. On entry the block still holds its
+    pre-optimization (e.g. RTN) weights; on exit it holds the optimized ones, so the
+    two measurements bracket the algorithm.
+    """
+    collector = StatsCollectorCtx.get()
+    if not collector.is_active:
+        yield
+        return
+    collector.on("block_update", _block_error_stat_fn)
+    measure = partial(_compute_block_error, block, float_cm, float_inputs, quant_cm, quant_inputs)
+    collector.log("block_update", name=block_fqn, prefix="pre", error=measure())
+    with stats_prefix(block_fqn):
+        yield
+    collector.log("block_update", name=block_fqn, prefix="post", error=measure())
+
+
 # TODO: consider refactoring this into a class where GPTQ, MagR, GPFQ, Qronos, etc.
 # can each inherit from and implement/override their own logic.
 def _block_optimization(
@@ -144,6 +203,27 @@ def _block_optimization(
     float_cached_args, float_cached_kwargs = [], []
     # Cached inputs from the quantized model if solves_mismatched_objective is True.
     quant_cached_args, quant_cached_kwargs = [], []
+    # Reference inputs with quantization fully disabled, used only to measure the
+    # block output error. These need their own cache: float_cached_args keeps weight
+    # quantization enabled for self-activation algorithms, and is overwritten with the
+    # quantized cache when reset_float_cache_every is set.
+    collect_block_stats = is_stats_collector_active()
+    stats_cached_args, stats_cached_kwargs = [], []
+
+    if collect_block_stats:
+        no_quantization_cm = quantization_status_manager(
+            model=model, disable_act_quant=True, disable_weight_quant=True, disable_bias_quant=True)
+        hook = first_block.register_forward_pre_hook(
+            partial(
+                _intercept_input, cached_args=stats_cached_args, cached_kwargs=stats_cached_kwargs),
+            with_kwargs=True)
+        with no_quantization_cm:
+            for inps in dataloader:
+                try:
+                    model(**inps)
+                except StopFwdException:
+                    pass
+        hook.remove()
 
     if solves_mismatched_objective:
         # Cache inputs from the quantized model first.
@@ -178,18 +258,48 @@ def _block_optimization(
             disable_act_quant=solves_mismatched_objective or not use_quant_activations,
             disable_weight_quant=solves_mismatched_objective,
             disable_bias_quant=solves_mismatched_objective or not use_quant_activations)
+        # Reference inputs for the block error: the quantized side is whichever cache
+        # was produced with weight quantization enabled.
+        block_no_quantization_cm = quantization_status_manager(
+            model=block, disable_act_quant=True, disable_weight_quant=True, disable_bias_quant=True)
+        quant_block_inputs = list(
+            zip(
+                *((quant_cached_args, quant_cached_kwargs) if solves_mismatched_objective else (
+                    float_cached_args, float_cached_kwargs))))
         # The context manager installs hooks for the current block.
         # The callback runs the passes expected by these hooks.
-        with context_manager_func(block, **context_manager_kwargs) as gpxq:
-            block_optimization_callback(
-                gpxq,
-                float_cached_args,
-                float_cached_kwargs,
-                quant_cached_args,
-                quant_cached_kwargs,
-                disable_quantization_cm)
+        with _block_stats(block,
+                          f"{block_name}.{index}",
+                          block_no_quantization_cm,
+                          list(zip(stats_cached_args, stats_cached_kwargs)),
+                          nullcontext(),
+                          quant_block_inputs):
+            with context_manager_func(block, **context_manager_kwargs) as gpxq:
+                block_optimization_callback(
+                    gpxq,
+                    float_cached_args,
+                    float_cached_kwargs,
+                    quant_cached_args,
+                    quant_cached_kwargs,
+                    disable_quantization_cm)
 
         if index < len(blocks) - 1:
+            if collect_block_stats:
+                # Propagate the fully-float reference inputs to the next block.
+                past_stats_cached_args = deepcopy(stats_cached_args)
+                stats_cached_args = []
+                hook = block.register_forward_hook(
+                    partial(_intercept_output, cached_args=stats_cached_args), with_kwargs=True)
+                with block_no_quantization_cm:
+                    for args, kwargs in zip(past_stats_cached_args, stats_cached_kwargs):
+                        try:
+                            args = send_to_device(args, 'cuda')
+                            kwargs = send_to_device(kwargs, 'cuda')
+                            block(*args, **kwargs)
+                        except StopFwdException:
+                            pass
+                hook.remove()
+
             # Once the block is done, we need to update the input to the next block
             if solves_mismatched_objective:
                 past_quant_cached_args = deepcopy(quant_cached_args)
@@ -309,7 +419,8 @@ def _apply_gpfq_or_qronos(
         max_accumulator_bit_width=None,
         max_accumulator_tile_size=None,
         device='cpu',
-        dtype=torch.float32):
+        dtype=torch.float32,
+        reset_float_cache_every=1):
     """
     This wraps gpfq_mode, which can be used for any layerwise PTQ algorithm that
     optimizes the mismatched objective function || XW - \tilde{X}Q ||, where
@@ -339,7 +450,7 @@ def _apply_gpfq_or_qronos(
             context_manager_func,
             context_manager_kwargs,
             block_optimization_callback=_gpfq_or_qronos_block_optimization_callback,
-            reset_float_cache_every=1)
+            reset_float_cache_every=reset_float_cache_every)
     else:
         disable_quantization_cm = quantization_status_manager(
             model=model, disable_act_quant=True, disable_weight_quant=True, disable_bias_quant=True)
@@ -452,3 +563,52 @@ def apply_magr(
             for inps in tqdm(dataloader, desc="Calculating covariances..."):
                 magr_model(**inps)
             magr.update()
+
+
+class _ErrorStats(Qronos):
+    """Qronos variant whose weight update is a no-op.
+
+    Used to measure the quantization error of the model as-is: the covariances are
+    still accumulated and the statistics seam in layerwise_hook_mode.update() still
+    reports pre- and post-update metrics (identical, since nothing is modified).
+    """
+
+    def single_layer_update(self, beta: int = 1e4):
+        if self.use_intermediate_buffer:
+            del self.B  # free memory
+
+
+@torch.no_grad()
+def apply_gpxq_stats(
+        model,
+        dataloader,
+        act_order=False,
+        group_of_parallel_layers=None,
+        block_name=None,
+        buffer_device='cpu',
+        buffer_dtype=torch.float32) -> DictStatsCollector:
+    """Measure per-layer quantization error without modifying the model.
+
+    Runs the paired quantized/float calibration used by the mismatched-objective
+    algorithms to accumulate H, G and R for every quantized layer, then reports the
+    relative weight error, the relative output error and the mismatched-objective
+    full-precision output error.
+
+    Returns the collector holding the per-layer metrics in its ``stats`` attribute;
+    use ``collector.save_to_yaml(path)`` to persist them.
+    """
+    collector = DictStatsCollector()
+    with collect_stats(collector):
+        _apply_gpfq_or_qronos(
+            model,
+            dataloader,
+            act_order=act_order,
+            block_name=block_name,
+            group_of_parallel_layers=group_of_parallel_layers,
+            algorithm_impl=_ErrorStats,
+            device=buffer_device,
+            dtype=buffer_dtype,
+            # The weights are never modified, so the float cache stays a valid float
+            # reference for every block and must not be reset to the quantized one.
+            reset_float_cache_every=None)
+    return collector

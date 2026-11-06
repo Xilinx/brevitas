@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from abc import abstractmethod
+from contextlib import contextmanager
 from dataclasses import dataclass
 from dataclasses import field
 from functools import partial
@@ -17,12 +18,58 @@ from torch.fx import GraphModule as TorchGraphModule
 
 from brevitas.fx import GraphModule
 from brevitas.graph.calibrate import quantization_status_manager
+from brevitas.graph.utils import gpxq_compute_error_stats
+from brevitas.utils.stats_utils import BaseStatsCollector
+from brevitas.utils.stats_utils import prefixed_stats_name
+from brevitas.utils.stats_utils import StatsCollectorCtx
 
 
 @dataclass
 class LayerHandler:
     layer_names: Set = field(default_factory=set)
     forward_count: int = 0
+
+
+def _log_layer_stats(collector: BaseStatsCollector, event: str, layer, **payload) -> None:
+    # Computing the statistics calls layer.quant_weight(), which needs the parameters
+    # on device. Outside of the algorithm's own allocate/offload window an
+    # accelerate-offloaded layer keeps them on the meta device, so bracket the call.
+    # Both functions are idempotent, so nesting with the algorithm's own pair is safe.
+    is_offloaded = hasattr(layer, 'allocate_params')
+    if is_offloaded:
+        layer.allocate_params(layer)
+    try:
+        collector.log(event, layer=layer, **payload)
+    finally:
+        if is_offloaded:
+            layer.offload_params(layer)
+
+
+@contextmanager
+def layer_update_stats(optimizer):
+    """Log pre- and post-update error statistics around a per-layer update.
+
+    A no-op unless a collector is installed with ``collect_stats``. The input
+    covariances are snapshotted up front because the per-layer update both mutates
+    (GPTQ factorizes H in place) and frees them.
+    """
+    collector = StatsCollectorCtx.get()
+    if not collector.is_active:
+        yield
+        return
+    payload = dict(
+        name=prefixed_stats_name(optimizer.name),
+        H=optimizer.H.clone(),
+        G=optimizer.G.clone() if getattr(optimizer, 'G', None) is not None else None,
+        # R is never consumed by the update, so it does not need to be cloned.
+        R=getattr(optimizer, 'R', None),
+        transpose_g=getattr(optimizer, 'stats_g_is_transposed', False))
+    try:
+        _log_layer_stats(collector, "pre_update", optimizer.layer, **payload)
+        yield
+        _log_layer_stats(collector, "post_update", optimizer.layer, **payload)
+    finally:
+        payload.clear()
 
 
 class layerwise_hook_mode(quantization_status_manager):
@@ -51,6 +98,11 @@ class layerwise_hook_mode(quantization_status_manager):
     # is declared here: every mode reaching those drivers is a subclass of this one.
     # By default, we assume that the algorithm does not solve the mismatched objective.
     solves_mismatched_objective = False
+
+    # Attribute holding the floating-point reference when collecting error statistics.
+    # GPxQ overwrites layer.weight and therefore needs weight_orig; PiSO only updates
+    # the scale, so layer.weight is already the reference.
+    stats_weight_attr = 'weight_orig'
 
     def __init__(
             self,
@@ -82,6 +134,23 @@ class layerwise_hook_mode(quantization_status_manager):
         self._forward_swapped = swap_forward
         if swap_forward:
             self._set_forward(self.catch_stopfwd)
+
+        self._register_stats()
+
+    def _register_stats(self) -> None:
+        """Declare the per-layer statistics to compute, if a collector is installed."""
+        collector = StatsCollectorCtx.get()
+        if not collector.is_active:
+            return
+        if self.stats_weight_attr == 'weight_orig' and not self.create_weight_orig:
+            raise ValueError(
+                "Statistics collection requires keeping the original weights. "
+                "Set `create_weight_orig` to True.")
+        for prefix, event in (("pre", "pre_update"), ("post", "post_update")):
+            collector.on(
+                event,
+                partial(
+                    gpxq_compute_error_stats, prefix=prefix, weight_attr=self.stats_weight_attr))
 
     def _set_forward(self, forward_fn) -> None:
         if isinstance(self.model, (GraphModule, TorchGraphModule)):
@@ -156,7 +225,11 @@ class layerwise_hook_mode(quantization_status_manager):
 
     def update(self):
         for name in self.current_layer.layer_names:
-            self.layers[name].single_layer_update()
+            optimizer = self.layers[name]
+            # Single seam for error statistics: every algorithm reaching this point
+            # (GPTQ, GPFQ, Qronos, MagR, AXE, PiSO) is instrumented at once.
+            with layer_update_stats(optimizer):
+                optimizer.single_layer_update()
             self.hook_dict[name].remove()
             self._after_layer_update(name)
         self.current_layer.layer_names.clear()

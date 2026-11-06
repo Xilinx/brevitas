@@ -15,6 +15,7 @@ from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.utils import is_conv_transposed
+from brevitas.utils.stats_utils import is_stats_collector_active
 from brevitas.utils.torch_utils import StopFwdException
 
 
@@ -26,6 +27,10 @@ class GPFQ(GPxQ):
 
     https://epubs.siam.org/doi/abs/10.1137/22M1511709
     """
+
+    # GPFQ accumulates G = \hat{X} X^T, i.e. the transpose of the X^T \hat{X}
+    # convention expected by gpxq_compute_error_stats.
+    stats_g_is_transposed = True
 
     def __init__(
             self,
@@ -47,6 +52,11 @@ class GPFQ(GPxQ):
         self.G = torch.zeros((self.groups, self.columns, self.columns),
                              device=self.device,
                              dtype=self.dtype)
+        if is_stats_collector_active():
+            # R = X X^T, only needed to report the mismatched-objective error
+            self.R = torch.zeros((self.groups, self.columns, self.columns),
+                                 device=self.device,
+                                 dtype=self.dtype)
         if self.use_intermediate_buffer:
             self.B = torch.zeros((self.groups, self.columns, self.columns),
                                  device=self.device,
@@ -84,6 +94,14 @@ class GPFQ(GPxQ):
                 self.G += self.B
             else:
                 self.G += self.quant_input.bmm(inp_processed.transpose(2, 1))
+            # Accumulate the float covariance with the same normalization as H and G,
+            # so that the constants cancel in the reported relative errors.
+            if hasattr(self, 'R'):
+                if self.use_intermediate_buffer:
+                    self.B.copy_(inp_processed.bmm(inp_processed.transpose(2, 1)))
+                    self.R += self.B
+                else:
+                    self.R += inp_processed.bmm(inp_processed.transpose(2, 1))
             self.quant_input = None  # NOTE: set back to None now that we've used it
         else:
             # Compute the normalized H matrix
