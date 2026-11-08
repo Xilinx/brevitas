@@ -29,6 +29,14 @@ from .base import QuantAxisMixin
 from .base import ZeroPointHandlerMixin
 
 
+def _get_tracked_tensor(tensors: dict, x: Tensor) -> Tensor:
+    # With a single tracked module there is nothing to look up. Skipping `data_ptr()` keeps the
+    # integer export traceable by torch.export, where `x` is a FakeTensor with no data pointer.
+    if len(tensors) == 1:
+        return next(iter(tensors.values()))
+    return tensors[x.data_ptr()]
+
+
 class DQMixin(ABC):
 
     @abstractmethod
@@ -395,7 +403,7 @@ class QCDQCastWeightQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin):
         return x
 
     def quantize_from_integer(self, x: Tensor):
-        return self.symbolic_kwargs['int_weights'][x.data_ptr()]
+        return _get_tracked_tensor(self.symbolic_kwargs['int_weights'], x)
 
     def symbolic_execution(self, x: Tensor):
         assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
@@ -687,7 +695,7 @@ class FloatCDQCastBiasQuantProxyHandlerMixin(DQCastMixin,
 
     def symbolic_execution(self, x: Tensor, input_scale=None):
         assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
-        int_bias = self.symbolic_kwargs['int_biases'][x.data_ptr()]
+        int_bias = _get_tracked_tensor(self.symbolic_kwargs['int_biases'], x)
         scale = self.symbolic_kwargs['scale']
         zero_point = self.symbolic_kwargs['zero_point']
         exponent_bit_width = self.symbolic_kwargs['exponent_bit_width']
@@ -741,17 +749,21 @@ class CDQCastBiasQuantProxyHandlerMixin(DQCastMixin, QuantAxisMixin, ZeroPointHa
             int_biases = {
                 tm.bias.data_ptr(): tm.quant_bias().int(float_datatype=False)
                 for tm in module.tracked_module_list}
+            bit_width = module.bit_width()
             self.symbolic_kwargs = {
                 'int_biases': int_biases,
                 'scale': module.scale(),
                 'zero_point': module.zero_point(),
-                'bit_width': module.bit_width()}
+                'bit_width': bit_width,
+                # A Python int, so picking the zero-point dtype in `symbolic_execution` doesn't
+                # branch on tensor data, which torch.export can't trace.
+                'int_bit_width': int(bit_width) if bit_width is not None else None}
         else:
             self.symbolic_kwargs = None
 
     def symbolic_execution(self, x: Tensor, input_scale=None):
         assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
-        int_bias = self.symbolic_kwargs['int_biases'][x.data_ptr()]
+        int_bias = _get_tracked_tensor(self.symbolic_kwargs['int_biases'], x)
         scale = self.symbolic_kwargs['scale']
         bit_width = self.symbolic_kwargs['bit_width']
         zero_point = self.symbolic_kwargs['zero_point']
@@ -767,7 +779,7 @@ class CDQCastBiasQuantProxyHandlerMixin(DQCastMixin, QuantAxisMixin, ZeroPointHa
         scale = to_0dim_if_scalar(scale)
         zero_point = to_0dim_if_scalar(zero_point).expand_as(scale)
         zero_point = self.zero_point_with_dtype(
-            True, bit_width, zero_point)  # assume signed is True
+            True, self.symbolic_kwargs['int_bit_width'], zero_point)  # assume signed is True
         # If original dtype of scale is (b)float16, store the original dtype
         # and cast the scale to float32
         scale_dtype = scale.dtype

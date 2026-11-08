@@ -56,8 +56,9 @@ def enumerate_wbiol_flags():
     """Enumerate every valid WBIOL flag combination (bit-widths are sampled per node).
 
     Validity mirrors the exporter's limits: QuantLinear+asymmetric is excluded; dynamo exports
-    need torch>=2.8 and dynamic act quant is QCDQ-only; fp8/dynamic force bias_quant=None;
-    export_q_weight is forced True for fp8/qcdq_dynamo and False for a2q/floor.
+    need torch>=2.8 and dynamic act quant is QCDQ-only; A2Q has no qcdq_dynamo export;
+    fp8/dynamic force bias_quant=None; export_q_weight is forced True for fp8 and False for
+    a2q/floor.
     """
     combos = []
     names = list(WBIOL_QUANTIZERS)
@@ -74,7 +75,7 @@ def enumerate_wbiol_flags():
                 exports = ['qcdq', 'qonnx']
                 if torch_version >= parse('2.8'):
                     exports.append('qonnx_dynamo')
-                    if rounding_type == 'round' and (is_fp8 or is_dynamic):
+                    if 'a2q' not in quantizer_name:
                         exports.append('qcdq_dynamo')
                 if is_dynamic:
                     exports = [e for e in exports if e in ('qcdq', 'qcdq_dynamo')]
@@ -83,7 +84,7 @@ def enumerate_wbiol_flags():
                     for bias_quant in biases:
                         if export_type not in ('qcdq', 'qcdq_dynamo'):
                             qws = [False]  # ignored on the qonnx export path
-                        elif is_fp8 or export_type == 'qcdq_dynamo':
+                        elif is_fp8:
                             qws = [True]
                         elif rounding_type == 'floor' or 'a2q' in quantizer_name:
                             qws = [False]
