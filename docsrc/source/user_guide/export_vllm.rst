@@ -171,15 +171,79 @@ pointing to the export directory:
 
 .. code-block:: python
 
+   # Register Brevitas' custom quantization method before constructing the engine.
+   import brevitas.export.inference.vLLM.manager
    from vllm import LLM
 
    llm = LLM(model="./exported_model", quantization="quant_brevitas")
 
-Or via the vLLM CLI:
+Zero-Shot Evaluation
+====================
+
+The ``brevitas_vllm_eval`` entrypoint evaluates an exported model through vLLM using either
+lm-evaluation-harness or LightEval. The latest published harnesses require incompatible vLLM
+versions, so install them in separate environments. For lm-evaluation-harness:
 
 .. code-block:: bash
 
-   vllm serve ./exported_model --quantization quant_brevitas
+   pip install -e ".[vllm_eval_lm_eval]"
+
+The evaluation backend must be selected explicitly. For lm-evaluation-harness:
+
+.. code-block:: bash
+
+   brevitas_vllm_eval --model ./exported_model --backend lm_eval
+
+In a separate environment, install and run LightEval with:
+
+.. code-block:: bash
+
+   pip install -e ".[vllm_eval_lighteval]"
+   brevitas_vllm_eval --model ./exported_model --backend lighteval
+
+Both commands evaluate ARC Challenge, ARC Easy, WinoGrande, and PIQA with zero-shot prompts by
+default. Use ``--tasks`` to override the task list. Task names follow the selected harness; bare
+LightEval task names are converted to zero-shot task specifications automatically. For example:
+
+.. code-block:: bash
+
+   brevitas_vllm_eval --model ./exported_model --backend lm_eval \
+      --tasks hellaswag piqa --tensor-parallel-size 2 --batch-size auto
+
+The CLI also exposes ``--dtype``, ``--gpu-memory-utilization``, ``--max-model-length``,
+``--max-new-tokens``, ``--limit``, ``--seed``, and ``--output-dir``. As with the LLM
+quantization entrypoint, these options can be supplied through a YAML file using ``--config``.
+The evaluator always loads the model with the ``quant_brevitas`` vLLM quantization method.
+The base Brevitas dependency keeps a broad Torch requirement; the vLLM version installed by each
+evaluation extra may impose a narrower Torch requirement in that environment.
+
+Thinking Models
+---------------
+
+Thinking is disabled by default. Likelihood and multiple-choice tasks always use plain-text
+prompts so an empty reasoning block or assistant prefix does not alter continuation scores.
+Generative tasks use the model chat template and explicitly disable thinking:
+
+.. code-block:: bash
+
+   brevitas_vllm_eval --model ./exported_model --backend lm_eval --tasks gsm8k \
+      --thinking disabled
+
+Enable thinking for generative tasks and configure the tags removed before metric computation
+with:
+
+.. code-block:: bash
+
+   brevitas_vllm_eval --model ./exported_model --backend lighteval --tasks gsm8k \
+      --thinking enabled --reasoning-start-tag '<think>' --reasoning-end-tag '</think>' \
+      --max-new-tokens 2048
+
+With lm-evaluation-harness, generative and likelihood tasks must be evaluated in separate
+invocations because chat-template and thinking settings apply to the entire evaluation. LightEval
+supports mixed task sets by selecting prompt formatting for each request type, provided an
+individual task document does not request both generation and likelihood metrics. The reasoning
+start and end tags are both used by LightEval. lm-evaluation-harness supports only an end token and
+therefore uses ``--reasoning-end-tag`` to remove the reasoning prefix.
 
 
 FAQ
@@ -204,5 +268,5 @@ the underlying quantization format maps to one of the supported inference handle
 * *Why do I get an import error for vLLM?*
 
 vLLM is not bundled with Brevitas and must be installed separately in your environment.
-The vLLM-specific code is only imported when ``--export-target vllm`` is specified, so
-vLLM is not required for other Brevitas workflows.
+The vLLM-specific code is imported only by the vLLM export and evaluation entrypoints, so vLLM
+is not required for other Brevitas workflows.
