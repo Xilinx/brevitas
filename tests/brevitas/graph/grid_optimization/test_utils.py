@@ -242,7 +242,7 @@ def test_set_base_scale_group_column_write():
     before = _get_base_scale(layer).clone()
     # write only group column 1, leave column 0 untouched
     col = torch.full_like(before[:, 1], 9.0)
-    _set_base_scale(layer, col, index=(slice(None), 1))
+    _set_base_scale(layer, col, groups=slice(1, 2))
     assert torch.all(_get_base_scale(layer)[:, 1] == 9.0)
     assert torch.equal(_get_base_scale(layer)[:, 0], before[:, 0])
 
