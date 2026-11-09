@@ -11,7 +11,10 @@ from warnings import warn
 from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import create_entrypoint_args_parser
 from brevitas_examples.common.parse_utils import quant_format_validator
-from brevitas_examples.llm.llm_quant.piso_args import ScaleOptimizerArgumentParser
+from brevitas_examples.llm.gguf_export.search import MAGNITUDE_FORMS
+from brevitas_examples.llm.gguf_export.search import SCALE_PLACEMENTS
+from brevitas_examples.llm.gguf_export.search import SCOPES
+from brevitas_examples.llm.llm_args.calibrate import GridOptimizationArgumentParser
 
 # Export targets that do not require the (optional) `gguf` dependency
 BASE_EXPORT_TARGETS = [
@@ -329,6 +332,50 @@ def create_args_parser() -> ArgumentParser:
     parser.add_argument('--qronos', action='store_true', help='Apply Qronos.')
     parser.add_argument(
         '--qronos-alpha', default=1e-6, type=float, help='Alpha for Qronos. Default: %(default)s.')
+    # Options of the GGUF solvers (--grid-opt-solver gguf-*). Every solver receives them,
+    # and the others ignore them.
+    parser.add_argument(
+        '--grid-opt-magnitude',
+        type=str,
+        default='rms_quad',
+        choices=MAGNITUDE_FORMS,
+        help='GGUF solvers: the per-weight term the fit is weighed by, on top of the covariance '
+        'of its input channel. rms_quad is sqrt(factor * mean(w^2) + w^2), with the mean over '
+        '--grid-opt-magnitude-scope. Default: %(default)s.')
+    parser.add_argument(
+        '--grid-opt-magnitude-factor',
+        type=float,
+        default=1.0,
+        help='GGUF solvers: the factor of --grid-opt-magnitude rms_quad. Default: %(default)s.')
+    parser.add_argument(
+        '--grid-opt-magnitude-scope',
+        type=str,
+        default='row',
+        choices=SCOPES,
+        help='GGUF solvers: what the mean square of --grid-opt-magnitude is taken over. '
+        'shared_step, the groups sharing a scale step, requires a quantizer whose scales are '
+        'quantized on a grid of their own. '
+        'Default: %(default)s.')
+    parser.add_argument(
+        '--grid-opt-sweep-steps',
+        type=int,
+        default=None,
+        help='GGUF solvers: number of trial scales of a sweep. Default: the solver\'s own, 9 '
+        'on each side of the seed without an offset, 36 with one.')
+    parser.add_argument(
+        '--grid-opt-sweep-step',
+        type=float,
+        default=None,
+        help='GGUF solvers: spacing of the trial scales of a sweep. Default: the solver\'s own, '
+        '0.1 without an offset, 0.05 with one.')
+    parser.add_argument(
+        '--grid-opt-scale-placement',
+        type=str,
+        default='sweep',
+        choices=SCALE_PLACEMENTS,
+        help='GGUF solvers, for a quantizer whose scales are stored on a grid of their own: '
+        'place them there by their largest magnitude (seed) or by a weighted sweep around it '
+        '(sweep). Default: %(default)s.')
     parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
     parser.add_argument('--gpfq', action='store_true', help='Apply GPFQ.')
     parser.add_argument(
@@ -337,6 +384,10 @@ def create_args_parser() -> ArgumentParser:
         '--gpxq-use-quant-activations',
         action='store_true',
         help='Use quantized activations in GPxQ.')
+    parser.add_argument(
+        '--gpxq-use-grid-optimization',
+        action='store_true',
+        help='Use grid optimization with GPTQ or Qronos.')
     parser.add_argument(
         '--disable-create-weight-orig',
         action='store_true',
@@ -354,6 +405,10 @@ def create_args_parser() -> ArgumentParser:
         help='Maximum accumulator tile size for GPxQ using AXE.')
     parser.add_argument(
         '--act-calibration', action='store_true', help='Apply activation calibration.')
+    parser.add_argument(
+        '--grid-optimization',
+        action='store_true',
+        help='Optimize the weight quantization grids on the calibration data (see --grid-opt-*).')
     parser.add_argument('--bias-corr', action='store_true', help='Apply bias correction.')
     parser.add_argument('--ln-affine-merge', action='store_true', help='Merge LN affine params.')
     parser.add_argument(
@@ -589,8 +644,9 @@ def create_args_parser() -> ArgumentParser:
         default=1,
         help='Batch size for calibration data loader. (default: %(default)s).')
 
-    # Adds Scale Optimization (--sopt-*) flags (PiSO being the current solver instance behind them).
-    ScaleOptimizerArgumentParser.add_arguments(parser)
+    # Adds grid optimization (--grid-opt-*) flags. The solver choices are the registered
+    # solvers, the GGUF ones included through the import of the GGUF search package above.
+    GridOptimizationArgumentParser.add_arguments(parser)
 
     return parser
 
@@ -701,8 +757,8 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
         if args.input_bit_width and args.input_scale_type == 'static':
             assert args.act_calibration, "Static input quantization is being applied without activation calibration. Set --act-calibration."
 
-    # Validate Scale Optimization (--sopt-*) flags
-    ScaleOptimizerArgumentParser.validate(args, extra_args)
+    # Validate grid optimization (--grid-opt-*) flags
+    GridOptimizationArgumentParser.validate(args, extra_args)
 
 
 def attn_quant_format_validator(value):
