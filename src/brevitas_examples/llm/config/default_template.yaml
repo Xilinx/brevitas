@@ -97,7 +97,7 @@ seqlen: 2048
 grid_opt_group_gpxq_layer_interleaved: false
 grid_opt_group_sequential: false
 grid_opt_group_sequential_act_order: true
-grid_opt_covariance_mode: dense
+grid_opt_covariance_mode: diagonal
 grid_opt_objective: unquantized
 grid_optimization: false
 gpxq_use_grid_optimization: false

@@ -13,7 +13,6 @@ so the reach through the proxy into tensor_quant lives in exactly one place
 (_has_base_scale) rather than being spread over the algorithm code.
 """
 
-from typing import Any
 from typing import List
 from typing import Optional
 
@@ -118,18 +117,18 @@ def _get_base_scale(layer: nn.Module) -> Optional[torch.Tensor]:
 
 
 @torch.no_grad()
-def _set_base_scale(layer: nn.Module, value: torch.Tensor, index: Any = slice(None)) -> None:
-    """Write value into layer's stored scale Parameter at index.
+def _set_base_scale(layer: nn.Module, value: torch.Tensor, groups: slice = slice(None)) -> None:
+    """Write value into layer's stored scale Parameter, for the given groups.
 
-    The write is in place so the registered Parameter keeps its identity, and
-    index lets a caller update a single group's column (the group-wise
-    updater) instead of the whole tensor.
+    The write is in place so the registered Parameter keeps its identity. A
+    per-channel scale is a single group.
     """
     if not _has_base_scale(layer):
         raise RuntimeError(
             "Cannot set base scale: weight scale is not a "
             "ParameterFromStatsFromParameterScaling.")
-    layer.weight_quant.tensor_quant.scaling_impl.value[index] = value
+    target = layer.weight_quant.tensor_quant.scaling_impl.value[:, groups]
+    target[...] = value.reshape(target.shape)
 
 
 def _build_grid(layer: nn.Module, dtype: torch.dtype, device) -> torch.Tensor:
@@ -152,6 +151,14 @@ def _build_grid(layer: nn.Module, dtype: torch.dtype, device) -> torch.Tensor:
             signed=weight_quant.is_signed,
             narrow_range=weight_quant.is_narrow_range)
     return torch.tensor(grid, dtype=dtype, device=device)
+
+
+def _allows_negative_scale(layer: nn.Module) -> bool:
+    """Whether layer's best scale may be negative: its quantizer does not restrict the
+    scale to positive values and its grid is asymmetric, so that a negative scale
+    reaches points a positive one does not."""
+    grid = _build_grid(layer, dtype=torch.float32, device='cpu')
+    return not layer.weight_quant.restrict_scale_positive and bool(grid[-1] != -grid[0])
 
 
 def _grid_threshold(grid: torch.Tensor, weight_quant: nn.Module) -> torch.Tensor:

@@ -1,26 +1,32 @@
 # Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Tests for how grid optimization obtains its covariance matrices
-(brevitas.graph.grid_optimization.core): the standalone hook that accumulates them,
-and the composition with GPTQ and Qronos, i.e. which layers get a grid optimizer,
-the covariance matrices GPTQ and Qronos hand to it and the column order used when
-group-interleaved."""
+"""Tests for brevitas.graph.grid_optimization.core: how grid optimization obtains its
+covariance matrices (the standalone hook that accumulates them, and the composition
+with GPTQ and Qronos, i.e. which layers get a grid optimizer, the covariance
+matrices GPTQ and Qronos hand to it and the column order used when
+group-interleaved), and that its settings are orthogonal to the solver."""
 from functools import partial
-from types import SimpleNamespace
 
 import pytest
 import torch
 
 from brevitas.graph.gptq import GPTQ
+from brevitas.graph.grid_optimization import GridOptimizer
 from brevitas.graph.grid_optimization import InterleavedGridOptimizer
 from brevitas.graph.grid_optimization import StandaloneGridOptimizer
+from brevitas.graph.grid_optimization.solvers import SCALE_SOLVER_REGISTRY
+from brevitas.graph.grid_optimization.solvers import ScaleSolverFamily
 from brevitas.graph.grid_optimization.utils import compute_group_importance_permutation
 from brevitas.graph.layerwise_hook import LayerHandler
 from brevitas.graph.qronos import Qronos
+from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingImplType
+from brevitas.inject.enum import ScalingPerOutputType
 import brevitas.nn as qnn
+from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantProxyFromInjector
 from brevitas.quant.mx_quant_ocp import MXInt8Weight
+from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
 from brevitas.utils.torch_utils import StopFwdException
 
 D = 8
@@ -129,7 +135,7 @@ def test_act_order_is_group_contiguous_only_when_group_interleaved(algorithm_cla
     assert not torch.equal(plain_order, group_order)
 
     grid_optimizer = object.__new__(InterleavedGridOptimizer)
-    grid_optimizer.layer = SimpleNamespace(weight_quant=SimpleNamespace(group_size=GROUP_SIZE))
+    grid_optimizer._unit_columns = lambda: GROUP_SIZE
     algo = object.__new__(algorithm_class)
     algo.grid_optimizer = grid_optimizer
 
@@ -194,3 +200,135 @@ def test_standalone_accumulates_h_and_g():
     assert torch.allclose(grid_optimizer.H[0], 2 / N * X_tilde.T @ X_tilde)
     # G is in the layout the solvers expect, X_tilde^T X.
     assert torch.allclose(grid_optimizer.G[0], 2 / N * X_tilde.T @ X)
+
+
+# -----------------------------------------------------------------------------
+# The settings of grid optimization are orthogonal to the solver: every registered
+# solver runs with every covariance mode it supports, either objective, either
+# granularity and either schedule.
+# -----------------------------------------------------------------------------
+class _NarrowInt4PerChannelWeight(Int8WeightPerChannelFloat):
+    """Signed 4-bit codes on a symmetric grid, so that no scale may be negative."""
+    scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
+    bit_width = 4
+    narrow_range = True
+    scaling_min_val = 1e-10
+
+
+class _NarrowInt4PerGroupWeight(_NarrowInt4PerChannelWeight):
+    proxy_class = GroupwiseWeightQuantProxyFromInjector
+    scaling_per_output_type = ScalingPerOutputType.GROUP
+    group_size = GROUP_SIZE
+
+
+def _optimized_scales(weight_quant, solver, covariance_mode, cross_activation, greedy):
+    torch.manual_seed(0)
+    layer = qnn.QuantLinear(D, 3, bias=False, weight_quant=weight_quant)
+    with torch.no_grad():
+        layer(torch.randn(2, D))
+    g = torch.Generator().manual_seed(4)
+    H = _random_covariance(g)
+    G = H + 0.1 * torch.randn(D, D, generator=g) if cross_activation else None
+    grid_optimizer = GridOptimizer(
+        layer,
+        solver_device='cpu',
+        covariance_mode=covariance_mode,
+        solver=solver,
+        per_group_greedy=greedy)
+    with torch.no_grad():
+        grid_optimizer.optimize_layer(H, G)
+    return layer.quant_weight().scale_.detach()
+
+
+@pytest.mark.parametrize("solver", ['piso', 'chunked-piso'])
+@pytest.mark.parametrize("covariance_mode", ['diagonal', 'identity'])
+@pytest.mark.parametrize("cross_activation", [False, True])
+@pytest.mark.parametrize(
+    "weight_quant", [_NarrowInt4PerChannelWeight, _NarrowInt4PerGroupWeight],
+    ids=['per_channel', 'per_group'])
+def test_every_setting_runs_with_every_solver(
+        solver, covariance_mode, cross_activation, weight_quant):
+    scales = _optimized_scales(weight_quant, solver, covariance_mode, cross_activation, False)
+    assert torch.isfinite(scales).all() and (scales > 0).all()
+    # Without a full covariance matrix, solving the groups one at a time changes nothing.
+    greedy = _optimized_scales(weight_quant, solver, covariance_mode, cross_activation, True)
+    assert torch.allclose(greedy, scales)
+
+
+def test_a_solver_without_dense_support_rejects_the_dense_mode():
+    with pytest.raises(ValueError, match="only uses the diagonal"):
+        GridOptimizer.validate_config('dense', 'piso')
+
+
+class _RecordingDenseSolver(ScaleSolverFamily):
+    """A solver registered outside grid optimization, which takes the diagonal blocks of
+    the covariance matrix: it records what it is handed and returns the absmax scale."""
+    supports_dense = True
+    calls = []
+
+    @classmethod
+    def solve(cls, w, b, H, unscaled_grid, *, allow_negative_s, **kwargs):
+        cls.calls.append((b.clone(), H.clone()))
+        return w.abs().amax(-1) / unscaled_grid[-1]
+
+
+SCALE_SOLVER_REGISTRY.register(names='test-recording-dense')(_RecordingDenseSolver)
+
+
+def _record_dense_solver(per_group_greedy):
+    _RecordingDenseSolver.calls.clear()
+    torch.manual_seed(0)
+    layer = qnn.QuantLinear(D, 3, bias=False, weight_quant=_NarrowInt4PerGroupWeight)
+    with torch.no_grad():
+        layer(torch.randn(2, D))
+    g = torch.Generator().manual_seed(5)
+    H = _random_covariance(g)
+    G = torch.randn(D, D, generator=g)
+    W = layer.weight.detach().clone()
+    grid_optimizer = GridOptimizer(
+        layer,
+        solver_device='cpu',
+        covariance_mode='dense',
+        solver='test-recording-dense',
+        per_group_greedy=per_group_greedy,
+        per_group_greedy_reorder=False)
+    with torch.no_grad():
+        grid_optimizer.optimize_layer(H, G)
+    return layer, W, H, G, _RecordingDenseSolver.calls
+
+
+def test_a_dense_solver_solves_every_group_against_its_own_blocks():
+    _, W, H, G, calls = _record_dense_solver(per_group_greedy=False)
+    groups = [slice(0, GROUP_SIZE), slice(GROUP_SIZE, D)]
+    [(b, H_blocks)] = calls
+    assert torch.allclose(H_blocks, torch.stack([H[c, c] for c in groups]))
+    # The independent-groups objective (PiSO paper, Eq. 11): b has no cross terms
+    # between groups.
+    assert torch.allclose(b, torch.stack([W[:, c] @ G[c, c].T for c in groups], dim=1))
+
+
+def test_greedy_with_a_dense_solver_targets_the_groups_solved_so_far():
+    layer, W, H, G, calls = _record_dense_solver(per_group_greedy=True)
+    first, second = slice(0, GROUP_SIZE), slice(GROUP_SIZE, D)
+    (b_first, H_first), (b_second, H_second) = calls
+    assert torch.allclose(H_first, H[first, first].unsqueeze(0))
+    assert torch.allclose(H_second, H[second, second].unsqueeze(0))
+    # The sequential objective (PiSO paper, Eq. 12): the first group's target leaves out
+    # the groups not solved yet, and the second group sees the reconstruction of the first.
+    assert torch.allclose(b_first.reshape(3, -1), W[:, first] @ G[first, first].T)
+    r_first = layer.quant_weight().value[:, first].detach()
+    assert torch.allclose(b_second.reshape(3, -1), W @ G[second].T - r_first @ H[second, first].T)
+
+
+class _Int4SignedScalePerChannelWeight(Int8WeightPerChannelFloat):
+    """Signed 4-bit codes on the asymmetric grid [-8, 7], with a scale that may be negative."""
+    scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
+    bit_width = 4
+    narrow_range = False
+    restrict_scaling_type = RestrictValueType.SIGNED_FP
+
+
+@pytest.mark.parametrize("solver,valid", [('piso', True), ('chunked-piso', False)])
+def test_only_solvers_of_negative_scales_accept_a_layer_that_allows_them(solver, valid):
+    layer = qnn.QuantLinear(D, 3, bias=False, weight_quant=_Int4SignedScalePerChannelWeight)
+    assert GridOptimizer.is_layer_valid(layer, solver) == valid

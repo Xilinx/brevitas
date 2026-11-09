@@ -15,9 +15,9 @@ Layout:
   - .chunked_piso : the chunked reformulations and ChunkedPiSOSolverFamily,
                     registered as 'chunked-piso' (positive scales only).
 
-Only the diagonal-H slots are implemented; the dense-H ones raise
-NotImplementedError. Importing this package registers every family in
-SCALE_SOLVER_REGISTRY, so GridOptimizer can resolve them by name.
+Both use only the diagonal of the covariance matrix. Importing this package
+registers every family in SCALE_SOLVER_REGISTRY, so GridOptimizer can resolve
+them by name.
 
 Reference: "Optimal Post-Training Quantization Scales and Where to Find Them"
 (https://arxiv.org/abs/2606.10890).

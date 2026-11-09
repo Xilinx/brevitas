@@ -192,7 +192,7 @@ grid_opt_group_sequential:
 grid_opt_group_sequential_act_order:
 - true
 grid_opt_covariance_mode:
-- dense
+- diagonal
 grid_opt_objective:
 - unquantized
 grid_optimization:
