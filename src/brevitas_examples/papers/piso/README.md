@@ -18,8 +18,9 @@ PiSO (Piecewise Scale Optimization) computes the optimal weight quantization sca
 data-aware layer-output reconstruction objective under round-to-nearest quantization. It
 can be used standalone (decoupled from error correction) or interleaved with GPTQ / Qronos.
 
-Scale-optimization arguments are exposed under the `--sopt-*` prefix; PiSO is the current
-solver behind them.
+PiSO runs as the scale solver of grid optimization: `--grid-optimization` applies it
+standalone, `--gpxq-use-grid-optimization` inside GPTQ / Qronos, and its arguments are
+exposed under the `--grid-opt-*` prefix.
 
 ## Configs
 
@@ -54,44 +55,46 @@ validation raises). Each row below is therefore run exactly once.
 
 | Paper row | Flags |
 |---|---|
-| `+ absmax` | `sopt_optimize: false` (with `weight_param_method: stats`) |
-| `+ data-free` | `sopt_optimize: true`, `sopt_hessian_mode: identity` |
-| `+ PiSO` | `sopt_optimize: true`, `sopt_hessian_mode: dense` |
-| `PiSO_I` / `PiSO_S` | `sopt_group_sequential: false` / `true` (group-wise only) |
+| `+ absmax` | Both calibration flags are false (with `weight_param_method: stats`) |
+| `+ data-free` | `grid_optimization: true`, `grid_opt_covariance_mode: identity` |
+| `+ PiSO` | `grid_optimization: true`, `grid_opt_covariance_mode: dense` |
+| `PiSO_I` / `PiSO_S` | `grid_opt_group_sequential: false` / `true` (group-wise only) |
 
 ### Integration with error correction
 
 | Paper row | Flags |
 |---|---|
 | `RTN` | `gptq: false`, `qronos: false` |
-| `+` (decoupled) | `sopt_optimize_in_gpxq: false` |
-| `⊙ *` (layer-interleaved) | `sopt_optimize_in_gpxq: true`, `sopt_group_gpxq_layer_interleaved: true` |
-| `⊙ †` (group-interleaved) | `sopt_optimize_in_gpxq: true`, `sopt_group_gpxq_layer_interleaved: false` |
+| `+` (decoupled) | `grid_optimization: true` |
+| `⊙ *` (layer-interleaved) | `gpxq_use_grid_optimization: true`, `grid_opt_group_gpxq_layer_interleaved: true` |
+| `⊙ †` (group-interleaved) | `gpxq_use_grid_optimization: true`, `grid_opt_group_gpxq_layer_interleaved: false` |
 
 Per-channel quantization is always layer-interleaved, so `⊙` needs only
-`sopt_optimize_in_gpxq: true` there.
+`gpxq_use_grid_optimization: true` there.
 
 ### Objective
 
-PiSO minimizes the same reconstruction objective as the algorithm it is combined with, so
-`sopt_objective` is not a free axis: `benchmark.py` keeps `self-activation` with `--gptq`
-and `cross-activation` with `--qronos` or standalone RTN, and discards the rest.
+The paper runs reconstruct from the quantized model, so `grid_opt_objective` is never
+`unquantized`: it is `quantized` with `--gptq` and `mismatched` with
+`--qronos` or standalone RTN. When grid optimization runs inside GPTQ/Qronos
+(`gpxq_use_grid_optimization`), the objective follows the algorithm regardless; the
+sweep still pins `grid_opt_objective` to it to avoid running duplicates.
 
 ### Discarded combinations
 
 | Discarded | Reason |
 |---|---|
-| Any `sopt_objective` mismatching the error-correction algorithm | Not a paper configuration |
-| `sopt_objective` variants when `sopt_optimize: false` | The objective is unused; deduplicated |
-| `sopt_hessian_mode: identity` with `sopt_optimize: false` | Data-free requires scale optimization |
-| `sopt_group_sequential` with `sopt_optimize: false`, `sopt_hessian_mode: identity`, or per-channel weights | The heuristic is inert; deduplicated |
-| Layer-interleaved `sopt_hessian_mode: identity` | Reproduces the decoupled run (see below); deduplicated |
+| `grid_opt_objective` mismatching the error-correction algorithm | Not a paper configuration |
+| Objective variants without grid optimization | The objective is unused; deduplicated |
+| `grid_opt_covariance_mode: identity` without grid optimization | Data-free requires grid optimization |
+| `grid_opt_group_sequential` without grid optimization, with `grid_opt_covariance_mode: identity`, or with per-channel weights | The heuristic is inert; deduplicated |
+| Layer-interleaved `grid_opt_covariance_mode: identity` | Reproduces the decoupled run (see below); deduplicated |
 
 Interleaving the data-free baseline is only redundant in the *layer*-interleaved case.
 The scale is then optimized in `_on_error_correction_starts`, before error correction
 touches the layer, so `||w - s q(w)||^2` sees the original weights and returns the
 decoupled scales. In the *group*-interleaved case the scale of each group is optimized in
-`single_group_update` as GPTQ/Qronos reaches it, reading weights that already carry the
+`optimize_group` as GPTQ/Qronos reaches it, reading weights that already carry the
 error diffused by the preceding groups, so `⊙ data-free †` is a genuinely distinct row and
 is kept. Per-channel quantization has no group-interleaved mode, so data-free is always
 deduplicated there.
