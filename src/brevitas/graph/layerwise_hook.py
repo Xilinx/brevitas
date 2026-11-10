@@ -46,7 +46,9 @@ class layerwise_hook_mode(quantization_status_manager):
     # Algorithms such as GPFQ and Qronos aim to solve the mismatched objective by using
     # float inputs and (possibly quantized) inputs from the previously quantized layers.
     # Block-wise drivers read this off the class to decide which inputs to cache, so it
-    # is declared here: every mode reaching those drivers is a subclass of this one.
+    # is declared here: every mode reaching those drivers is a subclass of this one. A
+    # mode for which the objective is a choice (grid_optimization_mode) takes it as a
+    # constructor argument of the same name instead, which the drivers read first.
     # By default, we assume that the algorithm does not solve the mismatched objective.
     solves_mismatched_objective = False
 

@@ -173,7 +173,7 @@ class ScaleSolverFamily(ABC):
         min  r^T H r - 2 r^T b,    r = the weights as the quantizer reconstructs them
 
     over the scale of the group. GridOptimizer builds H and b from the covariance
-    mode, the objective (b = H w, or G w for the cross-activation one) and the
+    mode, the objective (b = H w, or G w for the mismatched one) and the
     schedule, so a solver never sees those. H is the diagonal of the covariance
     matrix over the columns of w or, for a family with supports_dense, one diagonal
     block of it per group, which the groups are solved against independently.

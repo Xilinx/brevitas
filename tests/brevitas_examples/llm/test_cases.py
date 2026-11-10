@@ -135,10 +135,10 @@ class LLMRunCases:
             {
                 "grid_optimization": True, "grid_opt_covariance_mode": "diagonal"},
             {
-                "grid_optimization": True, "grid_opt_objective": "self-activation",
+                "grid_optimization": True, "grid_opt_objective": "quantized",
                 "grid_opt_covariance_mode": "diagonal"},
             {
-                "grid_optimization": True, "grid_opt_objective": "cross-activation",
+                "grid_optimization": True, "grid_opt_objective": "mismatched",
                 "grid_opt_covariance_mode": "diagonal"},
             # Debug covariance modes: H=diag(H) and H=I.
             {
@@ -184,7 +184,7 @@ class LLMRunCases:
                 "weight_quant_granularity": "per_group",
                 "weight_group_size": 8,
                 "grid_opt_covariance_mode": "diagonal"},
-            # ---- Interleaved with GPTQ (self-activation objective) ----
+            # ---- Interleaved with GPTQ (quantized objective) ----
             # Per-channel is always layer-interleaved.
             {
                 "gpxq_use_grid_optimization": True,
@@ -216,7 +216,7 @@ class LLMRunCases:
                 "weight_quant_granularity": "per_group",
                 "weight_group_size": 8,
                 "grid_opt_covariance_mode": "diagonal"},
-            # ---- Interleaved with Qronos (cross-activation objective) ----
+            # ---- Interleaved with Qronos (mismatched objective) ----
             {
                 "gpxq_use_grid_optimization": True,
                 "qronos": True,
@@ -241,8 +241,8 @@ class LLMRunCases:
         ],
         ids=[
             "standalone,obj=unquantized",
-            "standalone,obj=self-activation",
-            "standalone,obj=cross-activation",
+            "standalone,obj=quantized",
+            "standalone,obj=mismatched",
             "standalone,covariance_mode=diagonal",
             "standalone,covariance_mode=identity",
             "standalone,float_activations",

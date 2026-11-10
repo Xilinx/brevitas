@@ -4,7 +4,6 @@
 from argparse import Namespace
 from functools import partial
 from typing import List
-from warnings import warn
 
 import torch
 import torch.nn as nn
@@ -32,8 +31,8 @@ def build_grid_optimization_kwargs(args: Namespace) -> dict:
     """Arguments of InterleavedGridOptimizer.for_gpxq, which GPTQ / Qronos call for each layer.
 
     No objective is passed: it is implied by the error-correction algorithm (GPTQ:
-    self-activation, Qronos: cross-activation), which decides whether the grid
-    optimizer receives G.
+    quantized, Qronos: mismatched), which decides whether the grid optimizer
+    receives G.
     """
     if args.weight_quant_granularity not in ("per_group", "per_channel"):
         raise NotImplementedError(
@@ -55,16 +54,17 @@ def build_grid_optimization_kwargs(args: Namespace) -> dict:
 
 def _pass_managers(model: nn.Module, objective: str,
                    use_quant_activations: bool) -> List[quantization_status_manager]:
-    """Quantization state of each forward pass that feeds grid optimization, per batch.
+    """Which quantizers are enabled in each forward pass that feeds grid optimization,
+    per batch, as a list of context managers.
 
     The objective picks the activations X_tilde (reconstruction) and X (target) the
     scale is fit to in ||X w - s X_tilde q(w)||^2:
       - unquantized: both from a pass with weight quantization off;
-      - self-activation: both from the quantized model;
-      - cross-activation: X_tilde from the quantized model, X from a float pass.
+      - quantized: both from the quantized model;
+      - mismatched: X_tilde from the quantized model, X from a float pass.
     Activation and bias quantization in the quantized pass follow use_quant_activations.
-    The float pass of cross-activation comes second: the grid optimization hook pairs its
-    input with the one stored by the quantized pass.
+    The float pass of the mismatched objective comes second: the grid optimization hook
+    pairs its input with the one stored by the quantized pass.
     """
     quant_pass = quantization_status_manager(
         model=model,
@@ -72,7 +72,7 @@ def _pass_managers(model: nn.Module, objective: str,
         disable_weight_quant=objective == 'unquantized',
         disable_bias_quant=not use_quant_activations,
         is_training=False)
-    if objective != 'cross-activation':
+    if objective != 'mismatched':
         return [quant_pass]
     float_pass = quantization_status_manager(
         model=model,
@@ -87,11 +87,6 @@ def _pass_managers(model: nn.Module, objective: str,
 def apply_grid_optimization(
         model: nn.Module, dataloader: torch.utils.data.DataLoader, args: Namespace) -> None:
 
-    if args.input_bit_width is not None:
-        warn(
-            "Grid optimization with activation (input) quantization is untested; "
-            "results may be unreliable.")
-
     objective = args.grid_opt_objective
     pass_managers = partial(
         _pass_managers,
@@ -102,7 +97,7 @@ def apply_grid_optimization(
         'matrix_dtype': S_DTYPE,
         'tolerance': S_TOLERANCE,
         'solver_batch_size': args.grid_opt_solver_batch_size,
-        'cross_act_objective': objective == 'cross-activation',
+        'solves_mismatched_objective': objective == 'mismatched',
         'per_group_greedy': args.grid_opt_group_sequential,
         'per_group_greedy_reorder': args.grid_opt_group_sequential_act_order,
         'covariance_mode': args.grid_opt_covariance_mode,
@@ -115,6 +110,9 @@ def apply_grid_optimization(
             args.gpxq_block_name,
             grid_optimization_mode,
             context_manager_kwargs,
+            # As for GPFQ / Qronos, the cached float inputs are reset to the quantized
+            # ones after every block.
+            reset_float_cache_every=1,
             pass_managers=pass_managers)
     else:
         _calibrate_model(

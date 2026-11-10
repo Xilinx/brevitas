@@ -17,11 +17,11 @@ Grid optimization chooses the weight quantization grid that minimizes the layer 
 reconstruction error ||X w - s X_tilde q(w; s)||^2; currently, the scale s of the grid.
 Two objectives are supported through the choice of covariance matrices
 H = X_tilde^T X_tilde and G = X_tilde^T X:
-  - self-activation (GPTQ-style): pass only H (G defaults to H);
-  - cross-activation (Qronos/GPTAQ-style): pass both H and G.
-Which activations X_tilde and X are (e.g. whether the previous layers are quantized)
-is decided by whoever produces H and G: GPTQ / Qronos, or the caller of
-grid_optimization_mode, which runs the forward passes.
+  - X_tilde = X (GPTQ-style): pass only H (G defaults to H);
+  - the mismatched objective, X_tilde != X (Qronos-style): pass both H and G.
+The orchestration layer, GPTQ / Qronos or the caller of grid_optimization_mode,
+handles enabling and/or disabling quantization in the forward passes that produce
+X_tilde and X.
 
 The scale solvers live in .solvers and the grid builders / ordering helpers in
 .utils. Entry points for the LLM example live in
@@ -52,9 +52,13 @@ from brevitas.utils.torch_utils import StopFwdException
 
 # How the covariance matrix H (and G) is used: 'dense' keeps the full matrices
 # accumulated from calibration data, for a solver that supports them (see
-# _quadratic_and_linear and GridOptimizer.optimize_layer), 'diagonal' keeps only
+# _quadratic_and_linear and GridOptimizer.update_grid), 'diagonal' keeps only
 # their diagonal, and 'identity' ignores the data entirely (H=I, G=None,
-# i.e. pure weight MSE).
+# i.e. pure weight MSE; the calibration forward passes still run, but H and G are
+# ignored).
+# TODO: consider cleaning up this part of the architecture. 'identity' solves the
+# weight reconstruction error, as MSE scale statistics do, and 'diagonal' is an
+# approximation of the objective, so both may belong with the solver instead.
 COVARIANCE_MODES = ('dense', 'diagonal', 'identity')
 
 
@@ -72,11 +76,10 @@ def _quadratic_and_linear(
     of unit columns (a group) independently of the others.
 
     The objective ||X w - X_tilde r||^2 = r^T H r - 2 r^T G w + const, with
-    H = X_tilde^T X_tilde and G = X_tilde^T X, or G = H for the self-activation
-    objective. H and G may already be diagonals. With full matrices, each unit only
-    keeps its own diagonal block of H and G, shape [units, unit, unit], and the
-    cross terms between units are discarded (the independent-groups objective of
-    the PiSO paper, Eq. 11).
+    H = X_tilde^T X_tilde and G = X_tilde^T X, or G = H when X_tilde = X. H and G
+    may already be diagonals. With full matrices, each unit only keeps its own
+    diagonal block of H and G, shape [units, unit, unit], and the cross terms between
+    units are discarded (the independent-groups objective of the PiSO paper, Eq. 11).
     """
     if covariance_mode == 'identity':
         return torch.ones(W.shape[1], dtype=W.dtype, device=W.device), W
@@ -93,12 +96,12 @@ def _quadratic_and_linear(
 class GridOptimizer:
     """Optimizes one layer's weight quantization grid, writing the result into its quantizer.
 
-    optimize_layer takes the covariance matrices H (and optional G), 2-D and in the
+    update_grid takes the covariance matrices H (and optional G), 2-D and in the
     layer's natural column order (H = X_tilde^T X_tilde, G = X_tilde^T X; G=None
-    selects the self-activation objective). It turns them into the quadratic and the
-    linear term of the objective every solver minimises (see ScaleSolverFamily),
-    according to covariance_mode, and hands the solver the groups of the layer: a
-    per-channel layer is a single group per row. The solver family is selected by
+    when X_tilde = X). It turns them into the quadratic and the linear term of the
+    objective every solver minimises (see ScaleSolverFamily), according to
+    covariance_mode, and hands the solver the groups of the layer: a per-channel layer
+    is a single group per row. The solver family is selected by
     name from SCALE_SOLVER_REGISTRY (default 'piso', see .solvers), and solver_kwargs
     are passed on to every call of its solver.
 
@@ -159,16 +162,10 @@ class GridOptimizer:
     def is_layer_valid(layer: nn.Module, solver: str = 'piso') -> bool:
         """Whether grid optimization with solver supports layer: a weight-quantized
         QuantLinear with a parameter-from-stats scale, whose quantizer the solver family
-        accepts (see ScaleSolverFamily.check_layer). Returns False (warning that the
-        layer is skipped) instead of raising on any mismatch."""
-        if not is_quant_module(layer):
-            warnings.warn("Skipping grid optimization: layer is not a quant module.")
-            return False
-        if not layer.weight_quant.is_quant_enabled:
-            warnings.warn("Skipping grid optimization: layer weight quantization is not enabled.")
-            return False
-        if not isinstance(layer, nn.Linear):
-            warnings.warn("Skipping grid optimization: only nn.Linear layers are supported.")
+        accepts (see ScaleSolverFamily.check_layer). A weight-quantized QuantLinear that
+        is rejected is skipped with a warning; any other module silently."""
+        if not (is_quant_module(layer) and isinstance(layer, nn.Linear) and
+                layer.weight_quant.is_quant_enabled):
             return False
         if not _has_base_scale(layer):
             warnings.warn(
@@ -191,7 +188,7 @@ class GridOptimizer:
         weight_quant = self.layer.weight_quant
         return weight_quant.group_size if weight_quant.is_groupwise else self.layer.weight.shape[1]
 
-    def optimize_layer(self, H: torch.Tensor, G: Optional[torch.Tensor] = None) -> None:
+    def update_grid(self, H: torch.Tensor, G: Optional[torch.Tensor] = None) -> None:
         """Compute and write the optimized scales of the layer.
 
         The layer params must be allocated by the caller.
@@ -324,7 +321,7 @@ class InterleavedGridOptimizer(GridOptimizer):
         follows. The caller may modify H and G in place once this returns, so what is
         kept is a copy, of the diagonals only when that is all the solver reads."""
         if not self.group_interleaved:
-            self.optimize_layer(H, G)
+            self.update_grid(H, G)
             return
         if self.covariance_mode != 'dense':
             H = H.diagonal()
@@ -360,8 +357,9 @@ class StandaloneGridOptimizer(GridOptimizer, ModuleOptimizer):
 
     update_batch accumulates the covariance matrices H and G from the layer inputs, and
     single_layer_update then optimizes every scale of the layer at once.
-    cross_act_objective selects whether G is accumulated (see grid_optimization_mode
-    for the forward passes it expects), and matrix_dtype is the dtype of H and G.
+    solves_mismatched_objective selects whether G is accumulated (see
+    grid_optimization_mode for the forward passes it expects), and matrix_dtype is the
+    dtype of H and G.
     """
 
     def __init__(
@@ -369,7 +367,7 @@ class StandaloneGridOptimizer(GridOptimizer, ModuleOptimizer):
             layer: nn.Module,
             name: str,
             len_parallel_layers: int = 1,
-            cross_act_objective: bool = False,
+            solves_mismatched_objective: bool = False,
             matrix_dtype: torch.dtype = torch.float32,
             **kwargs) -> None:
         GridOptimizer.__init__(self, layer, **kwargs)
@@ -383,11 +381,11 @@ class StandaloneGridOptimizer(GridOptimizer, ModuleOptimizer):
             create_weight_orig=False,
             device='same',
             dtype=matrix_dtype)
-        self.cross_act_objective = cross_act_objective
-        # Allocated by the first update_batch call, so that only the layers being
-        # calibrated hold them.
-        self.H = None
-        self.G = None
+        self.solves_mismatched_objective = solves_mismatched_objective
+        self.H = torch.zeros((self.groups, self.columns, self.columns),
+                             device=self.device,
+                             dtype=self.dtype)
+        self.G = torch.zeros_like(self.H) if solves_mismatched_objective else None
         self.nsamples = 0
         self.nsamples_G = 0
         self.quant_input = None
@@ -395,25 +393,17 @@ class StandaloneGridOptimizer(GridOptimizer, ModuleOptimizer):
     def update_batch(self, module, input, current_layer):
         current_layer.layer_names.add(self.name)
         inp_processed = self.process_input(input)
-        if self.H is None:
-            self.H = torch.zeros((self.groups, self.columns, self.columns),
-                                 device=self.device,
-                                 dtype=self.dtype)
-            self.G = torch.zeros_like(self.H) if self.cross_act_objective else None
-        if self.cross_act_objective and not module.weight_quant.is_quant_enabled:
-            # Float pass: accumulate G = X_tilde^T X, pairing this input with the
-            # quantized input stored by the previous pass.
+        # The orchestration layer runs the quantized pass before the float one, so a
+        # stored quantized input means that this is the float pass.
+        if self.quant_input is not None:
+            # Accumulate G = X_tilde^T X, pairing this input with the stored one.
             self.nsamples_G = accumulate_covariance(
                 self.G, self.nsamples_G, self.quant_input, inp_processed)
             self.quant_input = None
         else:
-            # Accumulate H = X_tilde^T X_tilde. For the cross-activation objective, also
-            # store this input to pair it with the float input of the next pass.
-            if self.cross_act_objective:
-                if self.quant_input is not None:
-                    raise RuntimeError(
-                        "Expected quant_input to be consumed by the float pass before the "
-                        "next quantized pass; got a stale quant_input.")
+            # Accumulate H = X_tilde^T X_tilde. For the mismatched objective, also store
+            # this input to pair it with the float input of the next pass.
+            if self.solves_mismatched_objective:
                 self.quant_input = inp_processed.to(dtype=self.H.dtype, copy=True)
             self.nsamples = accumulate_covariance(self.H, self.nsamples, inp_processed)
         raise StopFwdException
@@ -424,7 +414,7 @@ class StandaloneGridOptimizer(GridOptimizer, ModuleOptimizer):
             self.layer.allocate_params(self.layer)
         # The layer is an nn.Linear (see is_layer_valid), so there is a single group.
         G = None if self.G is None else self.G[0]
-        self.optimize_layer(self.H[0], G)
+        self.update_grid(self.H[0], G)
         if hasattr(self.layer, 'offload_params'):
             self.layer.offload_params(self.layer)
         self.H = self.G = None
@@ -439,20 +429,18 @@ class grid_optimization_mode(layerwise_hook_mode):
     to optimize every layer's scales. This is the standalone path; the interleaved path
     instead runs inside GPTQ/Qronos (see InterleavedGridOptimizer).
 
-    Like gpfq_mode, it never enables or disables quantization: the caller runs
-    every forward pass under the quantization state its objective needs.
-      - cross_act_objective=False: one pass per batch. Whether the layers before
-        the current one are quantized (self-activation) or left float (unquantized)
-        is up to the caller.
-      - cross_act_objective=True: per batch, a quantized pass first (X_tilde, whose
-        input the hook stores), then a float pass with all quantization disabled
+    Like gpfq_mode, it never enables or disables quantization: the orchestration layer
+    runs every forward pass with the quantizers its objective needs enabled.
+      - solves_mismatched_objective=False: one pass per batch, X_tilde = X. Whether the
+        layers before the current one are quantized or not is up to the caller.
+      - solves_mismatched_objective=True: per batch, a quantized pass first (X_tilde,
+        whose input the hook stores), then a float pass with all quantization disabled
         (X, which accumulates G).
     update has to run outside that disabling: a layer's weight quantization must be
     enabled for its scales to be written.
 
-    It keeps the inherited solves_mismatched_objective = False on purpose: block-wise
-    drivers then cache a single stream of block inputs, and the caller runs both passes
-    of the cross-activation objective on it.
+    With covariance_mode='identity', grid optimization is data-free (H=I, G=None, pure
+    weight MSE): the calibration forward passes still run, but H and G are ignored.
     """
 
     def __init__(
@@ -462,7 +450,7 @@ class grid_optimization_mode(layerwise_hook_mode):
             matrix_dtype: torch.dtype = torch.float32,
             tolerance: float = 1e-5,
             solver_batch_size: Optional[int] = None,
-            cross_act_objective: bool = False,
+            solves_mismatched_objective: bool = False,
             per_group_greedy: bool = False,
             per_group_greedy_reorder: bool = True,
             covariance_mode: str = 'diagonal',
@@ -471,11 +459,10 @@ class grid_optimization_mode(layerwise_hook_mode):
 
         # Validate attributes received as arguments before touching the model
         GridOptimizer.validate_config(covariance_mode, solver)
-        self._validate_args(covariance_mode)
 
         self.solver = solver
         self.grid_optimizer_kwargs = {
-            'cross_act_objective': cross_act_objective,
+            'solves_mismatched_objective': solves_mismatched_objective,
             'matrix_dtype': matrix_dtype,
             'solver_dtype': solver_dtype,
             'solver_device': 'cuda' if torch.cuda.is_available() else 'cpu',
@@ -489,7 +476,8 @@ class grid_optimization_mode(layerwise_hook_mode):
 
         # NOTE: layerwise_hook_mode inherits from quantization_status_manager. As in
         # gpfq_mode, leaving activation and bias quantization enabled makes the
-        # inherited manager a no-op, so the caller owns the quantization state.
+        # inherited manager a no-op, so the orchestration layer enables and disables
+        # the quantizers.
         super().__init__(
             model=model,
             disable_act_quant=False,
@@ -505,19 +493,8 @@ class grid_optimization_mode(layerwise_hook_mode):
         except StopFwdException:
             pass
 
-    @torch.no_grad()
-    def __enter__(self):
-        return super().__enter__()
-
     def initialize_module_optimizer(self, layer, name, len_parallel_layers, create_weight_orig):
         # create_weight_orig is part of the shared initialize_module_optimizer contract
         # but unused: grid optimization keeps no copy of the original weights.
         return StandaloneGridOptimizer(
             layer, name, len_parallel_layers=len_parallel_layers, **self.grid_optimizer_kwargs)
-
-    def _validate_args(self, covariance_mode: str) -> None:
-        if covariance_mode == 'identity':
-            warnings.warn(
-                'covariance_mode="identity": grid optimization is data-free (H=I, G=None, pure weight '
-                'MSE). The calibration forward passes still run, but the computed H and G are ignored.'
-            )

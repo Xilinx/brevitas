@@ -208,7 +208,7 @@ def _chunked_piso_sweep_per_channel_diag(
         w_b: weights, shape [batch, D].
         H_diag: diagonal of H, shape [D].
         b: the linear term of the objective, e.g. diag(G) * w for the
-            cross-activation objective, shape [batch, D]. If None, H_diag * w.
+            mismatched objective, shape [batch, D]. If None, H_diag * w.
         unscaled_grid: sorted quantization grid with 0 included.
         eps: interval degeneracy threshold and clamping margin.
         allow_negative_s: must be False; negative scales are not supported.
@@ -272,7 +272,7 @@ def _chunked_piso_sweep_per_group_diag(
         w_b: weights, shape [batch, n_groups, group_size].
         H_diag: diagonal of H, shape [D] (D = n_groups * group_size).
         b: the linear term of the objective, e.g. diag(G) * w for the
-            cross-activation objective, shape [batch, n_groups, group_size].
+            mismatched objective, shape [batch, n_groups, group_size].
             If None, H_diag * w.
         unscaled_grid: sorted quantization grid with 0 included.
         eps: interval degeneracy threshold and clamping margin.

@@ -41,11 +41,11 @@ class PiSOEntryPointUtils(LLMEntryPointUtils):
                 "The data-free baseline requires grid optimization."
             assert not args.grid_opt_group_sequential, \
                 "Group heuristics require grid optimization."
-            assert args.grid_opt_objective == 'cross-activation', \
+            assert args.grid_opt_objective == 'mismatched', \
                 "The objective is pinned to deduplicate this baseline."
             return
 
-        expected_objective = 'self-activation' if args.gptq else 'cross-activation'
+        expected_objective = 'quantized' if args.gptq else 'mismatched'
         assert args.grid_opt_objective == expected_objective, \
             "The scale objective must match the error correction algorithm."
 

@@ -209,7 +209,7 @@ def skip_if_unsupported(solver_name, allow_negative_s):
 
 
 def linear_term(w, g_diag):
-    """b = diag(G) * w, or None for the self-activation objective."""
+    """b = diag(G) * w, or None when X_tilde = X."""
     if g_diag is None:
         return None
     return (g_diag * w.reshape(w.shape[0], -1)).reshape(w.shape)

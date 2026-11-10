@@ -75,7 +75,7 @@ Per-channel quantization is always layer-interleaved, so `⊙` needs only
 ### Objective
 
 The paper runs reconstruct from the quantized model, so `grid_opt_objective` is never
-`unquantized`: it is `self-activation` with `--gptq` and `cross-activation` with
+`unquantized`: it is `quantized` with `--gptq` and `mismatched` with
 `--qronos` or standalone RTN. When grid optimization runs inside GPTQ/Qronos
 (`gpxq_use_grid_optimization`), the objective follows the algorithm regardless; the
 sweep still pins `grid_opt_objective` to it to avoid running duplicates.
