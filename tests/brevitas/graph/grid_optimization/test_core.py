@@ -238,7 +238,7 @@ def _optimized_scales(weight_quant, solver, covariance_mode, mismatched, greedy)
         per_group_greedy=greedy)
     with torch.no_grad():
         grid_optimizer.update_grid(H, G)
-    return layer.quant_weight().scale_.detach()
+    return layer.quant_weight().scale.detach()
 
 
 @pytest.mark.parametrize("solver", ['piso', 'chunked-piso'])
@@ -277,7 +277,7 @@ def test_standalone_with_input_quantization_fits_the_quantized_inputs():
 
     with torch.no_grad():
         grid_optimizer.single_layer_update()
-    scales = layer.quant_weight().scale_.detach()
+    scales = layer.quant_weight().scale.detach()
     assert torch.isfinite(scales).all() and (scales > 0).all()
 
 
