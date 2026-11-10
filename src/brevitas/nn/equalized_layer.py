@@ -76,6 +76,10 @@ class RotatedModule(torch.nn.Module):
             hidden_dim: Optional[int] = None) -> None:
         super().__init__()
         device = next(iter(layer.parameters())).device
+        if had_mat is not None and device.type == 'meta':
+            # the layer is offloaded (its parameters are placeholders): moving had_mat to the meta
+            # device would discard its values, so keep it where it is
+            device = had_mat.device
         if had_mat is not None:
             self.had_mat = torch.nn.Parameter(had_mat.to(device))
         else:
