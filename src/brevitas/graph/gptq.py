@@ -160,7 +160,7 @@ class GPTQ(GPxQ):
                 self._on_error_correction_starts(self.H[i, :, :], None, perm)
 
                 if self.act_order:
-                    # Re-order Hessian to the error-correction column order
+                    # Re-order columns for the error correction
                     self.H[i, :, :] = self.H[i, perm, :][:, perm]
                 self.H[i, :, :] = torch.linalg.cholesky(self.H[i, :, :])
                 self.H[i, :, :] = torch.cholesky_inverse(self.H[i, :, :])

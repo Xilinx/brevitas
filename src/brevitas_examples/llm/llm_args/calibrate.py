@@ -12,7 +12,7 @@ from brevitas_examples.common.parse_utils import AlgorithmArgumentParser
 
 GRID_OPT_PREFIX = "grid-opt"
 # Reconstruction objectives of --grid-optimization, see apply_grid_optimization.
-GRID_OPT_OBJECTIVES = ['unquantized', 'self-activation', 'cross-activation']
+GRID_OPT_OBJECTIVES = ['unquantized', 'quantized', 'mismatched']
 
 
 class GridOptimizationArgumentParser(AlgorithmArgumentParser):
@@ -67,10 +67,10 @@ class GridOptimizationArgumentParser(AlgorithmArgumentParser):
             help='Reconstruction objective of --grid-optimization, ||X w - s X_tilde q(w)||^2, '
             'where X_tilde are the activations the layer sees. '
             'unquantized: X_tilde = X, with the previous layers left unquantized. '
-            'self-activation: X_tilde = X, from the quantized previous layers. '
-            'cross-activation: X_tilde from the quantized previous layers, X from the float model. '
+            'quantized: X_tilde = X, from the quantized previous layers. '
+            'mismatched: X_tilde from the quantized previous layers, X from the float model. '
             'With --gpxq-use-grid-optimization the objective follows the error-correction '
-            'algorithm (GPTQ: self-activation, Qronos: cross-activation). Default: unquantized')
+            'algorithm (GPTQ: quantized, Qronos: mismatched). Default: unquantized')
 
         GridOptimizationArgumentParser._add_bool(
             parser,
@@ -105,7 +105,7 @@ class GridOptimizationArgumentParser(AlgorithmArgumentParser):
             'own weights. '
             'diagonal: only diag(H) (and diag(G)), discarding cross-weight interactions. '
             'identity: ignore the calibration data entirely and use H=I, G=None (pure '
-            'weight MSE). Default: diagonal')
+            'weight MSE); the calibration forward passes still run. Default: diagonal')
 
         GridOptimizationArgumentParser._add_bool(
             parser,
@@ -155,7 +155,7 @@ class GridOptimizationArgumentParser(AlgorithmArgumentParser):
             if not grid_optimization:
                 # The interleaved objective follows the algorithm, so an explicit
                 # objective that disagrees with it would otherwise be ignored silently.
-                implied_objective = 'self-activation' if args.gptq else 'cross-activation'
+                implied_objective = 'quantized' if args.gptq else 'mismatched'
                 if objective not in ('unquantized', implied_objective):
                     warn(
                         f"--{prefix}-objective {objective} is ignored with "
@@ -171,8 +171,3 @@ class GridOptimizationArgumentParser(AlgorithmArgumentParser):
             assert covariance_mode != 'dense' or supports_dense, \
                 f"--{prefix}-solver {solver} only uses the diagonal of the covariance " \
                 f"matrix; use --{prefix}-covariance-mode diagonal or identity."
-            if covariance_mode == 'identity':
-                warn(
-                    f"--{prefix}-covariance-mode identity: grid optimization is data-free (H=I, "
-                    "G=None, pure weight MSE). Note the calibration forward passes still run with "
-                    "the current implementation, but the computed H and G matrices are ignored.")

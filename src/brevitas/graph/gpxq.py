@@ -350,7 +350,7 @@ class GPxQ(ModuleOptimizer):
         """Called once the covariance matrices are ready, before error correction.
 
         H and G are 2-D and in the layer's natural column order, with G = X_tilde^T X
-        (None for the self-activation objective); perm is the column order error
+        (None when X_tilde = X); perm is the column order error
         correction follows. The algorithm may modify H and G in place afterwards.
 
         Grid optimization uses it to optimize the layer scale on the fixed grid before

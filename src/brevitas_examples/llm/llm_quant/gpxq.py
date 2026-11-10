@@ -50,8 +50,16 @@ def _magr_block_optimization_callback(magr, passes):
     magr.update()
 
 
+def _solves_mismatched_objective(context_manager_func, context_manager_kwargs):
+    """Whether the algorithm solves the mismatched objective: a property of its class,
+    or a choice passed to its constructor (e.g. grid_optimization_mode)."""
+    return context_manager_kwargs.get(
+        'solves_mismatched_objective', context_manager_func.solves_mismatched_objective)
+
+
 def _gpxq_pass_managers(module, solves_mismatched_objective, use_quant_activations):
-    """Quantization state of the forward passes that feed one block of a GPxQ algorithm.
+    """Which quantizers (activation, weight, bias) are enabled in each forward pass that
+    feeds one block of a GPxQ algorithm, as a list of context managers.
 
     An algorithm that solves the mismatched objective (GPFQ, Qronos) runs a quantized
     pass and then a float pass with all quantization disabled. Any other algorithm runs
@@ -74,7 +82,8 @@ def _gpxq_pass_managers(module, solves_mismatched_objective, use_quant_activatio
 
 
 def _default_pass_managers(context_manager_func, context_manager_kwargs):
-    solves_mismatched_objective = context_manager_func.solves_mismatched_objective
+    solves_mismatched_objective = _solves_mismatched_objective(
+        context_manager_func, context_manager_kwargs)
     use_quant_activations = context_manager_kwargs.get('use_quant_activations', True)
     if solves_mismatched_objective and not use_quant_activations:
         raise ValueError("Mismatched objective requires use_quant_activations=True.")
@@ -127,11 +136,12 @@ def _block_optimization(
         pass_managers=None):
     """Run a layer-wise algorithm block by block, propagating the block inputs.
 
-    pass_managers(module) returns the quantization state of each forward pass that
-    feeds the block, as a list of context managers. By default it follows the
-    algorithm's objective (see _gpxq_pass_managers). Cached input stream k goes through
-    pass k when the objective is mismatched, and the single stream goes through pass 0
-    otherwise. The next block's input is propagated through the same passes.
+    pass_managers(module) returns, for each forward pass that feeds the block, a context
+    manager that enables the quantizers that pass needs. By default it follows the
+    algorithm's objective (see _gpxq_pass_managers). When the objective is mismatched,
+    the inputs cached from the quantized model go through pass 0 and those cached from
+    the float model through pass 1; otherwise the cached inputs go through every pass.
+    The next block's inputs are propagated through the same passes.
     """
     if reset_float_cache_every is not None:
         if not isinstance(reset_float_cache_every, int) or reset_float_cache_every <= 0:
@@ -139,7 +149,8 @@ def _block_optimization(
 
     # Algorithms such as GPFQ and Qronos aim to solve the mismatched objective by using
     # float inputs and (possibly quantized) inputs from the previously quantized layers.
-    solves_mismatched_objective = context_manager_func.solves_mismatched_objective
+    solves_mismatched_objective = _solves_mismatched_objective(
+        context_manager_func, context_manager_kwargs)
     if pass_managers is None:
         pass_managers = _default_pass_managers(context_manager_func, context_manager_kwargs)
     float_pass = 1 if solves_mismatched_objective else 0
@@ -149,7 +160,8 @@ def _block_optimization(
     blocks = recurse_getattr(model, block_name)
     first_block = blocks[0]
 
-    # Cached inputs of the float stream (the only stream unless the objective is mismatched).
+    # Cached inputs from the float model, or the only cached inputs unless the objective
+    # is mismatched.
     float_cached_args, float_cached_kwargs = [], []
     # Cached inputs from the quantized model if solves_mismatched_objective is True.
     quant_cached_args, quant_cached_kwargs = [], []

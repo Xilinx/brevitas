@@ -66,11 +66,11 @@ grid_opt_covariance_mode:
 - dense
 - identity
 # PiSO uses quantized activations for reconstruction. Qronos and standalone RTN
-# use float target activations (cross-activation). GPTQ uses quantized target
-# activations (self-activation).
+# use float target activations (mismatched). GPTQ uses quantized target
+# activations (quantized).
 grid_opt_objective:
-- cross-activation
-- self-activation
+- mismatched
+- quantized
 # Channels solved in parallel. Throughput/memory knob only; does not affect results.
 grid_opt_solver_batch_size:
 - 512

@@ -38,7 +38,7 @@ usage: main.py [-h] [--config CONFIG] [--model MODEL] [--custom-quantizer CUSTOM
                [--few-shot-eval {lm_eval,lighteval}] [--few-shot-override-batch-size FEW_SHOT_OVERRIDE_BATCH_SIZE] [--compile-ptq] [--compile-eval] [--few-shot-zeroshot]
                [--bos-preprocessing {None,document,sequence}] [--few-shot-limit FEW_SHOT_LIMIT] [--few-shot-tasks [FEW_SHOT_TASKS ...]] [--awq-scale] [--awq-clip]
                [--calibration-batch-size CALIBRATION_BATCH_SIZE] [--grid-opt-solver {chunked-piso,piso}]
-               [--grid-opt-use-quant-activations | --no-grid-opt-use-quant-activations] [--grid-opt-solver-batch-size GRID_OPT_SOLVER_BATCH_SIZE] [--grid-opt-objective {unquantized,self-activation,cross-activation}]
+               [--grid-opt-use-quant-activations | --no-grid-opt-use-quant-activations] [--grid-opt-solver-batch-size GRID_OPT_SOLVER_BATCH_SIZE] [--grid-opt-objective {unquantized,quantized,mismatched}]
                [--grid-opt-group-sequential | --no-grid-opt-group-sequential] [--grid-opt-group-sequential-act-order | --no-grid-opt-group-sequential-act-order] [--grid-opt-covariance-mode {dense,diagonal,identity}]
                [--grid-opt-group-gpxq-layer-interleaved | --no-grid-opt-group-gpxq-layer-interleaved]
 
@@ -256,10 +256,10 @@ options:
   --grid-opt-solver-batch-size GRID_OPT_SOLVER_BATCH_SIZE
                         The number of weight rows/channels in a given layer for which the scale is optimized in parallel. When set to None all the scales in the layer are optimized at the same time
                         (fastest but more memory required).
-  --grid-opt-objective {unquantized,self-activation,cross-activation}
+  --grid-opt-objective {unquantized,quantized,mismatched}
                         Reconstruction objective of --grid-optimization, ||X w - s X_tilde q(w)||^2, where X_tilde are the activations the layer sees. unquantized: X_tilde = X, with the previous layers
-                        left unquantized. self-activation: X_tilde = X, from the quantized previous layers. cross-activation: X_tilde from the quantized previous layers, X from the float model. With --gpxq-
-                        use-grid-optimization the objective follows the error-correction algorithm (GPTQ: self-activation, Qronos: cross-activation). Default: unquantized
+                        left unquantized. quantized: X_tilde = X, from the quantized previous layers. mismatched: X_tilde from the quantized previous layers, X from the float model. With --gpxq-use-
+                        grid-optimization the objective follows the error-correction algorithm (GPTQ: quantized, Qronos: mismatched). Default: unquantized
   --grid-opt-group-sequential
                         Enable With per-group weights and --grid-opt-covariance-mode dense, optimize the groups one at a time, each against the reconstruction of the groups before it. Otherwise,
                         every group is optimized independently. Not supported with group-interleaved --gpxq-use-grid-optimization. Default: disabled
@@ -275,7 +275,7 @@ options:
   --grid-opt-covariance-mode {dense,diagonal,identity}
                         How the solver uses the covariance matrices H and G. dense: the full matrices accumulated from the calibration data, for a solver that supports them (none of the current
                         ones does); each group keeps the block of its own weights. diagonal: only diag(H) (and diag(G)), discarding cross-weight interactions. identity: ignore the calibration data
-                        entirely and use H=I, G=None (pure weight MSE). Default: diagonal
+                        entirely and use H=I, G=None (pure weight MSE); the calibration forward passes still run. Default: diagonal
   --grid-opt-group-gpxq-layer-interleaved
                         Enable Selects how the solver is interleaved with GPxQ for group-wise weight quantization (paper: interleaved integration strategies). When enabled, all group scales are optimized
                         once per layer (layer-interleaved). When disabled (default), each group scale is optimized at its boundary during GPxQ (group-interleaved). Only applies with --gpxq-use-grid-

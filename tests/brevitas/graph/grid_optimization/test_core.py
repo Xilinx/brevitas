@@ -26,6 +26,7 @@ from brevitas.inject.enum import ScalingPerOutputType
 import brevitas.nn as qnn
 from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantProxyFromInjector
 from brevitas.quant.mx_quant_ocp import MXInt8Weight
+from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
 from brevitas.utils.torch_utils import StopFwdException
 
@@ -177,21 +178,21 @@ def test_standalone_accumulates_h_and_g():
     g = torch.Generator().manual_seed(2)
     layer = qnn.QuantLinear(D, 3, bias=False)
     grid_optimizer = StandaloneGridOptimizer(
-        layer, 'layer', cross_act_objective=True, matrix_dtype=torch.float64, solver_device='cpu')
-    # The covariance matrices are allocated by the first calibration batch.
-    assert grid_optimizer.H is None and grid_optimizer.G is None
+        layer,
+        'layer',
+        solves_mismatched_objective=True,
+        matrix_dtype=torch.float64,
+        solver_device='cpu')
     current_layer = LayerHandler()
     quant_inputs, float_inputs = [], []
     for batch_size in (3, 5):
         quant_inputs.append(torch.randn(batch_size, D, generator=g))
         float_inputs.append(torch.randn(batch_size, D, generator=g))
-        # A quantized pass, then a float pass with the layer's weight quantization off.
+        # A quantized pass, then a float pass: the order tells them apart.
         with pytest.raises(StopFwdException):
             grid_optimizer.update_batch(layer, (quant_inputs[-1],), current_layer)
-        layer.weight_quant.disable_quant = True
         with pytest.raises(StopFwdException):
             grid_optimizer.update_batch(layer, (float_inputs[-1],), current_layer)
-        layer.weight_quant.disable_quant = False
 
     X_tilde = torch.cat(quant_inputs).double()
     X = torch.cat(float_inputs).double()
@@ -221,14 +222,14 @@ class _NarrowInt4PerGroupWeight(_NarrowInt4PerChannelWeight):
     group_size = GROUP_SIZE
 
 
-def _optimized_scales(weight_quant, solver, covariance_mode, cross_activation, greedy):
+def _optimized_scales(weight_quant, solver, covariance_mode, mismatched, greedy):
     torch.manual_seed(0)
     layer = qnn.QuantLinear(D, 3, bias=False, weight_quant=weight_quant)
     with torch.no_grad():
         layer(torch.randn(2, D))
     g = torch.Generator().manual_seed(4)
     H = _random_covariance(g)
-    G = H + 0.1 * torch.randn(D, D, generator=g) if cross_activation else None
+    G = H + 0.1 * torch.randn(D, D, generator=g) if mismatched else None
     grid_optimizer = GridOptimizer(
         layer,
         solver_device='cpu',
@@ -236,23 +237,48 @@ def _optimized_scales(weight_quant, solver, covariance_mode, cross_activation, g
         solver=solver,
         per_group_greedy=greedy)
     with torch.no_grad():
-        grid_optimizer.optimize_layer(H, G)
+        grid_optimizer.update_grid(H, G)
     return layer.quant_weight().scale_.detach()
 
 
 @pytest.mark.parametrize("solver", ['piso', 'chunked-piso'])
 @pytest.mark.parametrize("covariance_mode", ['diagonal', 'identity'])
-@pytest.mark.parametrize("cross_activation", [False, True])
+@pytest.mark.parametrize("mismatched", [False, True])
 @pytest.mark.parametrize(
     "weight_quant", [_NarrowInt4PerChannelWeight, _NarrowInt4PerGroupWeight],
     ids=['per_channel', 'per_group'])
-def test_every_setting_runs_with_every_solver(
-        solver, covariance_mode, cross_activation, weight_quant):
-    scales = _optimized_scales(weight_quant, solver, covariance_mode, cross_activation, False)
+def test_every_setting_runs_with_every_solver(solver, covariance_mode, mismatched, weight_quant):
+    scales = _optimized_scales(weight_quant, solver, covariance_mode, mismatched, False)
     assert torch.isfinite(scales).all() and (scales > 0).all()
     # Without a full covariance matrix, solving the groups one at a time changes nothing.
-    greedy = _optimized_scales(weight_quant, solver, covariance_mode, cross_activation, True)
+    greedy = _optimized_scales(weight_quant, solver, covariance_mode, mismatched, True)
     assert torch.allclose(greedy, scales)
+
+
+def test_standalone_with_input_quantization_fits_the_quantized_inputs():
+    g = torch.Generator().manual_seed(3)
+    layer = qnn.QuantLinear(
+        D,
+        3,
+        bias=False,
+        weight_quant=_NarrowInt4PerChannelWeight,
+        input_quant=Int8ActPerTensorFloat)
+    x = torch.randn(5, D, generator=g)
+    with torch.no_grad():
+        layer(x)
+    layer.eval()
+    grid_optimizer = StandaloneGridOptimizer(
+        layer, 'layer', matrix_dtype=torch.float64, solver_device='cpu')
+    with pytest.raises(StopFwdException):
+        grid_optimizer.update_batch(layer, (x,), LayerHandler())
+    X_tilde = layer.input_quant(x).value.double()
+    assert not torch.allclose(X_tilde, x.double())
+    assert torch.allclose(grid_optimizer.H[0], 2 / 5 * X_tilde.T @ X_tilde)
+
+    with torch.no_grad():
+        grid_optimizer.single_layer_update()
+    scales = layer.quant_weight().scale_.detach()
+    assert torch.isfinite(scales).all() and (scales > 0).all()
 
 
 def test_a_solver_without_dense_support_rejects_the_dense_mode():
@@ -293,7 +319,7 @@ def _record_dense_solver(per_group_greedy):
         per_group_greedy=per_group_greedy,
         per_group_greedy_reorder=False)
     with torch.no_grad():
-        grid_optimizer.optimize_layer(H, G)
+        grid_optimizer.update_grid(H, G)
     return layer, W, H, G, _RecordingDenseSolver.calls
 
 
