@@ -257,8 +257,8 @@ class DynamicActQuantProxyFromInjector(ActQuantProxyFromInjector):
 
 class ClampQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol):
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.skip_create_quant_tensor = False
 
     def forward(self, x: IntQuantTensor) -> Union[Tensor, IntQuantTensor]:
