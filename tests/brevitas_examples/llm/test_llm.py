@@ -37,6 +37,7 @@ from brevitas_examples.llm.llm_args import dynamo_required
 from brevitas_examples.llm.llm_quant.ln_affine_merge import rmsnorm_patch
 from brevitas_examples.llm.llm_quant.parse_utils import parse_custom_trainer
 from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
+from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.trainer_utils import _build_optimizers_from_configs
 from brevitas_examples.llm.llm_quant.trainer_utils import GeneralizedTrainer
 from brevitas_examples.llm.llm_quant.trainer_utils import TRAINER_REGISTRY
@@ -781,3 +782,28 @@ def test_rmsnorm_patch_context_manager(caplog):
             f"After context manager: {name} should be restored to original type, got {cls}")
         assert cls is not torch.nn.RMSNorm, (
             f"After context manager: {name} should not be torch.nn.RMSNorm")
+
+
+@pytest.mark.llm
+def test_fix_rewriter_remaps_by_storage_and_rejects_meta():
+    """fix_rewriter maps rewriters across two versions of a model sharing the weight storage (as
+    the eager and the FX models do). Offloaded (meta) weights all have data_ptr() == 0 and cannot
+    be matched: fix_rewriter must raise instead of silently remapping to the wrong module."""
+
+    class Rewriter:
+
+        def __init__(self, module):
+            self.old_module_instance = module
+
+    eager = nn.Sequential(nn.Linear(16, 32), nn.Linear(32, 16), nn.Linear(64, 16))
+    other = nn.Sequential(*[nn.Linear(1, 1) for _ in range(3)])
+    for i in range(3):
+        other[i].weight = nn.Parameter(eager[i].weight.data)
+
+    rewriters = fix_rewriter([Rewriter(m) for m in other], eager, 'weight')
+    assert [r.old_module_instance for r in rewriters] == list(eager)
+
+    for m in list(eager) + list(other):
+        m.weight = nn.Parameter(torch.empty_like(m.weight, device='meta'))
+    with pytest.raises(RuntimeError, match="meta device"):
+        fix_rewriter([Rewriter(other[2])], eager, 'weight')
