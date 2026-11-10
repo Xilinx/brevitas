@@ -503,3 +503,13 @@ def test_fuse_parametrized_modules_after_compile_and_train(device):
         output_after_fuse = qmodel(sample_input)
     assert torch.allclose(output_before_fuse, output_after_fuse, rtol=0.0, atol=0.0)
     torch.set_default_device('cpu')
+
+
+def test_rotated_module_keeps_had_mat_for_meta_layer():
+    # A layer offloaded by accelerate has its parameters on the meta device. The Hadamard factor
+    # must keep its values, instead of being moved to meta together with the layer.
+    had_mat, K = get_hadK(28)
+    layer = nn.Linear(28, 4, device='meta')
+    rotated = RotatedModule(layer, had_mat=had_mat, k=K)
+    assert not rotated.had_mat.is_meta
+    assert torch.equal(rotated.had_mat.data, had_mat.to(rotated.had_mat.device))

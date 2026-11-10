@@ -2012,8 +2012,12 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
             return False
         if isinstance(module, RMSNorm) and module.elementwise_affine:
             # A uniform affine weight is a scalar identity and commutes with any rotation.
+            # If the module is offloaded by accelerate, its weight must be loaded first.
+            maybe_allocate_params_accelerate(module)
             weight = module.weight.detach()
-            return torch.equal(weight, weight.flatten()[0].expand_as(weight))
+            is_uniform = torch.equal(weight, weight.flatten()[0].expand_as(weight))
+            maybe_offload_params_accelerate(module)
+            return is_uniform
         return True
 
     def get_regions(self) -> List[Region]:
