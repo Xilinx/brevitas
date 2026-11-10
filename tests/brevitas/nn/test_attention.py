@@ -7,6 +7,7 @@ from torch.nn import MultiheadAttention
 
 from brevitas.export.manager import _cache_inp_out
 from brevitas.nn import QuantMultiheadAttention
+from tests.marker import requires_pt_lt
 
 ATOL = 1e-6
 EMBED_DIM = 9
@@ -62,6 +63,9 @@ class TestQuantMultiheadAttention:
             assert proj is not None
             assert proj.batch_dim == 1
 
+    # The eager pass must leave no dimension names on the input, or the tracing that follows
+    # breaks. Named tensors were removed in PyTorch 2.13, so this cannot happen there.
+    @requires_pt_lt('2.13')
     def test_mha_torchscript_trace_after_input_output_cache(self):
 
         class MHAModel(torch.nn.Module):
