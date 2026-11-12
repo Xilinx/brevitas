@@ -6,16 +6,6 @@ from utils import combine_od_list
 from utils import generate_exclusion_list
 
 TORCHVISION_VERSION_DICT = {
-    '1.9.1': '0.10.1',
-    '1.10.1': '0.11.2',
-    '1.11.0': '0.12.0',
-    '1.12.1': '0.13.1',
-    '1.13.1': '0.14.1',
-    '2.0.1': '0.15.2',
-    '2.1.2': '0.16.2',
-    '2.2.2': '0.17.2',
-    '2.3.1': '0.18.1',
-    '2.4.1': '0.19.1',
     '2.5.1': '0.20.1',
     '2.6.0': '0.21.0',
     '2.7.1': '0.22.1',
@@ -76,12 +66,6 @@ PYTEST_MATRIX_EXTRA_REDUCED = od([('jit_status', [
 ALL_SUPPORTED_PYTHON_VERSIONS = ('3.10', '3.11', '3.12', '3.13', '3.14')
 
 ALL_SUPPORTED_PYTORCH_VERSIONS = (
-    '1.13.1',
-    '2.0.1',
-    '2.1.2',
-    '2.2.2',
-    '2.3.1',
-    '2.4.1',
     '2.5.1',
     '2.6.0',
     '2.7.1',
@@ -98,26 +82,9 @@ ALL_SUPPORTED_EXCLUSION_LIST = generate_exclusion_list([
     [['python_version', [
         '3.10',]], ['pytorch_version', ['2.15.0']]],
     [['python_version', [
-        '3.11',]], ['pytorch_version', ['1.13.1']]],
+        '3.13',]], ['pytorch_version', ['2.5.1']]],
     [['python_version', [
-        '3.12',]], ['pytorch_version', ['1.13.1', '2.0.1', '2.1.2']]],
-    [['python_version', [
-        '3.13',]],
-     ['pytorch_version', ['1.13.1', '2.0.1', '2.1.2', '2.2.2', '2.3.1', '2.4.1', '2.5.1']]],
-    [['python_version', [
-        '3.14',]],
-     [
-         'pytorch_version', [
-             '1.13.1',
-             '2.0.1',
-             '2.1.2',
-             '2.2.2',
-             '2.3.1',
-             '2.4.1',
-             '2.5.1',
-             '2.6.0',
-             '2.7.1',
-             '2.8.0']]],])
+        '3.14',]], ['pytorch_version', ['2.5.1', '2.6.0', '2.7.1', '2.8.0']]],])
 
 PYTHON_VERSIONS = ('3.10', '3.11')
 

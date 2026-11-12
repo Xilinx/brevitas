@@ -7,7 +7,6 @@ import sys
 
 import nox
 from packaging import version
-from packaging.version import parse
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.path.join('.', '.github', 'workflows')))
 from gen_github_actions import ALL_SUPPORTED_PYTHON_VERSIONS as PYTHON_VERSIONS
@@ -21,7 +20,6 @@ from gen_github_actions import TORCHVISION_VERSION_DICT
 
 IS_OSX = system() == 'Darwin'
 PYTORCH_STABLE_WHEEL_SRC = 'https://download.pytorch.org/whl/cpu'
-PYTORCH_STABLE_WHEEL_SRC_LEGACY = 'https://download.pytorch.org/whl/torch_stable.html'
 PIP_URL = 'https://pypi.org/simple'
 PYTORCH_IDS = tuple([f'pytorch_{i}' for i in PYTORCH_VERSIONS])
 EXAMPLES_LLM_PYTEST_PYTORCH_IDS = tuple([
@@ -37,16 +35,12 @@ PARSED_TORCHVISION_VERSION_DICT = {version.parse(k): v for k, v in TORCHVISION_V
 
 def install_pytorch_cmd(pytorch):
     if not IS_OSX:
-        if parse(pytorch) < parse('2.4.0'):
-            cmd = [f'torch=={pytorch}+cpu', '-f', PYTORCH_STABLE_WHEEL_SRC_LEGACY]
-        else:
-            cmd = [
-                f'torch=={pytorch}+cpu',
-                '--index-url',
-                PYTORCH_STABLE_WHEEL_SRC,
-                '--extra-index-url',
-                PIP_URL]
-
+        cmd = [
+            f'torch=={pytorch}+cpu',
+            '--index-url',
+            PYTORCH_STABLE_WHEEL_SRC,
+            '--extra-index-url',
+            PIP_URL]
     else:
         cmd = [f'torch=={pytorch}']
     return cmd
@@ -55,15 +49,12 @@ def install_pytorch_cmd(pytorch):
 def install_torchvision_cmd(pytorch):
     torchvision = PARSED_TORCHVISION_VERSION_DICT[version.parse(pytorch)]
     if not IS_OSX:
-        if parse(pytorch) < parse('2.4.0'):
-            cmd = [f'torchvision=={torchvision}+cpu', '-f', PYTORCH_STABLE_WHEEL_SRC_LEGACY]
-        else:
-            cmd = [
-                f'torchvision=={torchvision}+cpu',
-                '--index-url',
-                PYTORCH_STABLE_WHEEL_SRC,
-                '--extra-index-url',
-                PIP_URL]
+        cmd = [
+            f'torchvision=={torchvision}+cpu',
+            '--index-url',
+            PYTORCH_STABLE_WHEEL_SRC,
+            '--extra-index-url',
+            PIP_URL]
     else:
         cmd = [f'torchvision=={torchvision}']
     return cmd
