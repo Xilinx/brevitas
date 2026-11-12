@@ -6,10 +6,12 @@ import os
 from typing import Optional
 
 from hypothesis import strategies as st
+from packaging.version import parse
 from pytest_cases import parametrize
 from pytest_cases import set_case_id
 from torch import nn
 
+from brevitas import torch_version
 from brevitas.nn.quant_activation import QuantIdentity
 from brevitas.nn.quant_avg_pool import TruncAvgPool2d
 from brevitas.nn.quant_rnn import QuantLSTM
@@ -61,8 +63,6 @@ def enumerate_wbiol_flags():
     """
     combos = []
     names = list(WBIOL_QUANTIZERS)
-    if torch_version < parse('2.1'):
-        names = [n for n in names if 'fp8' not in n]  # fp8 requires PyTorch >= 2.1
     for quantizer_name in names:
         weight_quant, io_quant = WBIOL_QUANTIZERS[quantizer_name]
         is_fp8 = weight_quant == Fp8e4m3OCPWeightPerTensorFloat

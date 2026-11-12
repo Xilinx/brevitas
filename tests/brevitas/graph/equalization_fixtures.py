@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from packaging import version
 import pytest
 import pytest_cases
 from pytest_cases import fixture_union
@@ -9,7 +8,6 @@ import torch
 import torch.nn as nn
 from torchvision import models
 
-from brevitas import torch_version
 from brevitas.graph.equalize import _cross_layer_equalization
 import brevitas.nn as qnn
 from brevitas.quant import Int8ActPerTensorFloat
@@ -102,9 +100,6 @@ def bnconv_model():
 @pytest_cases.parametrize('add_bias_kv', [True, False])
 @pytest_cases.parametrize('batch_first', [True, False])
 def linearmha_model(bias, add_bias_kv, batch_first):
-    # Skip due to following issue https://github.com/pytorch/pytorch/issues/97128
-    if torch_version == version.parse('2.0.1') and not bias and batch_first and not add_bias_kv:
-        pytest.skip(f"Skip due to a regression in pytorch 2.0.1")
 
     class LinearMhaModel(nn.Module):
 
@@ -129,9 +124,6 @@ def linearmha_model(bias, add_bias_kv, batch_first):
 @pytest_cases.parametrize('add_bias_kv', [True, False])
 @pytest_cases.parametrize('batch_first', [True, False])
 def layernormmha_model(bias, add_bias_kv, batch_first):
-    # Skip due to following issue https://github.com/pytorch/pytorch/issues/97128
-    if torch_version == version.parse('2.0.1') and not bias and batch_first and not add_bias_kv:
-        pytest.skip(f"Skip due to a regression in pytorch 2.0.1")
 
     class LayerNormMhaModel(nn.Module):
 
@@ -159,9 +151,6 @@ def layernormmha_model(bias, add_bias_kv, batch_first):
 @pytest_cases.parametrize('add_bias_kv', [True, False])
 @pytest_cases.parametrize('batch_first', [True, False])
 def mhalinear_model(bias, add_bias_kv, batch_first):
-    # Skip due to following issue https://github.com/pytorch/pytorch/issues/97128
-    if torch_version == version.parse('2.0.1') and not bias and batch_first and not add_bias_kv:
-        pytest.skip(f"Skip due to a regression in pytorch 2.0.1")
 
     class MhaLinearModel(nn.Module):
 

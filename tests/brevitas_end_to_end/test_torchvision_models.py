@@ -3,14 +3,12 @@
 
 import os
 
-from packaging import version
 import pytest
 from pytest_cases import fixture
 from pytest_cases import parametrize
 import torch
 import torchvision.models as modelzoo
 
-from brevitas import torch_version
 from brevitas.export import export_onnx_qcdq
 from brevitas.export import export_torch_qcdq
 from brevitas.export.inference import quant_inference_mode
@@ -20,7 +18,6 @@ from brevitas.graph.quantize import quantize
 from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas.graph.target.flexml import quantize_flexml
 from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
-from tests.marker import requires_pt_ge
 from tests.marker import requires_torch_compile
 
 TORCH_COMPILE_ATOL = 0.35
@@ -77,11 +74,6 @@ def quantize_float(model):
 def shared_quant_fn(model_name, quantize_fn):
     inp = torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
 
-    # Due to a regression in torchvision, we cannot load pretrained weights for effnet_b0
-    # https://github.com/pytorch/vision/issues/7744
-    if torch_version == version.parse('2.1.0') and model_name == 'efficientnet_b0':
-        return None
-
     # Deeplab and fcn are in a different module, and they have a dict as output which is not suited for torchscript
     if model_name in ('deeplabv3_resnet50', 'fcn_resnet50'):
         model_fn = getattr(modelzoo.segmentation, model_name)
@@ -115,14 +107,11 @@ def torchvision_model_compile(model_name, quantize_fn):
     return shared_quant_fn(model_name, quantize_fn)
 
 
-@requires_pt_ge('2.2')
 @requires_torch_compile()
 def test_torchvision_compile(torchvision_model_compile):
     torch._dynamo.config.capture_scalar_outputs = True
     if torchvision_model_compile is None:
         pytest.skip('Model not instantiated')
-    if version.parse('2.2.0') <= torch_version <= version.parse('2.4.1'):
-        pytest.skip('torch.compile not compatible with torch versions between 2.2 and 2.4.1')
 
     inp = torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
 

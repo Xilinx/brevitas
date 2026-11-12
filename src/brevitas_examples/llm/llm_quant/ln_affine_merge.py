@@ -5,11 +5,9 @@ SPDX-License-Identifier: MIT
 
 from inspect import signature
 
-from packaging import version
 import torch
 from torch import nn
 
-from brevitas import torch_version
 from brevitas.graph import ModuleInstanceToModuleInstance
 from brevitas.graph import ModuleToModuleByClass
 from brevitas.graph.equalize import LayerNormToRMS
@@ -31,8 +29,6 @@ class rmsnorm_patch:
         self.mapping = dict()
 
     def __enter__(self):
-        assert torch_version >= version.parse('2.4'), "torch.nn.RMSNorm requires torch 2.4 or greater"
-
         dtype = next(self.model.parameters()).dtype
         device = next(self.model.parameters()).device
 

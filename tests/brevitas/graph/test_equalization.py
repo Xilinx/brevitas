@@ -4,14 +4,12 @@
 import copy
 import platform
 
-from packaging.version import parse
 import pytest
 import pytest_cases
 import torch
 from torch import nn
 from torchvision import models
 
-from brevitas import torch_version
 from brevitas.fx import symbolic_trace
 from brevitas.graph.equalize import _batch_norm
 from brevitas.graph.equalize import _extract_regions
@@ -169,10 +167,6 @@ def test_models(toy_model, merge_bias, request):
     "device", ["cpu", "cuda"] if torch.cuda.is_available() else ["cpu"],
     ids=lambda dtype: str(dtype).split(".")[-1])
 def test_act_equalization_models(toy_model, layerwise, fuse_scaling, dtype, device, request):
-    if dtype in [torch.float16, torch.bfloat16] and parse('2.3.0') > torch_version:
-        pytest.skip(
-            "Some operations are not implemented for float16/bfloat16 in PyTorch versions below 2.3.0"
-        )
     if dtype in [torch.float16, torch.bfloat16
                 ] and device == 'cpu' and platform.system() == 'Windows':
         pytest.skip("Windows CPU oneDNN backend cannot build bf16/fp16 matmul primitives")

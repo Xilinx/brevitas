@@ -59,12 +59,10 @@ from typing import Type
 from typing import Union
 import warnings
 
-from packaging import version
 import torch
 from torch._C import ScriptObject
 import torch.utils._pytree as pytree
 
-from brevitas import torch_version
 from brevitas.quant_tensor import QuantTensor
 
 from . import *
@@ -921,15 +919,9 @@ def _create_wrapped_value_func(orig_fn, visible_to_make_fx=False):
         # Check if we want to trace this function for proxy tensors created via `make_fx`
         if visible_to_make_fx:
             # import here to avoid circular imports
-            if torch_version < version.parse('2.1'):
-                from brevitas.backport.fx.experimental.proxy_tensor import \
-                    disable_proxy_modes_tracing
-                from brevitas.backport.fx.experimental.proxy_tensor import get_innermost_proxy_mode
-                from brevitas.backport.fx.experimental.proxy_tensor import proxy_call
-            else:
-                from torch.fx.experimental.proxy_tensor import disable_proxy_modes_tracing
-                from torch.fx.experimental.proxy_tensor import get_innermost_proxy_mode
-                from torch.fx.experimental.proxy_tensor import proxy_call
+            from torch.fx.experimental.proxy_tensor import disable_proxy_modes_tracing
+            from torch.fx.experimental.proxy_tensor import get_innermost_proxy_mode
+            from torch.fx.experimental.proxy_tensor import proxy_call
 
             # If there is no input with proxy, see if we are tracing with proxy tensors
             proxy_mode = get_innermost_proxy_mode()

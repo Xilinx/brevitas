@@ -15,8 +15,7 @@ from brevitas import torch_version
 def requires_torch_compile():
     # Newest Python versions have only limited supports for torch.compile on
     # older torch versions
-    unsupported = ((torch_version <= parse('2.9.1') and python_version >= parse('3.14')) or
-                   (torch_version <= parse('2.3.1') and python_version >= parse('3.12')))
+    unsupported = torch_version <= parse('2.9.1') and python_version >= parse('3.14')
     skip = config.JIT_ENABLED or unsupported
 
     return pytest.mark.skipif(
