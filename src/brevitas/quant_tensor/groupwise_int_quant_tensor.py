@@ -19,7 +19,6 @@ class GroupwiseIntQuantTensor(GroupwiseQuantTensorMixin, IntMixin, QuantTensor):
         '_bit_width',
         '_signed',
         '_training',
-        '_dequant_shape',
     )
 
     def __init__(
@@ -33,26 +32,21 @@ class GroupwiseIntQuantTensor(GroupwiseQuantTensorMixin, IntMixin, QuantTensor):
             signed,
             training,
             dequant_shape=None):
+        # dequant_shape sets the logical shape of the wrapper, see QuantTensor.__new__
         device = self._value.device
         scale = self._as_tensor(scale, torch.float, device)
         zero_point = self._as_tensor(zero_point, torch.float, device)
         bit_width = self._as_tensor(bit_width, torch.float, device)
-        signed = self._as_tensor(signed, torch.bool, device)
-        training = self._as_tensor(training, torch.bool, device)
+        signed = self._as_bool(signed)
+        training = self._as_bool(training)
         self._bit_width = bit_width
-        self._set_groupwise_metadata(
-            scale, zero_point, group_size, group_dim, signed, training, dequant_shape)
-
-    @staticmethod
-    def is_zero_zero_point(tensor):
-        GroupwiseIntQuantTensor.check_input_type(tensor)
-        return (tensor.zero_point == 0.).all()
+        self._set_groupwise_metadata(scale, zero_point, group_size, group_dim, signed, training)
 
     # Reference: https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
 
     def __neg__(self):
         neg_deq = -self.minifloat(float_datatype=True)
-        _, scale, zp = self.expand()
+        _, scale, zp = self._expand_groupwise()
 
         neg_value = (-neg_deq - zp) * scale
         # In case the dtype of self.minifloat is different from the one of the scale
@@ -81,7 +75,7 @@ class GroupwiseIntQuantTensor(GroupwiseQuantTensorMixin, IntMixin, QuantTensor):
     def __abs__(self):
         if self.signed:
             neg_deq = self.minifloat(float_datatype=True)
-            _, scale, zp = self.expand()
+            _, scale, zp = self._expand_groupwise()
 
             # In case the dtype of self.minifloat is different from the one of the scale
             abs_value = (neg_deq - zp) * scale

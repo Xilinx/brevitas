@@ -345,8 +345,8 @@ class TestTensorOps:
         assert qt16.value.dtype == torch.float16
         # Metadata should also be converted
         assert qt16.scale.dtype == torch.float16
-        assert qt16._signed.dtype == torch.bool
-        assert qt16._training.dtype == torch.bool
+        assert qt16.signed == qt.signed
+        assert qt16.training == qt.training
 
     def test_float_qt_detach(self):
         qt = _make_float_qt()
@@ -400,10 +400,10 @@ class TestTensorOps:
         assert result._scale.dtype == torch.float16
         assert result._zero_point.dtype == torch.float16
         assert result.value.dtype == torch.float16
-        assert result._signed.dtype == torch.bool
-        assert result._training.dtype == torch.bool
+        assert result.signed == qt.signed
+        assert result.training == qt.training
         if quant_tensor_class is GroupwiseFloatQuantTensor:
-            assert result._saturating.dtype == torch.bool
+            assert result.saturating == qt.saturating
         assert result.group_size == qt.group_size
         assert result.group_dim == qt.group_dim
         assert result.dequant_shape == qt.dequant_shape
@@ -590,3 +590,103 @@ class TestConstructionFromNonTensor:
                             False)
         assert isinstance(qt, IntQuantTensor)
         assert qt.shape == torch.Size([3])
+
+
+# ---------------------------------------------------------------------------
+# 12. torch.Tensor-compatible method signatures
+# ---------------------------------------------------------------------------
+
+
+def _make_plain_int_qt(value):
+    return IntQuantTensor(value, torch.tensor(0.5), torch.tensor(0.), torch.tensor(8.), True, False)
+
+
+def _make_plain_float_qt(value):
+    return FloatQuantTensor(
+        value,
+        torch.tensor(1.),
+        torch.tensor(0.),
+        torch.tensor(4.),
+        torch.tensor(3.),
+        torch.tensor(7.),
+        True, [], [],
+        True,
+        False)
+
+
+class TestTensorCompatibleSignatures:
+
+    def test_contiguous_accepts_memory_format(self):
+        qt = _make_plain_int_qt(torch.randn(2, 3, 4, 5))
+        result = qt.contiguous(memory_format=torch.channels_last)
+        assert type(result) is IntQuantTensor
+        assert result.value.is_contiguous(memory_format=torch.channels_last)
+        assert torch.equal(result.value, qt.value)
+        # The memory format only applies to the value, not to the metadata
+        assert result.scale.dim() == 0
+        assert torch.equal(result.scale, qt.scale)
+
+    def test_to_accepts_memory_format(self):
+        qt = _make_plain_int_qt(torch.randn(2, 3, 4, 5))
+        result = qt.to(memory_format=torch.channels_last)
+        assert type(result) is IntQuantTensor
+        assert result.value.is_contiguous(memory_format=torch.channels_last)
+        assert result.scale.dim() == 0
+
+        result = qt.to(torch.float16, memory_format=torch.channels_last)
+        assert result.value.dtype == torch.float16
+        assert result.value.is_contiguous(memory_format=torch.channels_last)
+        assert result.scale.dtype == torch.float16
+        assert result.scale.dim() == 0
+
+    @pytest.mark.parametrize('alpha', [1, 2, -0.5])
+    def test_add_alpha(self, alpha):
+        qt = _make_plain_int_qt(torch.randn(4, 4))
+        other = torch.randn(4, 4)
+        result = qt.add(other, alpha=alpha)
+        assert type(result) is torch.Tensor
+        assert torch.allclose(result, qt.value + alpha * other)
+
+    def test_add_alpha_with_quant_tensor_operand(self):
+        qt = _make_plain_int_qt(torch.randn(4, 4))
+        other = _make_plain_int_qt(torch.randn(4, 4))
+        result = qt.add(other, alpha=2)
+        assert type(result) is torch.Tensor
+        assert torch.allclose(result, qt.value + 2 * other.value)
+
+    @pytest.mark.parametrize(
+        'make_qt, quant_tensor_class', [
+            (_make_plain_int_qt, IntQuantTensor),
+            (_make_plain_float_qt, FloatQuantTensor),])
+    def test_cat_default_dim(self, make_qt, quant_tensor_class):
+        a = make_qt(torch.randn(2, 4))
+        b = make_qt(torch.randn(3, 4))
+        # dim defaults to 0, as for torch.cat
+        for result in (quant_tensor_class.cat([a, b]), torch.cat([a, b])):
+            assert type(result) is quant_tensor_class
+            assert result.shape == torch.Size([5, 4])
+            assert torch.equal(result.value, torch.cat([a.value, b.value]))
+
+    @pytest.mark.parametrize(
+        'quant_tensor_class', [GroupwiseIntQuantTensor, GroupwiseFloatQuantTensor])
+    def test_groupwise_expand_follows_tensor_expand(self, quant_tensor_class):
+        qt = _make_groupwise_qt(quant_tensor_class)
+        result = qt.expand(3, 2, 4)
+        assert type(result) is torch.Tensor
+        assert result.shape == torch.Size([3, 2, 4])
+        assert torch.equal(result, qt.value.expand(3, 2, 4))
+
+    @pytest.mark.parametrize(
+        'quant_tensor_class', [GroupwiseIntQuantTensor, GroupwiseFloatQuantTensor])
+    def test_groupwise_expand_groupwise_storage(self, quant_tensor_class):
+        qt = _make_groupwise_qt(quant_tensor_class)
+        value, scale, zero_point = qt._expand_groupwise(expand_metadata=False)
+        assert torch.equal(value, qt.value)
+        assert scale is qt._scale
+        assert zero_point is qt._zero_point
+
+        _, scale, zero_point = qt._expand_groupwise()
+        assert scale.shape == qt.value.shape
+        assert zero_point.shape == qt.value.shape
+        assert torch.equal(scale, qt.scale)
+        assert torch.equal(zero_point, qt.zero_point)

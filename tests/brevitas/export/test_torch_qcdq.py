@@ -72,3 +72,23 @@ def test_torch_qcdq_avgpool_export(input_signed, output_bit_width):
     tolerance = TOLERANCE * out.scale
     del pytorch_qcdq_model
     assert torch.allclose(out, torchscript_out_value, atol=tolerance)
+
+
+@jit_disabled_for_export()
+@torch.no_grad()
+def test_torch_qcdq_quant_tensor_input_export():
+    in_size = (1, IN_CH, FEATURES, FEATURES)
+    input_quant = QuantIdentity(return_quant_tensor=True)
+    quant_module = QuantIdentity(return_quant_tensor=True)
+    quant_module(input_quant(torch.randn(in_size)))  # Collect scale factors
+    input_quant.eval()
+    quant_module.eval()
+    quant_inp = input_quant(torch.randn(in_size) * IN_SCALE + IN_MEAN)
+    other_quant_inp = input_quant(torch.randn(in_size) * IN_SCALE + IN_MEAN)
+    out = quant_module(other_quant_inp)
+    pytorch_qcdq_model = export_torch_qcdq(quant_module, args=quant_inp)
+    # The exported model takes the value of a QuantTensor, and computes from it
+    torchscript_out = pytorch_qcdq_model(other_quant_inp.value)
+    tolerance = TOLERANCE * out.scale
+    del pytorch_qcdq_model
+    assert torch.allclose(out.value, torchscript_out, atol=tolerance)
