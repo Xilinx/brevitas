@@ -6,7 +6,9 @@ on:
   workflow_call:
     inputs:
       ref:
-        description: 'Commit to test, passed by fulltest_comment.yml'
+        description: >-
+          Commit to check out and test, set by fulltest_comment.yml to the PR merged into its base
+          branch. Not set on push, where the pushed commit is tested.
         type: string
         required: true
 
