@@ -13,6 +13,6 @@ packaging
 # needed (torch>=2.13 adds its own >=77.0.3), and no torch extra provides it.
 setuptools<81
 sympy
-torch>=1.13
+torch>=2.5
 typing-extensions>=3.7.4
 unfoldNd

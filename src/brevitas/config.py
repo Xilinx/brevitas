@@ -4,10 +4,7 @@
 from contextvars import ContextVar
 import os
 
-try:
-    from torch.jit import _enabled
-except ImportError:
-    from torch.jit._state import _enabled
+from torch.jit._state import _enabled
 
 
 def strtobool(val: str) -> bool:

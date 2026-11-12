@@ -2,16 +2,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import math
-import platform
 
-from packaging import version
 import pytest
 import torch
 
-from brevitas import torch_version
 from brevitas.utils.quant_utils import groupwise_dequant_expand
 from brevitas.utils.torch_utils import padding_to_multiple
-from tests.marker import requires_pt_ge
 from tests.marker import requires_torch_compile
 
 
@@ -19,7 +15,6 @@ from tests.marker import requires_torch_compile
     'shape, dim, multiple, expected_shape',
     [((2, 5), 1, 4, (2, 8)), ((2, 8), 1, 4, (2, 8)), ((2, 3, 5), -1, 4, (2, 3, 8)),
      ((5, 3), 0, 4, (8, 3))])
-@requires_pt_ge('2.2')
 @requires_torch_compile()
 def test_compile_padding_to_multiple(shape, dim, multiple, expected_shape):
     x = torch.arange(math.prod(shape), dtype=torch.float32).reshape(shape)
@@ -41,13 +36,8 @@ def test_compile_padding_to_multiple(shape, dim, multiple, expected_shape):
 @pytest.mark.parametrize('group_dim', [1, -1])
 @pytest.mark.parametrize('scalar_metadata', [False, True])
 @pytest.mark.parametrize('expand_metadata', [False, True])
-@requires_pt_ge('2.2')
 @requires_torch_compile()
 def test_compile_groupwise_dequant_expand(group_dim, scalar_metadata, expand_metadata):
-    if torch_version == version.parse('2.4.1') and platform.system() == 'Windows':
-        pytest.skip(
-            'Skip compile + Windows on torch 2.4.1: dynamo fails to inline its own '
-            'list_cmp polyfill (trace_rules SKIP_DIRS)')
     value = torch.arange(16, dtype=torch.float32).reshape(2, 2, 4)
     if scalar_metadata:
         scale = torch.tensor(2.)

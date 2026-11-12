@@ -22,7 +22,6 @@ from brevitas.quant.mx_quant_ocp import MXInt8Weight
 from brevitas_examples.common.generative.quantize import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import FP8e4m3OCPDynamicActPerRowFloat
 from tests.brevitas.hyp_helper import float_tensor_st
-from tests.marker import requires_pt_ge
 
 
 class Fp8PerRow(FP8e4m3OCPDynamicActPerRowFloat):
@@ -66,7 +65,6 @@ def test_groupwise_inference_handler_group_metadata_is_static(act_quantizer):
 
 @pytest_cases.parametrize('weight_quantizer', WEIGHT_QUANTIZERS.items())
 @given(weight=float_tensor_st(shape=(8, 16), max_val=1e10, min_val=-1e10))
-@requires_pt_ge('2.1')
 def test_compile_weight(weight, weight_quantizer):
     name, quant = weight_quantizer
 
@@ -84,7 +82,6 @@ def test_compile_weight(weight, weight_quantizer):
 
 @pytest_cases.parametrize('act_quantizer', ACT_QUANTIZERS.items())
 @given(inp=float_tensor_st(shape=(8, 16), max_val=1e10, min_val=-1e10))
-@requires_pt_ge('2.1')
 def test_compile_act(inp, act_quantizer):
     name, quant = act_quantizer
 

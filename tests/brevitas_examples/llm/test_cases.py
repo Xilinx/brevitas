@@ -286,7 +286,7 @@ class LLMPerplexityCases:
                 "quant_ppl": 30958.1953125},
             {
                 "model":
-                    "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
+                    "hf-internal-testing/tiny-random-OPTForCausalLM",
                 "weight_equalization": True,
                 "ln_affine_merge": True,
                 "quant_sdpa": "fx",
@@ -294,7 +294,7 @@ class LLMPerplexityCases:
                 "quant_ppl": 46327.50390625},
             {
                 "model":
-                    "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
+                    "hf-internal-testing/tiny-random-OPTForCausalLM",
                 "calibration_batch_size": 2,
                 "seqlen": 4,
                 "gptq": True,
@@ -552,8 +552,7 @@ class LLMQuantLayerTypeCases:
                     "model.layers.0.self_attn.q_proj.layer":
                         "<class 'brevitas.nn.quant_linear.QuantLinear'>",},},
             {
-                "model":
-                    "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
+                "model": "hf-internal-testing/tiny-random-OPTForCausalLM",
                 "quant_sdpa": "fx",
                 "exp_layer_types": {
                     "attn_output":

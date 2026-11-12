@@ -32,7 +32,6 @@ from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
 from brevitas.utils.parametrization_utils import RotationWeightParametrization
 from brevitas.utils.python_utils import recurse_getattr
-from tests.marker import requires_pt_ge
 from tests.marker import requires_torch_compile
 
 from .equalization_fixtures import ATOL
@@ -40,7 +39,6 @@ from .equalization_fixtures import SEED
 from .rotation_fixtures import *
 
 
-@requires_pt_ge('2.4')
 @pytest_cases.parametrize('partial_had', [True, False])
 @pytest_cases.parametrize('apply_affine_merge', [True, False])
 def test_models_rotation_fixtures(rotation_fixtures, partial_had, apply_affine_merge):
@@ -200,7 +198,6 @@ def compare_model_weights(model_fused, model_unfused, classes_to_compare=(nn.Lin
                     assert torch.allclose(getattr(module_fused, tensor_name), getattr(module_unfused, tensor_name), atol=0.0, rtol=0.0), f"Tensor {tensor_name} does not match for module {name_module_fused}"
 
 
-@requires_pt_ge('2.3.1')
 @pytest_cases.parametrize(
     'mask',
     itertools.product([False, True], repeat=3),
@@ -357,7 +354,6 @@ def test_compute_rotations(
     compare_model_weights(rotated_model_fused, rotated_model_unfused)
 
 
-@requires_pt_ge('2.3.1')
 @pytest_cases.parametrize(
     'kwargs',
     [
@@ -411,7 +407,6 @@ def test_fuse_parametrized_modules(kwargs):
     assert torch.allclose(output, output_fused, rtol=0.0, atol=0.0)
 
 
-@requires_pt_ge('2.3.1')
 @requires_torch_compile()
 @pytest_cases.parametrize('device', ['cpu', 'cuda'] if torch.cuda.is_available() else ['cpu'])
 def test_fuse_parametrized_modules_after_compile_and_train(device):

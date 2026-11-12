@@ -9,7 +9,6 @@ from brevitas.nn import QuantScaledDotProductAttention
 from brevitas.nn import ScaledDotProductAttention
 from brevitas.quant import Int8ActPerTensorFloat
 from brevitas.quant import Uint8ActPerTensorFloat
-from tests.marker import requires_pt_ge
 
 ATOL = 1e-6
 EMBED_DIM = 9
@@ -18,14 +17,10 @@ BATCH_SIZE = 2
 SEQUENCE_LENGTH = 4
 PAST_SEQUENCE_LENGTH = 5
 DROPOUT_SEED = 42
-# F.scaled_dot_product_attention returns NaN rather than 0 for a fully masked attention
-# row before 2.5.0, so it cannot serve as a reference for tests that compare against it.
-FULLY_MASKED_REF_VERSION = '2.5.0'
 
 
 class TestScaledDotProductAttention:
 
-    @requires_pt_ge('2.0')
     # Check what kwargs are properly filtered and override defaults
     def test_sdpa_init(self):
         extra_kwargs = {
@@ -70,7 +65,6 @@ class TestScaledDotProductAttention:
                 checked = True
             assert checked, f"Unmatched kwarg: {k}"
 
-    @requires_pt_ge(FULLY_MASKED_REF_VERSION)
     @pytest.mark.parametrize("dropout_p", [0.0, 0.5])
     @pytest.mark.parametrize("is_causal", [True, False])
     @pytest.mark.parametrize("scale", [None, 0.3])
@@ -109,7 +103,6 @@ class TestScaledDotProductAttention:
         assert torch.isclose(out, ref_out, atol=ATOL).all()
         assert torch.isclose(out, ref_out, atol=ATOL).all()
 
-    @requires_pt_ge(FULLY_MASKED_REF_VERSION)
     @pytest.mark.parametrize("dropout_p", [0.0, 0.5])
     @pytest.mark.parametrize("is_causal", [True, False])
     @pytest.mark.parametrize("scale", [None, 0.3])
@@ -155,7 +148,6 @@ class TestScaledDotProductAttention:
         assert torch.isclose(out, ref_out, atol=ATOL).all()
         assert torch.isclose(out, ref_out, atol=ATOL).all()
 
-    @requires_pt_ge(FULLY_MASKED_REF_VERSION)
     def test_sdpa_quant_disabled_fully_masked_row(self):
         kv_length = PAST_SEQUENCE_LENGTH + SEQUENCE_LENGTH
         m = ScaledDotProductAttention()
