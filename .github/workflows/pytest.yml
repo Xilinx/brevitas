@@ -3,9 +3,17 @@ name: Pytest
 on:
   push:
     branches: [ master, dev ]
-  pull_request:
-    types:
-      - review_requested
+  workflow_call:
+    inputs:
+      ref:
+        description: >-
+          Commit to check out and test, set by fulltest_comment.yml to the PR merged into its base
+          branch. Not set on push, where the pushed commit is tested.
+        type: string
+        required: true
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -23,11 +31,13 @@ jobs:
 
 
 
-    if: ${{ !github.event.pull_request.draft }}
     steps:
 
     - name: Checkout repo
       uses: actions/checkout@v3
+      with:
+        ref: ${{ inputs.ref }}
+        persist-credentials: false
 
     - name: Set up Python
       uses: actions/setup-python@v2

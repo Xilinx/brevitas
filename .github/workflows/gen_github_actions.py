@@ -184,6 +184,9 @@ def assets_step(asset_family, mode):
                ('with', od([('family', asset_family), ('mode', mode)]))])
 
 
+# Commit passed by fulltest_comment.yml to the workflows generated from BASE_YML_TEMPLATE.
+WORKFLOW_CALL_REF = '${{ inputs.ref }}'
+
 PREPARE_JOB_HEADER = """\
   prepare-assets:
     name: Cache brevitas %s assets
@@ -198,10 +201,16 @@ PREPARE_JOB_HEADER = """\
 """
 
 
-def prepare_assets_job(asset_family, timeout_minutes=30, platforms=PLATFORM_LIST):
+def prepare_assets_job(
+        asset_family, timeout_minutes=30, platforms=PLATFORM_LIST, checkout_ref=None):
     prepare_step = assets_step(asset_family, 'prepare')
     prepare_step['with']['python-version'] = "'{}'".format(PYTHON_VERSIONS[0])
-    steps = [od([('name', 'Checkout repo'), ('uses', 'actions/checkout@v3')]), prepare_step]
+    checkout_step = od([('name', 'Checkout repo'), ('uses', 'actions/checkout@v3')])
+    # Assets must be prepared from the commit the build jobs test, since the cache key hashes files
+    # of that commit.
+    if checkout_ref is not None:
+        checkout_step['with'] = od([('ref', checkout_ref), ('persist-credentials', 'false')])
+    steps = [checkout_step, prepare_step]
     body = indent(Action.list_of_dicts_str(steps, False, True), 4 * ' ')
     return PREPARE_JOB_HEADER % (asset_family, timeout_minutes, platforms) + body
 
@@ -334,7 +343,8 @@ def gen_examples_pytest_yml():
         [assets_step('datasets', 'restore')] + EXAMPLES_PYTEST_STEP_LIST,
         STRATEGY,
         # CIFAR-10 comes from a slow server: a cold download can take most of an hour.
-        prepare_job=prepare_assets_job('datasets', timeout_minutes=90))
+        prepare_job=prepare_assets_job(
+            'datasets', timeout_minutes=90, checkout_ref=WORKFLOW_CALL_REF))
     pytest.gen_yaml(BASE_YML_TEMPLATE, EXAMPLES_PYTEST_YML)
     pytest = Action(
         'Examples Pytest',
@@ -354,7 +364,7 @@ def gen_examples_llm_pytest_yml():
         combine_od_list([EXAMPLES_LLM_PYTEST_MATRIX, PYTEST_MATRIX_EXTRA]),
         [assets_step('llm', 'restore')] + EXAMPLES_LLM_PYTEST_STEP_LIST,
         STRATEGY,
-        prepare_job=prepare_assets_job('llm'))
+        prepare_job=prepare_assets_job('llm', checkout_ref=WORKFLOW_CALL_REF))
     pytest.gen_yaml(BASE_YML_TEMPLATE, EXAMPLES_LLM_PYTEST_YML)
     pytest = Action(
         'Examples LLM Pytest',
@@ -373,7 +383,7 @@ def gen_examples_diffusion_pytest_yml():
         combine_od_list([EXAMPLES_DIFFUSION_PYTEST_MATRIX, PYTEST_MATRIX_EXTRA]),
         [assets_step('diffusion', 'restore')] + EXAMPLES_DIFFUSION_PYTEST_STEP_LIST,
         STRATEGY,
-        prepare_job=prepare_assets_job('diffusion'))
+        prepare_job=prepare_assets_job('diffusion', checkout_ref=WORKFLOW_CALL_REF))
     pytest.gen_yaml(BASE_YML_TEMPLATE, EXAMPLES_DIFFUSION_PYTEST_YML)
     pytest = Action(
         'Examples Diffusion Pytest',
