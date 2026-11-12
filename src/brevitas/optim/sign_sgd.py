@@ -46,20 +46,10 @@ from typing import Optional
 
 import torch
 from torch import Tensor
-
-try:
-    from torch.optim.optimizer import _default_to_fused_or_foreach
-    from torch.utils._foreach_utils import _get_fused_kernels_supported_devices
-except:
-    _default_to_fused_or_foreach = None
-    _get_fused_kernels_supported_devices = None
-try:
-    from torch.optim.optimizer import _use_grad_for_differentiable
-except:
-    # Ensure backward compatibility with PyTorch < 1.13.0
-    _use_grad_for_differentiable = torch.no_grad
-
+from torch.optim.optimizer import _default_to_fused_or_foreach
+from torch.optim.optimizer import _use_grad_for_differentiable
 from torch.optim.optimizer import Optimizer
+from torch.utils._foreach_utils import _get_fused_kernels_supported_devices
 
 __all__ = ["SignSGD", "sign_sgd"]
 
@@ -267,7 +257,7 @@ def sign_sgd(
     if foreach is None and fused is None:
         # why must we be explicit about an if statement for torch.jit.is_scripting here?
         # because JIT can't handle Optionals nor fancy conditionals when scripting
-        if not torch.jit.is_scripting() and _default_to_fused_or_foreach is not None:
+        if not torch.jit.is_scripting():
             fused, foreach = _default_to_fused_or_foreach(
                 params, differentiable=False, use_fused=False
             )

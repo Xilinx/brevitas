@@ -28,11 +28,7 @@ else:
 python_version = version.parse(
     f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")
 
-try:
-    # Attempt _dynamo import
-    is_dynamo_compiling = torch._dynamo.is_compiling
-except:
-    is_dynamo_compiling = lambda: False
+is_dynamo_compiling = torch._dynamo.is_compiling
 
 try:
     __version__ = _dist_version(__name__)
