@@ -263,7 +263,10 @@ class ClampQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
 
     def forward(self, x: IntQuantTensor) -> Union[Tensor, IntQuantTensor]:
         if self.is_quant_enabled:
-            out_tuple = self.tensor_quant(x.value, x.scale, x.bit_width)
+            if self.export_mode:
+                out_tuple = self.export_handler(x.value, x.scale, x.bit_width)
+            else:
+                out_tuple = self.tensor_quant(x.value, x.scale, x.bit_width)
             out_value, out_scale, out_zp, out_bit_width = out_tuple
             if self.skip_create_quant_tensor:
                 return out_value
