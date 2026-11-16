@@ -1,4 +1,3 @@
 accelerate
-torch>=1.13
 torchvision
 tqdm
