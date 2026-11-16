@@ -7,6 +7,7 @@ from torch.nn import MultiheadAttention
 
 from brevitas.export.manager import _cache_inp_out
 from brevitas.nn import QuantMultiheadAttention
+from brevitas.utils.torch_utils import NAMED_TENSORS_SUPPORTED
 
 ATOL = 1e-6
 EMBED_DIM = 9
@@ -95,4 +96,5 @@ class TestQuantMultiheadAttention:
         _cache_inp_out(model, query)
 
         torch.jit.trace(model, query)
-        assert query.names == (None, None, None)
+        if NAMED_TENSORS_SUPPORTED:
+            assert query.names == (None, None, None)
