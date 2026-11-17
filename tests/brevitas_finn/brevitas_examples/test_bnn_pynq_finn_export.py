@@ -97,3 +97,29 @@ def test_brevitas_cnv_onnx_export_and_exec(wbits, abits, pretrained, qonnx_expor
     expected = cnv(input).detach().numpy()
     assert np.isclose(produced, expected, atol=ATOL).all()
     rm_onnx(finn_onnx)
+
+
+def test_brevitas_resnet18_onnx_export_and_exec(qonnx_export_fn, request):
+    nname = "RESNET18_4W4A"
+    finn_onnx = f"{nname}_{request.node.callspec.id}.onnx"
+    resnet, _ = model_with_cfg(nname.lower(), pretrained=False)
+    resnet.eval()
+    # load a random int test vector
+    input = torch.randn(CNV_INPUT_SIZE)
+
+    qonnx_export_fn(resnet, export_path=finn_onnx, input_t=input, input_names=['input'])
+    model = ModelWrapper(finn_onnx)
+    model = model.transform(GiveUniqueNodeNames())
+    model = model.transform(DoubleToSingleFloat())
+    model = model.transform(InferShapes())
+    model = model.transform(FoldConstants())
+    model = model.transform(RemoveStaticGraphInputs())
+
+    # run using FINN-based execution
+    input_dict = {"input": input.detach().numpy()}
+    output_dict = oxe.execute_onnx(model, input_dict)
+    produced = output_dict[list(output_dict.keys())[0]]
+    # do forward pass in PyTorch/Brevitas
+    expected = resnet(input).detach().numpy()
+    assert np.isclose(produced, expected, atol=ATOL).all()
+    rm_onnx(finn_onnx)
