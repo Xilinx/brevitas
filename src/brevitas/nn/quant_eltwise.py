@@ -3,16 +3,16 @@
 
 from typing import List
 from typing import Optional
-from typing import Type
 from typing import Union
 
+import torch
 from torch import Tensor
 from torch.nn import Module
 
 from brevitas.inject.defaults import Int8ActPerTensorFloat
 from brevitas.quant_tensor import QuantTensor
 
-from .quant_layer import ActQuantType
+from .mixin import ActQuantType
 from .quant_layer import QuantInputOutputLayer
 
 
@@ -77,6 +77,6 @@ class QuantCat(QuantInputOutputLayer, Module):
             return out
         quant_tensor_list = [self.input_quant(qt) for qt in quant_tensor_list]
         # trigger an assert if scale factors and bit widths are None or different
-        output = QuantTensor.cat(quant_tensor_list, dim=dim)
+        output = torch.cat(quant_tensor_list, dim=dim)
         quant_output = self.output_quant(output)
         return self.pack_output(quant_output)
