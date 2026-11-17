@@ -1,4 +1,4 @@
-accelerate
+accelerate<1.16 # Not compatible with quant_injector class
 datasets
 gguf==0.18.0
 numexpr<2.14.0
