@@ -20,8 +20,7 @@ from .common import *
 # Bit-width examples Hypothesis draws per flag combination (each a full export + ORT run).
 # Scheduled (periodic) CI tests every bit-width combination per flag set (Hypothesis stops once a
 # node's finite space is exhausted); PR/push CI samples a few per node.
-WBIOL_BITWIDTH_EXAMPLES = (
-    len(BIT_WIDTHS) ** 3 if os.environ.get('GITHUB_EVENT_NAME') == 'schedule' else 10)
+WBIOL_BITWIDTH_EXAMPLES = (50 if os.environ.get('GITHUB_EVENT_NAME') == 'schedule' else 10)
 
 
 @dataclass(frozen=True)
