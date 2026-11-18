@@ -64,6 +64,11 @@ def write_versions_manifest(site_directory: Path, release_tags: list[str]) -> No
         'version': tag,
         'url': f'{SITE_URL}/{tag}/',
     } for tag in release_tags)
+    # This marks the latest versions as stable
+    if release_tags:
+        # release_tags is sorted by version, so the last entry is the latest stable release.
+        manifest[-1]['name'] = f'{release_tags[-1]} (stable)'
+        manifest[-1]['preferred'] = True
 
     manifest_path = site_directory / DEVELOPMENT_BRANCH / '_static' / 'versions.json'
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
