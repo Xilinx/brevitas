@@ -26,6 +26,7 @@ input_quant_granularity: per_group
 input_quant_type: sym
 input_scale_precision: po2_scale
 input_scale_type: dynamic
+ln_affine_merge: true
 qronos_alpha: 1e-3
 # standardizes RMS norm to the base torch module
 replace_rmsnorm: true
