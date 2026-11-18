@@ -192,16 +192,12 @@ def fused_rotation_no_fx(model, calibration_loader, args, rotation_dtype):
         # Only rotation enabled
         fx_model, rewriters = eq.apply(fx_model)
 
-    # The submodules of fx_model share their __dict__ (parameters and accelerate hooks) with those of
-    # model. Release the offloading of fx_model before offloading model: otherwise model's weights,
-    # already moved to the GPU through fx_model, are counted twice in the memory budget, and its
-    # modules receive a second, stacked, accelerate hook.
-    remove_hooks(fx_model)
     # fused_rotation_no_fx() may be called either if args.rotation == 'fused_no_fx' or args.permute_fn is not None,
     # so if args.rotation == 'layerwise', we need to skip applying the rewriters here to do it later
     if args.rotation != 'layerwise':
-        # Remap the rewriters before offloading: offloaded weights are on the meta device and
-        # cannot be matched by storage
+        # fx_model shares parameters and hooks with model: release its offloading first
+        remove_hooks(fx_model)
+        # Remap before offloading: offloaded (meta) weights cannot be matched by storage
         rewriters = fix_rewriter(rewriters, model, 'weight')
         model = offload_model(model)
         model = apply_rewriters(model, rewriters, delay_rewriters=False)
