@@ -32,6 +32,9 @@ import re
 
 from lighteval.logging.evaluation_tracker import EvaluationTracker
 from lighteval.metrics.metrics import Metrics
+from lighteval.metrics.metrics_sample import LoglikelihoodAcc
+from lighteval.metrics.normalizations import LogProbCharNorm
+from lighteval.metrics.utils.metric_utils import SampleLevelMetric
 from lighteval.models.abstract_model import LightevalModel
 from lighteval.models.model_loader import TransformersModel
 from lighteval.models.transformers.transformers_model import TransformersModelConfig
@@ -42,6 +45,7 @@ from lighteval.tasks.lighteval_task import LightevalTaskConfig
 from lighteval.tasks.prompt_manager import PromptManager
 from lighteval.tasks.requests import Doc
 from lighteval.tasks.requests import SamplingMethod
+import numpy as np
 from torch import nn
 from transformers import AutoTokenizer
 
@@ -51,6 +55,20 @@ from transformers import AutoTokenizer
 # and from previous versions of lighteval itself.
 # These custom tasks (and relative utility functions) restore those, waiting for lighteval to restore
 # them natively.
+
+# Length-normalised accuracy. Plain accuracy selects the choice with the highest total
+# log-likelihood, which favours shorter continuations because every extra token adds a
+# negative log-probability. Dividing by the character length of the choice removes that
+# bias. lighteval exposes the normalisation but registers no acc_norm metric, so it is
+# built here. It shares the category of plain accuracy, so it is computed from the same
+# model responses and adds no extra inference.
+loglikelihood_acc_norm = SampleLevelMetric(
+    metric_name="acc_norm",
+    sample_level_fn=LoglikelihoodAcc(logprob_normalization=LogProbCharNorm()),
+    category=Metrics.loglikelihood_acc.value.category,
+    corpus_level_fn=np.mean,
+    higher_is_better=True,
+)
 
 
 def hellaswag_preprocess(
@@ -204,6 +222,17 @@ class BrevitasPipeline(Pipeline):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.model._cache = None
+
+    def _init_tasks_and_requests(self, tasks: str) -> None:
+        super()._init_tasks_and_requests(tasks)
+        # Report length-normalised accuracy next to plain accuracy for every task that
+        # measures accuracy, including lighteval's built-in ones. Metrics are read when
+        # they are computed, and acc_norm reuses the responses already gathered for acc,
+        # so it can be attached once the tasks are loaded.
+        for task in self.tasks_dict.values():
+            metric_names = {metric.metric_name for metric in task.metrics}
+            if "acc" in metric_names and "acc_norm" not in metric_names:
+                task.metrics = tuple([*task.metrics, loglikelihood_acc_norm])
 
     def _init_model(self, model_config, model):
         # Verify that both the model and model_config are passed
