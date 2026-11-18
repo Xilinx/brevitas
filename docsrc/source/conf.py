@@ -21,6 +21,7 @@ import sys
 
 import pypandoc
 
+# `versioning.py` lives in `docsrc/`, one level above this file.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from versioning import DEVELOPMENT_BRANCH
 from versioning import SITE_URL

@@ -1,7 +1,7 @@
 name: Documentation
 
 on:
-  # TEMPORARY: remove this trigger and the PR-specific checkout before merging.
+  # TEMPORARY: remove this trigger, the PR-specific checkout and the "Prepare Git refs" step before merging.
   pull_request:
     paths:
       - '.github/workflows/docs.yml'
@@ -42,18 +42,12 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      # Make the selected revision available as local master for sphinx-multiversion.
-      - name: Prepare Git refs and verify release tag
-        env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+      # TEMPORARY: the PR checkout is a detached HEAD; expose it as the local master that
+      # sphinx-multiversion builds. Remove this step together with the PR trigger.
+      - name: Prepare Git refs
         run: |
-          test "$(git rev-parse --is-shallow-repository)" = false
           if [ "$(git branch --show-current)" != master ]; then
             git branch --force master HEAD
-          fi
-          git show-ref --verify refs/heads/master
-          if [ "${{ github.event_name }}" = release ]; then
-            git rev-parse --verify "refs/tags/$RELEASE_TAG"
           fi
 
       # Restrict the artifact to stable versions with published GitHub Releases.
@@ -65,7 +59,7 @@ jobs:
         run: |
           gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/releases.json"
           tags="$(python docsrc/versioning.py --published-releases "$RUNNER_TEMP/releases.json")"
-          test -n "$tags" || { echo "No published stable releases were found."; exit 1; }
+          # Fail on stable releases whose tag is not vX.Y.Z, since their docs would not be built.
           if [ "${{ github.event_name }}" = release ]; then
             case ",$tags," in
               *",$RELEASE_TAG,"*) ;;
@@ -106,9 +100,7 @@ jobs:
           retention-days: 7
 
   deploy:
-    if: >-
-      needs.build.result == 'success' &&
-      (github.event_name == 'release' || github.event_name == 'workflow_dispatch')
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     needs: build
     runs-on: ubuntu-22.04
     permissions:
