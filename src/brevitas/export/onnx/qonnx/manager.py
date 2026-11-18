@@ -29,6 +29,7 @@ from .function import DOMAIN_VERSION as QONNX_DOMAIN_VERSION
 from .handler import BrevitasActFloatQuantProxyHandler
 from .handler import BrevitasActQuantProxyHandler
 from .handler import BrevitasBiasQuantProxyHandler
+from .handler import BrevitasClampQuantProxyHandler
 from .handler import BrevitasDecoupledWeightQuantProxyHandler
 from .handler import BrevitasDecoupledWeightQuantWithInputProxyHandler
 from .handler import BrevitasQuantLSTMLayerHandler
@@ -55,6 +56,7 @@ class QONNXManager(ONNXBaseManager):
         BrevitasDecoupledWeightQuantProxyHandler,
         BrevitasDecoupledWeightQuantWithInputProxyHandler,
         BrevitasTruncQuantProxyHandler,
+        BrevitasClampQuantProxyHandler,
         BrevitasQuantLSTMLayerHandler,
         BrevitasWeightFloatQuantProxyHandler,
         BrevitasActFloatQuantProxyHandler]

@@ -16,6 +16,7 @@ from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
 from brevitas.proxy import WeightQuantProxyFromInjector
 from brevitas.proxy.float_parameter_quant import WeightFloatQuantProxyFromInjector
 from brevitas.proxy.float_runtime_quant import ActFloatQuantProxyFromInjector
+from brevitas.proxy.runtime_quant import ClampQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 
 from .function import BrevitasBinaryQuantOp
@@ -251,6 +252,26 @@ class BrevitasTruncQuantProxyHandler(ONNXBaseHandler):
             signed,
             *self.symbolic_kwargs.values())
         return y, self.symbolic_kwargs['output_scale'], zero_point, self.symbolic_kwargs['output_bit_width']
+
+
+class BrevitasClampQuantProxyHandler(ONNXBaseHandler):
+    handled_layer = ClampQuantProxyFromInjector
+
+    def prepare_for_export(self, module: ClampQuantProxyFromInjector):
+        if module.is_quant_enabled:
+            self.msb_clamp_bit_width_impl = module.tensor_quant.msb_clamp_bit_width_impl
+            self.symbolic_kwargs = {
+                'narrow_range': module.is_narrow_range,
+                'signed': module.is_signed,
+                # input is already on the integer grid of the same scale
+                'rounding_mode': 'ROUND'}
+
+    def symbolic_execution(self, x: Tensor, scale: Tensor, input_bit_width: Tensor):
+        bit_width = self.msb_clamp_bit_width_impl(input_bit_width)
+        zero_point = torch.zeros_like(scale)
+        y = self.export_op(
+            BrevitasQuantOp, x, scale, zero_point, bit_width, *self.symbolic_kwargs.values())
+        return y, scale, zero_point, bit_width
 
 
 class BrevitasQuantLSTMLayerHandler(QuantLSTMLayerHandler):
