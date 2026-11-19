@@ -211,10 +211,6 @@ svd_quant_iters:
 - 1
 svd_quant_rank:
 - 32
-vllm_eval_config:
-- null
-vllm_eval_keep_export:
-- false
 weight_bit_width:
 - 8
 weight_equalization:

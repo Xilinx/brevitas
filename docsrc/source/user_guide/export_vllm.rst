@@ -308,13 +308,21 @@ memory are required for each GPU.
 Tensor parallelism and offloading to disk are not supported. Since quantization is simulated, the
 weights take as much memory as the unquantized model in the selected ``--dtype``.
 
-Evaluation After Quantization
------------------------------
+Evaluation in Benchmarks
+------------------------
 
-``brevitas_ptq_llm`` can evaluate the exported model through vLLM directly after quantization (and
-training), which is useful to evaluate every configuration of a benchmark sweep. The evaluation is
-enabled by passing a ``brevitas_vllm_eval`` YAML configuration with ``--vllm-eval-config``, together
-with ``--export-target vllm``:
+For a single model, quantization and evaluation are two separate commands:
+
+.. code-block:: bash
+
+   brevitas_ptq_llm --model org/model --weight-bit-width 4 --weight-quant-type sym \
+     --weight-quant-granularity per_group --weight-group-size 128 \
+     --export-target vllm --export-prefix ./exported_model
+   brevitas_vllm_eval --config vllm_eval.yaml --model ./exported_model
+
+In benchmark sweeps (``brevitas_examples.llm.benchmark.llm_benchmark`` and ``llm_rand_benchmark``),
+every job can instead evaluate its own export through vLLM, by specifying a ``brevitas_vllm_eval``
+YAML configuration with ``vllm_eval_config``, together with ``export_target: vllm``:
 
 .. code-block:: yaml
 
@@ -324,23 +332,25 @@ with ``--export-target vllm``:
    dtype: bfloat16
    gpu_memory_utilization: 0.8
 
-.. code-block:: bash
+.. code-block:: yaml
 
-   brevitas_ptq_llm --model org/model --weight-bit-width 4 --weight-quant-type sym \
-     --weight-quant-granularity per_group --weight-group-size 128 \
-     --export-target vllm --vllm-eval-config vllm_eval.yaml
+   # sweep.yaml
+   model: [org/model]
+   weight_bit_width: [4, 8]
+   gptq: [false, true]
+   export_target: [vllm]
+   vllm_eval_config: [/path/to/vllm_eval.yaml]
 
-The configuration is checked before quantization starts. After quantization, the model is exported
-into a new directory within ``--export-prefix`` (or within the job folder, when running a benchmark),
-and ``brevitas_vllm_eval`` runs in a separate process on the same GPUs. Its metrics are added to the
-results with a ``vllm_`` prefix, so that, in benchmarks, they appear in ``results.csv`` next to the
-metrics computed by Brevitas. To save disk space, the export is deleted after the evaluation, even if
-it fails, unless ``--vllm-eval-keep-export`` is specified.
+The configuration is checked before any job starts. After quantization, each job exports the model
+into ``vllm_export`` within its job folder, and ``brevitas_vllm_eval`` runs in a separate process on
+the GPUs of the job, storing its outputs in ``vllm_eval``. Its metrics are added to the results with
+a ``vllm_`` prefix, so that they appear in ``results.csv`` next to the metrics computed by Brevitas.
+To save disk space, the export is deleted after the evaluation, even if it fails, unless
+``vllm_eval_keep_export`` is set to ``true``.
 
-The process running ``brevitas_ptq_llm`` keeps part of the GPU memory while vLLM runs, so
-``gpu_memory_utilization`` might need to be lowered. The evaluation can use all the GPUs of the
-process through ``parallelism``. In benchmarks, these are the GPUs assigned to each job through
-``--num-gpus-per-process``.
+The benchmark process keeps part of the GPU memory while vLLM runs, so ``gpu_memory_utilization``
+might need to be lowered. The evaluation can use all the GPUs assigned to each job through
+``--num-gpus-per-process``, by setting ``parallelism`` in the evaluation configuration.
 
 
 FAQ

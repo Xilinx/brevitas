@@ -275,12 +275,6 @@ svd_quant_iters:
 svd_quant_rank:
   rand_type: const
   rand_values: 32
-vllm_eval_config:
-  rand_type: const
-  rand_values: null
-vllm_eval_keep_export:
-  rand_type: const
-  rand_values: false
 weight_bit_width:
   rand_type: const
   rand_values: 8
