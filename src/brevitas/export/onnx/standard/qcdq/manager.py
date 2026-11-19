@@ -11,7 +11,7 @@ from brevitas.export.onnx.debug import DebugMarkerFunction
 from brevitas.export.onnx.function import LSTMCellFn
 from brevitas.export.onnx.manager import ONNXDynamoExportMixin
 from brevitas.proxy import BiasQuantProxyFromInjector
-from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
+from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
 from brevitas.proxy import WeightQuantProxyFromInjector
 
 from ..function import DequantizeLinearTorchScriptFn
@@ -25,7 +25,6 @@ from .handler import StdFloatQCDQCastONNXActQuantProxyHandler
 from .handler import StdFloatQCDQCastONNXWeightQuantProxyHandler
 from .handler import StdQCDQCastONNXActQuantProxyHandler
 from .handler import StdQCDQCastONNXDecoupledWeightQuantProxyHandler
-from .handler import StdQCDQCastONNXDecoupledWeightQuantWithInputProxyHandler
 from .handler import StdQCDQCastONNXQuantLSTMLayerHandler
 from .handler import StdQCDQCastONNXTruncQuantProxyHandler
 from .handler import StdQCDQCastONNXWeightQuantProxyHandler
@@ -49,7 +48,6 @@ class StdQCDQONNXManager(StdONNXBaseManager):
         StdQCDQCastONNXDecoupledWeightQuantProxyHandler,
         StdDynamicQDQCastONNXActQuantProxyHandler,
         StdQCDQCastONNXTruncQuantProxyHandler,
-        StdQCDQCastONNXDecoupledWeightQuantWithInputProxyHandler,
         StdQCDQCastONNXQuantLSTMLayerHandler]
 
     custom_fns = [
@@ -89,7 +87,8 @@ class StdQCDQONNXDynamoManager(ONNXDynamoExportMixin, StdQCDQONNXManager):
         # Integer weight/bias export relies on `data_ptr()`, which is incompatible with
         # torch.export (FakeTensor).
         for m in module.modules():
-            if isinstance(m, DecoupledWeightQuantWithInputProxyFromInjector) and m.is_quant_enabled:
+            if (isinstance(m, DecoupledWeightQuantProxyFromInjector) and m.requires_quant_input and
+                    m.is_quant_enabled):
                 raise RuntimeError(
                     "QCDQ export with `dynamo=True` does not support input-aware decoupled "
                     "weight quantization (e.g. A2Q).")

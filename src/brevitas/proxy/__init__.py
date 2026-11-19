@@ -6,7 +6,6 @@ from .float_runtime_quant import ActFloatQuantProxyFromInjector
 from .parameter_quant import BiasQuantProxyFromInjector
 from .parameter_quant import BiasQuantProxyFromInjectorBase
 from .parameter_quant import DecoupledWeightQuantProxyFromInjector
-from .parameter_quant import DecoupledWeightQuantWithInputProxyFromInjector
 from .parameter_quant import WeightQuantProxyFromInjector
 from .parameter_quant import WeightQuantProxyFromInjectorBase
 from .runtime_quant import ActQuantProxyFromInjector

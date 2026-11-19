@@ -17,8 +17,6 @@ from brevitas.export.common.handler.qcdq import FloatQCDQCastWeightQuantProxyHan
 from brevitas.export.common.handler.qcdq import FloatQMixin
 from brevitas.export.common.handler.qcdq import QCDQCastActQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastDecoupledWeightQuantProxyHandlerMixin
-from brevitas.export.common.handler.qcdq import \
-    QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastTruncQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QMixin
@@ -161,12 +159,6 @@ class StdQCDQCastONNXWeightQuantProxyHandler(StdQCDQCastONNXMixin,
 class StdQCDQCastONNXDecoupledWeightQuantProxyHandler(StdQCDQCastONNXMixin,
                                                       QCDQCastDecoupledWeightQuantProxyHandlerMixin,
                                                       ONNXBaseHandler):
-    _export_q_node = False
-
-
-class StdQCDQCastONNXDecoupledWeightQuantWithInputProxyHandler(
-        StdQCDQCastONNXMixin, QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin,
-        ONNXBaseHandler):
     _export_q_node = False
 
 

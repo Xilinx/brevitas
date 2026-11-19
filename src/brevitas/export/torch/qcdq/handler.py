@@ -11,8 +11,6 @@ from brevitas.export.common.handler.qcdq import CDQCastMixin
 from brevitas.export.common.handler.qcdq import DQCastMixin
 from brevitas.export.common.handler.qcdq import QCDQCastActQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastDecoupledWeightQuantProxyHandlerMixin
-from brevitas.export.common.handler.qcdq import \
-    QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastTruncQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QMixin
@@ -111,17 +109,6 @@ class TorchQCDQCastWeightQuantProxyHandler(TorchQCDQCastMixin,
 class TorchQCDQCastDecoupledWeightQuantProxyHandler(TorchQCDQCastMixin,
                                                     QCDQCastDecoupledWeightQuantProxyHandlerMixin,
                                                     TorchQCDQHandler):
-    _export_q_node = False
-
-    @classmethod
-    def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
-        clip_args = super().int_clip_symbolic_kwargs(narrow, signed, bit_width)
-        return _itemize_clip_bounds(clip_args)
-
-
-class TorchQCDQCastDecoupledWeightQuantWithInputProxyHandler(
-        TorchQCDQCastMixin, QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin,
-        TorchQCDQHandler):
     _export_q_node = False
 
     @classmethod
