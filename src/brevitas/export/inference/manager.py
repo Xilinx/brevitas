@@ -5,6 +5,7 @@ from functools import partial
 from typing import Optional
 
 import torch
+import torch._dynamo
 from torch.nn import Module
 import torch.nn as nn
 
@@ -26,14 +27,6 @@ from brevitas.export.manager import _set_recurrent_layer_export_mode
 from brevitas.export.manager import BaseManager
 from brevitas.graph.calibrate import QuantizationStatusManager
 from brevitas.proxy.quant_proxy import QuantProxyFromInjector
-
-# torch._dynamo is not eagerly attached to the torch namespace on torch < 2.1 (and it does not exist
-# at all on torch < 2.0), so import it explicitly and keep track of whether it is available.
-try:
-    import torch._dynamo
-    _DYNAMO_AVAILABLE = True
-except ImportError:
-    _DYNAMO_AVAILABLE = False
 
 
 def _override_caching_mode(m: nn.Module, attr: str, enabled: bool, metadata_only: bool = True):
@@ -118,8 +111,7 @@ class quant_inference_mode:
                 lambda m: _override_weight_caching_mode(
                     m, enabled=True, metadata_only=not self.cache_quant_weight))
 
-            if _DYNAMO_AVAILABLE:
-                torch._dynamo.reset()
+            torch._dynamo.reset()
         return self
 
     def __exit__(self, type, value, traceback):

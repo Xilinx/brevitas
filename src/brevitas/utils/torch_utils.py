@@ -6,13 +6,11 @@ from functools import wraps
 from typing import Optional
 from typing import Tuple
 
-from packaging import version
 import torch
 import torch.distributed as dist
 from torch.nn import Sequential
 
 import brevitas
-from brevitas import torch_version
 from brevitas.function.ops_ste import floor_ste
 
 # Named tensors (Tensor.rename/rename_/names) were removed in PyTorch 2.13
@@ -119,12 +117,7 @@ def same_storage(a: torch.Tensor, b: torch.Tensor) -> bool:
     source tensor while being distinct Python objects, and to distinct ``Parameter`` objects
     that share the same storage across different versions of a model (e.g. eager vs FX).
     """
-    if torch_version >= version.parse('2.0'):
-        # ``Tensor.untyped_storage`` is available from PyTorch >= 2.0
-        return a.untyped_storage().data_ptr() == b.untyped_storage().data_ptr()
-    else:
-        # ``untyped_storage`` is not exposed on PyTorch < 2.0
-        return a.storage().data_ptr() == b.storage().data_ptr()
+    return a.untyped_storage().data_ptr() == b.untyped_storage().data_ptr()
 
 
 def compute_channel_view_shape(tensor: torch.Tensor, channel_dim: int):

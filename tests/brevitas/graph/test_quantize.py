@@ -24,7 +24,6 @@ from brevitas.inject.enum import ScalingImplType
 from brevitas.utils.parametrization_utils import RotationWeightParametrization
 from brevitas.utils.python_utils import recurse_getattr
 from tests.conftest import SEED
-from tests.marker import requires_pt_ge
 
 MIN_INT = 2
 MAX_INT = 10
@@ -268,7 +267,6 @@ def test_remove_parametrization_entries_state_dict(kwargs):
         assert torch.allclose(value, old_state_dict[key], rtol=0.0, atol=0.0), f"Value of tensor {value} does not match with that in the original state_dict"
 
 
-@requires_pt_ge('2.3.1')
 @pytest_cases.parametrize(
     'kwargs',
     [

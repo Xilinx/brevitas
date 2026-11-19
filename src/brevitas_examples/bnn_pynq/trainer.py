@@ -7,14 +7,12 @@ import os
 import random
 import time
 
-from packaging.version import parse
 import torch
 from torch import nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.data import DataLoader
 from torch.utils.data import Subset
-import torchvision
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
 from torchvision.datasets import MNIST
@@ -28,24 +26,6 @@ from .logger import Logger
 from .logger import TrainingEpochMeters
 from .models import model_with_cfg
 from .models.losses import SqrHingeLoss
-
-
-class MirrorMNIST(MNIST):
-
-    if parse(torchvision.__version__) < parse('0.9.1'):
-
-        resources = [(
-            "https://ossci-datasets.s3.amazonaws.com/mnist/train-images-idx3-ubyte.gz",
-            "f68b3c2dcbeaaa9fbdd348bbdeb94873"),
-                     (
-                         "https://ossci-datasets.s3.amazonaws.com/mnist/train-labels-idx1-ubyte.gz",
-                         "d53e105ee54ea40749a09fcbcd1e9432"),
-                     (
-                         "https://ossci-datasets.s3.amazonaws.com/mnist/t10k-images-idx3-ubyte.gz",
-                         "9fb629c4189551a2d022fa330f9573f3"),
-                     (
-                         "https://ossci-datasets.s3.amazonaws.com/mnist/t10k-labels-idx1-ubyte.gz",
-                         "ec29112dd5afa0611ce80d1b7f02629c")]
 
 
 def accuracy(output, target, topk=(1,)):
@@ -117,7 +97,7 @@ class Trainer(object):
 
         elif dataset == 'MNIST':
             transform_train = transform_to_tensor
-            builder = MirrorMNIST
+            builder = MNIST
         else:
             raise Exception("Dataset not supported: {}".format(args.dataset))
 
