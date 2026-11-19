@@ -183,12 +183,8 @@ Available under the following LICENSE:
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.model_zoo import load_url as load_state_dict_from_url
 import torchvision
-
-try:
-    from torchvision.models.utils import load_state_dict_from_url
-except ImportError:
-    from torch.utils.model_zoo import load_url as load_state_dict_from_url
 
 # Inception weights ported to Pytorch from
 # http://download.tensorflow.org/models/image/imagenet/inception-2015-12-05.tgz
@@ -341,30 +337,8 @@ class InceptionV3(nn.Module):
 
 def _inception_v3(*args, **kwargs):
     """Wraps `torchvision.models.inception_v3`"""
-    try:
-        version = tuple(map(int, torchvision.__version__.split('.')[:2]))
-    except ValueError:
-        # Just a caution against weird version strings
-        version = (0,)
-
-    # Skips default weight inititialization if supported by torchvision
-    # version. See https://github.com/mseitzer/pytorch-fid/issues/28.
-    if version >= (0, 6):
-        kwargs['init_weights'] = False
-
-    # Backwards compatibility: `weights` argument was handled by `pretrained`
-    # argument prior to version 0.13.
-    if version < (0, 13) and 'weights' in kwargs:
-        if kwargs['weights'] == 'DEFAULT':
-            kwargs['pretrained'] = True
-        elif kwargs['weights'] is None:
-            kwargs['pretrained'] = False
-        else:
-            raise ValueError(
-                'weights=={} not supported in torchvision {}'.format(
-                    kwargs['weights'], torchvision.__version__))
-        del kwargs['weights']
-
+    # Skips default weight inititialization. See https://github.com/mseitzer/pytorch-fid/issues/28.
+    kwargs['init_weights'] = False
     return torchvision.models.inception_v3(*args, **kwargs)
 
 

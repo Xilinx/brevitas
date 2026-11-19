@@ -19,14 +19,12 @@ from typing import Type
 from typing import Union
 import warnings
 
-import packaging
-import packaging.version
 import torch
 from torch.fx import GraphModule as TorchGraphModule
+from torch.nn import RMSNorm
 import torch.nn as nn
 import torch.nn.utils.parametrize as parametrize
 
-from brevitas import torch_version
 from brevitas.fx import GraphModule
 from brevitas.fx import Node
 from brevitas.graph import ModuleToModuleByInstance
@@ -69,16 +67,6 @@ try:
 except:
     warnings.warn("fast_hadamard_transform package not found, using standard pytorch kernels")
     fast_hadamard_transform = None
-
-# RMSNorm was introduced with torch 2.4
-if torch_version >= packaging.version.parse('2.4'):
-    RMSNorm = nn.RMSNorm
-else:
-
-    class PlaceholderRMSNorm:
-        pass
-
-    RMSNorm = PlaceholderRMSNorm
 
 __all__ = [
     'GraphActivationEqualization',
@@ -2231,7 +2219,6 @@ class LayerNormToRMS(GraphTransform, RegionWalkMixin):
         RegionWalkMixin.__init__(self, **base_state_kwargs, extra_state_kwargs=extra_state_kwargs)
 
         self.return_rewriters = return_rewriters
-        assert RMSNorm is not object, 'Update your Pytorch version to 2.4+'
 
     def apply(self, graph_model: GraphModule) -> GraphModule:
         regions = _extract_regions(graph_model, state_impl_kwargs=self.full_state_kwargs)

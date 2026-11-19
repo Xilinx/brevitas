@@ -57,7 +57,6 @@ from tests.brevitas_examples.llm.test_cases import LLMRunCases
 from tests.conftest import SEED
 from tests.marker import jit_disabled_for_dynamic_quant_act
 from tests.marker import jit_disabled_for_export
-from tests.marker import requires_pt_ge
 
 ATOL_PPL = 1e+01
 RTOL_PPL = 1e-04
@@ -110,9 +109,6 @@ def validate_args(parser: ArgumentParser, args: Namespace) -> None:
     a, da = parse_args_and_defaults(args, parser)
     for k in a.keys():
         assert k in da.keys(), f"Key {k} does not seem to be a valid argument for `quantize_llm`"
-    if args.replace_rmsnorm:
-        if torch_version < version.parse('2.4'):
-            pytest.skip("Replacing RMSNorm requires torch 2.4+ or greater")
     if args.gpxq_block_name == "model.layers" and args.learned_round is not None and "opt" in args.model.lower(
     ):
         pytest.skip(
@@ -518,7 +514,6 @@ def onnx_export_args(default_run_args, request):
 
 @pytest.mark.onnx_export
 @jit_disabled_for_export()
-@requires_pt_ge('2.5')
 def test_small_models_onnx_export(caplog, onnx_export_args, main):
     caplog.set_level(logging.INFO)
     args, _, _ = onnx_export_args
@@ -728,7 +723,6 @@ def test_few_shot_eval(caplog, few_shot_eval_args, main):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.4')
 def test_rmsnorm_patch_context_manager(caplog):
     """Test that rmsnorm_patch correctly replaces RMSNorm modules on enter
     and restores original modules on exit."""

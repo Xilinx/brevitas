@@ -9,7 +9,6 @@ from brevitas.fx import symbolic_trace
 from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.permute import GraphPermutationEqualization
 from brevitas.graph.permute import rotate_permute_mode
-from tests.marker import requires_pt_ge
 
 from .equalization_fixtures import *
 from .rotation_fixtures import *
@@ -58,7 +57,6 @@ def _setup_test_model(rotation_model, device='cpu'):
     return fx_model, sample_inputs
 
 
-@requires_pt_ge('2.3.1')
 @pytest_cases.parametrize('permute_fn', ['massdiff', 'zigzag', 'absmax', 'random'])
 @pytest_cases.parametrize('block_size', [8, IN_FEATURES])
 @pytest_cases.parametrize('expansion_step', [0, 3])
@@ -114,7 +112,6 @@ def test_rotate_permute_mode(
         "Output mismatch with combined features"
 
 
-@requires_pt_ge('2.3.1')
 @pytest_cases.parametrize('block_size', [4, 8, 16, 24, 32])
 @pytest_cases.parametrize('device', ['cpu', 'cuda'] if torch.cuda.is_available() else ['cpu'])
 def test_permute_block_size_compatibility(rotation_model, block_size, device):
