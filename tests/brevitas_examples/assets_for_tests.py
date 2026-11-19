@@ -183,10 +183,9 @@ def _download_nltk_resource(nltk, resource: str, nltk_dir: str) -> None:
 def _load_bnn_pynq_datasets(datadir: str, download: bool) -> None:
     """Instantiate the train and test splits of MNIST and CIFAR10, optionally downloading them."""
     from torchvision.datasets import CIFAR10
+    from torchvision.datasets import MNIST
 
-    from brevitas_examples.bnn_pynq.trainer import MirrorMNIST
-
-    for builder in (MirrorMNIST, CIFAR10):
+    for builder in (MNIST, CIFAR10):
         for train in (True, False):
             builder(root=datadir, train=train, download=download)
 
