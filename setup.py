@@ -63,4 +63,5 @@ setup(
             'brevitas_melgan_preprocess = brevitas_examples.text_to_speech.preprocess_dataset:main',
             'brevitas_ptq_imagenet_val = brevitas_examples.imagenet_classification.ptq.ptq_evaluate:main',
             'brevitas_ptq_llm = brevitas_examples.llm.main:main',
-            'brevitas_vllm_eval = brevitas_examples.llm.eval_vllm:main'],})
+            'brevitas_vllm_eval = brevitas_examples.llm.eval_vllm:main'],
+        'vllm.general_plugins': ['brevitas = brevitas.export.inference.vLLM:register'],})

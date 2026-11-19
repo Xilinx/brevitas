@@ -16,16 +16,17 @@ from torch.nn import Module
 import torch.nn as nn
 from torch.utils.data import Dataset
 from vllm.model_executor.layers.linear import LinearBase
-from vllm.model_executor.layers.linear import MergedColumnParallelLinear
-from vllm.model_executor.layers.linear import QKVParallelLinear
-from vllm.model_executor.layers.linear import RowParallelLinear
 from vllm.model_executor.layers.linear import UnquantizedLinearMethod
 from vllm.model_executor.layers.quantization import QuantizationMethods
 from vllm.model_executor.layers.quantization import register_quantization_config
 from vllm.model_executor.layers.quantization.base_config import QuantizationConfig
 from vllm.model_executor.layers.quantization.utils.quant_utils import is_layer_skipped
+from vllm.model_executor.layers.vocab_parallel_embedding import VocabParallelEmbedding
+from vllm.platforms import current_platform
 
 import brevitas.config as config
+from brevitas.export.inference.vLLM.layer import QuantAttentionMethod
+from brevitas.export.inference.vLLM.layer import QuantEmbeddingMethod
 from brevitas.export.inference.vLLM.layer import QuantLinear
 from brevitas.export.manager import _set_proxy_export_handler
 from brevitas.export.manager import _set_proxy_export_mode
@@ -34,6 +35,7 @@ from brevitas.export.manager import _set_recurrent_layer_export_mode
 from brevitas.export.manager import BaseManager
 from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.nn.mixin import QuantLayerMixin
+from brevitas.nn.quant_embedding import QuantEmbedding
 from brevitas.proxy.quant_proxy import QuantProxyFromInjector
 
 from ..handler import FloatInferencetHandler
@@ -80,44 +82,56 @@ class QuantConfigBrevitas(QuantizationConfig):
     def get_config_filenames() -> List[str]:
         return ["brevitas_config.json"]
 
+    def layer_quant_configs(self, prefix: str) -> Dict[str, Any]:
+        base_config = self.config[prefix]
+        return {
+            f"{param}_config": base_config.get(f"{param}_quant", None)
+            for param in ["weight", "bias", "output", "input", "rotation"]}
+
     def get_quant_method(self, layer: torch.nn.Module,
                          prefix: str) -> Optional["QuantizeMethodBase"]:
-        if isinstance(layer, RowParallelLinear) or isinstance(
-                layer, MergedColumnParallelLinear) or isinstance(layer, QKVParallelLinear):
+        if isinstance(layer, LinearBase):
             if self.ignored_layers is not None and is_layer_skipped(
                     prefix=prefix,
                     ignored_layers=self.ignored_layers,
                     fused_mapping=self.packed_modules_mapping,
             ):
                 return UnquantizedLinearMethod()
-            else:
-                if prefix in self.config:
-                    base_config = self.config[prefix]
-                    quant_configs = {
-                        f"{param}_config": base_config.get(f"{param}_quant", None)
-                        for param in ["weight", "bias", "output", "input", "rotation"]}
+            if prefix in self.config:
+                return QuantLinear(quant_configs=self.layer_quant_configs(prefix))
 
-                else:
-                    base = prefix.split('.')[:-1]
-                    base = '.'.join(base)
-                    suffix = prefix.split('.')[-1]
-                    layers_to_merge = self.packed_modules_mapping[suffix]
-                    layers_to_merge = [base + '.' + x for x in layers_to_merge]
+            # vLLM merges some layers (e.g., q/k/v projections), which are exported separately.
+            # Layers that were not quantized in Brevitas are not exported.
+            base, suffix = prefix.rsplit('.', 1)
+            layers_to_merge = [
+                base + '.' + name for name in self.packed_modules_mapping.get(suffix, [])]
+            if not layers_to_merge or layers_to_merge[0] not in self.config:
+                return UnquantizedLinearMethod()
+            quant_configs = self.layer_quant_configs(layers_to_merge[0])
+            quant_configs["weight_config"] = [
+                self.config[name].get('weight_quant', None) for name in layers_to_merge]
+            return QuantLinear(quant_configs=quant_configs)
 
-                    base_config = self.config[layers_to_merge[0]]
-                    quant_configs = {
-                        f"{param}_config": base_config.get(f"{param}_quant", None)
-                        for param in ["bias", "output", "input", "rotation"]}
-                    weight_config = [
-                        self.config[layer].get('weight_quant', None) for layer in layers_to_merge]
-                    quant_configs["weight_config"] = weight_config
+        # Covers both the input embedding and the LM head (ParallelLMHead)
+        elif isinstance(layer, VocabParallelEmbedding) and prefix in self.config:
+            return QuantEmbeddingMethod(quant_configs=self.layer_quant_configs(prefix))
 
-                return QuantLinear(quant_configs=quant_configs)
-
-        elif isinstance(layer, LinearBase):
-            return UnquantizedLinearMethod()
+        # Q/K/V quantizers are exported from the QuantScaledDotProductAttention module, which
+        # matches the name of vLLM's Attention layer
+        elif f"{prefix}.k_transposed_quant" in self.config:
+            quant_configs = {
+                'q_config': self.config[f"{prefix}.q_scaled_quant"].get('act_quant', None),
+                'k_config': self.config[f"{prefix}.k_transposed_quant"].get('act_quant', None),
+                'v_config': self.config[f"{prefix}.v_quant"].get('act_quant', None)}
+            return QuantAttentionMethod(self, quant_configs=quant_configs)
 
         return None
+
+
+# vLLM < 0.10.2 does not add custom quantization methods to platforms with a restricted list (ROCm)
+if current_platform.supported_quantization and ("quant_brevitas"
+                                                not in current_platform.supported_quantization):
+    current_platform.supported_quantization.append("quant_brevitas")
 
 
 def combine_configs(config: Dict, *names: str) -> Dict:
@@ -196,7 +210,7 @@ class vLLMExportManager(BaseManager):
         os.makedirs(filepath, exist_ok=True)
         for name, module in model.named_modules():
 
-            if isinstance(module, QuantLayerMixin) or isinstance(module, RotatedModule):
+            if isinstance(module, (QuantLayerMixin, QuantEmbedding, RotatedModule)):
                 layer_dict = dict()
                 json_to_save[name] = layer_dict
                 if isinstance(module, RotatedModule):
@@ -207,6 +221,8 @@ class vLLMExportManager(BaseManager):
                         'rot_mat_shape'] = module.had_mat.shape[0] if getattr(
                             module, 'had_mat', None) is not None else None
                     layer_dict['rotation_config']['k'] = getattr(module, 'k', None)
+                    # Size of the Hadamard blocks, equal to the input size for full-vector rotations
+                    layer_dict['rotation_config']['hidden_dim'] = module.hidden_dim
 
                 for subname, submodule in module.named_modules():
                     if isinstance(submodule, QuantProxyFromInjector) and submodule.is_quant_enabled:

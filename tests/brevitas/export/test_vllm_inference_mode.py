@@ -116,6 +116,27 @@ def test_vllm_groupwise_weight_handler_exports_group_metadata(weight_quantizer):
     assert torch.equal(state_dict['group_size_t'], torch.tensor(32, dtype=torch.int))
 
 
+@pytest.mark.parametrize('weight_quantizer', [MXInt8Weight, MXFloat8e4m3Weight])
+def test_vllm_groupwise_weight_handler_from_state_dict(weight_quantizer):
+    linear = qnn.QuantLinear(16, 8, weight_quant=weight_quantizer, group_dim=1)
+    inp = torch.randn(2, 16)
+    linear(inp)
+    linear.eval()
+
+    with quant_inference_mode(linear, compile=False, export_manager=vLLMTestManager):
+        linear(inp)
+        handler = linear.weight_quant.export_handler
+        expected = handler(linear.weight)[0]
+        state_dict = handler.state_dict()
+
+    # vLLM rebuilds the handler from its state dict, without calling prepare_for_export
+    rebuilt = type(handler)(
+        scale_shape=state_dict['scale'].shape, zero_point_shape=state_dict['zero_point'].shape)
+    rebuilt.float_to_int_impl_type = handler.float_to_int_impl_type
+    rebuilt.load_state_dict(state_dict)
+    assert torch.allclose(rebuilt(linear.weight)[0], expected)
+
+
 @pytest_cases.parametrize('weight_quantizer', WEIGHT_QUANTIZERS.items())
 @given(weight=float_tensor_st(shape=(8, 16), max_val=1e10, min_val=-1e10))
 @requires_pt_ge('2.1')

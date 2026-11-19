@@ -1,1 +1,3 @@
 lm-eval[vllm]==0.4.12
+# Required by lm-eval for data parallelism (installed with lighteval[vllm])
+ray
