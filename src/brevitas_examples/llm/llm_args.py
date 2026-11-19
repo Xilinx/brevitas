@@ -11,7 +11,6 @@ from warnings import warn
 from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import create_entrypoint_args_parser
 from brevitas_examples.common.parse_utils import quant_format_validator
-from brevitas_examples.llm.eval_vllm import parse_eval_args
 from brevitas_examples.llm.llm_quant.piso_args import ScaleOptimizerArgumentParser
 
 # Export targets that do not require the (optional) `gguf` dependency
@@ -509,20 +508,6 @@ def create_args_parser() -> ArgumentParser:
         "Path prefix to use for the various export flows. If None, a path will be derived from the model name (default: %(default)s)"
     )
     parser.add_argument(
-        '--vllm-eval-config',
-        type=str,
-        default=None,
-        help=
-        'YAML configuration of brevitas_vllm_eval (e.g., backend and tasks). If specified, the model '
-        'exported with --export-target vllm is evaluated through vLLM after quantization, and the '
-        'metrics are added to the results with a vllm_ prefix. Default: %(default)s')
-    parser.add_argument(
-        '--vllm-eval-keep-export',
-        action='store_true',
-        help=
-        'Keep the vLLM export after the evaluation with --vllm-eval-config. By default, the export '
-        'is deleted, even if the evaluation fails, to save disk space.')
-    parser.add_argument(
         '--export-path',
         type=str,
         default=None,
@@ -674,10 +659,6 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
     if args.export_target == 'vllm':
         # Expanded layers have padded weights that do not match the original model shapes
         assert not args.rotation_layers_to_expand, "vLLM export does not support expanded rotations."
-    if args.vllm_eval_config is not None:
-        assert args.export_target == 'vllm', "--vllm-eval-config requires --export-target vllm."
-        # Fail before quantization if the evaluation configuration is invalid
-        parse_eval_args(['--config', args.vllm_eval_config])
     if not args.no_quantize:
         if args.weight_quant_rescaling_init is not None:
             assert args.weight_quant_rescaling_init > 0, \

@@ -15,7 +15,6 @@ from brevitas_examples.llm.eval_vllm import _parallel_sizes
 from brevitas_examples.llm.eval_vllm import parse_eval_args
 from brevitas_examples.llm.llm_args import create_args_parser
 from brevitas_examples.llm.llm_args import validate
-from brevitas_examples.llm.main import quantize_and_evaluate_llm
 
 pytestmark = pytest.mark.llm
 
@@ -38,6 +37,16 @@ def write_eval_config(tmp_path, **config):
 
 def parse_llm_args(*args):
     return create_args_parser().parse_args(list(args))
+
+
+def parse_benchmark_args(tmp_path, *args):
+    """Arguments of a benchmark job, which evaluates its vLLM export."""
+    return LLMEntryPointUtils.argument_parser.parse_args([
+        '--export-target',
+        'vllm',
+        '--vllm-eval-config',
+        write_eval_config(tmp_path, backend='lm_eval'),
+        *args])
 
 
 @pytest.mark.parametrize(
@@ -72,22 +81,18 @@ def test_vllm_export_validation(extra_args, error):
 
 
 def test_vllm_eval_config_validation(tmp_path):
-    args = parse_llm_args(
-        '--export-target',
-        'vllm',
-        '--vllm-eval-config',
-        write_eval_config(tmp_path, backend='lm_eval'))
-    validate(args)
+    args = parse_benchmark_args(tmp_path)
+    LLMEntryPointUtils.validate(args)
 
     args.export_target = None
     with pytest.raises(AssertionError, match='--export-target vllm'):
-        validate(args)
+        LLMEntryPointUtils.validate(args)
 
-    # An invalid evaluation configuration must fail before quantization starts
+    # An invalid evaluation configuration must fail before any benchmark job starts
     args.export_target = 'vllm'
     args.vllm_eval_config = write_eval_config(tmp_path, tasks=['arc_easy'])
     with pytest.raises(ValueError, match='--backend must be specified'):
-        validate(args)
+        LLMEntryPointUtils.validate(args)
 
 
 @pytest.mark.parametrize(
@@ -128,6 +133,7 @@ def vllm_eval_run():
 
     def quantize_llm(args, extra_args=None):
         # Emulate the export
+        os.makedirs(args.export_prefix)
         with open(os.path.join(args.export_prefix, 'brevitas_config.json'), 'w') as f:
             f.write('{}')
         return {'quant_ppl': 10.0}, object()
@@ -141,53 +147,35 @@ def vllm_eval_run():
             json.dump({'arc_easy_acc,none': 0.5}, f)
 
     with patch('brevitas_examples.llm.main.quantize_llm', quantize_llm), \
-         patch('brevitas_examples.llm.main.subprocess.run', side_effect=run) as run_mock:
+         patch('brevitas_examples.llm.benchmark.llm_benchmark.subprocess.run', side_effect=run) as run_mock:
         yield run_mock
 
 
 @pytest.mark.parametrize('keep_export', [False, True], ids=['delete_export', 'keep_export'])
-@pytest.mark.parametrize(
-    'entrypoint',
-    [
-        lambda args,
-        root: quantize_and_evaluate_llm(args, export_root=root),
-        lambda args,
-        root: LLMEntryPointUtils.entrypoint_main(args, job_folder=root)],
-    ids=['cli', 'benchmark'])
-def test_vllm_eval_after_quantization(tmp_path, vllm_eval_run, entrypoint, keep_export):
-    args = parse_llm_args(
-        '--export-target',
-        'vllm',
-        '--vllm-eval-config',
-        write_eval_config(tmp_path, backend='lm_eval'),
-        *(['--vllm-eval-keep-export'] if keep_export else []))
-    root = str(tmp_path / 'job')
+def test_vllm_eval_in_benchmark_job(tmp_path, vllm_eval_run, keep_export):
+    args = parse_benchmark_args(tmp_path, *(['--vllm-eval-keep-export'] if keep_export else []))
+    job_folder = str(tmp_path / 'job')
+    os.makedirs(job_folder)
 
-    results, model = entrypoint(args, root)
+    results, model = LLMEntryPointUtils.entrypoint_main(args, job_folder=job_folder)
 
     cmd = vllm_eval_run.call_args.args[0]
-    export_dir = cmd[cmd.index('--model') + 1]
     assert cmd[:3] == [sys.executable, '-m', 'brevitas_examples.llm.eval_vllm']
     assert cmd[cmd.index('--config') + 1] == args.vllm_eval_config
-    assert os.path.dirname(export_dir) == root
-    assert cmd[cmd.index('--output-dir') + 1] == os.path.join(root, 'vllm_eval')
+    assert cmd[cmd.index('--model') + 1] == os.path.join(job_folder, 'vllm_export')
+    assert cmd[cmd.index('--output-dir') + 1] == os.path.join(job_folder, 'vllm_eval')
     assert model is None
-    assert results['quant_ppl'] == 10.0
-    assert results['vllm_arc_easy_acc,none'] == 0.5
-    assert os.path.isdir(export_dir) == keep_export
-    assert results.get('vllm_export_dir') == (export_dir if keep_export else None)
+    assert results == {'quant_ppl': 10.0, 'vllm_arc_easy_acc,none': 0.5}
+    assert os.path.isdir(os.path.join(job_folder, 'vllm_export')) == keep_export
 
 
 def test_vllm_eval_deletes_export_on_failure(tmp_path, vllm_eval_run):
     vllm_eval_run.side_effect = subprocess.CalledProcessError(1, 'brevitas_vllm_eval')
-    args = parse_llm_args(
-        '--export-target',
-        'vllm',
-        '--vllm-eval-config',
-        write_eval_config(tmp_path, backend='lm_eval'))
-    root = str(tmp_path / 'job')
+    args = parse_benchmark_args(tmp_path)
+    job_folder = str(tmp_path / 'job')
+    os.makedirs(job_folder)
 
     with pytest.raises(subprocess.CalledProcessError):
-        quantize_and_evaluate_llm(args, export_root=root)
+        LLMEntryPointUtils.entrypoint_main(args, job_folder=job_folder)
 
-    assert os.listdir(root) == []
+    assert os.listdir(job_folder) == []
