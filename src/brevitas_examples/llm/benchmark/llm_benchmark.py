@@ -59,8 +59,10 @@ class LLMEntryPointUtils(EntryPointUtils):
             args: Namespace,
             extra_args: Optional[List[str]] = None,
             job_folder: Optional[str] = None) -> Tuple[Dict, Any]:
-        from brevitas_examples.llm.main import quantize_llm
-        return quantize_llm(args=args, extra_args=extra_args)
+        from brevitas_examples.llm.main import quantize_and_evaluate_llm
+
+        # Each job exports into its own folder, so that parallel jobs do not overwrite each other
+        return quantize_and_evaluate_llm(args=args, extra_args=extra_args, export_root=job_folder)
 
 
 class LLMGridBenchmark(BenchmarkUtils):

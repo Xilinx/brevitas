@@ -4,7 +4,6 @@
 from argparse import ArgumentParser
 from argparse import ArgumentTypeError
 from argparse import Namespace
-import importlib
 import json
 from numbers import Number
 from pathlib import Path
@@ -17,7 +16,8 @@ from brevitas_examples.common.parse_utils import override_defaults
 from brevitas_examples.common.parse_utils import parse_args
 
 LM_EVAL_DEFAULT_TASKS = ['arc_challenge', 'arc_easy', 'winogrande', 'piqa']
-LIGHTEVAL_DEFAULT_TASKS = ['arc:challenge|0', 'arc:easy|0', 'winogrande|0', 'piqa|0']
+# piqa_lm_eval is the log-likelihood PIQA task defined in eval_lighteval.py
+LIGHTEVAL_DEFAULT_TASKS = ['arc:challenge|0', 'arc:easy|0', 'winogrande|0', 'piqa_lm_eval|0']
 LIGHTEVAL_TASK_ALIASES = {
     'arc_challenge': 'arc:challenge',
     'arc_easy': 'arc:easy',}
@@ -65,17 +65,36 @@ def create_args_parser() -> ArgumentParser:
         '--batch-size',
         type=_batch_size,
         default='auto',
-        help="Evaluation batch size or 'auto'. Default: %(default)s.")
+        help=
+        "Maximum number of sequences processed concurrently by vLLM (max_num_seqs), or 'auto' to "
+        "use the backend default. Default: %(default)s.")
     parser.add_argument(
-        '--tensor-parallel-size',
-        type=int,
-        default=1,
-        help='Number of GPUs used for tensor parallelism. Default: %(default)s.')
+        '--add-bos-token',
+        action='store_true',
+        help='Prepend the BOS token to lm_eval requests, as done by brevitas_ptq_llm with '
+        '--bos-preprocessing. LightEval always adds special tokens.')
     parser.add_argument(
         '--gpu-memory-utilization',
         type=float,
         default=0.9,
         help='Fraction of GPU memory available to vLLM. Default: %(default)s.')
+    parser.add_argument(
+        '--parallelism',
+        type=str,
+        default=None,
+        choices=[None, 'data', 'pipeline'],
+        help=
+        'How to use the visible GPUs (e.g., CUDA_VISIBLE_DEVICES). data runs a replica of the model '
+        'on each GPU, each evaluating a share of the requests: it is the fastest option if the model '
+        'fits on a single GPU. pipeline splits the model layers across the GPUs, for models that do '
+        'not fit on a single GPU. By default, a single GPU is used. Default: %(default)s.')
+    parser.add_argument(
+        '--cpu-offload-gb',
+        type=float,
+        default=0,
+        help=
+        'GiB of weights per GPU offloaded to CPU memory and streamed to the GPU at every forward '
+        'pass. Only supported by the lm_eval backend. Default: %(default)s.')
     parser.add_argument(
         '--max-model-length',
         type=int,
@@ -106,7 +125,7 @@ def create_args_parser() -> ArgumentParser:
         '--max-new-tokens',
         type=int,
         default=None,
-        help='Override the task generation length. Default: use the task setting.')
+        help='Override the generation length of every task. Default: use the task setting.')
     parser.add_argument(
         '--output-dir',
         type=str,
@@ -117,44 +136,50 @@ def create_args_parser() -> ArgumentParser:
     return parser
 
 
-def _validate_args(args: Namespace) -> Path:
-    if not isinstance(args.model, str) or not args.model:
-        raise ValueError('--model must be specified')
-    if args.backend not in ('lm_eval', 'lighteval'):
+def parse_eval_args(argv: list[str]) -> Namespace:
+    """Parse and check the evaluation arguments, which can also be provided through --config."""
+    parser = create_args_parser()
+    overrides = override_defaults(argv)
+    if overrides is None:
+        overrides = {}
+    elif not isinstance(overrides, dict):
+        raise ValueError('--config must contain a YAML mapping')
+    args, extra_args = parse_args(parser, argv, override_defaults=overrides)
+    if extra_args:
+        raise ValueError(f'unrecognized arguments: {" ".join(extra_args)}')
+    # The backend defaults to None so that it can be provided through --config
+    if args.backend is None:
         raise ValueError('--backend must be specified')
-    if args.dtype not in ('auto', 'float16', 'bfloat16', 'float32'):
-        raise ValueError(f'Unsupported --dtype: {args.dtype}')
-    if not isinstance(args.tensor_parallel_size, int) or args.tensor_parallel_size < 1:
-        raise ValueError('--tensor-parallel-size must be positive')
-    if (args.batch_size != 'auto' and
-        (not isinstance(args.batch_size, int) or args.batch_size < 1)):
-        raise ValueError("--batch-size must be 'auto' or a positive integer")
-    if (not isinstance(args.gpu_memory_utilization, (int, float)) or
-            not 0.0 < args.gpu_memory_utilization <= 1.0):
-        raise ValueError('--gpu-memory-utilization must be in the interval (0, 1]')
-    if (args.max_model_length is not None and
-        (not isinstance(args.max_model_length, int) or args.max_model_length < 1)):
-        raise ValueError('--max-model-length must be positive')
-    if args.limit is not None and (not isinstance(args.limit, int) or args.limit < 1):
-        raise ValueError('--limit must be positive')
-    if args.thinking not in ('disabled', 'enabled'):
-        raise ValueError('--thinking must be disabled or enabled')
-    if args.max_new_tokens is not None and (not isinstance(args.max_new_tokens, int) or
-                                            args.max_new_tokens < 1):
-        raise ValueError('--max-new-tokens must be positive')
-    if args.thinking == 'enabled':
-        if not args.reasoning_start_tag or not args.reasoning_end_tag:
-            raise ValueError('Reasoning tags must be non-empty when thinking is enabled')
-        if args.reasoning_start_tag == args.reasoning_end_tag:
-            raise ValueError('Reasoning start and end tags must differ')
-    if not isinstance(args.seed, int) or args.seed < 0:
-        raise ValueError('--seed must be a non-negative integer')
-    if args.tasks is not None and not isinstance(args.tasks, (str, list, tuple)):
-        raise ValueError('--tasks must be a task name or a list of task names')
+    # Values provided through --config are not checked by the parser, and a mistyped choice
+    # (e.g., the backend) would otherwise silently select the wrong behavior
+    for action in parser._actions:
+        if action.choices is not None and getattr(args, action.dest) not in action.choices:
+            raise ValueError(
+                f'Invalid {action.dest}: {getattr(args, action.dest)}. '
+                f'Choose from {list(action.choices)}')
+    if args.backend == 'lighteval' and args.cpu_offload_gb > 0:
+        raise ValueError(
+            '--cpu-offload-gb is supported only by the lm_eval backend, LightEval does not expose '
+            'vLLM CPU offloading. Use --parallelism pipeline instead.')
+    return args
+
+
+def _parallel_sizes(args: Namespace) -> dict[str, int]:
+    """Data or pipeline parallel size, as expected by both backends, using all the visible GPUs."""
+    import torch
+
+    num_gpus = torch.cuda.device_count() if args.parallelism is not None else 1
+    return {
+        'data_parallel_size': num_gpus if args.parallelism == 'data' else 1,
+        'pipeline_parallel_size': num_gpus if args.parallelism == 'pipeline' else 1}
+
+
+def _validate_model(args: Namespace) -> Path:
+    # The model defaults to None so that it can be provided through --config
+    if args.model is None:
+        raise ValueError('--model must be specified')
 
     model_path = Path(args.model).expanduser()
-    if not model_path.is_dir():
-        raise FileNotFoundError(f'Exported model directory does not exist: {model_path}')
     config_path = model_path / 'brevitas_config.json'
     if not config_path.is_file():
         raise FileNotFoundError(
@@ -198,11 +223,6 @@ def _numeric_results(results: dict[str, Any]) -> dict[str, int | float]:
     return summary
 
 
-def _register_brevitas_quantization() -> None:
-    # Importing the manager registers quant_brevitas with vLLM.
-    importlib.import_module('brevitas.export.inference.vLLM.manager')
-
-
 def _lm_eval_task_mode(tasks: list[str]):
     from lm_eval.tasks import TaskManager
 
@@ -228,48 +248,52 @@ def _lm_eval_task_mode(tasks: list[str]):
 
 def run_lm_eval(args: Namespace, model_path: Path, tasks: list[str]) -> dict[str, Any]:
     from lm_eval import evaluator
+    from transformers import AutoTokenizer
 
     task_manager, is_generative = _lm_eval_task_mode(tasks)
+    # As in LightEval, generative tasks use the chat template only if the model defines one
+    use_chat_template = is_generative and AutoTokenizer.from_pretrained(
+        model_path).chat_template is not None
     thinking_enabled = args.thinking == 'enabled'
-    if thinking_enabled and not is_generative:
-        raise ValueError('--thinking enabled is supported only for generative lm-eval tasks')
+    if thinking_enabled and not use_chat_template:
+        raise ValueError(
+            '--thinking enabled requires generative lm-eval tasks and a model chat template')
 
     model_args = {
         'pretrained': str(model_path),
         'quantization': 'quant_brevitas',
         'dtype': args.dtype,
-        'tensor_parallel_size': args.tensor_parallel_size,
         'gpu_memory_utilization': args.gpu_memory_utilization,
+        **_parallel_sizes(args),
+        'cpu_offload_gb': args.cpu_offload_gb,
         'seed': args.seed,
-        'enable_thinking': thinking_enabled,}
+        'add_bos_token': args.add_bos_token,
+        'enable_thinking': thinking_enabled,
+        # Brevitas quantizers run as regular PyTorch code, so we skip compilation and CUDA graphs,
+        # as LightEval does.
+        'enforce_eager': True,}
     if thinking_enabled:
         model_args['think_end_token'] = args.reasoning_end_tag
     if args.max_model_length is not None:
         model_args['max_model_len'] = args.max_model_length
-    if args.max_new_tokens is not None:
-        model_args['max_gen_toks'] = args.max_new_tokens
+    if args.batch_size != 'auto':
+        model_args['max_num_seqs'] = args.batch_size
+    # Unlike max_gen_toks in model_args, gen_kwargs overrides the generation length set by tasks
+    gen_kwargs = {'max_gen_toks': args.max_new_tokens} if args.max_new_tokens is not None else None
 
     results = evaluator.simple_evaluate(
         model='vllm',
         model_args=model_args,
         tasks=tasks,
         num_fewshot=0,
-        batch_size=args.batch_size,
+        # All requests are submitted at once and vLLM schedules them, up to max_num_seqs
+        batch_size='auto',
         limit=args.limit,
         log_samples=False,
-        apply_chat_template=is_generative,
+        apply_chat_template=use_chat_template,
+        gen_kwargs=gen_kwargs,
         task_manager=task_manager,
-        random_seed=args.seed,
-        numpy_random_seed=args.seed,
-        torch_random_seed=args.seed,
-        fewshot_random_seed=args.seed,
     )
-    summary = _numeric_results(results)
-    output_path = Path(args.output_dir) / 'lm_eval_results.json'
-    with output_path.open('w', encoding='utf8') as output_file:
-        json.dump(summary, output_file, indent=2, sort_keys=True)
-        output_file.write('\n')
-    pprint.pprint(summary)
     return results
 
 
@@ -286,13 +310,15 @@ def run_lighteval(args: Namespace, model_path: Path, tasks: list[str]) -> dict[s
     pipeline_params = PipelineParameters(
         launcher_type=ParallelismManager.VLLM,
         max_samples=args.limit,
+        # Same custom tasks (e.g., piqa_lm_eval) as brevitas_ptq_llm
+        custom_tasks_directory=str(Path(__file__).with_name('eval_lighteval.py')),
         remove_reasoning_tags=args.thinking == 'enabled',
         reasoning_tags=[(args.reasoning_start_tag, args.reasoning_end_tag)])
     model_config_args = {
         'model_name': str(model_path),
         'dtype': args.dtype,
-        'tensor_parallel_size': args.tensor_parallel_size,
         'gpu_memory_utilization': args.gpu_memory_utilization,
+        **_parallel_sizes(args),
         'max_model_length': args.max_model_length,
         'quantization': 'quant_brevitas',
         'seed': args.seed,}
@@ -323,33 +349,31 @@ def run_lighteval(args: Namespace, model_path: Path, tasks: list[str]) -> dict[s
     return pipeline.get_results()
 
 
-def evaluate(args: Namespace) -> dict[str, Any]:
-    model_path = _validate_args(args)
+def evaluate(args: Namespace) -> dict[str, int | float]:
+    """Evaluate the model and store the numeric metrics of both backends in results.json."""
+    model_path = _validate_model(args)
     output_dir = Path(args.output_dir).expanduser()
     output_dir.mkdir(parents=True, exist_ok=True)
     args.output_dir = str(output_dir)
     tasks = _tasks_for_backend(args)
-    _register_brevitas_quantization()
 
     if args.backend == 'lm_eval':
-        return run_lm_eval(args, model_path, tasks)
-    return run_lighteval(args, model_path, tasks)
+        results = run_lm_eval(args, model_path, tasks)
+    else:
+        results = run_lighteval(args, model_path, tasks)
+    summary = _numeric_results(results)
+    with (output_dir / 'results.json').open('w', encoding='utf8') as output_file:
+        json.dump(summary, output_file, indent=2, sort_keys=True)
+        output_file.write('\n')
+    pprint.pprint(summary)
+    return summary
 
 
 def main() -> None:
-    parser = create_args_parser()
-    overrides = override_defaults(sys.argv[1:])
-    if overrides is None:
-        overrides = {}
-    elif not isinstance(overrides, dict):
-        parser.error('--config must contain a YAML mapping')
-    args, extra_args = parse_args(parser, sys.argv[1:], override_defaults=overrides)
-    if extra_args:
-        parser.error(f'unrecognized arguments: {" ".join(extra_args)}')
     try:
-        evaluate(args)
+        evaluate(parse_eval_args(sys.argv[1:]))
     except (FileNotFoundError, ValueError) as exc:
-        parser.error(str(exc))
+        create_args_parser().error(str(exc))
 
 
 if __name__ == '__main__':

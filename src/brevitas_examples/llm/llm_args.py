@@ -11,6 +11,7 @@ from warnings import warn
 from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import create_entrypoint_args_parser
 from brevitas_examples.common.parse_utils import quant_format_validator
+from brevitas_examples.llm.eval_vllm import parse_eval_args
 from brevitas_examples.llm.llm_quant.piso_args import ScaleOptimizerArgumentParser
 
 # Export targets that do not require the (optional) `gguf` dependency
@@ -508,6 +509,20 @@ def create_args_parser() -> ArgumentParser:
         "Path prefix to use for the various export flows. If None, a path will be derived from the model name (default: %(default)s)"
     )
     parser.add_argument(
+        '--vllm-eval-config',
+        type=str,
+        default=None,
+        help=
+        'YAML configuration of brevitas_vllm_eval (e.g., backend and tasks). If specified, the model '
+        'exported with --export-target vllm is evaluated through vLLM after quantization, and the '
+        'metrics are added to the results with a vllm_ prefix. Default: %(default)s')
+    parser.add_argument(
+        '--vllm-eval-keep-export',
+        action='store_true',
+        help=
+        'Keep the vLLM export after the evaluation with --vllm-eval-config. By default, the export '
+        'is deleted, even if the evaluation fails, to save disk space.')
+    parser.add_argument(
         '--export-path',
         type=str,
         default=None,
@@ -656,6 +671,13 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
     # Re-validate for callers that build `args` directly without going through argparse (e.g. benchmark sweeps).
     if args.export_target is not None:
         lazy_validate_export_target(args.export_target)
+    if args.export_target == 'vllm':
+        # Expanded layers have padded weights that do not match the original model shapes
+        assert not args.rotation_layers_to_expand, "vLLM export does not support expanded rotations."
+    if args.vllm_eval_config is not None:
+        assert args.export_target == 'vllm', "--vllm-eval-config requires --export-target vllm."
+        # Fail before quantization if the evaluation configuration is invalid
+        parse_eval_args(['--config', args.vllm_eval_config])
     if not args.no_quantize:
         if args.weight_quant_rescaling_init is not None:
             assert args.weight_quant_rescaling_init > 0, \
@@ -698,6 +720,15 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
                 assert args.quantize_weight_zero_point, "Quantized weight zero point required."
             if args.input_bit_width is not None and args.input_quant_type == 'asym':
                 assert args.quantize_input_zero_point, "Quantized input zero point required."
+        if args.export_target == 'vllm':
+            if args.input_bit_width is not None and args.input_quant_granularity == 'per_row':
+                assert args.input_quant_format != 'int', "vLLM export supports per-row input quantization only with float formats."
+            if args.quant_sdpa is not None:
+                assert args.quant_sdpa == 'eager', "vLLM export supports attention quantization only with --quant-sdpa eager."
+                assert args.attn_quant_config in ['kv', 'qkv'], "vLLM export does not support softmax output quantization, use --attn-quant-config kv or qkv."
+                attn_scale_type = args.attn_scale_type or args.input_scale_type
+                attn_quant_granularity = args.attn_quant_granularity or args.input_quant_granularity
+                assert attn_scale_type == 'static' and attn_quant_granularity == 'per_tensor', "vLLM export supports only static per-tensor attention quantization."
         if args.input_bit_width and args.input_scale_type == 'static':
             assert args.act_calibration, "Static input quantization is being applied without activation calibration. Set --act-calibration."
 

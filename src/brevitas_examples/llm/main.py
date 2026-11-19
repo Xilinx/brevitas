@@ -4,9 +4,14 @@
 from contextlib import nullcontext
 from copy import deepcopy
 import functools
+import gc
+import json
 import os
 import pprint
+import shutil
+import subprocess
 import sys
+import tempfile
 import warnings
 
 import numpy as np
@@ -854,11 +859,62 @@ def quantize_llm(args, extra_args=None):
     return {**eval_results, **few_shot_eval_results}, model
 
 
+def quantize_and_evaluate_llm(args, extra_args=None, export_root='.'):
+    """
+    Runs quantize_llm and, if --vllm-eval-config is specified, evaluates the vLLM export through
+    brevitas_vllm_eval. Every run exports into a new directory within export_root, which is deleted
+    after the evaluation (even if it fails), unless --vllm-eval-keep-export is specified.
+    """
+    if args.vllm_eval_config is None:
+        return quantize_llm(args, extra_args)
+
+    os.makedirs(export_root, exist_ok=True)
+    export_dir = tempfile.mkdtemp(prefix='vllm_export_', dir=export_root)
+    eval_dir = os.path.join(export_root, 'vllm_eval')
+    args.export_prefix = export_dir
+    try:
+        results, model = quantize_llm(args, extra_args)
+        # Free the GPU memory held by the quantized model before vLLM allocates its own
+        del model
+        gc.collect()
+        torch.cuda.empty_cache()
+        # vLLM runs in a separate process, which releases all its GPU memory when it terminates.
+        # Its output is redirected to the current log (e.g., the log of a benchmark job).
+        sys.stdout.flush()
+        sys.stderr.flush()
+        subprocess.run([
+            sys.executable,
+            '-m',
+            'brevitas_examples.llm.eval_vllm',
+            '--config',
+            args.vllm_eval_config,
+            '--model',
+            export_dir,
+            '--output-dir',
+            eval_dir],
+                       stdout=sys.stdout,
+                       stderr=sys.stderr,
+                       check=True)
+        with open(os.path.join(eval_dir, 'results.json'), 'r') as f:
+            vllm_results = json.load(f)
+    finally:
+        if not args.vllm_eval_keep_export:
+            shutil.rmtree(export_dir)
+
+    results.update({f'vllm_{name}': value for name, value in vllm_results.items()})
+    print("vLLM eval results")
+    pprint.pprint(vllm_results)
+    if args.vllm_eval_keep_export:
+        results['vllm_export_dir'] = export_dir
+    return results, None
+
+
 def main():
     overrides = override_defaults(sys.argv[1:])
     parser = create_args_parser()
     args, extra_args = parse_args(parser, sys.argv[1:], override_defaults=overrides)
-    quantize_llm(args, extra_args)
+    export_root = args.export_prefix if args.export_prefix is not None else '.'
+    quantize_and_evaluate_llm(args, extra_args, export_root)
 
 
 if __name__ == '__main__':
