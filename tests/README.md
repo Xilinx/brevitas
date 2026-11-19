@@ -36,3 +36,14 @@ The second group is more focused on other properties of modules and functions. F
 We define a set of pre-configured hypothesis-based strategies that can be used for tests, that can be found in [hyp_helper.py](https://github.com/Xilinx/brevitas/blob/master/tests/brevitas/hyp_helper.py).
 
 To be completed.
+
+#### Reproducing Hypothesis failures
+Hypothesis seeds are set in [conftest.py](conftest.py) and are derived from the Python version, the PyTorch version, the OS/architecture and the test node id, so every parametrization draws its own examples and runs are deterministic.
+Scheduled (periodic) CI runs also mix in `GITHUB_RUN_ID`, so each run draws new examples (re-running a job keeps the original draws).
+
+When a Hypothesis test fails, the pytest report contains a `hypothesis seed` section with the exact command to reproduce it, e.g.:
+```
+GITHUB_EVENT_NAME=schedule pytest "tests/<path>::<test>[<params>]" --hypothesis-seed=<seed>
+```
+Run it with the same Python/PyTorch versions and OS as the failing job.
+Passing `--hypothesis-seed` applies that seed to every selected test.
