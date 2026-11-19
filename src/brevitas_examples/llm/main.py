@@ -51,6 +51,8 @@ from brevitas_examples.llm.llm_args import validate
 from brevitas_examples.llm.llm_quant.awq.pre_quant import apply_awq
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
 from brevitas_examples.llm.llm_quant.calibrate import apply_calibration
+from brevitas_examples.llm.llm_quant.calibrate import apply_grid_optimization
+from brevitas_examples.llm.llm_quant.calibrate import build_grid_optimization_kwargs
 from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
 from brevitas_examples.llm.llm_quant.data_utils import llm_collate
 from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
@@ -71,8 +73,6 @@ from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_to_r
 from brevitas_examples.llm.llm_quant.ln_affine_merge import rmsnorm_patch
 from brevitas_examples.llm.llm_quant.parse_utils import parse_custom_quantizer
 from brevitas_examples.llm.llm_quant.parse_utils import parse_custom_trainer
-from brevitas_examples.llm.llm_quant.piso import apply_scale_optimization
-from brevitas_examples.llm.llm_quant.piso import build_scale_optimizer
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_to_linear
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import make_dynamo_compatible
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
@@ -644,10 +644,10 @@ def quantize_llm(args, extra_args=None):
                 if hasattr(m, 'compile_quant'):
                     m.compile_quant()
 
-        if args.sopt_optimize and not args.sopt_optimize_in_gpxq:
-            print("Applying Scale Opt...")
-            apply_scale_optimization(model, calibration_loader, args)
-            print("Scale Optimization applied.")
+        if args.grid_optimization and not args.load_checkpoint:
+            print("Applying grid optimization...")
+            apply_grid_optimization(model, calibration_loader, args)
+            print("Grid optimization applied.")
 
         if args.act_calibration and not args.load_checkpoint:
             print("Apply act calibration...")
@@ -715,8 +715,8 @@ def quantize_llm(args, extra_args=None):
 
         if args.gptq and not args.load_checkpoint:
             print("Applying GPTQ...")
-            scale_optimizer = build_scale_optimizer(
-                args, cross_act_objective=False) if args.sopt_optimize_in_gpxq else None
+            grid_optimization_kwargs = (
+                build_grid_optimization_kwargs(args) if args.gpxq_use_grid_optimization else None)
             apply_gptq(
                 model,
                 calibration_loader,
@@ -727,8 +727,7 @@ def quantize_llm(args, extra_args=None):
                 buffer_device=args.gpxq_buffer_device,
                 max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
                 max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size,
-                scale_optimizer=scale_optimizer)
-
+                grid_optimization_kwargs=grid_optimization_kwargs)
             print("GPTQ applied.")
 
         if args.gpfq and not args.load_checkpoint:
@@ -745,10 +744,8 @@ def quantize_llm(args, extra_args=None):
 
         if args.qronos and not args.load_checkpoint:
             print("Applying Qronos...")
-            # Interleaved Qronos always uses the cross-activation objective
-            # (enforced in validate()).
-            scale_optimizer = build_scale_optimizer(
-                args, cross_act_objective=True) if args.sopt_optimize_in_gpxq else None
+            grid_optimization_kwargs = (
+                build_grid_optimization_kwargs(args) if args.gpxq_use_grid_optimization else None)
             apply_qronos(
                 model,
                 calibration_loader,
@@ -756,7 +753,7 @@ def quantize_llm(args, extra_args=None):
                 act_order=args.gpxq_act_order,
                 block_name=args.gpxq_block_name,
                 buffer_device=args.gpxq_buffer_device,
-                scale_optimizer=scale_optimizer)
+                grid_optimization_kwargs=grid_optimization_kwargs)
             print("Qronos applied.")
 
         if args.bias_corr and not args.load_checkpoint:

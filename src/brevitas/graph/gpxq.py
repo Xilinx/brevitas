@@ -5,6 +5,7 @@ from abc import ABC
 from abc import abstractmethod
 from copy import deepcopy
 import math
+from typing import Callable
 from typing import List
 from typing import Optional
 from typing import Tuple
@@ -34,13 +35,13 @@ def process_layer_input(
         groups: int,
         quant_metadata: Optional[object] = None) -> Tuple[torch.Tensor, Optional[object]]:
     """Preprocess a layer's input into the [groups, in_features, batch] layout used
-    to accumulate the Hessian, shared by GPxQ and PiSO.
+    to accumulate the covariance matrices, shared by GPxQ and grid optimization.
 
     quant_metadata is threaded in/out (rather than mutated on an instance) so
     the helper can stay a free function: if the input is a quantized activation and
     quant_metadata is still None, it is captured and returned so a caller that
     needs quant-input-dependent weight quantization can reuse it. Callers that do
-    not need it (PiSO) can ignore the returned value.
+    not need it (grid optimization) can ignore the returned value.
 
     Returns (inp_processed, quant_metadata).
     """
@@ -102,6 +103,39 @@ def process_layer_input(
         inp_processed = torch.stack(inp_processed)
 
     return inp_processed, quant_metadata
+
+
+def accumulate_covariance(
+        covariance: torch.Tensor,
+        nsamples: int,
+        inp: torch.Tensor,
+        other_inp: Optional[torch.Tensor] = None,
+        buffer: Optional[torch.Tensor] = None) -> int:
+    """Add a batch of layer inputs to a running covariance estimate, in place.
+
+    covariance holds the mean of 2 x y^T over the nsamples samples seen so far, where x
+    are the samples of inp and y those of other_inp, or of inp again when other_inp is
+    None. Both are in the [groups, in_features, batch] layout of process_layer_input.
+    If buffer is given, the batch contribution is copied into it before it is added,
+    e.g. to move it through pinned memory when covariance lives on the CPU.
+
+    Returns the updated number of samples.
+    """
+    batch_size = inp.shape[-1]
+    covariance *= nsamples / (nsamples + batch_size)
+    nsamples += batch_size
+    inp = math.sqrt(2 / nsamples) * inp.to(covariance.dtype)
+    if other_inp is None:
+        other_inp = inp
+    else:
+        other_inp = math.sqrt(2 / nsamples) * other_inp.to(covariance.dtype)
+    update = inp.bmm(other_inp.transpose(2, 1))
+    if buffer is None:
+        covariance += update
+    else:
+        buffer.copy_(update)
+        covariance += buffer
+    return nsamples
 
 
 class gpxq_mode(layerwise_hook_mode):
@@ -186,20 +220,25 @@ class gpxq_mode(layerwise_hook_mode):
             return False
 
 
-class GPxQ(ABC):
+class ModuleOptimizer(ABC):
+    """Base of the per-layer objects that a layerwise_hook_mode attaches to each layer.
+
+    Holds what every layer-wise algorithm needs: the layer and its shape, where its
+    statistics are stored, and the processing of the layer inputs. update_batch, the
+    forward pre-hook, accumulates statistics from the inputs; single_layer_update then
+    runs the algorithm on them.
+    """
 
     def __init__(
             self,
             layer,
             name,
-            act_order,
             len_parallel_layers=1,
             create_weight_orig=True,
             device='cpu',
             dtype=torch.float32) -> None:
         self.layer = layer
         self.name = name
-        self.act_order = act_order
         self.create_weight_orig = create_weight_orig
         # device and dtype of buffers; 'same' means using the same device for the buffer as the layer weights
         self.device = layer.weight.device if device == 'same' else device
@@ -248,55 +287,95 @@ class GPxQ(ABC):
     def single_layer_update(self):
         pass
 
+
+class GPxQ(ModuleOptimizer):
+    """Base of the error-correction algorithms (GPTQ, GPFQ, Qronos).
+
+    grid_optimizer_factory optionally interleaves grid optimization with error
+    correction. It is called as grid_optimizer_factory(layer=layer) and returns the
+    layer's grid optimizer (see
+    brevitas.graph.grid_optimization.InterleavedGridOptimizer.for_gpxq), or None when the
+    layer is not supported. The extension hooks below forward to it; GPTQ and Qronos call
+    them.
+    """
+
+    def __init__(
+            self,
+            layer,
+            name,
+            act_order,
+            len_parallel_layers=1,
+            create_weight_orig=True,
+            device='cpu',
+            dtype=torch.float32,
+            grid_optimizer_factory: Optional[Callable] = None) -> None:
+        super().__init__(layer, name, len_parallel_layers, create_weight_orig, device, dtype)
+        self.act_order = act_order
+        self.grid_optimizer = None
+        if grid_optimizer_factory is not None:
+            self.grid_optimizer = grid_optimizer_factory(layer=layer)
+
     # -------------------------------------------------------------------------
     # Extension hooks.
     #
-    # These provide the default (plain GPxQ) behaviour and are overridden by
-    # mixins to plug in group-aware permutations (GroupAwarePermutationMixin) or
-    # PiSO scale optimization (PiSOMixin, see brevitas.graph.piso).
+    # These provide the default (plain GPxQ) behaviour, and forward to the grid
+    # optimizer when there is one (see brevitas.graph.grid_optimization).
     # -------------------------------------------------------------------------
 
     def _resolve_blocksize(self, num_blocks: int) -> int:
         """Number of columns processed per error-correction block.
 
-        Default: split the columns into num_blocks blocks (plain GPxQ).
-        PiSO overrides this to align blocks with quantization groups.
+        Default: split the columns into num_blocks blocks (plain GPxQ). Blocks start
+        at multiples of the block size, so grid optimization returns the group size to
+        make every block cover exactly one quantization group.
         """
-        return math.ceil(self.columns / num_blocks)
+        blocksize = math.ceil(self.columns / num_blocks)
+        if self.grid_optimizer is not None:
+            return self.grid_optimizer.resolve_blocksize(blocksize)
+        return blocksize
 
     def _act_order_permutation(self, hessian_group: torch.Tensor) -> torch.Tensor:
         """Column ordering used when act_order is enabled, for one group.
 
         Only called from the act_order branch of the algorithms. Default:
-        descending diagonal-Hessian order. GroupAwarePermutationMixin overrides
-        this to keep quantization groups contiguous.
+        descending diagonal-Hessian order. Group-interleaved grid optimization keeps
+        quantization groups contiguous, since it optimizes scales group by group.
         """
+        if self.grid_optimizer is not None and self.grid_optimizer.group_interleaved:
+            return self.grid_optimizer.act_order_permutation(hessian_group)
         return torch.argsort(torch.diag(hessian_group), descending=True)
 
-    def _on_error_correction_starts(self, perm: torch.Tensor) -> None:
-        """Called once the (damped) Hessian is ready, before error correction.
+    def _on_error_correction_starts(
+            self, H: torch.Tensor, G: Optional[torch.Tensor], perm: torch.Tensor) -> None:
+        """Called once the covariance matrices are ready, before error correction.
 
-        No-op by default; PiSO uses it to optimize the layer scale on the fixed
-        grid before weights are error-corrected.
+        H and G are 2-D and in the layer's natural column order, with G = X_tilde^T X
+        (None for the self-activation objective); perm is the column order error
+        correction follows. The algorithm may modify H and G in place afterwards.
+
+        Grid optimization uses it to optimize the layer scale on the fixed grid before
+        weights are error-corrected, or to prepare its group-wise updates.
         """
-        pass
+        if self.grid_optimizer is not None:
+            self.grid_optimizer.on_error_correction_starts(H, G, perm)
 
     def _on_column_reached(self, column_idx: int) -> None:
         """Signal that error correction is about to process column column_idx.
 
-        Called once per column. No-op by default; PiSO uses it to optimize a
-        group's scale when column_idx starts a new group, before its weights
-        are quantized.
+        Called once per column. Grid optimization uses it to optimize a group's scale
+        when column_idx starts a new group, before its weights are quantized.
         """
-        pass
+        if self.grid_optimizer is not None:
+            self.grid_optimizer.on_column_reached(column_idx)
 
     def _on_layer_finished(self) -> None:
-        """Called after the layer is fully processed. No-op by default.
+        """Called after the layer is fully processed.
 
-        A teardown hook (e.g. PiSO releases its per-layer state here); also
+        A teardown hook (grid optimization releases its per-layer state here); also
         invoked on the error path when the layer is skipped.
         """
-        pass
+        if self.grid_optimizer is not None:
+            self.grid_optimizer.on_layer_finished()
 
     def get_quant_weights(self, i, i1, permutation_list, with_quant_history=False):
 

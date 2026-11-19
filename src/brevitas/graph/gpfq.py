@@ -3,6 +3,7 @@
 
 from copy import deepcopy
 import math
+from typing import Callable
 from typing import List
 from typing import Optional
 import warnings
@@ -35,9 +36,17 @@ class GPFQ(GPxQ):
             len_parallel_layers,
             create_weight_orig,
             device='cpu',
-            dtype=torch.float32) -> None:
+            dtype=torch.float32,
+            grid_optimizer_factory: Optional[Callable] = None) -> None:
         super().__init__(
-            layer, name, act_order, len_parallel_layers, create_weight_orig, device, dtype)
+            layer,
+            name,
+            act_order,
+            len_parallel_layers,
+            create_weight_orig,
+            device,
+            dtype,
+            grid_optimizer_factory=grid_optimizer_factory)
         # Initialize covariance matrices. We need them in float32
         # H = \hat{X} \hat{X}^T
         self.H = torch.zeros((self.groups, self.columns, self.columns),

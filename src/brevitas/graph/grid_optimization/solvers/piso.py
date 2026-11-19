@@ -3,7 +3,7 @@
 
 """PiSO interval-sweep solvers (Algorithm 1).
 
-Given the Hessians H (and optional G) and the quantization grid, each solver
+Given the covariance matrices H (and optional G) and the quantization grid, each solver
 computes the reconstruction-optimal weight quantization scale by sweeping the
 intervals on which the round-to-nearest assignment q(w; s) is constant and
 evaluating the closed-form per-interval minimizer.
@@ -16,8 +16,7 @@ interval, keep the global best. They differ only in the structure exploited:
   _piso_sweep_per_channel_diag          diagonal H, per channel  (O(D|G|))
   _piso_sweep_per_group_diag            diagonal H, groups independent
 
-The dense-H sweeps (per channel, per group, and the sequential group variants)
-are not implemented.
+Only a diagonal H is supported.
 
 The per-interval update (how wHq/qHq change) differs per variant and stays
 inline. The shared grid-delta and closed-form/optimality helpers live in
@@ -31,21 +30,21 @@ from typing import Optional
 
 import torch
 
-from brevitas.graph.piso.solvers.common import _piso_grid_deltas
-from brevitas.graph.piso.solvers.common import _piso_select_optimal
-from brevitas.graph.piso.solvers.common import _piso_select_optimal_straddle
-from brevitas.graph.piso.solvers.common import SCALE_SOLVER_REGISTRY
-from brevitas.graph.piso.solvers.common import ScaleSolverFamily
+from brevitas.graph.grid_optimization.solvers.common import _piso_grid_deltas
+from brevitas.graph.grid_optimization.solvers.common import _piso_select_optimal
+from brevitas.graph.grid_optimization.solvers.common import _piso_select_optimal_straddle
+from brevitas.graph.grid_optimization.solvers.common import SCALE_SOLVER_REGISTRY
+from brevitas.graph.grid_optimization.solvers.common import ScaleSolverFamily
 
 
 def _piso_sweep_per_channel_diag(
         w_b: torch.Tensor,
         H_diag: torch.Tensor,
         unscaled_grid: torch.Tensor,
-        G_diag: Optional[torch.Tensor] = None,
+        b: Optional[torch.Tensor] = None,
         eps: float = 1.e-6,
         allow_negative_s: bool = False) -> torch.Tensor:
-    """PiSO sweep for per-channel quantization with a diagonal Hessian (paper section 3.1).
+    """PiSO sweep for per-channel quantization with a diagonal covariance matrix (paper section 3.1).
 
     Fast path when H is forced diagonal (debug) or the data-free regime is used
     (H = I). No cross-weight interactions, so the auxiliary vector h = H q is not
@@ -54,8 +53,8 @@ def _piso_sweep_per_channel_diag(
     Args:
         w_b: weights, shape [batch, D].
         H_diag: diagonal of H = X_tilde^T X_tilde, shape [D].
-        G_diag: diagonal of G = X_tilde^T X for the cross-activation objective,
-            shape [D]. If None, H_diag is used for both terms.
+        b: the linear term of the objective, e.g. diag(G) * w for the
+            cross-activation objective, shape [batch, D]. If None, H_diag * w.
         unscaled_grid: sorted quantization grid with 0 included.
         eps: interval degeneracy threshold and clamping margin.
         allow_negative_s: whether to search negative scales (asymmetric grids).
@@ -79,10 +78,7 @@ def _piso_sweep_per_channel_diag(
 
     # Intialization of values for the loop
     # Hw doesn't change during the loop
-    if G_diag is not None:
-        Hw = G_diag * w_b
-    else:
-        Hw = H_diag * w_b
+    Hw = H_diag * w_b if b is None else b
     # wHq is originally all 0s as Hq is originally 0s
     wHq = torch.zeros((batch_size,), dtype=w_b.dtype, device=w_b.device)
     # qHq is originally all 0s as Hq is originally 0s
@@ -158,10 +154,10 @@ def _piso_sweep_per_group_diag(
         w_b: torch.Tensor,
         H_diag: torch.Tensor,
         unscaled_grid: torch.Tensor,
-        G_diag: Optional[torch.Tensor] = None,
+        b: Optional[torch.Tensor] = None,
         eps: float = 1.e-6,
         allow_negative_s: bool = False) -> torch.Tensor:
-    """PiSO sweep for group-wise quantization, independent groups with a diagonal Hessian (paper section 3.1, section 3.2).
+    """PiSO sweep for group-wise quantization, independent groups with a diagonal covariance matrix (paper section 3.1, section 3.2).
 
     Combines the independent-groups approximation (section 3.2) with the diagonal-H fast
     path (section 3.1): groups are treated independently and H is diagonal within each
@@ -171,8 +167,9 @@ def _piso_sweep_per_group_diag(
     Args:
         w_b: weights, shape [batch, n_groups, group_size].
         H_diag: diagonal of H = X_tilde^T X_tilde, shape [D] (D = n_groups * group_size).
-        G_diag: diagonal of G = X_tilde^T X, shape [D].
-            If None, H_diag is used for both terms.
+        b: the linear term of the objective, e.g. diag(G) * w for the
+            cross-activation objective, shape [batch, n_groups, group_size].
+            If None, H_diag * w.
         unscaled_grid: sorted quantization grid with 0 included.
         eps: interval degeneracy threshold and clamping margin.
         allow_negative_s: whether to search negative scales (asymmetric grids).
@@ -195,10 +192,8 @@ def _piso_sweep_per_group_diag(
 
     sorted_transition_scales, scales_sorting_indices = torch.sort(transition_scales.permute(0, 2, 1, 3).reshape(batch_size, n_groups, -1), dim=-1)
 
-    if G_diag is not None:
-        Hw = (G_diag * w_b.reshape(batch_size, n_groups * group_size)).reshape(
-            batch_size, n_groups, group_size)
-    else:
+    Hw = b
+    if Hw is None:
         Hw = (H_diag * w_b.reshape(batch_size, n_groups * group_size)).reshape(
             batch_size, n_groups, group_size)
 
@@ -251,12 +246,12 @@ def _piso_sweep_per_group_diag(
 
 @SCALE_SOLVER_REGISTRY.register(names='piso')
 class PiSOSolverFamily(ScaleSolverFamily):
-    """Paper Algorithm 1, diagonal H; symmetric and asymmetric grids.
+    """Paper Algorithm 1, diagonal H; symmetric and asymmetric grids."""
 
-    The dense-H slots (per_channel, per_group, groups_sequential,
-    single_group_sequential) are not implemented, so the base stubs raise
-    NotImplementedError.
-    """
-
-    _per_channel_diag = staticmethod(_piso_sweep_per_channel_diag)
-    _per_group_diag = staticmethod(_piso_sweep_per_group_diag)
+    @classmethod
+    def solve(cls, w, b, H, unscaled_grid, *, allow_negative_s, eps=1e-6, **kwargs):
+        if w.shape[1] == 1:
+            # A single group per row (e.g. per-channel): the per-channel sweep.
+            return _piso_sweep_per_channel_diag(
+                w[:, 0], H, unscaled_grid, b[:, 0], eps, allow_negative_s)
+        return _piso_sweep_per_group_diag(w, H, unscaled_grid, b, eps, allow_negative_s)
