@@ -17,6 +17,11 @@ class LearnedRoundEntryPointUtils(LLMEntryPointUtils):
             # Automatically replace `LayerNorm` with `RMSNorm` when running with `--rotation=fused_no_fx`
             args.replace_rmsnorm = True
             assert args.replace_rmsnorm, 'Graph rotation requires to replace HF RMSNorm with PyTorch ones (torch 2.4+ require)'
+        # LN affine merge is only applied together with fused rotations
+        if args.rotation == 'fused_no_fx':
+            assert args.ln_affine_merge, 'Skipping --rotation=fused_no_fx without --ln-affine-merge.'
+        else:
+            assert not args.ln_affine_merge, 'Skipping --ln-affine-merge without --rotation=fused_no_fx.'
         assert (int(args.magr) + int(args.rotation is not None) + int(args.act_equalization is not None)) <= 1, "Only a single preprocessing setting can be used."
         if not args.no_quantize:
             # Skip unnecessary experiments

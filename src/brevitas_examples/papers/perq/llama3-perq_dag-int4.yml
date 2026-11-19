@@ -37,6 +37,7 @@ gpxq_buffer_device: same
 input_bit_width: 4
 input_quant_granularity: per_row
 input_scale_type: dynamic
+ln_affine_merge: true
 replace_rmsnorm: true
 rotation_sdpa_regions: true
 rotation_mode: had

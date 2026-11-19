@@ -22,6 +22,8 @@ input_quant_granularity:
 - per_row
 input_scale_type:
 - dynamic
+ln_affine_merge:
+- true
 # "null" is no permute
 permute_fn:
 - null
