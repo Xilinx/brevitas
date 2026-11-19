@@ -6,6 +6,7 @@ from typing import List
 from torch import Tensor
 import torch.nn as nn
 
+from brevitas import is_dynamo_compiling
 import brevitas.nn as qnn
 from brevitas.quant import Int8WeightPerChannelFloat
 from brevitas.quant import Int8WeightPerTensorFloat
@@ -101,9 +102,11 @@ class QuantBasicBlock(nn.Module):
         out = self.relu2(self.bn2(self.conv2(out)))
         if len(self.downsample):
             x = self.downsample(x)
-        # Check that the addition is made explicitly among QuantTensor structures
-        assert isinstance(out, QuantTensor), "Perform add among QuantTensors"
-        assert isinstance(x, QuantTensor), "Perform add among QuantTensors"
+        # Check that the addition is made explicitly among QuantTensor structures.
+        # Skipped while tracing with torch.export (dynamo), where QuantTensors are disabled.
+        if not is_dynamo_compiling():
+            assert isinstance(out, QuantTensor), "Perform add among QuantTensors"
+            assert isinstance(x, QuantTensor), "Perform add among QuantTensors"
         out = out + x
         out = self.relu_out(out)
         return out
