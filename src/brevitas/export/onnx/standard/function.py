@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-import onnx
 import torch
 from torch.autograd import Function
 import torch.onnx
@@ -11,10 +10,12 @@ from brevitas.export.onnx.function import DynamoFn
 
 AXIS_OPSET = 13
 
+# Values of onnx.TensorProto.DataType, hardcoded so that importing this module does not need onnx
 DATATYPE_DICT = {
-    torch.float32: onnx.TensorProto.DataType.FLOAT,
-    torch.float16: onnx.TensorProto.DataType.FLOAT16,
-    torch.bfloat16: onnx.TensorProto.DataType.BFLOAT16}
+    torch.float32: 1,  # FLOAT
+    torch.float16: 10,  # FLOAT16
+    torch.bfloat16: 16,  # BFLOAT16
+}
 
 
 class DequantizeLinearTorchScriptFn(Function):
