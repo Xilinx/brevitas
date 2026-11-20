@@ -49,6 +49,9 @@ magr:
 magr_alpha:
 - 0.01
 
+ln_affine_merge:
+- true
+- false
 rotation:
 - null
 - layerwise
