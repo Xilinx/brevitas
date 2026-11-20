@@ -8,6 +8,8 @@ import pytest
 import pytest_cases
 import torch
 
+from brevitas.function.ops import max_int
+from brevitas.function.ops import min_int
 from brevitas.nn import QuantIdentity
 from brevitas.quant.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.float_quant_ocp import Fp8e5m2OCPActPerTensorFloat
@@ -147,6 +149,32 @@ def test_quant_tensor_div_by_fraction():
     a = to_quant_tensor(torch.ones(4, 4))
     b = to_quant_tensor(torch.ones(4, 4) * 0.5)
     assert torch.allclose(a / b, torch.ones(4, 4) * 2, atol=0.1)
+
+
+@pytest.mark.parametrize(
+    'lhs, rhs, expected_bit_width',
+    [
+        ((8, True), (8, True), 9),
+        ((8, False), (8, False), 9),
+        ((8, True), (8, False), 10),
+        ((4, True), (8, False), 10),
+        ((8, False), (1, False), 9),
+        ((8, True), (1, True), 9),])
+def test_int_quant_tensor_add_bit_width(lhs, rhs, expected_bit_width):
+
+    def int_range_quant_tensor(bit_width, signed):
+        # Smallest and largest integer for this bit width and signedness
+        bit_width = torch.tensor(float(bit_width))
+        value = torch.stack([min_int(signed, False, bit_width), max_int(signed, False, bit_width)])
+        return IntQuantTensor(value, torch.tensor(1.), torch.tensor(0.), bit_width, signed, False)
+
+    a = int_range_quant_tensor(*lhs)
+    b = int_range_quant_tensor(*rhs)
+    out = a + b
+    assert out.bit_width.item() == expected_bit_width
+    assert out.signed == (lhs[1] or rhs[1])
+    assert out.is_valid
+    assert torch.equal(out.int(float_datatype=True), a.value + b.value)
 
 
 # TODO: need to deal with quant metadata

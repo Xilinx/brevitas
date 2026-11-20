@@ -147,8 +147,12 @@ class IntQuantTensor(IntMixin, QuantTensor):
         max_val += max_int(signed=other.signed, narrow_range=False, bit_width=other.bit_width)
         min_val = min_int(signed=self.signed, narrow_range=False, bit_width=self.bit_width)
         min_val += min_int(signed=other.signed, narrow_range=False, bit_width=other.bit_width)
-        output_bit_width = ceil_ste(torch.log2(max_val - min_val))
         output_signed = self.signed or other.signed
+        # Smallest bit width whose signed or unsigned range covers [min_val, max_val]
+        if output_signed:
+            output_bit_width = ceil_ste(torch.log2(torch.maximum(max_val + 1, -min_val))) + 1
+        else:
+            output_bit_width = ceil_ste(torch.log2(max_val + 1))
         output_training = self.training or other.training
         return IntQuantTensor(
             value=output_value,
