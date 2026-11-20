@@ -22,6 +22,7 @@ from brevitas.fx import immutable_dict
 from brevitas.fx import Node
 from brevitas.graph.utils import *
 from brevitas.utils.python_utils import islambda
+from brevitas.utils.torch_utils import materialized_params
 from brevitas.utils.torch_utils import rename_tensor
 
 INPUT_NAMES = ('input', 'inp', 'query', 'hidden_states', 'x')
@@ -356,18 +357,13 @@ class ModuleInstanceTransformTensor(Transform):
     def apply(self, model: GraphModule) -> GraphModule:
         for module in model.modules():
             if module is self.module:
-                # This check is needed to apply the change in the parameters
-                # when the model is offloaded
-                # TODO: Move outside the apply function
-                if hasattr(module, 'allocate_params'):
-                    module.allocate_params(module)
-                tensor = getattr(module, self.tensor_name).data
-                tensor = self.transform_module(tensor)
-                # Modify the weights in-place
-                setattr(module, self.tensor_name, torch.nn.Parameter(tensor))
-
-                if hasattr(module, 'offload_params'):
-                    module.offload_params(module)
+                # Materialize the parameters if the model is offloaded, so that the change is applied
+                # to the actual values
+                with materialized_params(module):
+                    tensor = getattr(module, self.tensor_name).data
+                    tensor = self.transform_module(tensor)
+                    # Modify the weights in-place
+                    setattr(module, self.tensor_name, torch.nn.Parameter(tensor))
                 break
         return model
 

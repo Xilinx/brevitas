@@ -4,6 +4,7 @@
 from abc import ABC
 from abc import abstractmethod
 from copy import deepcopy
+from functools import wraps
 import math
 from typing import List
 from typing import Optional
@@ -22,10 +23,23 @@ from brevitas.graph.utils import is_quant_module
 import brevitas.nn as qnn
 from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
+from brevitas.utils.torch_utils import materialized_params
 from brevitas.utils.torch_utils import rename_tensor
 
 SUPPORTED_CONV_OP = (
     nn.Conv1d, nn.Conv2d, nn.Conv3d, nn.ConvTranspose1d, nn.ConvTranspose2d, nn.ConvTranspose3d)
+
+
+def materialize_layer_params(single_layer_update):
+    """Decorator for `single_layer_update`: keep the parameters of `self.layer` materialized for the
+    whole update if the layer is offloaded with accelerate (see `materialized_params`)."""
+
+    @wraps(single_layer_update)
+    def wrapper(self, *args, **kwargs):
+        with materialized_params(self.layer):
+            return single_layer_update(self, *args, **kwargs)
+
+    return wrapper
 
 
 def process_layer_input(

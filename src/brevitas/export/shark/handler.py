@@ -17,6 +17,7 @@ from brevitas.proxy import ActFloatQuantProxyFromInjector
 from brevitas.proxy.float_parameter_quant import WeightFloatQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
+from brevitas.utils.torch_utils import materialized_params
 
 
 class SharkActEqualization(nn.Module):
@@ -31,21 +32,18 @@ class SharkActEqualization(nn.Module):
         pass
 
     def prepare_for_export(self, module: nn.Module):
-        if hasattr(module, 'allocate_params'):
-            module.allocate_params(module)
-        # We need to flatten out the structure of EqualizedLayer + Wrapped layer
-        # To do this, we change the name (i.e., state dict prefix) of the wrapped layer to match
-        # the name of the EqualizedLayer.
-        # Similarly, we lift the activation equalization weight from the scale layer
-        # The result is:
-        # from: name.scale.weight, name.layer.weight, name.bias
-        # to : name.premul_input, name.weight, name.bias
-        if hasattr(module.layer, 'export_handler') and module.layer.export_handler is not None:
-            module.layer.export_handler.layer_name = self.layer_name
-        self.premul_input = module.scale.weight.contiguous()
-        self.premul_module = module.scale
-        if hasattr(module, 'offload_params'):
-            module.offload_params(module)
+        with materialized_params(module):
+            # We need to flatten out the structure of EqualizedLayer + Wrapped layer
+            # To do this, we change the name (i.e., state dict prefix) of the wrapped layer to match
+            # the name of the EqualizedLayer.
+            # Similarly, we lift the activation equalization weight from the scale layer
+            # The result is:
+            # from: name.scale.weight, name.layer.weight, name.bias
+            # to : name.premul_input, name.weight, name.bias
+            if hasattr(module.layer, 'export_handler') and module.layer.export_handler is not None:
+                module.layer.export_handler.layer_name = self.layer_name
+            self.premul_input = module.scale.weight.contiguous()
+            self.premul_module = module.scale
 
     def forward(self, x):
         assert self.layer_name is not None
@@ -174,22 +172,19 @@ class SharkLinearQuant(nn.Module, SharkWeightQuantMixin, SharkActQuantMixin):
         pass
 
     def prepare_for_export(self, module: nn.Module):
-        if hasattr(module, 'allocate_params'):
-            module.allocate_params(module)
-        self.quant_weight_metadata = self.prepare_weight_for_export(module.weight_quant)
-        if self.quant_weight_metadata is not None:
-            self.quant_weight_metadata['layer_name'] = self.layer_name + '.weight'
-            self.quant_weight_metadata['shared_dict'] = self.shared_dict
-        self.quant_input_metadata = self.prepare_act_for_export(module.input_quant)
-        if self.quant_input_metadata is not None:
-            self.quant_input_metadata['layer_name'] = self.layer_name + '.q_input'
-            self.quant_input_metadata['shared_dict'] = self.shared_dict
-        self.quant_output_metadata = self.prepare_act_for_export(module.output_quant)
-        if self.quant_output_metadata is not None:
-            self.quant_output_metadata['layer_name'] = self.layer_name + '.q_output'
-            self.quant_output_metadata['shared_dict'] = self.shared_dict
-        if hasattr(module, 'offload_params'):
-            module.offload_params(module)
+        with materialized_params(module):
+            self.quant_weight_metadata = self.prepare_weight_for_export(module.weight_quant)
+            if self.quant_weight_metadata is not None:
+                self.quant_weight_metadata['layer_name'] = self.layer_name + '.weight'
+                self.quant_weight_metadata['shared_dict'] = self.shared_dict
+            self.quant_input_metadata = self.prepare_act_for_export(module.input_quant)
+            if self.quant_input_metadata is not None:
+                self.quant_input_metadata['layer_name'] = self.layer_name + '.q_input'
+                self.quant_input_metadata['shared_dict'] = self.shared_dict
+            self.quant_output_metadata = self.prepare_act_for_export(module.output_quant)
+            if self.quant_output_metadata is not None:
+                self.quant_output_metadata['layer_name'] = self.layer_name + '.q_output'
+                self.quant_output_metadata['shared_dict'] = self.shared_dict
         self.module = module
 
     def forward(self, x):

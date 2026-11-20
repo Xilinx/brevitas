@@ -56,6 +56,7 @@ from brevitas.utils.parametrization_utils import RotationWeightParametrization
 from brevitas.utils.parametrization_utils import ScaleWeightParametrization
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas.utils.torch_utils import KwargsForwardHook
+from brevitas.utils.torch_utils import materialized_params
 from brevitas.utils.torch_utils import pad_to_dim
 
 logging = setup_logger(__name__)
@@ -372,16 +373,6 @@ def _select_scale_computation_fn(
 
 ## Accelerate specific functions
 # TODO: refactor and move this somewhere else
-
-
-def maybe_offload_params_accelerate(module):
-    if hasattr(module, 'offload_params'):
-        module.offload_params(module)
-
-
-def maybe_allocate_params_accelerate(module):
-    if hasattr(module, 'allocate_params'):
-        module.allocate_params(module)
 
 
 def is_model_offloaded_accelerate(model):
@@ -829,111 +820,110 @@ def _cross_layer_equalization(
     def _no_equalize():
         return torch.tensor(1., dtype=dtype), []
 
-    # If a module has `allocate_params` attribute, we must load the weights following that method
-    for name in (region.srcs_names + region.sinks_names):
-        module = region.get_module_from_name(name)
-        maybe_allocate_params_accelerate(module)
+    # If the modules are offloaded with accelerate, their weights are materialized for the whole
+    # computation and written back on exit, also on the early returns below
+    region_modules = [
+        region.get_module_from_name(name) for name in (region.srcs_names + region.sinks_names)]
+    with materialized_params(*region_modules):
+        single_module = region.get_module_from_name(next(iter(region.sinks_names)))
+        device = next(single_module.parameters()).device
+        dtype = next(single_module.parameters()).dtype
 
-    single_module = region.get_module_from_name(next(iter(region.sinks_names)))
-    device = next(single_module.parameters()).device
-    dtype = next(single_module.parameters()).dtype
-
-    # Check if any of the axis is None, which means that the module is not supported.
-    # In that case, do not perform graph equalization
-    axes_to_check = [m.weight_axis for m in chain(region.srcs.values(), region.sinks.values())]
-    if None in axes_to_check:
-        return _no_equalize()
-
-    # If act_val is enabled, use source or sink weights to determine the activation channel
-    # For example, if the source is BatchNorm, we need to use the information coming from the sinks
-    if list_of_act_val is not None:
-        if not region.is_valid_activation_equalization:
+        # Check if any of the axis is None, which means that the module is not supported.
+        # In that case, do not perform graph equalization
+        axes_to_check = [m.weight_axis for m in chain(region.srcs.values(), region.sinks.values())]
+        if None in axes_to_check:
             return _no_equalize()
 
-    scale_fn = _select_scale_computation_fn(scale_computation_type)
-    srcs_range = -1 * torch.ones(region.max_shape_srcs, device='cpu', dtype=torch.float32)
-    sinks_range = -1 * torch.ones(region.max_shape_sinks, device='cpu', dtype=torch.float32)
-    for name, module in region.sinks.items():
-        # Sinks can be partially equalized, thus we need to select
-        # only the channels we are interested in
-        indexes = module.equalization_indexes
-        # Compute the range of the channels we need to equalize
-        weight_range = module.get_weight_range(scale_fn=scale_fn)
-        # Compute the numbers of channels we are equalizing
-        channel_range = indexes.end - indexes.start
-        # Use the offset and the range to update the correct range in the sinks
-        sinks_range[indexes.offset:indexes.offset + channel_range] = torch.max(
-            sinks_range[indexes.offset:indexes.offset + channel_range], weight_range)
-
-    for name, module in region.srcs.items():
-        # Srcs are always fully equalized, thus we simply need to apply the offset to position them
-        # correctly with respect to the other srcs matrices.
-        indexes = module.equalization_indexes
-        channel_start = indexes.offset + indexes.start
-        channel_end = indexes.offset + indexes.end
-        weight_range = module.get_weight_range(
-            scale_fn=scale_fn, merge_bias=merge_bias, bias_shrinkage=bias_shrinkage)
-        srcs_range[channel_start:channel_end] = torch.max(
-            srcs_range[channel_start:channel_end], weight_range)
-    if list_of_act_val is not None:
-        list_of_act_val_shapes = [act_val.shape for act_val in list_of_act_val]
-        if len(list_of_act_val_shapes) > 0:
-            shape_0 = list_of_act_val_shapes[0]
-            if any(shape_0 != shape for shape in list_of_act_val_shapes):
+        # If act_val is enabled, use source or sink weights to determine the activation channel
+        # For example, if the source is BatchNorm, we need to use the information coming from the sinks
+        if list_of_act_val is not None:
+            if not region.is_valid_activation_equalization:
                 return _no_equalize()
-        list_of_act_val = [transpose(act_val, region.act_axis) for act_val in list_of_act_val]
-        srcs_range_act = scale_fn(
-            torch.cat([
-                act_val.reshape(act_val.size(0), -1).cpu().to(torch.float32)
-                for act_val in list_of_act_val],
-                      1))
 
-    if list_of_act_val is not None:
-        if co_optimize_act_weights and len(region.srcs) > 0:
-            srcs_range = .5 * srcs_range + .5 * srcs_range_act
-        else:
-            srcs_range = srcs_range_act
+        scale_fn = _select_scale_computation_fn(scale_computation_type)
+        srcs_range = -1 * torch.ones(region.max_shape_srcs, device='cpu', dtype=torch.float32)
+        sinks_range = -1 * torch.ones(region.max_shape_sinks, device='cpu', dtype=torch.float32)
+        for name, module in region.sinks.items():
+            # Sinks can be partially equalized, thus we need to select
+            # only the channels we are interested in
+            indexes = module.equalization_indexes
+            # Compute the range of the channels we need to equalize
+            weight_range = module.get_weight_range(scale_fn=scale_fn)
+            # Compute the numbers of channels we are equalizing
+            channel_range = indexes.end - indexes.start
+            # Use the offset and the range to update the correct range in the sinks
+            sinks_range[indexes.offset:indexes.offset + channel_range] = torch.max(
+                sinks_range[indexes.offset:indexes.offset + channel_range], weight_range)
 
-    # If there is a mismatch between srcs and sinks values, exit
-    if srcs_range.shape != sinks_range.shape:
-        warnings.warn(
-            "Detected source and sink with non compatible shapes, equalization is skipped")
-        return _no_equalize()
+        for name, module in region.srcs.items():
+            # Srcs are always fully equalized, thus we simply need to apply the offset to position them
+            # correctly with respect to the other srcs matrices.
+            indexes = module.equalization_indexes
+            channel_start = indexes.offset + indexes.start
+            channel_end = indexes.offset + indexes.end
+            weight_range = module.get_weight_range(
+                scale_fn=scale_fn, merge_bias=merge_bias, bias_shrinkage=bias_shrinkage)
+            srcs_range[channel_start:channel_end] = torch.max(
+                srcs_range[channel_start:channel_end], weight_range)
+        if list_of_act_val is not None:
+            list_of_act_val_shapes = [act_val.shape for act_val in list_of_act_val]
+            if len(list_of_act_val_shapes) > 0:
+                shape_0 = list_of_act_val_shapes[0]
+                if any(shape_0 != shape for shape in list_of_act_val_shapes):
+                    return _no_equalize()
+            list_of_act_val = [transpose(act_val, region.act_axis) for act_val in list_of_act_val]
+            srcs_range_act = scale_fn(
+                torch.cat([
+                    act_val.reshape(act_val.size(0), -1).cpu().to(torch.float32)
+                    for act_val in list_of_act_val],
+                          1))
 
-    # Instead of clipping very low values, which would cause their reciprocal to be very large
-    # thus hindering quantization, we set both sources and sinks to one,
-    # which is the no-op equivalent for equalization.
-    channelwise_no_equalize = (sinks_range <= EPSILON) | (srcs_range <= EPSILON)
-    sinks_range = torch.where(
-        channelwise_no_equalize, torch.tensor(1., dtype=torch.float32, device='cpu'), sinks_range)
-    srcs_range = torch.where(
-        channelwise_no_equalize, torch.tensor(1., dtype=torch.float32, device='cpu'), srcs_range)
+        if list_of_act_val is not None:
+            if co_optimize_act_weights and len(region.srcs) > 0:
+                srcs_range = .5 * srcs_range + .5 * srcs_range_act
+            else:
+                srcs_range = srcs_range_act
 
-    srcs_range = torch.pow(srcs_range, alpha)
-    sinks_range = torch.pow(sinks_range, 1 - alpha)
-    scaling_factors = (sinks_range / srcs_range).to(device=device, dtype=dtype)
-    # If the scaling factors are not fused, they are stored as a parameter instead
-    if not fuse_scaling:
-        scaling_factors = nn.Parameter(scaling_factors)
+        # If there is a mismatch between srcs and sinks values, exit
+        if srcs_range.shape != sinks_range.shape:
+            warnings.warn(
+                "Detected source and sink with non compatible shapes, equalization is skipped")
+            return _no_equalize()
 
-    if list_of_act_val is not None and list_of_insert_mul_node_fn is not None:
-        for act_val_shape, insert_mul_node_fn in zip(list_of_act_val_shapes, list_of_insert_mul_node_fn):
-            insert_mul_node_fn(scaling_factors, act_val_shape, region.act_axis)
+        # Instead of clipping very low values, which would cause their reciprocal to be very large
+        # thus hindering quantization, we set both sources and sinks to one,
+        # which is the no-op equivalent for equalization.
+        channelwise_no_equalize = (sinks_range <= EPSILON) | (srcs_range <= EPSILON)
+        sinks_range = torch.where(
+            channelwise_no_equalize,
+            torch.tensor(1., dtype=torch.float32, device='cpu'),
+            sinks_range)
+        srcs_range = torch.where(
+            channelwise_no_equalize,
+            torch.tensor(1., dtype=torch.float32, device='cpu'),
+            srcs_range)
 
-    # Whether to apply the scaling in-place or parametrize the weights instead
-    rewriter_class = ModuleInstanceTransformTensor if fuse_scaling else ModuleInstanceRegisterParametrization
-    for module in chain(region.srcs.values(), region.sinks.values()):
-        rewriters.extend(module.instantiate_rewriters(rewriter_class, scaling_factors))
+        srcs_range = torch.pow(srcs_range, alpha)
+        sinks_range = torch.pow(sinks_range, 1 - alpha)
+        scaling_factors = (sinks_range / srcs_range).to(device=device, dtype=dtype)
+        # If the scaling factors are not fused, they are stored as a parameter instead
+        if not fuse_scaling:
+            scaling_factors = nn.Parameter(scaling_factors)
 
-    for r in rewriters:
-        model = r.apply(model)
+        if list_of_act_val is not None and list_of_insert_mul_node_fn is not None:
+            for act_val_shape, insert_mul_node_fn in zip(list_of_act_val_shapes, list_of_insert_mul_node_fn):
+                insert_mul_node_fn(scaling_factors, act_val_shape, region.act_axis)
 
-    # If a module has `offload_params` attribute, we must offload the weights following that method
-    for name in (region.srcs_names + region.sinks_names):
-        module = region.get_module_from_name(name)
-        maybe_offload_params_accelerate(module)
+        # Whether to apply the scaling in-place or parametrize the weights instead
+        rewriter_class = ModuleInstanceTransformTensor if fuse_scaling else ModuleInstanceRegisterParametrization
+        for module in chain(region.srcs.values(), region.sinks.values()):
+            rewriters.extend(module.instantiate_rewriters(rewriter_class, scaling_factors))
 
-    return scaling_factors, rewriters
+        for r in rewriters:
+            model = r.apply(model)
+
+        return scaling_factors, rewriters
 
 
 def _equalize(
@@ -2000,12 +1990,10 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
             return False
         if isinstance(module, RMSNorm) and module.elementwise_affine:
             # A uniform affine weight is a scalar identity and commutes with any rotation.
-            # If the module is offloaded by accelerate, its weight must be loaded first.
-            maybe_allocate_params_accelerate(module)
-            weight = module.weight.detach()
-            is_uniform = torch.equal(weight, weight.flatten()[0].expand_as(weight))
-            maybe_offload_params_accelerate(module)
-            return is_uniform
+            # If the module is offloaded with accelerate, its weight must be materialized first.
+            with materialized_params(module):
+                weight = module.weight.detach()
+                return torch.equal(weight, weight.flatten()[0].expand_as(weight))
         return True
 
     def get_regions(self) -> List[Region]:

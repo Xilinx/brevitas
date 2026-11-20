@@ -13,6 +13,7 @@ import torch.nn as nn
 
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
+from brevitas.graph.gpxq import materialize_layer_params
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.utils import is_conv_transposed
 from brevitas.utils.torch_utils import StopFwdException
@@ -104,13 +105,12 @@ class GPFQ(GPxQ):
             current_layer.forward_count = 0
             raise StopFwdException
 
+    @materialize_layer_params
     def single_layer_update(self):
         assert not self.layer.weight_quant.requires_quant_input, \
             "Error: GPFQ does not support weight quantizers that require metadata from input quantizers."
         assert hasattr(self.layer, 'weight_orig'), \
             "Error: GPFQ requires the original weights to be stored, see `create_weight_orig`."
-        if hasattr(self.layer, 'allocate_params'):
-            self.layer.allocate_params(self.layer)
         if self.use_intermediate_buffer:
             del self.B  # free memory
 
@@ -190,9 +190,6 @@ class GPFQ(GPxQ):
                 q_arg = Ds[group_index, t] * weight[group_index, :, i].to(self.dtype) + Lw - Lq
                 assert not torch.isnan(q_arg).any()
                 weight[group_index, :, i] = q_arg.to(dtype)
-
-        if hasattr(self.layer, 'offload_params'):
-            self.layer.offload_params(self.layer)
 
 
 class gpfq_mode(gpxq_mode):
