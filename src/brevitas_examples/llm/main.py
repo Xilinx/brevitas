@@ -19,7 +19,6 @@ from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
 
 from brevitas.export.inference.manager import quant_inference_mode
-from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.graph import load_quant_model_mode
 from brevitas.graph.equalize import apply_rewriters
 from brevitas.graph.equalize import fuse_parametrizations
@@ -220,6 +219,8 @@ def model_export(model, tokenizer, ref_input, args, config=None):
             lambda value: value.to(export_device) if isinstance(value, torch.Tensor) else value,
             ref_input)
         from optimum.exporters.onnx import onnx_export_from_model
+
+        from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 
         if args.weight_quant_granularity == 'per_group':
             export_manager = BlockQuantProxyLevelManager

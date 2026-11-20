@@ -157,8 +157,9 @@ def tests_brevitas_examples_llm(session, pytorch, jit_status):
     configure_hf_test_cache(session)
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
-    cmd += install_torchvision_cmd(pytorch)  # Optimum seems to require torchvision
-    session.install('-e', '.[test, llm, export]', *cmd)
+    cmd += install_torchvision_cmd(pytorch)
+    # No export extra: LLM quantization must work without ONNX, only the ONNX export needs it.
+    session.install('-e', '.[test, llm]', *cmd)
     session.run('pytest', '-n', 'logical', '-m', 'llm', 'tests/brevitas_examples/llm/')
 
 
@@ -173,7 +174,7 @@ def tests_brevitas_examples_llm_export(session, pytorch, jit_status):
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)  # Optimum seems to require torchvision
     # llm_onnx_export installs optimum; constrains transformers to < 4.58.
-    session.install('-e', '.[test, llm, export, llm_onnx_export]', *cmd)
+    session.install('-e', '.[test, llm, llm_onnx_export]', *cmd)
     session.run(
         'pytest', '-n', 'logical', '-m', 'onnx_export', 'tests/brevitas_examples/llm/test_llm.py')
 
@@ -187,9 +188,9 @@ def tests_brevitas_examples_llm_lighteval(session, pytorch, jit_status):
     configure_hf_test_cache(session)
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
-    cmd += install_torchvision_cmd(pytorch)  # Optim um seems to require torchvision
+    cmd += install_torchvision_cmd(pytorch)
 
-    session.install('-e', '.[test, llm, export, lighteval]', *cmd)
+    session.install('-e', '.[test, llm, lighteval]', *cmd)
     session.run(
         'python',
         '-c',
@@ -211,10 +212,10 @@ def tests_brevitas_examples_llm_lm_eval(session, pytorch, jit_status):
     configure_hf_test_cache(session)
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
-    cmd += install_torchvision_cmd(pytorch)  # Optim um seems to require torchvision
+    cmd += install_torchvision_cmd(pytorch)
 
     # lm_eval >= 0.4.10 required for transformers >= 5.0.
-    session.install('-e', '.[test, llm, export]', *cmd, 'lm_eval>=0.4.10')
+    session.install('-e', '.[test, llm]', *cmd, 'lm_eval>=0.4.10')
     session.run(
         'pytest', '-n', 'logical', '-m', 'few_shot', 'tests/brevitas_examples/llm/test_llm.py')
 
@@ -224,7 +225,7 @@ def prepare_llm_assets(session):
     pytorch = EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS[-1]
     configure_hf_test_cache(session)
     cmd = install_pytorch_cmd(pytorch) + install_torchvision_cmd(pytorch)
-    session.install('-e', '.[test, llm, export, lighteval]', *cmd)
+    session.install('-e', '.[test, llm, lighteval]', *cmd)
     session.run('python', '-m', 'tests.brevitas_examples.assets_for_tests', 'llm')
 
 

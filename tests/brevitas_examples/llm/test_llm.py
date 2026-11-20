@@ -16,7 +16,6 @@ from typing import Tuple
 from unittest.mock import patch
 
 from datasets import Dataset
-import onnx
 from packaging import version
 import pytest
 import pytest_cases
@@ -515,6 +514,8 @@ def onnx_export_args(default_run_args, request):
 @pytest.mark.onnx_export
 @jit_disabled_for_export()
 def test_small_models_onnx_export(caplog, onnx_export_args, main):
+    import onnx
+
     caplog.set_level(logging.INFO)
     args, _, _ = onnx_export_args
     main(args)
