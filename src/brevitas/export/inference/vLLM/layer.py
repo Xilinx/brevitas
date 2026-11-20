@@ -5,14 +5,18 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
+from typing import Tuple
 
 import torch
-from vllm.config import ModelConfig
 from vllm.model_executor.layers.linear import LinearMethodBase
+from vllm.model_executor.layers.quantization.kv_cache import BaseKVCacheMethod
+from vllm.model_executor.layers.vocab_parallel_embedding import UnquantizedEmbeddingMethod
 from vllm.model_executor.parameter import ModelWeightParameter
 
+from brevitas.graph.hadamard import fast_hadamard_transform
 from brevitas.graph.hadamard import get_hadK
-from brevitas.nn.equalized_layer import RotatedModule
+from brevitas.graph.hadamard import matmul_hadU
+from brevitas.graph.hadamard import matmul_hadU_cuda
 
 from ..handler import FloatInferencetHandler
 from ..handler import FloatWeightInferencetHandler
@@ -40,76 +44,82 @@ class_mapping = {
     'vLLMDynamicPerRowFloatInferenceHandler': vLLMDynamicPerRowFloatInferenceHandler}
 
 
+def configure_proxy(quant_config: Optional[Dict[str, Any]]) -> Optional[torch.nn.Module]:
+    # No config, no quantizer
+    if quant_config is None:
+        return None
+
+    # vLLM can query the same layer more than once, so the shared config must not be modified
+    quant_config = dict(quant_config)
+
+    # Extract element that are not part of the state dict
+    quant_class_name = quant_config.pop('class_type')
+    float_to_int_impl_type = quant_config.pop('float_to_int_impl_type')
+    scaling_restriction = quant_config.pop('scaling_restriction')
+    threshold_restriction = quant_config.pop('threshold_restriction')
+
+    # Scale and zero-point are the only float elements in the state dict
+    for k, v in quant_config.items():
+        if k == 'scale' or k == 'zero_point':
+            quant_config[k] = torch.tensor(v)
+        else:
+            quant_config[k] = torch.tensor(v, dtype=torch.int)
+
+    # Shapes must be set otherwise the state dict loading will fail
+    scale = quant_config.get('scale', None)
+    zero_point = quant_config.get('zero_point', None)
+    quant_class = class_mapping[quant_class_name]
+    if scale is None and zero_point is None:
+        quantizer = quant_class()
+    else:
+        quantizer = quant_class(scale_shape=scale.shape, zero_point_shape=zero_point.shape)
+
+    # Set the remaining attributes
+    quantizer.float_to_int_impl_type = float_to_int_impl_type
+    if scaling_restriction is not None:
+        quantizer.scaling_restriction = scaling_restriction
+    if threshold_restriction is not None:
+        quantizer.threshold_restriction = threshold_restriction
+    quantizer.load_state_dict(quant_config)
+    return quantizer
+
+
+def configure_rotation(
+        rotation_config: Optional[Dict[str,
+                                       Any]]) -> Optional[Tuple[int, Optional[torch.Tensor], int]]:
+    # The Hadamard matrix is rebuilt from the block size. It is computed once, since get_hadK
+    # loads the matrices from disk.
+    if rotation_config is None:
+        return None
+    hidden_dim = rotation_config['hidden_dim']
+    return (hidden_dim, *get_hadK(hidden_dim))
+
+
+def rotate(x: torch.Tensor, rotation: Tuple[int, Optional[torch.Tensor], int]) -> torch.Tensor:
+    # Block rotations apply the same Hadamard matrix to each block of hidden_dim input channels,
+    # which is a no-op reshape for full-vector rotations
+    hidden_dim, had_mat, k = rotation
+    init_shape = x.shape
+    x = x.reshape(*init_shape[:-1], init_shape[-1] // hidden_dim, hidden_dim)
+    if fast_hadamard_transform is None:
+        x = matmul_hadU(x)
+    else:
+        x = matmul_hadU_cuda(x, had_mat, k)
+    return x.reshape(init_shape)
+
+
 class QuantLinear(LinearMethodBase):
 
-    def __init__(self, quant_configs: Optional[Dict[str, Any]] = None) -> None:
-
-        self.input_quant = self.configure_proxy(quant_configs["input_config"])
+    def __init__(self, quant_configs: Dict[str, Any]) -> None:
+        self.input_quant = configure_proxy(quant_configs["input_config"])
         weight_config = quant_configs["weight_config"]
         if isinstance(weight_config, list):
-            self.weight_quant = {
-                i: self.configure_proxy(config) for i, config in enumerate(weight_config)}
+            self.weight_quant = [configure_proxy(config) for config in weight_config]
         else:
-            self.weight_quant = self.configure_proxy(weight_config)
-        self.bias_quant = self.configure_proxy(quant_configs["bias_config"])
-        self.output_quant = self.configure_proxy(quant_configs["output_config"])
-        self.rotation = self.configure_rotation(quant_configs["rotation_config"])
-
-    def configure_rotation(self, rotation_config: Optional[Dict[str,
-                                                                Any]]) -> Optional[RotatedModule]:
-        if rotation_config is None:
-            return None
-        rot_mat_shape = rotation_config['rot_mat_shape']
-        k = rotation_config['k']
-        if rot_mat_shape is None:
-            had_mat = None
-        else:
-            had_mat, _ = get_hadK(rot_mat_shape)
-        return RotatedModule(self, had_mat, k)
-
-    def configure_proxy(self, quant_config: Optional[Dict[str, Any]]) -> torch.nn.Module:
-        # No config, no quantizer
-        if quant_config is None:
-            return torch.nn.Identity()
-
-        # Extract element that are not part of the state dict
-        quant_class_name = quant_config['class_type']
-        float_to_int_impl_type = quant_config['float_to_int_impl_type']
-        scaling_restriction = quant_config['scaling_restriction']
-        threshold_restriction = quant_config['threshold_restriction']
-        del quant_config['class_type']
-        del quant_config['float_to_int_impl_type']
-        del quant_config['scaling_restriction']
-        del quant_config['threshold_restriction']
-
-        # Scale and zero-point are the only float elements in the state dict
-        for k, v in quant_config.items():
-            if not isinstance(v, torch.Tensor):
-                if k == 'scale' or k == 'zero_point':
-                    quant_config[k] = torch.tensor(v)
-                else:
-                    quant_config[k] = torch.tensor(v, dtype=torch.int)
-
-        # Shapes must be set otherwise the state dict loading will fail
-        scale = quant_config.get('scale', None)
-        zero_point = quant_config.get('zero_point', None)
-        quant_class = class_mapping[quant_class_name]
-        if scale is None and zero_point is None:
-            quantizer = quant_class()
-        else:
-            scale_shape = scale.shape
-            zero_point_shape = zero_point.shape
-            quantizer = quant_class(scale_shape=scale_shape, zero_point_shape=zero_point_shape)
-
-        # Set the remaining attributes
-        quantizer.float_to_int_impl_type = float_to_int_impl_type
-        if scaling_restriction is not None:
-            quantizer.scaling_restriction = scaling_restriction
-        if threshold_restriction is not None:
-            quantizer.threshold_restriction = threshold_restriction
-        quantizer.float_to_int_impl_type = float_to_int_impl_type
-        quantizer.load_state_dict(quant_config)
-        return quantizer
+            self.weight_quant = configure_proxy(weight_config)
+        self.bias_quant = configure_proxy(quant_configs["bias_config"])
+        self.output_quant = configure_proxy(quant_configs["output_config"])
+        self.rotation = configure_rotation(quant_configs["rotation_config"])
 
     def create_weights(
             self,
@@ -121,9 +131,7 @@ class QuantLinear(LinearMethodBase):
             params_dtype: torch.dtype,
             **extra_weight_attrs) -> None:
         weight_loader = extra_weight_attrs.get("weight_loader")
-        self.input_size_per_partition = input_size_per_partition
         self.output_partition_sizes = output_partition_sizes
-        out_per_partition = sum(output_partition_sizes)
 
         weight = ModelWeightParameter(
             data=torch.empty(
@@ -138,16 +146,16 @@ class QuantLinear(LinearMethodBase):
 
     def process_weights_after_loading(self, module: torch.nn.Module) -> None:
         weight = module.weight.data
-        for i in range(len(self.output_partition_sizes)):
-            logical_widths = list(self.output_partition_sizes)
-            start_idx = sum(logical_widths[:i])
-            end_idx = start_idx + logical_widths[i]
-            if isinstance(self.weight_quant, dict):
+        start_idx = 0
+        for i, partition_size in enumerate(self.output_partition_sizes):
+            end_idx = start_idx + partition_size
+            if isinstance(self.weight_quant, list):
                 weight_quant = self.weight_quant[i]
             else:
                 weight_quant = self.weight_quant
-
-            weight[start_idx:end_idx] = weight_quant(weight[start_idx:end_idx])[0]
+            if weight_quant is not None:
+                weight[start_idx:end_idx] = weight_quant(weight[start_idx:end_idx])[0]
+            start_idx = end_idx
 
     def apply(
             self,
@@ -155,9 +163,68 @@ class QuantLinear(LinearMethodBase):
             x: torch.Tensor,
             bias: Optional[torch.Tensor] = None) -> torch.Tensor:
         if self.rotation is not None:
-            x = self.rotation.rotation_forward(x)
-        x = self.input_quant(x)[0]
-        bias = self.bias_quant(bias) if bias is not None else None
+            x = rotate(x, self.rotation)
+        if self.input_quant is not None:
+            x = self.input_quant(x)[0]
+        if bias is not None and self.bias_quant is not None:
+            bias = self.bias_quant(bias)[0]
         y = torch.nn.functional.linear(x, layer.weight, bias)
-        y = self.output_quant(y)
+        if self.output_quant is not None:
+            y = self.output_quant(y)[0]
         return y
+
+
+class QuantEmbeddingMethod(UnquantizedEmbeddingMethod):
+    """Quantization method for the input embedding and the LM head (ParallelLMHead)."""
+
+    def __init__(self, quant_configs: Dict[str, Any]) -> None:
+        self.weight_quant = configure_proxy(quant_configs["weight_config"])
+        self.input_quant = configure_proxy(quant_configs["input_config"])
+        self.rotation = configure_rotation(quant_configs["rotation_config"])
+
+    def process_weights_after_loading(self, layer: torch.nn.Module) -> None:
+        if self.weight_quant is not None:
+            # vLLM pads the vocabulary, while quantization parameters match the original one
+            weight = layer.weight.data[:layer.org_vocab_size]
+            weight.copy_(self.weight_quant(weight)[0])
+        super().process_weights_after_loading(layer)
+
+    def apply(
+            self,
+            layer: torch.nn.Module,
+            x: torch.Tensor,
+            bias: Optional[torch.Tensor] = None) -> torch.Tensor:
+        if self.rotation is not None:
+            x = rotate(x, self.rotation)
+        if self.input_quant is not None:
+            x = self.input_quant(x)[0]
+        return super().apply(layer, x, bias)
+
+
+class QuantAttentionMethod(BaseKVCacheMethod):
+    """
+    Static per-tensor fake quantization of the post-RoPE query, key, and value inputs to attention.
+    Keys and values are quantized before being written to the KV cache.
+    """
+
+    def __init__(self, quant_config, quant_configs: Dict[str, Any]) -> None:
+        super().__init__(quant_config)
+        self.q_quant = configure_proxy(quant_configs["q_config"])
+        self.k_quant = configure_proxy(quant_configs["k_config"])
+        self.v_quant = configure_proxy(quant_configs["v_config"])
+
+    def process_weights_after_loading(self, layer: torch.nn.Module) -> None:
+        super().process_weights_after_loading(layer)
+        layer.register_forward_pre_hook(self.quantize_qkv)
+
+    def quantize_qkv(self, layer: torch.nn.Module, args: Tuple[Any, ...]) -> Tuple[Any, ...]:
+        query, key, value, *other_args = args
+        if self.q_quant is not None:
+            # Brevitas quantizes the query after the softmax scale is applied
+            scale = layer.impl.scale
+            query = self.q_quant(query * scale)[0] / scale
+        if self.k_quant is not None:
+            key = self.k_quant(key)[0]
+        if self.v_quant is not None:
+            value = self.v_quant(value)[0]
+        return (query, key, value, *other_args)

@@ -3,7 +3,12 @@
 
 from argparse import ArgumentParser
 from argparse import Namespace
+import gc
+import json
+import os
 import re
+import shutil
+import subprocess
 import sys
 from typing import Any
 from typing import Dict
@@ -14,13 +19,34 @@ from typing import Tuple
 from brevitas_examples.common.benchmark.utils import BenchmarkUtils
 from brevitas_examples.common.benchmark.utils import EntryPointUtils
 from brevitas_examples.common.benchmark.utils import GridSearchUtils
+from brevitas_examples.llm.eval_vllm import parse_eval_args
 from brevitas_examples.llm.llm_args import create_args_parser as create_llm_args_parser
 from brevitas_examples.llm.llm_args import validate as validate_llm_args
 
 
+def create_args_parser() -> ArgumentParser:
+    """LLM entrypoint arguments, extended with the ones that only apply to benchmark jobs."""
+    parser = create_llm_args_parser()
+    parser.add_argument(
+        '--vllm-eval-config',
+        type=str,
+        default=None,
+        help=
+        'YAML configuration of brevitas_vllm_eval (e.g., backend and tasks). If specified, the model '
+        'exported with --export-target vllm is evaluated through vLLM after quantization, and the '
+        'metrics are added to the results with a vllm_ prefix. Default: %(default)s')
+    parser.add_argument(
+        '--vllm-eval-keep-export',
+        action='store_true',
+        help=
+        'Keep the vLLM export in the job folder after the evaluation with --vllm-eval-config. By '
+        'default, the export is deleted, even if the evaluation fails, to save disk space.')
+    return parser
+
+
 class LLMEntryPointUtils(EntryPointUtils):
 
-    argument_parser: ArgumentParser = create_llm_args_parser()
+    argument_parser: ArgumentParser = create_args_parser()
     eval_metrics: List[str] = ["float_ppl", "quant_ppl", "quant_ear", "quant_kld"]
 
     @staticmethod
@@ -53,14 +79,57 @@ class LLMEntryPointUtils(EntryPointUtils):
     @staticmethod
     def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
         validate_llm_args(args=args, extra_args=extra_args)
+        if args.vllm_eval_config is not None:
+            assert args.export_target == 'vllm', "--vllm-eval-config requires --export-target vllm."
+            # Fail before any job starts if the evaluation configuration is invalid
+            parse_eval_args(['--config', args.vllm_eval_config])
 
     @staticmethod
     def entrypoint_main(
             args: Namespace,
             extra_args: Optional[List[str]] = None,
             job_folder: Optional[str] = None) -> Tuple[Dict, Any]:
+        import torch
+
         from brevitas_examples.llm.main import quantize_llm
-        return quantize_llm(args=args, extra_args=extra_args)
+
+        if args.vllm_eval_config is None:
+            return quantize_llm(args=args, extra_args=extra_args)
+
+        # Each job exports into its own folder, so that parallel jobs do not overwrite each other
+        export_dir = os.path.join(job_folder, 'vllm_export')
+        eval_dir = os.path.join(job_folder, 'vllm_eval')
+        args.export_prefix = export_dir
+        try:
+            results, model = quantize_llm(args=args, extra_args=extra_args)
+            # Free the GPU memory held by the quantized model before vLLM allocates its own
+            del model
+            gc.collect()
+            torch.cuda.empty_cache()
+            # vLLM runs in a separate process, which releases all its GPU memory when it
+            # terminates. Its output is redirected to the log of the job.
+            sys.stdout.flush()
+            sys.stderr.flush()
+            subprocess.run([
+                sys.executable,
+                '-m',
+                'brevitas_examples.llm.eval_vllm',
+                '--config',
+                args.vllm_eval_config,
+                '--model',
+                export_dir,
+                '--output-dir',
+                eval_dir],
+                           stdout=sys.stdout,
+                           stderr=sys.stderr,
+                           check=True)
+            with open(os.path.join(eval_dir, 'results.json'), 'r') as f:
+                vllm_results = json.load(f)
+        finally:
+            # The export does not exist if quantization failed
+            if not args.vllm_eval_keep_export and os.path.isdir(export_dir):
+                shutil.rmtree(export_dir)
+        return {**results, **{f'vllm_{name}': value for name, value in vllm_results.items()}}, None
 
 
 class LLMGridBenchmark(BenchmarkUtils):
