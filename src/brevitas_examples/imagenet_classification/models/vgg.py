@@ -89,7 +89,7 @@ class QuantVGG(nn.Module):
         self.avgpool = TruncAvgPool2d(kernel_size=(7, 7), stride=1, bit_width=bit_width)
         self.classifier = nn.Sequential(
             QuantLinear(
-                512 * 7 * 7,
+                512,  # TruncAvgPool2d(7, stride=1) on 7x7 features -> 1x1, not 7x7
                 4096,
                 bias=True,
                 weight_quant=CommonIntWeightPerChannelQuant,
