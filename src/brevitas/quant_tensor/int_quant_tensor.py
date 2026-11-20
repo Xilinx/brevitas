@@ -24,19 +24,13 @@ class IntQuantTensor(IntMixin, QuantTensor):
         '_training',
     )
 
-    def __new__(cls, value, scale, zero_point, bit_width, signed, training):
-        if not isinstance(value, torch.Tensor):
-            value = torch.tensor(value, dtype=torch.float)
-        # Use as_subclass to preserve grad_fn and requires_grad
-        return value.as_subclass(cls)
-
     def __init__(self, value, scale, zero_point, bit_width, signed, training):
         device = self._value.device
         scale = self._as_tensor(scale, torch.float, device)
         zero_point = self._as_tensor(zero_point, torch.float, device)
         bit_width = self._as_tensor(bit_width, torch.float, device)
-        signed = self._as_tensor(signed, torch.bool, device)
-        training = self._as_tensor(training, torch.bool, device)
+        signed = self._as_bool(signed)
+        training = self._as_bool(training)
         self._scale = scale
         self._zero_point = zero_point
         self._bit_width = bit_width
@@ -59,6 +53,14 @@ class IntQuantTensor(IntMixin, QuantTensor):
     def zero_point(self, value):
         self._zero_point = value
 
+    def _unpack(self):
+        """Return ``(value, scale, zero_point, bit_width, signed)``.
+
+        torch.compile can trace this method call also for IntQuantTensors created inside the
+        compiled region, where reading their tensor-valued properties is not supported.
+        """
+        return self.value, self.scale, self.zero_point, self.bit_width, self.signed
+
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
         if kwargs is None:
@@ -72,11 +74,8 @@ class IntQuantTensor(IntMixin, QuantTensor):
         if not isinstance(tensor, IntQuantTensor):
             raise RuntimeError("Tensor is not a IntQuantTensor")
 
-    def size(self, *args, **kwargs):
-        return self.value.size(*args, **kwargs)
-
     @staticmethod
-    def cat(tensors, dim, out=None):
+    def cat(tensors, dim=0, *, out=None):
         if out is not None:
             raise RuntimeError("Out not supported.")
         if len(tensors) < 2:

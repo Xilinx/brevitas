@@ -3,7 +3,6 @@
 
 from abc import ABC
 from contextlib import nullcontext
-from functools import partial
 from io import BytesIO
 from typing import Optional
 from typing import Tuple
@@ -13,10 +12,8 @@ import warnings
 from packaging import version
 from packaging.version import parse
 
-from brevitas.export.inference.manager import _override_create_quant_tensor
 from brevitas.export.onnx.qonnx.handler import BrevitasFloatQuantProxyHandler
 from brevitas.export.onnx.standard.qcdq.handler import StdFloatQCDQCastONNXMixin
-from brevitas.graph.calibrate import QuantizationStatusManager
 
 try:
     import onnx
@@ -36,6 +33,7 @@ from brevitas.utils.logging import setup_logger
 
 from ..manager import _override_act_caching_mode
 from ..manager import _restore_act_caching_mode
+from ..manager import _traceable_quant_tensor_io
 from ..manager import BaseManager
 from ..manager import ExportContext
 
@@ -185,8 +183,10 @@ class ONNXBaseManager(BaseManager, ABC):
                             fp8_export_patch = True
 
                     patch_export = PatchFp8Ops if fp8_export_patch else nullcontext
-                    with patch_export():
-                        torch.onnx.export(module, args, export_target, **onnx_export_kwargs)
+                    # The QuantTensors that enter and leave the module are replaced by plain
+                    # tensors, for both the TorchScript and the dynamo exporter
+                    with patch_export(), _traceable_quant_tensor_io(module, args) as trace_args:
+                        torch.onnx.export(module, trace_args, export_target, **onnx_export_kwargs)
 
                     # restore the model to previous properties
                     module.apply(lambda m: _restore_act_caching_mode(m))
@@ -222,28 +222,10 @@ class ONNXBaseManager(BaseManager, ABC):
 
 class ONNXDynamoExportMixin:
     # Shared configuration and helpers for the torch.export (dynamo) ONNX managers.
-    # Must be mixed with an ONNXBaseManager that provides set_export_mode (chained via super()).
+    # Must be mixed with an ONNXBaseManager.
     run_onnx_passes = False  # keep ONNX metadata; skip the onnxoptimizer step
     onnx_passes = ["eliminate_unused_initializer"]
     custom_fns = []
-
-    @classmethod
-    def set_export_mode(cls, model: Module, enabled: bool):
-        # NOTE: this QuantTensor-disabling logic is not ONNX-specific and could move to a generic
-        # (backend-agnostic) DynamoExportMixin; deferred to avoid an import cycle (it needs
-        # QuantizationStatusManager and _override_create_quant_tensor).
-        super().set_export_mode(model=model, enabled=enabled)
-        # torch.export cannot trace QuantTensor objects, so we disable their creation
-        # during export and restore the original behaviour afterwards.
-        if enabled:
-            return_quant_tensor_state = QuantizationStatusManager.disable_return_quant_tensor(model)
-            model.apply(partial(_override_create_quant_tensor, state=True))
-            model._brevitas_return_quant_tensor_state = return_quant_tensor_state
-        else:
-            model.apply(partial(_override_create_quant_tensor, state=False))
-            QuantizationStatusManager.restore_return_quant_tensor(
-                model, model._brevitas_return_quant_tensor_state)
-            del model._brevitas_return_quant_tensor_state
 
     @classmethod
     def _check_dynamo_export_kwargs(cls, onnx_export_kwargs):

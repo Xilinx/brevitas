@@ -18,14 +18,19 @@ class GroupwiseActFloatQuantProxyFromInjector(ActFloatQuantProxyFromInjectorBase
     def __init__(self, quant_layer, quant_injector):
         super().__init__(quant_layer, quant_injector)
         self.cache_class = _CachedIOGroupwiseFloat
+        self._group_dim = self.quant_injector.group_dim
+        self._group_size = self.quant_injector.group_size
+        if self._group_dim is None or self._group_size is None:
+            raise RuntimeError(
+                "Groupwise quantization requires a resolved group_dim and group_size")
 
     @property
     def group_dim(self):
-        return self.quant_injector.group_dim
+        return self._group_dim
 
     @property
     def group_size(self):
-        return self.quant_injector.group_size
+        return self._group_size
 
     def apply_input_view(self, x):
         x = super().apply_input_view(x)
