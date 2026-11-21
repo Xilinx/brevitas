@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from torch import nn
+from torch.fx import symbolic_trace
 
-from brevitas.fx.brevitas_tracer import symbolic_trace
 from brevitas.graph.per_input import AdaptiveAvgPoolToAvgPool
 from brevitas.graph.quantize import preprocess_for_quantize
 from brevitas.graph.quantize import quantize
