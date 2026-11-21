@@ -35,7 +35,8 @@ __all__ = [
     'get_output_channel_dim',
     'get_batch_dim',
     'resolve_region_batch_dim',
-    'power_iteration']
+    'power_iteration',
+    'gpxq_compute_error_stats']
 
 
 def get_batch_dim(
@@ -261,3 +262,74 @@ def power_iteration(
     # Rayleigh quotient on the normalized H, then undo the absmax scaling; return on H.device
     max_eigenval = torch.dot(b_k, torch.mv(H_k, b_k)).to(c_k.device) * c_k
     return max_eigenval
+
+
+@torch.no_grad()
+def gpxq_compute_error_stats(
+        prefix: str,
+        name: str,
+        layer: nn.Module,
+        H: torch.Tensor,
+        G: Optional[torch.Tensor] = None,
+        R: Optional[torch.Tensor] = None,
+        device: Optional[Union[str, torch.device]] = None,
+        weight_attr: str = 'weight_orig',
+        transpose_g: bool = False) -> Dict[str, Dict[str, float]]:
+    """Per-layer quantization error statistics derived from the input covariances.
+
+    With W the floating-point weights, Q the quantized weights, E = Q - W, X the
+    float input and X_tilde the (possibly already quantized) input actually seen
+    by the layer, the reported metrics are:
+
+    - ``rel_weight_err``: ``||E||_F / ||W||_F``;
+    - ``rel_out_err``: ``||X_tilde E^T||_F / ||X_tilde W^T||_F``, computed from
+      ``H = X_tilde^T X_tilde``;
+    - ``fp_rel_out_err``: the mismatched objective
+      ``||X W^T - X_tilde Q^T||_F / ||X W^T||_F``, which additionally needs
+      ``G = X^T X_tilde`` and ``R = X^T X``. Reported as ``None`` when either is
+      unavailable.
+
+    The normalization of H, G and R is irrelevant as long as it is shared, since
+    it cancels in every ratio.
+
+    Args:
+        weight_attr: attribute holding the floating-point reference. GPxQ
+            overwrites ``layer.weight``, so it keeps ``weight_orig``; scale
+            optimization leaves the weights untouched and uses ``weight``.
+        transpose_g: set when the caller accumulates ``X_tilde^T X`` instead of
+            ``X^T X_tilde`` (GPFQ and PiSO do, Qronos does not).
+    """
+    # This computation only supports nn.Linear, currently
+    if not isinstance(layer, (qnn.QuantLinear,)):
+        raise NotImplementedError(
+            f"`gpxq_compute_error_stats` only supports `QuantLinear` layers, but got {type(layer)}."
+        )
+    device = device if device is not None else layer.weight.device
+    dtype = H.dtype
+    quant_weight = layer.quant_weight().value.to(dtype=dtype, device=device)
+    weight = getattr(layer, weight_attr).to(dtype=dtype, device=device)
+    H = H.to(device=device).squeeze(0)
+    G = G.to(device=device).squeeze(0) if G is not None else G
+    R = R.to(device=device).squeeze(0) if R is not None else R
+    if G is not None and transpose_g:
+        G = G.transpose(-1, -2)
+    # Compute relative error between quantized and original weights
+    err = quant_weight - weight
+    weight_rel_err = torch.norm(err, p='fro') / torch.norm(weight, p='fro')
+    # Compute relative error weighted by the Hessian, i.e. (w-q)^T H (w-q) / w^T H w
+    out_rel_err = torch.sqrt(torch.trace(err @ H @ err.T) / torch.trace(weight @ H @ weight.T))
+    fp_out_rel_err = None
+    if G is not None and R is not None:
+        fp_out_rel_err = torch.sqrt(
+            torch.abs(
+                torch.trace(weight @ R @ weight.T) - 2 * torch.trace(weight @ G @ quant_weight.T) +
+                torch.trace(quant_weight @ H @ quant_weight.T)) /
+            torch.trace(weight @ R @ weight.T))
+    return {
+        name: {
+            f"{prefix}_rel_weight_err":
+                weight_rel_err.item(),
+            f"{prefix}_rel_out_err":
+                out_rel_err.item(),
+            f"{prefix}_fp_rel_out_err":
+                fp_out_rel_err.item() if fp_out_rel_err is not None else None,}}
