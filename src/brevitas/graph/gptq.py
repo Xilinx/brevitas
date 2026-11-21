@@ -187,7 +187,7 @@ class GPTQ(GPxQ):
                 # a new group, before its weights are quantized. No-op otherwise.
                 self._on_column_reached(i1 + i)
 
-                q_groups = self.get_quant_weights(i, i1, permutation_list)  # [groups, OC/groups]
+                q_groups = self.get_quant_weight(i, i1, permutation_list)  # [groups, OC/groups]
                 for group_index in range(self.groups):
                     perm = permutation_list[group_index]
                     q = q_groups[group_index].to(self.dtype)  # [OC/groups]
