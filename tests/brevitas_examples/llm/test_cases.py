@@ -256,7 +256,7 @@ class LLMRunCases:
 
 class LLMPerplexityCases:
 
-    METRICS = ["float_ppl", "quant_ppl"]
+    METRICS = ["float_ppl_test", "quant_ppl_test"]
 
     @pytest_cases.parametrize(
         "run_dict",
@@ -265,8 +265,8 @@ class LLMPerplexityCases:
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
                 "act_equalization": "fx",
                 "bias_corr": True,
-                "float_ppl": 30795.76953125,
-                "quant_ppl": 30861.037109375},
+                "float_ppl_test": 30795.76953125,
+                "quant_ppl_test": 30861.037109375},
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
                 "act_equalization": "fx",
@@ -276,22 +276,22 @@ class LLMPerplexityCases:
                 "input_quant_granularity": "per_row",
                 "input_scale_type": "dynamic",
                 "input_quant_type": "sym",
-                "float_ppl": 30795.76953125,
-                "quant_ppl": 30793.537109375},
+                "float_ppl_test": 30795.76953125,
+                "quant_ppl_test": 30793.537109375},
             {
                 "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
                 "act_equalization": "layerwise",
                 "gptq": True,
-                "float_ppl": 30977.689453125,
-                "quant_ppl": 30958.1953125},
+                "float_ppl_test": 30977.689453125,
+                "quant_ppl_test": 30958.1953125},
             {
                 "model":
                     "hf-internal-testing/tiny-random-OPTForCausalLM",
                 "weight_equalization": True,
                 "ln_affine_merge": True,
                 "quant_sdpa": "fx",
-                "float_ppl": 46088.265625,
-                "quant_ppl": 46327.50390625},
+                "float_ppl_test": 46088.265625,
+                "quant_ppl_test": 46327.50390625},
             {
                 "model":
                     "hf-internal-testing/tiny-random-OPTForCausalLM",
@@ -302,14 +302,14 @@ class LLMPerplexityCases:
                 "convert_layernorm_to_rmsnorm": True,
                 "replace_rmsnorm": True,
                 "rotation": "fx",
-                "float_ppl": 54132.29296875,
-                "quant_ppl": 54140.08984375},
+                "float_ppl_test": 54132.29296875,
+                "quant_ppl_test": 54140.08984375},
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
                 "weight_bit_width": 2,
                 "weight_scale_precision": "signed_float_scale",
-                "float_ppl": 30795.76953125,
-                "quant_ppl": 30970.068359375},],
+                "float_ppl_test": 30795.76953125,
+                "quant_ppl_test": 30970.068359375},],
         ids=[
             "llama",
             "llama_float_dynamic_input",
@@ -332,8 +332,8 @@ class LLMPerplexityCases:
             "learned_round": "identity",
             "learned_round_iters": 1,
             "gpxq_block_name": "model.layers",
-            "float_ppl": 30795.76953125,
-            "quant_ppl": 30675.064453125},
+            "float_ppl_test": 30795.76953125,
+            "quant_ppl_test": 30675.064453125},
          {
              "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
              "act_calibration": False,
@@ -342,8 +342,8 @@ class LLMPerplexityCases:
              "learned_round": "identity",
              "learned_round_iters": 1,
              "gpxq_block_name": "model.layers",
-             "float_ppl": 30977.689453125,
-             "quant_ppl": 30952.52734375}],
+             "float_ppl_test": 30977.689453125,
+             "quant_ppl_test": 30952.52734375}],
         ids=[
             "llama",
             "mistral",],
@@ -364,8 +364,8 @@ class LLMPerplexityCases:
                 "rotation": "fused_no_fx",
                 "rotation_orphan_sink": True,
                 "rotation_mode": "ort",
-                "float_ppl": 30795.76953125,
-                "quant_ppl": 30991.04296875,},
+                "float_ppl_test": 30795.76953125,
+                "quant_ppl_test": 30991.04296875,},
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
                 "act_calibration": False,
@@ -375,8 +375,8 @@ class LLMPerplexityCases:
                 "rotation": "fused_no_fx",
                 "rotation_orphan_sink": False,
                 "rotation_mode": "ort",
-                "float_ppl": 30795.76953125,
-                "quant_ppl": 31010.615234375,},
+                "float_ppl_test": 30795.76953125,
+                "quant_ppl_test": 31010.615234375,},
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
                 "act_calibration": False,
@@ -386,8 +386,8 @@ class LLMPerplexityCases:
                 "rotation": "fused_no_fx",
                 "rotation_orphan_sink": True,
                 "rotation_mode": "had",
-                "float_ppl": 30795.76953125,
-                "quant_ppl": 30956.54296875,},
+                "float_ppl_test": 30795.76953125,
+                "quant_ppl_test": 30956.54296875,},
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
                 "act_calibration": False,
@@ -397,8 +397,8 @@ class LLMPerplexityCases:
                 "rotation": "fused_no_fx",
                 "rotation_orphan_sink": False,
                 "rotation_mode": "had",
-                "float_ppl": 30795.76953125,
-                "quant_ppl": 30836.9140625},
+                "float_ppl_test": 30795.76953125,
+                "quant_ppl_test": 30836.9140625},
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
                 "act_calibration": False,
@@ -406,8 +406,8 @@ class LLMPerplexityCases:
                 "input_bit_width": None,
                 "replace_rmsnorm": True,
                 "rotation": "layerwise",
-                "float_ppl": 30795.76953125,
-                "quant_ppl": 30829.4453125,},
+                "float_ppl_test": 30795.76953125,
+                "quant_ppl_test": 30829.4453125,},
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
                 "act_calibration": False,
@@ -418,8 +418,8 @@ class LLMPerplexityCases:
                 "rotation_orphan_sink": False,
                 "rotation_mode": "had",
                 "rotation_layers_to_expand": ["down_proj"],
-                "float_ppl": 30795.76953125,
-                "quant_ppl": 30830.03125,},],
+                "float_ppl_test": 30795.76953125,
+                "quant_ppl_test": 30830.03125,},],
         ids=[
             "llama_fused_rotation_ort",
             "llama_fused_rotation_ort_no_orphan",
@@ -808,8 +808,8 @@ class LLMRotationOptimizationCases:
                     "1",
                     "--gradient_accumulation_steps",
                     "1"],
-                "float_ppl": 30795.76953125,
-                "quant_ppl": 30937.654296875,
+                "float_ppl_test": 30795.76953125,
+                "quant_ppl_test": 30937.654296875,
                 "exp_layer_types_count": {
                     "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 4,
                     "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
@@ -836,8 +836,8 @@ class LLMRotationOptimizationCases:
                     "1",
                     "--gradient_accumulation_steps",
                     "1"],
-                "float_ppl": 30795.76953125,
-                "quant_ppl": 30944.9140625,
+                "float_ppl_test": 30795.76953125,
+                "quant_ppl_test": 30944.9140625,
                 "exp_layer_types_count": {
                     "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 0,
                     "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
@@ -864,8 +864,8 @@ class LLMRotationOptimizationCases:
                     "1",
                     "--gradient_accumulation_steps",
                     "1"],
-                "float_ppl": 30795.76953125,
-                "quant_ppl": 30675.26953125,
+                "float_ppl_test": 30795.76953125,
+                "quant_ppl_test": 30675.26953125,
                 "exp_layer_types_count": {
                     "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 4,
                     "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
@@ -893,8 +893,8 @@ class LLMRotationOptimizationCases:
                     "1",
                     "--gradient_accumulation_steps",
                     "1"],
-                "float_ppl": 30795.76953125,
-                "quant_ppl": 30860.271484375,
+                "float_ppl_test": 30795.76953125,
+                "quant_ppl_test": 30860.271484375,
                 "exp_layer_types_count": {
                     "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 2,
                     "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
@@ -923,8 +923,8 @@ class LLMRotationOptimizationCases:
                     "1",
                     "--gradient_accumulation_steps",
                     "1"],
-                "float_ppl": 30795.76953125,
-                "quant_ppl": 30866.455078125,
+                "float_ppl_test": 30795.76953125,
+                "quant_ppl_test": 30866.455078125,
                 "exp_layer_types_count": {
                     "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 2,
                     "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
@@ -951,8 +951,8 @@ class LLMRotationOptimizationCases:
                     "1",
                     "--gradient_accumulation_steps",
                     "1"],
-                "float_ppl": 30795.76953125,
-                "quant_ppl": 30746.41015625,
+                "float_ppl_test": 30795.76953125,
+                "quant_ppl_test": 30746.41015625,
                 "exp_layer_types_count": {
                     "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 0,
                     "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
@@ -983,8 +983,8 @@ class LLMRotationOptimizationCases:
                     "1",
                     "--gradient_accumulation_steps",
                     "1"],
-                "float_ppl": 30795.76953125,
-                "quant_ppl": 30688.232421875,
+                "float_ppl_test": 30795.76953125,
+                "quant_ppl_test": 30688.232421875,
                 "exp_layer_types_count": {
                     "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 0,
                     "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,

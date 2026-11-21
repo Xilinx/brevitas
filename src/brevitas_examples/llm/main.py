@@ -307,11 +307,10 @@ def quantize_llm(args, extra_args=None):
     print("Model loaded.")
     model.eval()
     tokenizer = AutoTokenizer.from_pretrained(args.model)
-    float_probabilities = None
-    float_ppl = None
-    quant_ppl = None
-    quant_ear = None
-    quant_kld = None
+    float_metrics_train = None
+    float_metrics_test = None
+    quant_metrics_train = None
+    quant_metrics_test = None
 
     require_fx = fx_required(args)
     if require_fx and args.calibration_batch_size > 1:
@@ -364,17 +363,24 @@ def quantize_llm(args, extra_args=None):
     if args.eval:
         print("Float model eval...")
         model = offload_model(model)
-        float_metrics = compute_float_evaluation_metrics(
+        float_metrics_test = compute_float_evaluation_metrics(
             model=model,
             data=validation_loader,
             context_length=args.seqlen // 2,
             tokenizer=tokenizer,
             seed=args.seed,
             top_k=args.eval_top_k)
-        float_ppl = float_metrics.ppl
-        float_probabilities = float_metrics.probabilities
+        float_metrics_train = compute_float_evaluation_metrics(
+            model=model,
+            data=calibration_loader,
+            context_length=args.seqlen // 2,
+            tokenizer=tokenizer,
+            seed=args.seed,
+            top_k=args.eval_top_k)
         remove_hooks(model)
-        print(f"Float perplexity ({args.dataset}): {float_ppl:.3f}")
+        print(
+            f"Float perplexity ({args.dataset}): "
+            f"train={float_metrics_train.ppl:.3f}, test={float_metrics_test.ppl:.3f}")
 
     rmsnorm_classes = ()
     if require_fx:
@@ -778,24 +784,32 @@ def quantize_llm(args, extra_args=None):
             print("Model eval...")
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
                 model(**next(iter(calibration_loader)))
-                quant_metrics = compute_quantized_evaluation_metrics(
+                quant_metrics_test = compute_quantized_evaluation_metrics(
                     model=model,
                     data=validation_loader,
                     context_length=args.seqlen // 2,
                     tokenizer=tokenizer,
-                    reference_probabilities=float_probabilities,
+                    reference_probabilities=float_metrics_test.probabilities,
                     seed=args.seed)
-            quant_ppl = quant_metrics.ppl
+                quant_metrics_train = compute_quantized_evaluation_metrics(
+                    model=model,
+                    data=calibration_loader,
+                    context_length=args.seqlen // 2,
+                    tokenizer=tokenizer,
+                    reference_probabilities=float_metrics_train.probabilities,
+                    seed=args.seed)
+            print(
+                f"Quantized perplexity ({args.dataset}): "
+                f"train={quant_metrics_train.ppl:.3f}, test={quant_metrics_test.ppl:.3f}")
             # NOTE: EAR and KLD are by default normalized by reference top-K probability mass.
-            quant_ear = quant_metrics.ear
-            quant_kld = quant_metrics.kld
-            print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
             print(
                 f"Quantized expected acceptance rate @ top-{args.eval_top_k} "
-                f"({args.dataset}): {quant_ear:.6f}")
+                f"({args.dataset}): train={quant_metrics_train.ear:.6f}, "
+                f"test={quant_metrics_test.ear:.6f}")
             print(
                 f"Quantized KL divergence @ top-{args.eval_top_k} "
-                f"({args.dataset}): {quant_kld:.6f}")
+                f"({args.dataset}): train={quant_metrics_train.kld:.6f}, "
+                f"test={quant_metrics_test.kld:.6f}")
         few_shot_eval_results = dict()
         if args.few_shot_eval == 'lm_eval':
             from lm_eval import evaluator
@@ -847,10 +861,14 @@ def quantize_llm(args, extra_args=None):
             model_export(model, tokenizer, next(iter(calibration_loader)), args, config)
 
     eval_results = {
-        "float_ppl": float_ppl,
-        "quant_ppl": quant_ppl,
-        "quant_ear": quant_ear,
-        "quant_kld": quant_kld}
+        "float_ppl_train": float_metrics_train.ppl if float_metrics_train is not None else None,
+        "quant_ppl_train": quant_metrics_train.ppl if quant_metrics_train is not None else None,
+        "quant_ear_train": quant_metrics_train.ear if quant_metrics_train is not None else None,
+        "quant_kld_train": quant_metrics_train.kld if quant_metrics_train is not None else None,
+        "float_ppl_test": float_metrics_test.ppl if float_metrics_test is not None else None,
+        "quant_ppl_test": quant_metrics_test.ppl if quant_metrics_test is not None else None,
+        "quant_ear_test": quant_metrics_test.ear if quant_metrics_test is not None else None,
+        "quant_kld_test": quant_metrics_test.kld if quant_metrics_test is not None else None}
     return {**eval_results, **few_shot_eval_results}, model
 
 

@@ -78,7 +78,9 @@ def create_args_parser() -> ArgumentParser:
     parser.add_argument(
         '--seqlen', type=int, default=2048, help='Sequence length. Default: %(default)s.')
     parser.add_argument(
-        '--eval', action='store_true', help='Eval model PPL, EAR, and KLD on the chosen dataset.')
+        '--eval',
+        action='store_true',
+        help='Eval model PPL, EAR, and KLD on calibration and evaluation samples.')
     parser.add_argument(
         '--eval-top-k',
         type=int,
