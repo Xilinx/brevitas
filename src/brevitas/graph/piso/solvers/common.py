@@ -41,23 +41,138 @@ from brevitas.utils.python_utils import Registry
 
 
 def _piso_grid_deltas(
-        unscaled_grid: torch.Tensor) -> Tuple[int, torch.Tensor, torch.Tensor, torch.Tensor]:
+        unscaled_grid: torch.Tensor
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """Grid-derived constants shared by every sweep, independent of the weights.
 
-    Returns (idx_0, k_curr, k_next, delta_next_curr) where idx_0 is the
-    index of 0 in the grid and delta_next_curr[k] is the change in a q entry
-    when crossing transition k (see paper: q walks the grid as s decreases).
+    Returns (idx_0, k_curr, k_next, delta_next_curr) where idx_0 is the index of
+    0 in the grid and delta_next_curr[k] is the change in a q entry when crossing
+    transition k (see paper: q walks the grid as s decreases).
+
+    Batch-aware: ``unscaled_grid`` may be a single 1-D grid ``[L]`` shared by
+    every row, or a local (per-channel / per-group) grid ``[..., L]`` with a
+    distinct grid per leading position, as the integer-zero-point translation
+    produces. The last three outputs mirror its shape with the level axis
+    reduced to ``L-1``; ``idx_0`` mirrors the leading shape (a 0-d tensor for a
+    1-D grid). Every row must be sorted ascending and contain exactly one 0.
     """
-    if not torch.all(unscaled_grid[:-1] < unscaled_grid[1:]):
+    if not torch.all(unscaled_grid[..., :-1] < unscaled_grid[..., 1:]):
         raise ValueError("unscaled_grid is not sorted ascending or contains duplicates")
-    if not torch.any(unscaled_grid == 0):
+    if not bool(torch.all(torch.any(unscaled_grid == 0, dim=-1))):
         raise ValueError("0 not in unscaled_grid")
-    idx_0 = torch.where(unscaled_grid == 0)[0].item()
-    # When a q entry changes, its old and new grid values are known a priori.
-    k_curr = torch.cat([unscaled_grid[1:idx_0 + 1], unscaled_grid[idx_0:-1]])
-    k_next = torch.cat([unscaled_grid[:idx_0], unscaled_grid[idx_0 + 1:]])
+    L = unscaled_grid.shape[-1]
+    # Index of 0 in each row (grids are strictly ascending, so 0 appears once).
+    idx_0 = (unscaled_grid == 0).to(torch.long).argmax(dim=-1)
+    ar = torch.arange(L - 1, device=unscaled_grid.device)
+    # When a q entry changes, its old and new grid values are known a priori:
+    # the entry walks grid[k] -> grid[k+1] above 0, and its mirror below 0.
+    # Build the two index rows and gather, batching over any leading dims.
+    lower = ar < idx_0.unsqueeze(-1)
+    curr_idx = torch.where(lower, ar + 1, ar).expand(*unscaled_grid.shape[:-1], L - 1)
+    next_idx = torch.where(lower, ar, ar + 1).expand(*unscaled_grid.shape[:-1], L - 1)
+    k_curr = torch.gather(unscaled_grid, -1, curr_idx)
+    k_next = torch.gather(unscaled_grid, -1, next_idx)
     delta_next_curr = k_next - k_curr
     return idx_0, k_curr, k_next, delta_next_curr
+
+
+def _piso_transition_lookup(t: torch.Tensor, k: torch.Tensor) -> torch.Tensor:
+    """Per-transition value for each row: ``t[..., k[...]]``.
+
+    ``t`` is a grid-derived per-transition tensor (delta / k_curr / k_next),
+    either shared across rows (``[L-1]``) or local to them (``[..., L-1]``).
+    ``k`` holds transition indices and may carry either one index per row (the
+    sequential sweeps: ``[B]`` per-channel, ``[B, n_groups]`` per-group) or many
+    (the chunked family, which resolves every transition at once: ``[N, T]``
+    against a ``[N, L-1]`` tensor). Returns the looked-up values with ``k``'s
+    shape.
+
+    The shared-grid case keeps the plain advanced-index it had before local grids
+    existed; for the sequential sweeps this runs once per swept interval, and
+    routing it through the gather costs about twice as much per call.
+    """
+    if t.dim() == 1:
+        return t[k]
+    if k.dim() == t.dim():
+        # one lookup per (row, transition): indices already match t's rank
+        return torch.gather(t, -1, k)
+    return torch.gather(t, -1, k.unsqueeze(-1)).squeeze(-1)
+
+
+def _piso_sorted_transitions(
+        w_b: torch.Tensor,
+        unscaled_grid: torch.Tensor,
+        zero_point: Optional[torch.Tensor] = None
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Sorted transition scales, their flat indices, and the shifted weights.
+
+    The scales at which one entry of q changes are ``2 (w_i + z) / (g_k +
+    g_{k+1})``: a zero point shifts the breakpoints (q flips on ``(w + z)/s``)
+    but not the linear term, so the shifted weights come back for the caller's
+    sign-change state. With no zero point they are ``w_b`` itself, at no cost.
+
+    Handles per-channel weights ``[B, D]`` and per-group weights ``[B, n_groups,
+    G]``, against a grid shared by every row (``[L]``) or local to it
+    (``[..., L]``). The transitions are flattened in ``(L-1, last axis)`` order,
+    so a sorted index still decodes as ``k = idx // D``, ``i = idx % D``.
+
+    Returns (sorted_transition_scales, sorting_indices, w_shift); the sweep's
+    interval count is ``sorted_transition_scales.shape[-1]``.
+    """
+    mids = (unscaled_grid[..., :-1] + unscaled_grid[..., 1:]).unsqueeze(-1)
+    w_shift = w_b if zero_point is None else w_b + zero_point
+    transitions = 2 * w_shift.unsqueeze(-2) / mids
+    sorted_scales, sorting_indices = torch.sort(transitions.flatten(-2), dim=-1)
+    return sorted_scales, sorting_indices, w_shift
+
+
+def translate_grid_by_zero_point(
+        unscaled_grid: torch.Tensor, zero_point: torch.Tensor) -> torch.Tensor:
+    """Translate an unsigned grid so a symmetric sweep solves the *asymmetric*
+    objective of a quantizer with a constant integer zero point.
+
+    Brevitas asymmetric integer quantization dequantizes a weight as
+
+        w_hat = s * (clamp(round(w / s + z), 0, M) - z),   M = 2^bit_width - 1,
+
+    for scale ``s`` and integer zero point ``z``. Since ``round(y + z) =
+    round(y) + z`` for integer ``z`` (off the half-integer ties, which are
+    exactly the transition scales the sweep already treats by its endpoint
+    convention),
+
+        w_hat = s * clamp(round(w / s), -z, M - z) = s * q,  q in {0..M} - z,
+
+    i.e. the *symmetric* quantizer on the translated grid. The weights are left
+    untouched; only the grid moves, so no solver term changes.
+
+    A per-channel or per-group ``z`` produces a *local* grid, one row per scale
+    entry, which the non-sequential sweeps consume directly. Pass ``z`` in the
+    scale's shape (``[B, 1]`` per-channel, ``[B, n_groups, 1]`` per-group) so
+    that ``{0..M} - z`` broadcasts to the ``[B, L]`` / ``[B, n_groups, L]`` grid.
+
+    Args:
+        unscaled_grid: sorted-ascending 1-D grid, the unsigned native grid with
+            ``grid[0] == 0``.
+        zero_point: integer zero point ``z``, a scalar (uniform translation) or
+            a tensor broadcastable against ``unscaled_grid``.
+
+    Returns:
+        The translated grid, which still contains 0 and is still ascending.
+    """
+    if not torch.all(unscaled_grid[:-1] < unscaled_grid[1:]):
+        raise ValueError("unscaled_grid must be sorted ascending without duplicates.")
+    if unscaled_grid[0] != 0:
+        raise ValueError(
+            "translate_grid_by_zero_point expects the unsigned native grid with "
+            f"grid[0] == 0; got grid[0] = {unscaled_grid[0].item()}.")
+    z = torch.as_tensor(zero_point, dtype=unscaled_grid.dtype, device=unscaled_grid.device)
+    if not bool(torch.all(torch.round(z) == z)):
+        raise ValueError("zero_point must be integer-valued.")
+    if bool(torch.any((z < 0) | (z > unscaled_grid[-1]))):
+        raise ValueError(
+            f"zero_point out of [0, {unscaled_grid[-1].item()}]; the translated "
+            "grid would no longer contain 0.")
+    return unscaled_grid - z
 
 
 def _piso_select_optimal(
@@ -181,6 +296,10 @@ class ScaleSolverFamily(ABC):
     ('dense'|'diag'|'greedy') and tag ('group-dense'|'group-diag'|
     'group-greedy') tell the caller which H/G kwargs to build. Pure dispatch:
     no tensors are touched.
+
+    Every family implements both asymmetric extensions: the sweeps accept a
+    local (per-row) grid, which carries an integer zero point, and a
+    ``zero_point`` argument, which carries a free offset.
     """
 
     # -- solver slots ---------------------------------------------------------
