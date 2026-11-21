@@ -57,6 +57,7 @@ from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
 from brevitas_examples.llm.llm_quant.equalize import apply_weight_equalization
 from brevitas_examples.llm.llm_quant.eval import compute_float_evaluation_metrics
 from brevitas_examples.llm.llm_quant.eval import compute_quantized_evaluation_metrics
+from brevitas_examples.llm.llm_quant.eval import EvaluationResults
 from brevitas_examples.llm.llm_quant.export import _get_dataset_props
 from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.export import convert_hf_hparams_to_gguf
@@ -307,10 +308,10 @@ def quantize_llm(args, extra_args=None):
     print("Model loaded.")
     model.eval()
     tokenizer = AutoTokenizer.from_pretrained(args.model)
-    float_metrics_train = None
-    float_metrics_test = None
-    quant_metrics_train = None
-    quant_metrics_test = None
+    float_metrics_train = EvaluationResults()
+    float_metrics_test = EvaluationResults()
+    quant_metrics_train = EvaluationResults()
+    quant_metrics_test = EvaluationResults()
 
     require_fx = fx_required(args)
     if require_fx and args.calibration_batch_size > 1:
@@ -861,14 +862,14 @@ def quantize_llm(args, extra_args=None):
             model_export(model, tokenizer, next(iter(calibration_loader)), args, config)
 
     eval_results = {
-        "float_ppl_train": float_metrics_train.ppl if float_metrics_train is not None else None,
-        "quant_ppl_train": quant_metrics_train.ppl if quant_metrics_train is not None else None,
-        "quant_ear_train": quant_metrics_train.ear if quant_metrics_train is not None else None,
-        "quant_kld_train": quant_metrics_train.kld if quant_metrics_train is not None else None,
-        "float_ppl_test": float_metrics_test.ppl if float_metrics_test is not None else None,
-        "quant_ppl_test": quant_metrics_test.ppl if quant_metrics_test is not None else None,
-        "quant_ear_test": quant_metrics_test.ear if quant_metrics_test is not None else None,
-        "quant_kld_test": quant_metrics_test.kld if quant_metrics_test is not None else None}
+        "float_ppl_train": float_metrics_train.ppl,
+        "quant_ppl_train": quant_metrics_train.ppl,
+        "quant_ear_train": quant_metrics_train.ear,
+        "quant_kld_train": quant_metrics_train.kld,
+        "float_ppl_test": float_metrics_test.ppl,
+        "quant_ppl_test": quant_metrics_test.ppl,
+        "quant_ear_test": quant_metrics_test.ear,
+        "quant_kld_test": quant_metrics_test.kld}
     return {**eval_results, **few_shot_eval_results}, model
 
 
