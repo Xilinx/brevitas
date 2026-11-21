@@ -28,9 +28,9 @@ from brevitas.graph.equalize import LayerwiseActivationRotation
 from brevitas.graph.permute import rotate_permute_mode
 from brevitas.graph.quantize import functional_quantization_mode
 from brevitas.graph.quantize import layerwise_quantize
+from brevitas.graph.quantize import prepare_functional_quantization
 from brevitas.graph.utils import get_module
 from brevitas.graph.utils import remove_weight_orig
-from brevitas.nn.quant_sdpa import ScaledDotProductAttention
 from brevitas.utils.logging import setup_logger
 from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
 from brevitas.utils.python_utils import hooked_on_a_function
@@ -124,6 +124,39 @@ def tie_weights(args):
         _should_tie = False
     # In all other cases we can tie them back so as to reduce memory usage.
     return _should_tie
+
+
+def _functional_quant_map(quantizers_dict, functional_quantization=None, quant_sdpa=None):
+    """Build generic functional operand and SDPA quantization specifications."""
+    quant_map = {}
+    input_quant = quantizers_dict.get('linear_input_quant')
+    weight_quant = quantizers_dict.get('weight_quant')
+
+    if functional_quantization == 'input':
+        linear_spec = input_quant
+        matmul_spec = input_quant
+    elif functional_quantization == 'weight':
+        linear_spec = (None, None, weight_quant)
+        matmul_spec = (None, None, weight_quant)
+    elif functional_quantization == 'all':
+        linear_spec = (input_quant, input_quant, weight_quant)
+        matmul_spec = (input_quant, input_quant, weight_quant)
+    else:
+        linear_spec = matmul_spec = None
+
+    if linear_spec is not None:
+        quant_map[torch.nn.functional.linear] = linear_spec
+    if matmul_spec is not None:
+        quant_map[torch.matmul] = matmul_spec
+        quant_map[torch.Tensor.matmul] = matmul_spec
+        quant_map[torch.Tensor.__matmul__] = matmul_spec
+        quant_map[torch.bmm] = matmul_spec
+    if quant_sdpa == 'functional':
+        quant_map[torch.nn.functional.scaled_dot_product_attention] = (
+            quantizers_dict.get('q_scaled_quant'),
+            quantizers_dict.get('k_transposed_quant'),
+            quantizers_dict.get('v_quant'))
+    return quant_map
 
 
 def fused_rotation_no_fx(model, calibration_loader, args, rotation_dtype):
@@ -405,12 +438,6 @@ def quantize_llm(args, extra_args=None):
         print("Replace `F.scaled_dot_product_attention` with QuantSDPA...")
         model = replace_sdpa_with_quantizable_layers(model)
         print("Replacing done.")
-    elif args.quant_sdpa == 'functional':
-        print("Inserting SDPA quantizable module")
-        model = offload_model(model)
-        with torch.no_grad(), functional_quantization_mode(model, {torch.nn.functional.scaled_dot_product_attention: ScaledDotProductAttention}):
-            model(**next(iter(calibration_loader)))
-        remove_hooks(model)
     elif args.quant_sdpa == 'eager':
         model = replace_sdpa_with_quantizable_layers(
             model, is_fx=False, eager_quant_sdpa_class=args.eager_quant_sdpa_class)
@@ -486,6 +513,7 @@ def quantize_llm(args, extra_args=None):
         remove_hooks(model)
         print(f"MagR applied.")
 
+    functional_quant_map = {}
     if not args.no_quantize:
         name_blacklist = []
         custom_quantizer = None
@@ -544,6 +572,11 @@ def quantize_llm(args, extra_args=None):
             quantizer_name = parse_custom_quantizer(args.custom_quantizer)
             custom_quantizer = QUANTIZERS_REGISTRY.get(quantizer_name)
             quantizers_dict = custom_quantizer.override_quantizers_dict(quantizers_dict)
+        functional_quant_map = _functional_quant_map(
+            quantizers_dict, args.functional_quantization, args.quant_sdpa)
+        if custom_quantizer is not None:
+            functional_quant_map = custom_quantizer.override_functional_quant_map(
+                functional_quant_map, quantizers_dict)
         # Quantize the embedding only when first/last-layer quantization is requested.
         # The embedding uses the same weight quantizer as the linear layers.
         # A custom quantizer that branches on module name or type still applies.
@@ -626,11 +659,12 @@ def quantize_llm(args, extra_args=None):
                 new_funct = functools.partial(update_internal_dict, m)
                 m._hf_hook.post_forward = hooked_on_a_function(m._hf_hook.post_forward, new_funct)
 
-    # If we are doing functional SDPA quantization, we create the correct context manager,
-    # otherwise nullcontext. We would love to avoid the extra indentation level but it doesn't seem easy.
-    if args.quant_sdpa == "functional":
+    fq_state = None
+    if functional_quant_map:
+        fq_state = prepare_functional_quantization(
+            model, functional_quant_map, example_kwargs=next(iter(calibration_loader)))
         quantization_cm = functional_quantization_mode(
-            model, {torch.nn.functional.scaled_dot_product_attention: ScaledDotProductAttention})
+            fq_state, remove_parametrizations_on_exit=True)
     else:
         quantization_cm = nullcontext()
 
@@ -655,6 +689,11 @@ def quantize_llm(args, extra_args=None):
             print("Act calibration applied.")
 
         if args.fine_tune:
+            if fq_state is not None and getattr(model, 'is_gradient_checkpointing', False):
+                model.gradient_checkpointing_enable(
+                    gradient_checkpointing_kwargs={
+                        'use_reentrant': False,
+                        'context_fn': quantization_cm.checkpoint_context_fn()})
             custom_trainer_cls = None
             if args.custom_trainer is not None:
                 custom_trainer_config_name = parse_custom_trainer(args.custom_trainer)
@@ -740,7 +779,8 @@ def quantize_llm(args, extra_args=None):
                 block_name=args.gpxq_block_name,
                 buffer_device=args.gpxq_buffer_device,
                 max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
-                max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
+                max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size,
+                functional_state=fq_state)
             print("GPFQ applied.")
 
         if args.qronos and not args.load_checkpoint:
@@ -756,7 +796,8 @@ def quantize_llm(args, extra_args=None):
                 act_order=args.gpxq_act_order,
                 block_name=args.gpxq_block_name,
                 buffer_device=args.gpxq_buffer_device,
-                scale_optimizer=scale_optimizer)
+                scale_optimizer=scale_optimizer,
+                functional_state=fq_state)
             print("Qronos applied.")
 
         if args.bias_corr and not args.load_checkpoint:

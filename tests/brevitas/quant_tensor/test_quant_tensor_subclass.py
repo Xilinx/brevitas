@@ -217,6 +217,76 @@ class TestSetMethod:
         assert type(qt2) is FloatQuantTensor
 
 
+class TestGetItem:
+
+    def test_integer_index_slices_aligned_metadata(self):
+        qt = IntQuantTensor(
+            torch.randn(2, 3, 4),
+            torch.ones(2, 3, 1),
+            torch.zeros(2, 3, 1),
+            torch.tensor(8.),
+            True,
+            False)
+        result = qt[1]
+        assert isinstance(result, IntQuantTensor)
+        assert result.shape == (3, 4)
+        assert result.scale.shape == (3, 1)
+        assert result.zero_point.shape == (3, 1)
+
+    def test_scalar_tensor_index(self):
+        qt = _make_int_qt(shape=(2, 4))
+        result = qt[torch.tensor(1)]
+        assert isinstance(result, IntQuantTensor)
+        assert result.shape == (4,)
+
+    def test_slice_retains_leading_dimension(self):
+        qt = _make_int_qt(shape=(4, 4))
+        result = qt[1:3]
+        assert isinstance(result, IntQuantTensor)
+        assert result.shape == (2, 4)
+
+    def test_groupwise_index_updates_shape_and_dimension(self):
+        qt = _make_mx_qt(shape=(2, 32))
+        result = qt[0]
+        assert isinstance(result, GroupwiseFloatQuantTensor)
+        assert result.shape == (32,)
+        assert result.dequant_shape == (32,)
+        assert result.group_dim == 0
+
+    @pytest.mark.parametrize(
+        'quant_tensor_class', [GroupwiseIntQuantTensor, GroupwiseFloatQuantTensor])
+    def test_groupwise_index_preserves_raw_storage(self, quant_tensor_class):
+        qt = _make_groupwise_qt(quant_tensor_class)
+        result = qt[0]
+        assert torch.equal(result._value, qt._value[0])
+        assert result.dequant_shape == (4,)
+        assert result.group_dim == 0
+
+    def test_groupwise_negative_dimension_remains_relative(self):
+        mod = QuantIdentity(
+            group_size=32,
+            group_dim=-1,
+            exponent_bit_width=4,
+            mantissa_bit_width=3,
+            return_quant_tensor=True,
+            act_quant=MXFloat8e4m3Act)
+        result = mod(torch.randn(2, 32))[0]
+        assert result.group_dim == -1
+        assert result.dequant_shape == (32,)
+
+    def test_groupwise_index_rejects_negative_leading_dimension(self):
+        mod = QuantIdentity(
+            group_size=2,
+            group_dim=-2,
+            exponent_bit_width=4,
+            mantissa_bit_width=3,
+            return_quant_tensor=True,
+            act_quant=MXFloat8e4m3Act)
+        quant_tensor = mod(torch.randn(2, 32))
+        with pytest.raises(RuntimeError, match='grouped dimension'):
+            quant_tensor[0]
+
+
 # ---------------------------------------------------------------------------
 # 4. In-place augmented assignment operators
 # ---------------------------------------------------------------------------
@@ -590,3 +660,56 @@ class TestConstructionFromNonTensor:
                             False)
         assert isinstance(qt, IntQuantTensor)
         assert qt.shape == torch.Size([3])
+
+
+# ---------------------------------------------------------------------------
+# 12. Dynamo export: cache_class backup/restore
+# ---------------------------------------------------------------------------
+
+
+class TestDynamoExportCacheClass:
+
+    def test_cache_class_cleared_and_restored(self):
+        """QONNXDynamoManager.set_export_mode should clear cache_class on enable
+        and restore it on disable, to prevent QuantTensor reconstruction
+        from FakeTensors during torch.export tracing."""
+        from brevitas.export.manager import ExportContext
+        from brevitas.export.onnx.qonnx.manager import QONNXDynamoManager
+        from brevitas.nn.quant_avg_pool import TruncAvgPool2d
+
+        class Model(torch.nn.Module):
+
+            def __init__(self):
+                super().__init__()
+                self.inp_quant = QuantIdentity(return_quant_tensor=True)
+                self.pool = TruncAvgPool2d(kernel_size=2, return_quant_tensor=False)
+
+            def forward(self, x):
+                return self.pool(self.inp_quant(x))
+
+        inp = torch.randn(2, 8, 4, 4)
+        model = Model()
+        model(inp)  # populate cache
+        model.eval()
+
+        with torch.no_grad():
+            with ExportContext(QONNXDynamoManager):
+                # Set up handlers and cache
+                model.apply(QONNXDynamoManager.set_export_handler)
+                QONNXDynamoManager._cache_inp_out(model, inp)
+
+                # Verify cache_class is set after cache_inp_out
+                assert model.pool.cache_class is not None
+                original_cache = model.pool.cache_class
+
+                # Enable export mode
+                QONNXDynamoManager.set_export_mode(model, enabled=True)
+
+                # cache_class should be cleared
+                assert model.pool.cache_class is None
+
+                # Disable export mode
+                QONNXDynamoManager.set_export_mode(model, enabled=False)
+
+                # cache_class should be restored
+                assert model.pool.cache_class is original_cache
