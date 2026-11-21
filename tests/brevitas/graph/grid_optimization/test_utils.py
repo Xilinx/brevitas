@@ -1,22 +1,22 @@
 # Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Tests for the PiSO grid builders, proxy-accessor grid helpers, stored-scale
-accessors and ordering helper (brevitas.graph.piso.utils)."""
+"""Tests for the grid builders, proxy-accessor grid helpers, stored-scale accessors
+and ordering helper of grid optimization (brevitas.graph.grid_optimization.utils)."""
 import pytest
 import torch
 
-from brevitas.graph.piso.utils import _build_grid
-from brevitas.graph.piso.utils import _get_base_scale
-from brevitas.graph.piso.utils import _grid_threshold
-from brevitas.graph.piso.utils import _has_base_scale
-from brevitas.graph.piso.utils import _has_zero_zero_point
-from brevitas.graph.piso.utils import _is_float_weight_quant
-from brevitas.graph.piso.utils import _is_int_weight_quant
-from brevitas.graph.piso.utils import _set_base_scale
-from brevitas.graph.piso.utils import compute_group_importance_permutation
-from brevitas.graph.piso.utils import make_fp_grid
-from brevitas.graph.piso.utils import make_int_grid
+from brevitas.graph.grid_optimization.utils import _build_grid
+from brevitas.graph.grid_optimization.utils import _get_base_scale
+from brevitas.graph.grid_optimization.utils import _grid_threshold
+from brevitas.graph.grid_optimization.utils import _has_base_scale
+from brevitas.graph.grid_optimization.utils import _has_zero_zero_point
+from brevitas.graph.grid_optimization.utils import _is_float_weight_quant
+from brevitas.graph.grid_optimization.utils import _is_int_weight_quant
+from brevitas.graph.grid_optimization.utils import _set_base_scale
+from brevitas.graph.grid_optimization.utils import compute_group_importance_permutation
+from brevitas.graph.grid_optimization.utils import make_fp_grid
+from brevitas.graph.grid_optimization.utils import make_int_grid
 from brevitas.inject.enum import ScalingImplType
 import brevitas.nn as qnn
 from brevitas.quant.float_quant_ocp import Fp8e4m3OCPWeightPerChannelFloat
@@ -98,8 +98,8 @@ class _IntPerChannelWeight(Int8WeightPerChannelFloat):
 
 
 class _IntPerGroupWeight(MXInt8Weight):
-    # Groupwise int weight quant with a parameter-from-stats scale (PiSO's
-    # supported scaling) instead of MX's power-of-two scale.
+    # Groupwise int weight quant with a parameter-from-stats scale (the scaling
+    # grid optimization supports) instead of MX's power-of-two scale.
     scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
     group_size = 4
 
@@ -242,7 +242,7 @@ def test_set_base_scale_group_column_write():
     before = _get_base_scale(layer).clone()
     # write only group column 1, leave column 0 untouched
     col = torch.full_like(before[:, 1], 9.0)
-    _set_base_scale(layer, col, index=(slice(None), 1))
+    _set_base_scale(layer, col, groups=slice(1, 2))
     assert torch.all(_get_base_scale(layer)[:, 1] == 9.0)
     assert torch.equal(_get_base_scale(layer)[:, 0], before[:, 0])
 

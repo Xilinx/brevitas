@@ -36,7 +36,7 @@ model:
 # - Qwen/Qwen2.5-7B-Instruct
 
 # Quantization grid. `stats` is the absmax scale heuristic, which is both the
-# baseline and the starting point that scale optimization replaces.
+# baseline and the starting point that grid optimization replaces.
 weight_quant_format:
 - int
 weight_quant_granularity:
@@ -52,45 +52,45 @@ weight_bit_width:
 - 3
 - 4
 
-# Scale selection. The three flags below are swept jointly and select one scale
+# Scale selection. The flags below are swept jointly and select one scale
 # method per run:
-#   sopt_optimize: false                              -> absmax (data-free heuristic)
-#   sopt_optimize: true,  sopt_hessian_mode: identity -> data-free solver, H = I
-#   sopt_optimize: true,  sopt_hessian_mode: dense    -> PiSO
-sopt_optimize:
+#   both grid optimization flags false              -> absmax (data-free heuristic)
+#   grid optimization with covariance mode identity -> data-free solver, H = I
+#   grid optimization with covariance mode dense    -> PiSO
+grid_optimization:
 - false
 - true
-# How scale optimization composes with error correction: false runs it as a
+# How grid optimization composes with error correction: false runs it as a
 # separate pass beforehand (decoupled, +), true runs it inside GPTQ/Qronos.
-sopt_optimize_in_gpxq:
+gpxq_use_grid_optimization:
 - false
 - true
-# Which interleaving to use when sopt_optimize_in_gpxq is set: true optimizes all
+# Which interleaving to use with GPxQ grid optimization: true optimizes all
 # group scales once per layer (layer-interleaved, *), false optimizes each group
 # scale right before error correction reaches that group (group-interleaved, †).
-sopt_group_gpxq_layer_interleaved:
+grid_opt_group_gpxq_layer_interleaved:
 - false
 - true
 # Group heuristic: false treats groups independently (PiSO_I), true optimizes each
 # group against the residual error of the groups already quantized (PiSO_S).
-sopt_group_sequential:
+grid_opt_group_sequential:
 - false
 - true
 # `identity` ignores the calibration statistics and minimizes the weight-only
 # objective ||w - s q(w)||^2, i.e. the paper's `data-free` baseline. It is reported
 # decoupled and group-interleaved: the latter differs because each group is then
 # fitted on weights that already carry the error diffused by the preceding groups.
-sopt_hessian_mode:
+grid_opt_covariance_mode:
 - dense
 - identity
-# PiSO minimizes the same objective as the algorithm it is combined with, so this
-# is not a free axis: `benchmark.py` keeps `self-activation` with GPTQ and
-# `cross-activation` with Qronos or standalone RTN, and discards the mismatches.
-sopt_objective:
-- cross-activation
-- self-activation
+# PiSO uses quantized activations for reconstruction. Qronos and standalone RTN
+# use float target activations (mismatched). GPTQ uses quantized target
+# activations (quantized).
+grid_opt_objective:
+- mismatched
+- quantized
 # Channels solved in parallel. Throughput/memory knob only; does not affect results.
-sopt_solver_batch_size:
+grid_opt_solver_batch_size:
 - 512
 # Calibrate block by block so activations are only materialized one block at a time.
 gpxq_block_name:
@@ -106,7 +106,7 @@ gptq:
 qronos:
 - true
 - false
-# Order columns by Hessian importance. The group-interleaved runs additionally
+# Order columns by covariance importance. The group-interleaved runs additionally
 # require groups to be processed contiguously, which the group-aware ordering
 # handles internally.
 gpxq_act_order:

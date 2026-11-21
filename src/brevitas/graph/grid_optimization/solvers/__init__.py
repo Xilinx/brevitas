@@ -1,7 +1,7 @@
 # Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Scale-optimization solvers for PiSO.
+"""Scale solvers for grid optimization: PiSO and its chunked variant.
 
 Each solver computes the reconstruction-optimal weight quantization scale by
 sweeping the intervals on which the round-to-nearest assignment q(w; s) is
@@ -15,22 +15,23 @@ Layout:
   - .chunked_piso : the chunked reformulations and ChunkedPiSOSolverFamily,
                     registered as 'chunked-piso' (positive scales only).
 
-Only the diagonal-H slots are implemented; the dense-H ones raise
-NotImplementedError. Importing this package registers every family in
-SCALE_SOLVER_REGISTRY, so ScaleOptimizer can resolve them by name.
+Both use only the diagonal of the covariance matrix. Importing this package
+registers every family in SCALE_SOLVER_REGISTRY, so GridOptimizer can resolve
+them by name.
 
 Reference: "Optimal Post-Training Quantization Scales and Where to Find Them"
 (https://arxiv.org/abs/2606.10890).
 """
 
-from brevitas.graph.piso.solvers.chunked_piso import _chunked_piso_sweep_per_channel_diag
-from brevitas.graph.piso.solvers.chunked_piso import _chunked_piso_sweep_per_group_diag
-from brevitas.graph.piso.solvers.chunked_piso import ChunkedPiSOSolverFamily
-from brevitas.graph.piso.solvers.common import SCALE_SOLVER_REGISTRY
-from brevitas.graph.piso.solvers.common import ScaleSolverFamily
-from brevitas.graph.piso.solvers.piso import _piso_sweep_per_channel_diag
-from brevitas.graph.piso.solvers.piso import _piso_sweep_per_group_diag
-from brevitas.graph.piso.solvers.piso import PiSOSolverFamily
+from brevitas.graph.grid_optimization.solvers.chunked_piso import \
+    _chunked_piso_sweep_per_channel_diag
+from brevitas.graph.grid_optimization.solvers.chunked_piso import _chunked_piso_sweep_per_group_diag
+from brevitas.graph.grid_optimization.solvers.chunked_piso import ChunkedPiSOSolverFamily
+from brevitas.graph.grid_optimization.solvers.common import SCALE_SOLVER_REGISTRY
+from brevitas.graph.grid_optimization.solvers.common import ScaleSolverFamily
+from brevitas.graph.grid_optimization.solvers.piso import _piso_sweep_per_channel_diag
+from brevitas.graph.grid_optimization.solvers.piso import _piso_sweep_per_group_diag
+from brevitas.graph.grid_optimization.solvers.piso import PiSOSolverFamily
 
 __all__ = [
     "SCALE_SOLVER_REGISTRY",

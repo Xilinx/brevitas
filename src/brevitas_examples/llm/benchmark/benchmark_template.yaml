@@ -185,25 +185,25 @@ seed:
 - 0
 seqlen:
 - 2048
-sopt_group_gpxq_layer_interleaved:
+grid_opt_group_gpxq_layer_interleaved:
 - false
-sopt_group_sequential:
+grid_opt_group_sequential:
 - false
-sopt_group_sequential_act_order:
+grid_opt_group_sequential_act_order:
 - true
-sopt_hessian_mode:
-- dense
-sopt_objective:
+grid_opt_covariance_mode:
+- diagonal
+grid_opt_objective:
 - unquantized
-sopt_optimize:
+grid_optimization:
 - false
-sopt_optimize_in_gpxq:
+gpxq_use_grid_optimization:
 - false
-sopt_solver:
+grid_opt_solver:
 - piso
-sopt_solver_batch_size:
+grid_opt_solver_batch_size:
 - null
-sopt_use_quant_activations:
+grid_opt_use_quant_activations:
 - true
 svd_quant:
 - false
