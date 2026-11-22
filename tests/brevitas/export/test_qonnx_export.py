@@ -15,6 +15,7 @@ from brevitas.nn import TruncAvgPool2d
 from brevitas.quant.scaled_int import Int4WeightPerTensorFloatDecoupled
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int16Bias
+from brevitas.quant_tensor import QuantTensor
 from brevitas_examples import imagenet_classification
 from tests.marker import jit_disabled_for_export
 
@@ -309,3 +310,50 @@ def test_quant_lstm_qonnx_export_matches_module(request, qonnx_export_fn, lstm_k
         for name, expected in zip(cell.input[3:15], expected_params):
             np.testing.assert_array_equal(
                 initializers[producers[name].input[0]], expected.detach().numpy())
+
+
+@jit_disabled_for_export()
+def test_failed_export_restores_model_state(request, qonnx_export_fn):
+    """A failed export leaves the model as it found it, so a later export or eager call works."""
+
+    class FailingDuringExport(torch.nn.Module):
+
+        def __init__(self):
+            super().__init__()
+            self.fail = True
+
+        def forward(self, x):
+            exporting = torch.jit.is_tracing() or torch.compiler.is_exporting()
+            if self.fail and exporting:
+                raise RuntimeError("simulated export failure")
+            return x
+
+    model = torch.nn.Sequential(
+        QuantIdentity(bit_width=4, return_quant_tensor=True),
+        FailingDuringExport(),
+        QuantIdentity(bit_width=4)).train()
+    act_quant = model[0].act_quant
+    inp = torch.randn(1, 2, 4, 4)
+
+    def state():
+        return (
+            model.training,
+            model[0].return_quant_tensor,
+            act_quant.skip_create_quant_tensor,
+            act_quant.export_mode,
+            hasattr(act_quant, "cache_inference_quant_act_backup"),
+            hasattr(model, "_brevitas_return_quant_tensor_state"))
+
+    before = state()
+    export_path = f"{request.node.name}.onnx"
+    try:
+        with pytest.raises(RuntimeError, match="simulated export failure"):
+            qonnx_export_fn(model, (inp,), export_path=export_path)
+        assert state() == before
+
+        model[1].fail = False
+        qonnx_export_fn(model, (inp,), export_path=export_path)
+        assert state() == before
+    finally:
+        rm_onnx(export_path)
+    assert isinstance(model[0](inp), QuantTensor)

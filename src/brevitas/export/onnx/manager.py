@@ -140,58 +140,63 @@ class ONNXBaseManager(BaseManager, ABC):
                         warnings.simplefilter("ignore")
                     training_state = module.training
                     module = module.eval()
-                    module.apply(cls.set_export_handler)
-                    if input_shape is not None:
-                        args = torch.empty(input_shape, dtype=torch.float)
-                    elif input_t is not None:
-                        args = input_t
-                    # do a forward pass with the dummy input to e.g. store input/output shapes
-                    if isinstance(args, tuple):
-                        # https://pytorch.org/docs/stable/onnx.html#torch.onnx.export
-                        if isinstance(args[-1], dict) and isinstance(args[-2], dict):
-                            model_args = args[:-2] + (args[-1],)
-                            model_kwargs = args[-2]
-                        elif isinstance(args[-1], dict) and not isinstance(args[-2], dict):
-                            model_args = args[:-1]
-                            model_kwargs = args[-1]
+                    try:
+                        module.apply(cls.set_export_handler)
+                        if input_shape is not None:
+                            args = torch.empty(input_shape, dtype=torch.float)
+                        elif input_t is not None:
+                            args = input_t
+                        # do a forward pass with the dummy input to e.g. store input/output shapes
+                        if isinstance(args, tuple):
+                            # https://pytorch.org/docs/stable/onnx.html#torch.onnx.export
+                            if isinstance(args[-1], dict) and isinstance(args[-2], dict):
+                                model_args = args[:-2] + (args[-1],)
+                                model_kwargs = args[-2]
+                            elif isinstance(args[-1], dict) and not isinstance(args[-2], dict):
+                                model_args = args[:-1]
+                                model_kwargs = args[-1]
+                            else:
+                                model_args = args
+                                model_kwargs = {}
+                            cls._cache_inp_out(module, *model_args, **model_kwargs)
                         else:
-                            model_args = args
-                            model_kwargs = {}
-                        cls._cache_inp_out(module, *model_args, **model_kwargs)
-                    else:
-                        cls._cache_inp_out(module, args)
-                    # Dequantize QuantTensor, if any and enabled
-                    if isinstance(args, QuantTensor):
-                        if cls.dequantize_tracing_input:
-                            args = args.value
-                        else:
-                            args = (args,)
-                    # enable export mode, this triggers collecting export values into handlers
-                    cls.set_export_mode(module, enabled=True)
-                    # temporarily disable input caching to avoid collectives empty debug values
-                    module.apply(lambda m: _override_act_caching_mode(m, enabled=False))
-                    # perform export pass
-                    if export_path is not None:
-                        export_target = export_path
-                    else:
-                        model_bytes = BytesIO()
-                        export_target = model_bytes
+                            cls._cache_inp_out(module, args)
+                        # Dequantize QuantTensor, if any and enabled
+                        if isinstance(args, QuantTensor):
+                            if cls.dequantize_tracing_input:
+                                args = args.value
+                            else:
+                                args = (args,)
+                        # enable export mode, this triggers collecting export values into handlers
+                        cls.set_export_mode(module, enabled=True)
+                        try:
+                            # temporarily disable input caching to avoid collectives empty debug values
+                            module.apply(lambda m: _override_act_caching_mode(m, enabled=False))
+                            # perform export pass
+                            if export_path is not None:
+                                export_target = export_path
+                            else:
+                                model_bytes = BytesIO()
+                                export_target = model_bytes
 
-                    # Check if we attached Float-related handlers, then we need to patch export
-                    fp8_export_patch = False
-                    for m in module.modules():
-                        if isinstance(m,
-                                      (StdFloatQCDQCastONNXMixin, BrevitasFloatQuantProxyHandler)):
-                            fp8_export_patch = True
+                            # Check if we attached Float-related handlers, then we need to patch export
+                            fp8_export_patch = False
+                            for m in module.modules():
+                                if isinstance(
+                                        m,
+                                    (StdFloatQCDQCastONNXMixin, BrevitasFloatQuantProxyHandler)):
+                                    fp8_export_patch = True
 
-                    patch_export = PatchFp8Ops if fp8_export_patch else nullcontext
-                    with patch_export():
-                        torch.onnx.export(module, args, export_target, **onnx_export_kwargs)
+                            patch_export = PatchFp8Ops if fp8_export_patch else nullcontext
+                            with patch_export():
+                                torch.onnx.export(module, args, export_target, **onnx_export_kwargs)
 
-                    # restore the model to previous properties
-                    module.apply(lambda m: _restore_act_caching_mode(m))
-                    cls.set_export_mode(module, enabled=False)
-                    module.train(training_state)
+                        finally:
+                            # restore the model to previous properties, also when export raises
+                            module.apply(lambda m: _restore_act_caching_mode(m))
+                            cls.set_export_mode(module, enabled=False)
+                    finally:
+                        module.train(training_state)
 
                     # do some cleanup on the exported ONNX model
                     if export_path is not None:
