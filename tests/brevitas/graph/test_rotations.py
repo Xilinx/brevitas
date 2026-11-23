@@ -527,17 +527,6 @@ def test_materialized_params_allocates_and_offloads():
     assert calls[2:] == [('offload', 'b'), ('offload', 'a')]
 
 
-def test_materialized_params_is_reentrant():
-    # A nested block must not reload the weights: it would discard what the outer block wrote
-    calls = []
-    module = _offloaded_linear(calls, 'a')
-    with materialized_params(module):
-        with materialized_params(module):
-            pass
-        assert calls == [('allocate', 'a')]
-    assert calls == [('allocate', 'a'), ('offload', 'a')]
-
-
 def test_materialized_params_offloads_on_exception():
     calls = []
     module = _offloaded_linear(calls, 'a')

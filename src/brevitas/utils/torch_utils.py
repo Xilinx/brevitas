@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from contextlib import contextmanager
-from contextlib import ExitStack
 import copy
 from functools import wraps
 from typing import Optional
@@ -122,29 +121,6 @@ def same_storage(a: torch.Tensor, b: torch.Tensor) -> bool:
     return a.untyped_storage().data_ptr() == b.untyped_storage().data_ptr()
 
 
-_MATERIALIZED_DEPTH = '_brevitas_materialized_depth'
-
-
-@contextmanager
-def _materialized_module_params(module: torch.nn.Module):
-    if not hasattr(module, 'allocate_params'):
-        yield
-        return
-    depth = getattr(module, _MATERIALIZED_DEPTH, 0)
-    if depth == 0:
-        module.allocate_params(module)
-    setattr(module, _MATERIALIZED_DEPTH, depth + 1)
-    try:
-        yield
-    finally:
-        if depth > 0:
-            setattr(module, _MATERIALIZED_DEPTH, depth)
-        else:
-            delattr(module, _MATERIALIZED_DEPTH)
-            if hasattr(module, 'offload_params'):
-                module.offload_params(module)
-
-
 @contextmanager
 def materialized_params(*modules: torch.nn.Module):
     """Materialize the parameters of modules offloaded with accelerate for the duration of the block.
@@ -153,13 +129,17 @@ def materialized_params(*modules: torch.nn.Module):
     and expose `allocate_params` / `offload_params`. On enter, the parameters are loaded on the
     execution device; on exit, also on early returns and exceptions, their current values are
     written back to the offloaded copy and released. Modules that are not offloaded are left
-    untouched. Re-entrant: nested blocks on an already materialized module are no-ops, so values
-    written in the outer block are not overwritten by a reload.
+    untouched.
     """
-    with ExitStack() as stack:
-        for module in modules:
-            stack.enter_context(_materialized_module_params(module))
+    for module in modules:
+        if hasattr(module, 'allocate_params'):
+            module.allocate_params(module)
+    try:
         yield
+    finally:
+        for module in reversed(modules):
+            if hasattr(module, 'offload_params'):
+                module.offload_params(module)
 
 
 def compute_channel_view_shape(tensor: torch.Tensor, channel_dim: int):
