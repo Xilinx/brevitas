@@ -158,6 +158,7 @@ class BrevitasWeightQuantProxyHandler(BrevitasQuantProxyHandler):
     def __init__(self):
         super().__init__()
         self.quant_weights = None
+        self.export_quant_weight_values = False
 
     def validate(self, bit_width, zero_point):
         if bit_width == 1:
@@ -169,6 +170,13 @@ class BrevitasWeightQuantProxyHandler(BrevitasQuantProxyHandler):
             self.validate(first_qweight.bit_width, first_qweight.zero_point)
             self.quant_weight_values = {
                 tm.weight.data_ptr(): tm.quant_weight().value for tm in module.tracked_module_list}
+            # The Quant node re-quantizes its input with the final scale and ROUND. On the float
+            # weight, that reproduces the quantizer only if it rounds with ROUND and quantizes
+            # w / scale; decoupled quantizers (e.g. A2Q) quantize w / pre_scale, others may round
+            # with FLOOR or round-to-zero. Those export the pre-quantized weights instead.
+            self.export_quant_weight_values = (
+                isinstance(module, DecoupledWeightQuantProxyFromInjector) or
+                module.rounding_mode.upper() != 'ROUND')
             self.symbolic_kwargs = {
                 'scale': first_qweight.scale,
                 'zero_point': first_qweight.zero_point,
@@ -182,6 +190,13 @@ class BrevitasWeightQuantProxyHandler(BrevitasQuantProxyHandler):
                 'bit_width'] == 1 else BrevitasQuantOp
 
     def symbolic_execution(self, x: Tensor):
+        if self.export_quant_weight_values:
+            try:
+                x = self.quant_weight_values[x.data_ptr()]
+            except RuntimeError:
+                # FakeTensor under torch.export has no storage; QONNXDynamoManager rejects the
+                # decoupled quantizers that need the pre-quantized values
+                pass
         return super().symbolic_execution(x)
 
 
