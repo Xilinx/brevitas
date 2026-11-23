@@ -32,6 +32,7 @@ from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
 from brevitas.utils.parametrization_utils import RotationWeightParametrization
 from brevitas.utils.python_utils import recurse_getattr
+from brevitas.utils.torch_utils import materialized_params
 from tests.marker import requires_torch_compile
 
 from .equalization_fixtures import ATOL
@@ -508,3 +509,39 @@ def test_rotated_module_keeps_had_mat_for_meta_layer():
     rotated = RotatedModule(layer, had_mat=had_mat, k=K)
     assert not rotated.had_mat.is_meta
     assert torch.equal(rotated.had_mat.data, had_mat.to(rotated.had_mat.device))
+
+
+def _offloaded_linear(calls, name):
+    # Stand-in for a module offloaded by offload_model, which attaches these two functions
+    module = nn.Linear(4, 4)
+    module.allocate_params = lambda m: calls.append(('allocate', name))
+    module.offload_params = lambda m: calls.append(('offload', name))
+    return module
+
+
+def test_materialized_params_allocates_and_offloads():
+    calls = []
+    modules = [_offloaded_linear(calls, n) for n in 'ab'] + [nn.Linear(4, 4)]  # last: not offloaded
+    with materialized_params(*modules):
+        assert calls == [('allocate', 'a'), ('allocate', 'b')]
+    assert calls[2:] == [('offload', 'b'), ('offload', 'a')]
+
+
+def test_materialized_params_is_reentrant():
+    # A nested block must not reload the weights: it would discard what the outer block wrote
+    calls = []
+    module = _offloaded_linear(calls, 'a')
+    with materialized_params(module):
+        with materialized_params(module):
+            pass
+        assert calls == [('allocate', 'a')]
+    assert calls == [('allocate', 'a'), ('offload', 'a')]
+
+
+def test_materialized_params_offloads_on_exception():
+    calls = []
+    module = _offloaded_linear(calls, 'a')
+    with pytest.raises(RuntimeError):
+        with materialized_params(module):
+            raise RuntimeError
+    assert calls == [('allocate', 'a'), ('offload', 'a')]
