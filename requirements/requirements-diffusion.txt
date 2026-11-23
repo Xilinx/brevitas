@@ -1,4 +1,4 @@
-accelerate<1.16 # Not compatible with quant_injector class
+accelerate
 diffusers<=0.34
 numexpr<2.14.0
 pandas

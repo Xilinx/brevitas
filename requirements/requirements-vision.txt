@@ -1,3 +1,3 @@
-accelerate<1.16 # Not compatible with quant_injector class
+accelerate
 torchvision
 tqdm
