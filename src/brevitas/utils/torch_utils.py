@@ -128,16 +128,22 @@ def materialized_params(*modules: torch.nn.Module):
     Modules offloaded by `offload_model` (brevitas_examples) hold their parameters on the meta device
     and expose `allocate_params` / `offload_params`. On enter, the parameters are loaded on the
     execution device; on exit, also on early returns and exceptions, their current values are
-    written back to the offloaded copy and released. Modules that are not offloaded are left
-    untouched.
+    written back to the offloaded copy and released.
+
+    Modules are left in the state they had on enter: modules that are not offloaded, or whose
+    parameters are already materialized (e.g. by an enclosing block), are neither loaded nor released.
+    In particular, a nested block does not reload the parameters, which would discard the values
+    written since they were loaded.
     """
+    materialized = []
     for module in modules:
-        if hasattr(module, 'allocate_params'):
+        if hasattr(module, 'allocate_params') and any(p.is_meta for p in module.parameters()):
             module.allocate_params(module)
+            materialized.append(module)
     try:
         yield
     finally:
-        for module in reversed(modules):
+        for module in reversed(materialized):
             if hasattr(module, 'offload_params'):
                 module.offload_params(module)
 

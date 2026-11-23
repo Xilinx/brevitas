@@ -23,7 +23,6 @@ Reference: "Optimal Post-Training Quantization Scales and Where to Find Them"
 (https://arxiv.org/abs/2606.10890).
 """
 
-from contextlib import nullcontext
 from functools import partial
 import math
 from typing import Callable
@@ -111,8 +110,7 @@ class ScaleOptimizer:
             self,
             layer: nn.Module,
             H: Optional[torch.Tensor] = None,
-            G: Optional[torch.Tensor] = None,
-            skip_offload: bool = False):
+            G: Optional[torch.Tensor] = None):
         """Compute and write the optimized scales for layer in one shot.
 
         Builds the quantization grid from the layer's quantizer, selects the
@@ -120,9 +118,9 @@ class ScaleOptimizer:
         diagonal H, greedy sequential), runs it in batches over output
         channels, and stores optimal_s * threshold into the weight quantizer's
         scaling parameter. H/G are the Hessians of Eq. H,G-def; if
-        cross_act_objective is set, G is required. skip_offload means the caller
-        manages the layer params: it has allocated them already and will offload
-        them later, so neither is done here.
+        cross_act_objective is set, G is required. If the layer is offloaded, its
+        params are materialized for the update, unless the caller (e.g. GPTQ/Qronos)
+        has already materialized them.
 
         Solver-specific work is split across _select_solver (choose the function),
         _prepare_matrices (shape/permute H/G/W) and _bind_solver_matrices (bind
@@ -130,11 +128,9 @@ class ScaleOptimizer:
         """
         if not ScaleOptimizer.is_layer_valid(layer):
             return
-        # Materialize the params if offloaded (e.g., meta device with accelerate). A caller
-        # passing skip_offload owns the whole params lifecycle and has already materialized
-        # them, so materializing again would reload the weights from accelerate's weights_map
-        # and discard anything written since.
-        with nullcontext() if skip_offload else materialized_params(layer):
+        # Materialize the params if offloaded (e.g., meta device with accelerate). If the caller
+        # (e.g. GPTQ/Qronos) has already materialized them, this is a no-op.
+        with materialized_params(layer):
             self._single_layer_update(layer, H, G)
 
     def _single_layer_update(
@@ -859,8 +855,7 @@ class PiSOMixin:
             self.scale_optimizer.init_scale_optimizer_params(layer=self.layer, perm=perm, H=H, G=G)
         else:
             G = None if G is None else G.unsqueeze(0)
-            self.scale_optimizer.single_layer_update(
-                self.layer, H.unsqueeze(0), G, skip_offload=True)
+            self.scale_optimizer.single_layer_update(self.layer, H.unsqueeze(0), G)
 
     def _on_column_reached(self, column_idx: int) -> None:
         if self.scale_optimizer.should_update_group(column_idx):
