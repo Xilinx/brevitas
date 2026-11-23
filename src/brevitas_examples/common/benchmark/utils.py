@@ -44,7 +44,14 @@ class EntryPointUtils(ABC):
     validate an argument combination (`validate`), parse metrics out of a job log
     (`parse_log`), and it exposes the argument parser for the underlying script
     (`argument_parser`) as well as the metrics it produces (`eval_metrics`).
+
+    The argument parser can extend the one of the script with arguments that only
+    apply to benchmark jobs (`benchmark_args`). They are stored in the
+    benchmark_config.yaml of each job, so that its config.yaml can be passed to the
+    script with --config.
     """
+
+    benchmark_args: Tuple[str, ...] = ()
 
     @staticmethod
     @abstractmethod
@@ -534,13 +541,14 @@ def args_dict_to_command(entrypoint_parser: ArgumentParser, args_dict: Dict) -> 
 
 
 def run_args_bucket_process(
-        main_entrypoint: Callable,
-        id: int,
-        num_processes: int,
-        cuda_visible_devices: str,
-        results_folder: str,
-        max_num_retries: int,
-        args_queue: Queue):
+    main_entrypoint: Callable,
+    id: int,
+    num_processes: int,
+    cuda_visible_devices: str,
+    results_folder: str,
+    max_num_retries: int,
+    args_queue: Queue,
+    benchmark_args: Tuple[str, ...] = ()):
     # Set visible devices
     os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
     os.environ["HIP_VISIBLE_DEVICES"] = cuda_visible_devices
@@ -589,9 +597,13 @@ def run_args_bucket_process(
                 pass
         else:
             os.mkdir(job_folder)
-        # Save yaml file for reproducibility
+        # Save yaml file for reproducibility. It can be passed to the entrypoint script with --config,
+        # so the arguments that only apply to the benchmark job are saved in another file
         with open(f"{job_folder}/config.yaml", 'w') as f:
-            yaml.dump(args_dict, f)
+            yaml.dump({k: v for k, v in args_dict.items() if k not in benchmark_args}, f)
+        if len(benchmark_args) > 0:
+            with open(f"{job_folder}/benchmark_config.yaml", 'w') as f:
+                yaml.dump({k: v for k, v in args_dict.items() if k in benchmark_args}, f)
         # Enable reruning the process there was a crash
         num_retries = 0
         while num_retries < max_num_retries:
@@ -696,6 +708,11 @@ class BenchmarkUtils:
                 # Retrieve the configuration from the YAML file
                 with open(f"{results_folder}/{job_name}/config.yaml", 'r') as f:
                     job_config = yaml.safe_load(f)
+                # Arguments that only apply to the benchmark job, if any
+                benchmark_config_path = f"{results_folder}/{job_name}/benchmark_config.yaml"
+                if os.path.isfile(benchmark_config_path):
+                    with open(benchmark_config_path, 'r') as f:
+                        job_config = {**job_config, **yaml.safe_load(f)}
                 try:
                     with open(f"{results_folder}/{job_name}/run_results.yaml", 'r') as f:
                         job_results = yaml.safe_load(f)
@@ -794,6 +811,7 @@ class BenchmarkUtils:
                     script_args.results_folder,
                     script_args.max_num_retries,
                     args_queue,
+                    entry_point_utils.benchmark_args,
                 ),
             )
             process.start()

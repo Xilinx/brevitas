@@ -102,21 +102,24 @@ def rotate(x: torch.Tensor, rotation: Tuple[int, Optional[torch.Tensor], int]) -
     init_shape = x.shape
     x = x.reshape(*init_shape[:-1], init_shape[-1] // hidden_dim, hidden_dim)
     if fast_hadamard_transform is None:
-        x = matmul_hadU(x)
+        x = matmul_hadU(x, hadK=had_mat, K=k)
     else:
         x = matmul_hadU_cuda(x, had_mat, k)
     return x.reshape(init_shape)
 
 
+def configure_proxies(quant_config):
+    # A list has the config of each part of a layer that vLLM merges (e.g., q/k/v projections)
+    if isinstance(quant_config, list):
+        return [configure_proxy(config) for config in quant_config]
+    return configure_proxy(quant_config)
+
+
 class QuantLinear(LinearMethodBase):
 
     def __init__(self, quant_configs: Dict[str, Any]) -> None:
-        self.input_quant = configure_proxy(quant_configs["input_config"])
-        weight_config = quant_configs["weight_config"]
-        if isinstance(weight_config, list):
-            self.weight_quant = [configure_proxy(config) for config in weight_config]
-        else:
-            self.weight_quant = configure_proxy(weight_config)
+        self.input_quant = configure_proxies(quant_configs["input_config"])
+        self.weight_quant = configure_proxies(quant_configs["weight_config"])
         self.bias_quant = configure_proxy(quant_configs["bias_config"])
         self.output_quant = configure_proxy(quant_configs["output_config"])
         self.rotation = configure_rotation(quant_configs["rotation_config"])
@@ -132,6 +135,11 @@ class QuantLinear(LinearMethodBase):
             **extra_weight_attrs) -> None:
         weight_loader = extra_weight_attrs.get("weight_loader")
         self.output_partition_sizes = output_partition_sizes
+        for name, quant in (('input', self.input_quant), ('weight', self.weight_quant)):
+            if isinstance(quant, list) and len(quant) != len(output_partition_sizes):
+                raise ValueError(
+                    f"The layer has {len(output_partition_sizes)} parts, but {len(quant)} {name} "
+                    "quantizers were exported for them.")
 
         weight = ModelWeightParameter(
             data=torch.empty(
@@ -164,14 +172,34 @@ class QuantLinear(LinearMethodBase):
             bias: Optional[torch.Tensor] = None) -> torch.Tensor:
         if self.rotation is not None:
             x = rotate(x, self.rotation)
-        if self.input_quant is not None:
-            x = self.input_quant(x)[0]
         if bias is not None and self.bias_quant is not None:
             bias = self.bias_quant(bias)[0]
-        y = torch.nn.functional.linear(x, layer.weight, bias)
+        if isinstance(self.input_quant, list):
+            y = self.apply_per_part(layer, x, bias)
+        else:
+            if self.input_quant is not None:
+                x = self.input_quant(x)[0]
+            y = torch.nn.functional.linear(x, layer.weight, bias)
         if self.output_quant is not None:
             y = self.output_quant(y)[0]
         return y
+
+    def apply_per_part(
+            self,
+            layer: torch.nn.Module,
+            x: torch.Tensor,
+            bias: Optional[torch.Tensor] = None) -> torch.Tensor:
+        # The parts of a merged layer share the input, but each one has its own input quantizer
+        outputs = []
+        start_idx = 0
+        for input_quant, partition_size in zip(self.input_quant, self.output_partition_sizes):
+            end_idx = start_idx + partition_size
+            part_x = x if input_quant is None else input_quant(x)[0]
+            part_bias = None if bias is None else bias[start_idx:end_idx]
+            outputs.append(
+                torch.nn.functional.linear(part_x, layer.weight[start_idx:end_idx], part_bias))
+            start_idx = end_idx
+        return torch.cat(outputs, dim=-1)
 
 
 class QuantEmbeddingMethod(UnquantizedEmbeddingMethod):

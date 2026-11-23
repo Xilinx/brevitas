@@ -104,9 +104,12 @@ def find_closest_hadamard_number(starting_dim, steps=1):
     return int(best_value.cpu().item())
 
 
-def matmul_hadU(X, transpose=False):
+def matmul_hadU(X, transpose=False, hadK=None, K=None):
     n = X.shape[-1]
-    hadK, K = get_hadK(n, transpose)
+    # The factor of the Hadamard matrix (hadK, K) can be given, e.g., by a module that stores it, so
+    # that get_hadK does not load it from disk at every call, which torch.compile cannot trace either
+    if K is None:
+        hadK, K = get_hadK(n, transpose)
     input = X.clone().reshape(-1, n, 1)
     output = input.clone()
     while input.shape[1] > K:

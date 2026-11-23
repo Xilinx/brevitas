@@ -12,8 +12,9 @@ vLLM with quantization applied transparently.
 
 .. note::
 
-   vLLM is not a dependency of Brevitas and must be installed separately.
-   The vLLM import only occurs when ``--export-target vllm`` is specified.
+   vLLM is not a dependency of Brevitas and must be installed separately. The export with
+   ``--export-target vllm`` does not need it: vLLM is only required to load or evaluate the
+   exported model, possibly in another environment (see `Evaluation in Benchmarks`_).
 
 
 QDQ-based Export
@@ -68,6 +69,18 @@ Activation quantization granularity options:
 * Per tensor (static)
 * Per row (dynamic) -- FP8 only
 * Per group (dynamic)
+
+
+Merged Layers
+-------------
+
+vLLM merges the query, key, and value projections into one layer (``qkv_proj``), and the gate and up
+projections into another one (``gate_up_proj``), while Brevitas exports them separately. Every part
+keeps its own weight and input quantizers, so the parts can have different formats (e.g., some
+layers in MXFP8 and the others in MXFP4), and a part that is not quantized stays in float. If all
+the parts share the input quantizer, the merged layer is computed with a single matmul, and
+otherwise with one matmul per part. The bias, output, and rotation quantizers apply to the whole
+merged layer, so they must be the same for all its parts.
 
 
 First and Last Layer Quantization
@@ -348,9 +361,37 @@ a ``vllm_`` prefix, so that they appear in ``results.csv`` next to the metrics c
 To save disk space, the export is deleted after the evaluation, even if it fails, unless
 ``vllm_eval_keep_export`` is set to ``true``.
 
+``vllm_eval_config`` can also be a list of configurations, and the export is then evaluated once with
+each of them, in order. The lm_eval backend needs it to evaluate likelihood and generative tasks, since it
+cannot mix them in a run, and the metrics of all the runs are added to the results. In a benchmark YAML,
+the list of configurations of a job is one value of the sweep: ``vllm_eval_config: [[likelihood.yaml,
+generation.yaml]]``.
+
+vLLM and the evaluation harnesses require specific versions of PyTorch and other packages, so the
+evaluation can run in another environment than the quantization, which does not need vLLM. The
+``python`` key of an evaluation configuration selects the interpreter of that environment, and each
+configuration can use its own, e.g., one environment for lm_eval and another one for LightEval:
+
+.. code-block:: yaml
+
+   # vllm_eval.yaml
+   backend: lm_eval
+   python: /path/to/vllm_env/bin/python
+
+Brevitas must be installed in that environment from the same repository, since vLLM loads the
+``quant_brevitas`` quantization method through its plugin, e.g., with
+``pip install -e ".[vllm_eval_lm_eval]"``. Before any job starts, every interpreter is checked to
+import vLLM, the evaluation harness and the plugin. Without ``python``, the evaluation runs in the
+environment of the benchmark. ``brevitas_vllm_eval`` itself ignores ``python``.
+
 The benchmark process keeps part of the GPU memory while vLLM runs, so ``gpu_memory_utilization``
 might need to be lowered. The evaluation can use all the GPUs assigned to each job through
 ``--num-gpus-per-process``, by setting ``parallelism`` in the evaluation configuration.
+
+The ``config.yaml`` of each job folder contains the arguments of the quantization, and it can be
+passed to ``brevitas_ptq_llm --config`` to run the job again on its own. The arguments that only
+apply to benchmark jobs, ``vllm_eval_config`` and ``vllm_eval_keep_export``, are stored in
+``benchmark_config.yaml`` instead.
 
 
 FAQ
@@ -375,5 +416,5 @@ the underlying quantization format maps to one of the supported inference handle
 * *Why do I get an import error for vLLM?*
 
 vLLM is not bundled with Brevitas and must be installed separately in your environment.
-The vLLM-specific code is imported only by the vLLM export and evaluation entrypoints, so vLLM
-is not required for other Brevitas workflows.
+It is imported only to load or evaluate an exported model (e.g., by ``brevitas_vllm_eval``), so vLLM
+is not required for the export or for other Brevitas workflows.

@@ -6,6 +6,7 @@ from argparse import ArgumentTypeError
 from argparse import Namespace
 import json
 from numbers import Number
+import os
 from pathlib import Path
 import pprint
 import sys
@@ -133,6 +134,15 @@ def create_args_parser() -> ArgumentParser:
         help='Directory in which evaluation results are stored. Default: %(default)s.')
     parser.add_argument(
         '--seed', type=int, default=0, help='vLLM engine seed. Default: %(default)s.')
+    parser.add_argument(
+        '--python',
+        type=str,
+        default=None,
+        help='Python interpreter of the environment in which the benchmarks run this evaluation '
+        '(e.g., /path/to/env/bin/python), where vLLM, the evaluation harness and Brevitas are '
+        'installed. It can differ from the environment used for quantization. brevitas_vllm_eval '
+        'itself ignores it, and runs in the environment it is started from. Default: the '
+        'interpreter of the benchmark.')
     return parser
 
 
@@ -351,6 +361,10 @@ def run_lighteval(args: Namespace, model_path: Path, tasks: list[str]) -> dict[s
 
 def evaluate(args: Namespace) -> dict[str, int | float]:
     """Evaluate the model and store the numeric metrics of both backends in results.json."""
+    # vLLM forks its engine process unless CUDA is initialized, but a query like
+    # torch.cuda.is_available() in this process (e.g., by the libraries of a task) already prevents
+    # a forked process from using CUDA. A spawned one starts clean.
+    os.environ.setdefault('VLLM_WORKER_MULTIPROC_METHOD', 'spawn')
     model_path = _validate_model(args)
     output_dir = Path(args.output_dir).expanduser()
     output_dir.mkdir(parents=True, exist_ok=True)

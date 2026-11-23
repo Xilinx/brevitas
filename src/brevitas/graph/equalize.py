@@ -1528,7 +1528,8 @@ def _apply_had_device(tensor, had_K, K):
     if tensor.is_cuda and fast_hadamard_transform is not None:
         return matmul_hadU_cuda(tensor, had_K, K)
     else:
-        return matmul_hadU(tensor)
+        # The factor that the rotation stores, as in the CUDA path, not loaded again from disk
+        return matmul_hadU(tensor, hadK=had_K, K=K)
 
 
 def _apply_ort_device(tensor, ort, *args):

@@ -117,6 +117,13 @@ def _prepare_model(model: torch.nn.Module) -> torch.nn.Module:
     return model
 
 
+def _restore_model(model: torch.nn.Module) -> None:
+    # The mock of save_pretrained is an attribute of the instance, which shadows the method of the
+    # class. It is only needed while the Trainer runs: afterwards the model has to save itself
+    # again, e.g., for the vLLM export, which would otherwise export a folder without the weights.
+    vars(model).pop("save_pretrained", None)
+
+
 def apply_fine_tuning(
         model: torch.nn.Module,
         tokenizer: PreTrainedTokenizerBase,
@@ -173,6 +180,7 @@ def apply_fine_tuning(
     model = _prepare_model(model)
     # Enable skipping training
     if training_args.max_steps <= 0:
+        _restore_model(model)
         return
     # Remove hooks and empty cache before starting training
     remove_hooks(model)
@@ -210,3 +218,4 @@ def apply_fine_tuning(
     trainer.train()
     # After finishing training, set eval mode again
     model.eval()
+    _restore_model(model)

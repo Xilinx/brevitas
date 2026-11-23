@@ -80,7 +80,8 @@ def test_vllm_export_validation(extra_args, error):
             validate(args)
 
 
-def test_vllm_eval_config_validation(tmp_path):
+@patch('brevitas_examples.llm.benchmark.llm_benchmark.check_vllm_eval_env')
+def test_vllm_eval_config_validation(check_vllm_eval_env, tmp_path):
     args = parse_benchmark_args(tmp_path)
     LLMEntryPointUtils.validate(args)
 
@@ -161,7 +162,7 @@ def test_vllm_eval_in_benchmark_job(tmp_path, vllm_eval_run, keep_export):
 
     cmd = vllm_eval_run.call_args.args[0]
     assert cmd[:3] == [sys.executable, '-m', 'brevitas_examples.llm.eval_vllm']
-    assert cmd[cmd.index('--config') + 1] == args.vllm_eval_config
+    assert cmd[cmd.index('--config') + 1] == args.vllm_eval_config[0]
     assert cmd[cmd.index('--model') + 1] == os.path.join(job_folder, 'vllm_export')
     assert cmd[cmd.index('--output-dir') + 1] == os.path.join(job_folder, 'vllm_eval')
     assert model is None

@@ -240,10 +240,15 @@ def model_export(model, tokenizer, ref_input, args, config=None):
     elif 'gguf' in args.export_target:
         save_quantized_as_gguf(model, tokenizer, args.export_target, export_path=args.export_path)
     elif args.export_target == 'vllm':
-        from brevitas.export.inference.vLLM.manager import vLLMExportManager
+        # The export does not need vLLM, which is only required to load the exported model
+        from brevitas.export.inference.vLLM.export_manager import vLLMExportManager
 
         model = offload_model(model)
-        with quant_inference_mode(model, export_manager=vLLMExportManager) as export_mode:
+        # As for ONNX: the forward only prepares the export, without an autograd graph, which would
+        # keep the intermediate tensors of every quantizer of a fine-tuned model
+        model.eval()
+        with torch.no_grad(), quant_inference_mode(model,
+                                                   export_manager=vLLMExportManager) as export_mode:
             model(**ref_input)
             remove_hooks(model)
             export_mode.export_manager.export(model, tokenizer, args.export_prefix)
