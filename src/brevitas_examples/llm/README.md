@@ -29,7 +29,7 @@ usage: main.py [-h] [--config CONFIG] [--model MODEL] [--custom-quantizer CUSTOM
                [--learned-round-iters LEARNED_ROUND_ITERS] [--learned-round-scale] [--quantize-input-zero-point] [--quantize-first-last-layer] [--magr] [--magr-alpha MAGR_ALPHA] [--qronos]
                [--qronos-alpha QRONOS_ALPHA] [--grid-opt-magnitude {one,square,abs,sqrt_abs,rms_quad,rms_plus_abs}] [--grid-opt-magnitude-factor GRID_OPT_MAGNITUDE_FACTOR]
                [--grid-opt-magnitude-scope {block,shared_step,row}] [--grid-opt-sweep-steps GRID_OPT_SWEEP_STEPS] [--grid-opt-sweep-step GRID_OPT_SWEEP_STEP]
-               [--grid-opt-scale-placement {seed,sweep}] [--gptq] [--gpfq] [--gpxq-act-order] [--gpxq-use-quant-activations] [--gpxq-use-grid-optimization] [--disable-create-weight-orig]
+               [--grid-opt-scale-placement {absmax,sweep}] [--gptq] [--gpfq] [--gpxq-act-order] [--gpxq-use-quant-activations] [--gpxq-use-grid-optimization] [--disable-create-weight-orig]
                [--gpxq-max-accumulator-bit-width GPXQ_MAX_ACCUMULATOR_BIT_WIDTH] [--gpxq-max-accumulator-tile-size GPXQ_MAX_ACCUMULATOR_TILE_SIZE] [--act-calibration] [--grid-optimization] [--bias-corr] [--ln-affine-merge]
                [--convert-layernorm-to-rmsnorm] [--replace-rmsnorm] [--no-quantize] [--scaling-min-val SCALING_MIN_VAL] [--quant-sdpa {eager,functional,fx}]
                [--eager-quant-sdpa-class EAGER_QUANT_SDPA_CLASS] [--weight-equalization] [--rotation {fx,layerwise,fused_no_fx}] [--fine-tune] [--optimize-rotations] [--custom-trainer CUSTOM_TRAINER]
@@ -39,7 +39,7 @@ usage: main.py [-h] [--config CONFIG] [--model MODEL] [--custom-quantizer CUSTOM
                [--export-prefix EXPORT_PREFIX] [--export-path EXPORT_PATH] [--checkpoint-name CHECKPOINT_NAME] [--load-checkpoint] [--learned-round {None,identity}] [--learned-round-fast-update]
                [--few-shot-eval {lm_eval,lighteval}] [--few-shot-override-batch-size FEW_SHOT_OVERRIDE_BATCH_SIZE] [--compile-ptq] [--compile-eval] [--few-shot-zeroshot]
                [--bos-preprocessing {None,document,sequence}] [--few-shot-limit FEW_SHOT_LIMIT] [--few-shot-tasks [FEW_SHOT_TASKS ...]] [--awq-scale] [--awq-clip]
-               [--calibration-batch-size CALIBRATION_BATCH_SIZE] [--grid-opt-solver {chunked-piso,gguf-descent,gguf-seed,gguf-sweep,piso}]
+               [--calibration-batch-size CALIBRATION_BATCH_SIZE] [--grid-opt-solver {chunked-piso,gguf-descent,gguf-minmax,gguf-sweep,piso}]
                [--grid-opt-use-quant-activations | --no-grid-opt-use-quant-activations] [--grid-opt-solver-batch-size GRID_OPT_SOLVER_BATCH_SIZE] [--grid-opt-objective {unquantized,quantized,mismatched}]
                [--grid-opt-group-sequential | --no-grid-opt-group-sequential] [--grid-opt-group-sequential-act-order | --no-grid-opt-group-sequential-act-order] [--grid-opt-covariance-mode {dense,diagonal,identity}]
                [--grid-opt-group-gpxq-layer-interleaved | --no-grid-opt-group-gpxq-layer-interleaved]
@@ -163,11 +163,11 @@ options:
                         GGUF solvers: what the mean square of --grid-opt-magnitude is taken over. shared_step, the groups sharing a scale step, requires a quantizer whose scales are quantized on a grid
                         of their own. Default: row.
   --grid-opt-sweep-steps GRID_OPT_SWEEP_STEPS
-                        GGUF solvers: number of trial scales of a sweep. Default: the solver's own, 9 on each side of the seed without an offset, 36 with one.
+                        GGUF solvers: number of trial scales of a sweep. Default: the solver's own, 9 on each side of the absmax scale without a zero-point, 36 with one.
   --grid-opt-sweep-step GRID_OPT_SWEEP_STEP
-                        GGUF solvers: spacing of the trial scales of a sweep. Default: the solver's own, 0.1 without an offset, 0.05 with one.
-  --grid-opt-scale-placement {seed,sweep}
-                        GGUF solvers, for a quantizer whose scales are stored on a grid of their own: place them there by their largest magnitude (seed) or by a weighted sweep around it (sweep).
+                        GGUF solvers: spacing of the trial scales of a sweep. Default: the solver's own, 0.1 without a zero-point, 0.05 with one.
+  --grid-opt-scale-placement {absmax,sweep}
+                        GGUF solvers, for a quantizer whose scales are stored on a grid of their own: place them there by their largest magnitude (absmax) or by a weighted sweep around it (sweep).
                         Default: sweep.
   --gptq                Apply GPTQ.
   --gpfq                Apply GPFQ.
@@ -264,9 +264,9 @@ options:
   --awq-clip            Whether to apply AWQ clipping (default: False).
   --calibration-batch-size CALIBRATION_BATCH_SIZE
                         Batch size for calibration data loader. (default: 1).
-  --grid-opt-solver {chunked-piso,gguf-descent,gguf-seed,gguf-sweep,piso}
+  --grid-opt-solver {chunked-piso,gguf-descent,gguf-minmax,gguf-sweep,piso}
                         Solver that optimizes the scale. piso is PiSO (Piecewise Scale Optimization); chunked-piso is a faster variant that only supports positive scales; the gguf-* solvers are
-                        llama.cpp's scale searches. Default: piso
+                        GGUF-style block scale searches. Default: piso
   --grid-opt-use-quant-activations
                         Enable Use quantized activations with --grid-optimization. Default: enabled
   --no-grid-opt-use-quant-activations

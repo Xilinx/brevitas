@@ -565,7 +565,7 @@ def test_family_solve_dispatches_on_the_number_of_groups(name, per_channel, per_
     g_diag = spd_matrix(D, seed=5).diag().contiguous()
     b = linear_term(w, g_diag)
     s = SCALE_SOLVER_REGISTRY.get(name).solve(
-        w, b, h_diag, grid, allow_negative_s=False, with_offset=False, eps=SOLVER_EPS)
+        w, b, h_diag, grid, allow_negative_s=False, eps=SOLVER_EPS)
     if n_groups == 1:
         expected = per_channel(w[:, 0], h_diag, grid, b[:, 0], SOLVER_EPS, False)
     else:

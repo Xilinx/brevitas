@@ -37,7 +37,7 @@ class GridOptimizationArgumentParser(AlgorithmArgumentParser):
             choices=sorted(SCALE_SOLVER_REGISTRY.get_registered_keys()),
             help='Solver that optimizes the scale. piso is PiSO (Piecewise Scale '
             'Optimization); chunked-piso is a faster variant that only supports positive '
-            'scales; the gguf-* solvers are llama.cpp\'s scale searches. Default: piso')
+            'scales; the gguf-* solvers are GGUF-style block scale searches. Default: piso')
 
         GridOptimizationArgumentParser._add_bool(
             parser,

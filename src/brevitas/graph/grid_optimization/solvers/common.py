@@ -247,7 +247,7 @@ class ScaleSolverFamily(ABC):
             unscaled_grid: torch.Tensor,
             *,
             allow_negative_s: bool,
-            with_offset: bool,
+            fit_zero_point: bool = False,
             eps: float = 1e-6,
             scale_quant_grid: Optional[Any] = None,
             zero_point_quant_grid: Optional[Any] = None,
@@ -264,13 +264,16 @@ class ScaleSolverFamily(ABC):
             unscaled_grid: the sorted integer (or minifloat) grid the weights are
                 rounded to.
             allow_negative_s: whether a scale may be negative.
-            with_offset: whether the quantizer stores an offset (a zero-point) the
-                solver fits as well, or reconstructs q * scale alone.
+            fit_zero_point: whether the quantizer has a zero-point the solver fits
+                as well (returned as ScaleSolution.offset), or reconstructs
+                q * scale alone. Only a family whose check_layer accepts a layer with
+                a non-zero zero-point receives True.
             eps: numerical tolerance, for the solvers that take one.
             scale_quant_grid / zero_point_quant_grid: the nested grids the scales
-                (offsets) are quantized on, for a layer that has them (see
+                (zero-points) are quantized on, for a layer that has them (see
                 utils.NestedGrid); only a family whose check_layer accepts such a
-                layer receives them.
+                layer receives them. zero_point_quant_grid is only set with
+                fit_zero_point.
             solver_kwargs: the options of the solver, the same for every layer; a
                 family ignores those it does not take.
 

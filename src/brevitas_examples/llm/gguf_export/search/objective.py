@@ -25,7 +25,7 @@
 """What a fit is weighed by: the covariance of each input channel times a magnitude
 term computed from the weights themselves.
 
-llama.cpp's usual magnitude, `rms_quad`, behaves like |x| for large weights,
+The default magnitude, `rms_quad`, behaves like |x| for large weights,
 making the fit relative rather than absolute, and saturates for near-zero
 weights so they keep some say.
 """

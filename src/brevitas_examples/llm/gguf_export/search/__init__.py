@@ -1,8 +1,8 @@
 # Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""llama.cpp's scale searches, applied to a quantized model as grid optimization
-solvers (see brevitas.graph.grid_optimization).
+"""Block-wise scale searches adapted from llama.cpp, applied to a quantized model as
+grid optimization solvers (see brevitas.graph.grid_optimization).
 
   - .kernels   : the block searches;
   - .objective : what a fit is weighed by;

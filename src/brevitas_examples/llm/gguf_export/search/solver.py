@@ -22,9 +22,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""llama.cpp's scale searches as grid optimization solvers.
+"""Block-wise scale searches, adapted from llama.cpp, as grid optimization solvers.
 
-Each solver runs one of llama.cpp's block searches on whatever layer grid
+Each solver runs one of the block searches of .kernels on whatever layer grid
 optimization hands it, and every layer the same way. What a layer contributes is
 read from its quantizer:
 
@@ -35,18 +35,19 @@ read from its quantizer:
     quantizer;
   - a quantizer that quantizes its scales (and zero-points) in turn on a nested
     grid, a step shared by a run of groups times an integer per group, as the
-    GGUF K formats do, has them placed on that grid as llama.cpp places them;
-  - a scale that cannot be negative is seeded positive, instead of llama.cpp's
-    signed seed.
+    GGUF K formats do, has them placed on that grid (see SCALE_PLACEMENTS);
+  - a scale that cannot be negative starts from a positive absmax scale, instead
+    of the signed one.
 
 A solver only accepts the layers its fit can be written into (see check_layer);
 the others are skipped, as grid optimization skips any unsupported layer.
 
 The fit minimises the objective grid optimization hands every solver,
 r^T H r - 2 r^T b with the diagonal of H, each element further weighed by a
-magnitude term (see objective.py). When X_tilde = X (G = H), that is
-llama.cpp's weighted squared error, with the diagonal of H in place of the mean
-square activation it calls an imatrix (half of it, which does not change the fit).
+magnitude term (see objective.py). When X_tilde = X (G = H), that is the
+weighted squared error sum(diag(H) * magnitude * (w - r)^2), up to a constant;
+diag(H) is twice the mean square activation of each input channel (an
+importance matrix), a factor that does not change the fit.
 """
 
 from typing import Optional
@@ -65,21 +66,21 @@ from brevitas.graph.grid_optimization.utils import _has_base_zero_point
 from brevitas.graph.grid_optimization.utils import _has_zero_zero_point
 from brevitas.graph.grid_optimization.utils import _is_int_weight_quant
 from brevitas.graph.grid_optimization.utils import NestedGrid
+from brevitas_examples.llm.gguf_export.search.kernels import absmax_scale
 from brevitas_examples.llm.gguf_export.search.kernels import affine_scale_search
-from brevitas_examples.llm.gguf_export.search.kernels import affine_seed
+from brevitas_examples.llm.gguf_export.search.kernels import minmax_scale
 from brevitas_examples.llm.gguf_export.search.kernels import positive_absmax_grid
 from brevitas_examples.llm.gguf_export.search.kernels import positive_grid_search
 from brevitas_examples.llm.gguf_export.search.kernels import signed_absmax_grid
 from brevitas_examples.llm.gguf_export.search.kernels import symmetric_descent_search
 from brevitas_examples.llm.gguf_export.search.kernels import symmetric_scale_search
-from brevitas_examples.llm.gguf_export.search.kernels import symmetric_seed
 from brevitas_examples.llm.gguf_export.search.objective import objective_weights
 
 __all__ = ["SCALE_PLACEMENTS"]
 
 # How the scales of a layer with a nested scale grid are placed on it: by their
 # largest magnitude alone, or by a weighted sweep around it.
-SCALE_PLACEMENTS = ('seed', 'sweep')
+SCALE_PLACEMENTS = ('absmax', 'sweep')
 
 
 def _place(values: torch.Tensor, weights: torch.Tensor, grid: NestedGrid,
@@ -90,23 +91,23 @@ def _place(values: torch.Tensor, weights: torch.Tensor, grid: NestedGrid,
     Returns (step, codes): one step per run of groups, one integer per group.
     """
     if grid.min_int < 0:
-        if placement == 'seed':
+        if placement == 'absmax':
             return signed_absmax_grid(values, grid.min_int, grid.max_int)
         return symmetric_scale_search(values, weights, weights * values, grid.min_int, grid.max_int)
-    if placement == 'seed':
+    if placement == 'absmax':
         return positive_absmax_grid(values, grid.max_int)
     return positive_grid_search(values, weights, grid.max_int)
 
 
 class _GgufSolverFamily(ScaleSolverFamily):
-    """A llama.cpp block search, run on whatever layer it is given.
+    """A block search, run on whatever layer it is given.
 
     It uses the diagonal of the covariance matrix only, and fits one scale (and
-    offset) per block. Subclasses say which search they run.
+    zero-point) per block. Subclasses say which search they run.
     """
 
-    # Whether the search can fit an offset, for a quantizer with a zero-point.
-    fits_offset: bool = True
+    # Whether the search can fit a zero-point, for a quantizer with one.
+    fits_zero_point: bool = True
 
     @classmethod
     def _fit(
@@ -116,11 +117,12 @@ class _GgufSolverFamily(ScaleSolverFamily):
             lin: torch.Tensor,
             code_min: int,
             code_max: int,
-            with_offset: bool,
+            fit_zero_point: bool,
             positive_scale: bool,
             sweep_steps: Optional[int],
             sweep_step: Optional[float]) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
-        """Fit every block of x. Returns (scale, offset or None)."""
+        """Fit every block of x. Returns (scale, offset or None), the offset being
+        the zero-point in weight units (see ScaleSolution)."""
         raise NotImplementedError
 
     @classmethod
@@ -128,19 +130,20 @@ class _GgufSolverFamily(ScaleSolverFamily):
         weight_quant = layer.weight_quant
         if not _is_int_weight_quant(weight_quant):
             return "the GGUF solvers need an integer weight quantizer"
-        with_offset = not _has_zero_zero_point(layer)
+        fit_zero_point = not _has_zero_zero_point(layer)
         scale_quant_grid = _get_scale_quant_grid(layer)
         zero_point_quant_grid = _get_zero_point_quant_grid(layer)
-        if with_offset:
-            if not cls.fits_offset:
-                return "this search fits no offset, so it needs a quantizer with a zero zero-point"
+        if fit_zero_point:
+            if not cls.fits_zero_point:
+                return "this search fits no zero-point, so it needs a quantizer with a zero one"
             if zero_point_quant_grid is None and not _has_base_zero_point(layer):
                 return (
-                    "an offset fit needs a stored zero-point that is not rounded to an integer "
-                    "(a ParameterFromStatsFromParameterZeroPoint with quantize_zero_point=False)")
+                    "a zero-point fit needs a stored zero-point that is not rounded to an "
+                    "integer (a ParameterFromStatsFromParameterZeroPoint with "
+                    "quantize_zero_point=False)")
             if (scale_quant_grid is None) != (zero_point_quant_grid is None):
                 return (
-                    "an offset fit places the scales and the zero-points on nested grids "
+                    "a zero-point fit places the scales and the zero-points on nested grids "
                     "together, so it needs both quantized on one, or neither")
         if scale_quant_grid is None:
             return None
@@ -149,8 +152,8 @@ class _GgufSolverFamily(ScaleSolverFamily):
             return "the scales and the zero-points need to share their steps in the same runs"
         grid = _build_grid(layer, dtype=torch.float32, device='cpu')
         signed_scales = (
-            not with_offset and bool(grid[0] < 0) and not weight_quant.restrict_scale_positive and
-            bool(grid[-1] != -grid[0]))
+            not fit_zero_point and bool(grid[0] < 0) and
+            not weight_quant.restrict_scale_positive and bool(grid[-1] != -grid[0]))
         if signed_scales and scale_quant_grid.min_int >= 0:
             return "the fit produces signed scales, which the layer's scale grid cannot hold"
         return None
@@ -164,7 +167,7 @@ class _GgufSolverFamily(ScaleSolverFamily):
             unscaled_grid: torch.Tensor,
             *,
             allow_negative_s: bool,
-            with_offset: bool,
+            fit_zero_point: bool = False,
             scale_quant_grid: Optional[NestedGrid] = None,
             zero_point_quant_grid: Optional[NestedGrid] = None,
             magnitude: str = 'rms_quad',
@@ -186,12 +189,12 @@ class _GgufSolverFamily(ScaleSolverFamily):
             x, b, h = w.reshape(shape), b.reshape(shape), h.reshape(shape[1:])
         quad, lin = objective_weights(x, b, h, magnitude, magnitude_factor, magnitude_scope)
         scale, offset = cls._fit(
-            x, quad, lin, code_min, code_max, with_offset, not allow_negative_s, sweep_steps,
-            sweep_step)
+            x, quad, lin, code_min, code_max, fit_zero_point, not allow_negative_s,
+            sweep_steps, sweep_step)
         if scale_quant_grid is None:
             return ScaleSolution(scale=scale, offset=offset)
 
-        # llama.cpp weighs the placement of a group's scale by the total weight of its fit.
+        # The placement of a group's scale is weighed by the total weight of its fit.
         group_weights = quad.sum(-1)
         scale_step, scale_codes = _place(scale, group_weights, scale_quant_grid, scale_placement)
         scale = scale_step.unsqueeze(-1) * scale_codes
@@ -205,30 +208,38 @@ class _GgufSolverFamily(ScaleSolverFamily):
             scale=scale, offset=offset, scale_step=scale_step, offset_step=offset_step)
 
 
-@SCALE_SOLVER_REGISTRY.register(names='gguf-seed')
-class GgufSeedSolverFamily(_GgufSolverFamily):
-    """No search: the largest magnitude of a block, or its range with an offset, as
-    llama.cpp's reference paths store them."""
+@SCALE_SOLVER_REGISTRY.register(names='gguf-minmax')
+class GgufMinMaxSolverFamily(_GgufSolverFamily):
+    """No search: the absmax scale of a block, or its min-max scale and zero-point
+    for a quantizer with a zero-point."""
 
     @classmethod
-    def _fit(cls, x, quad, lin, code_min, code_max, with_offset, positive_scale, *args):
-        if with_offset:
-            return affine_seed(x, code_max - code_min)
-        return symmetric_seed(x, code_min, code_max, positive_scale), None
+    def _fit(cls, x, quad, lin, code_min, code_max, fit_zero_point, positive_scale, *args):
+        if fit_zero_point:
+            return minmax_scale(x, code_max - code_min)
+        return absmax_scale(x, code_min, code_max, positive_scale), None
 
 
 @SCALE_SOLVER_REGISTRY.register(names='gguf-sweep')
 class GgufSweepSolverFamily(_GgufSolverFamily):
-    """llama.cpp's trial-scale searches: `make_qx_quants` without an offset, refit at
-    the seed then trial scales on both sides of it, each scored by its own refit;
-    `make_qkx3_quants` with one, trial scales over the block's range, each with its
-    own best offset."""
+    """Trial-scale sweep. Without a zero-point, a weighted fit through the origin,
+    refit at the absmax scale and at trial scales on both sides of it; with one, a
+    weighted fit of a scale and a zero-point at trial scales across the block's
+    range. The fit with the lowest objective wins."""
 
     @classmethod
     def _fit(
-            cls, x, quad, lin, code_min, code_max, with_offset, positive_scale, sweep_steps,
+            cls,
+            x,
+            quad,
+            lin,
+            code_min,
+            code_max,
+            fit_zero_point,
+            positive_scale,
+            sweep_steps,
             sweep_step):
-        if with_offset:
+        if fit_zero_point:
             return affine_scale_search(
                 x,
                 quad,
@@ -250,11 +261,12 @@ class GgufSweepSolverFamily(_GgufSolverFamily):
 
 @SCALE_SOLVER_REGISTRY.register(names='gguf-descent')
 class GgufDescentSolverFamily(_GgufSolverFamily):
-    """llama.cpp's `make_q3_quants`: refit at the seed, then move one code at a time
-    while the fit improves. It has no trial scales and fits no offset."""
-    fits_offset = False
+    """Weighted fit through the origin, refined by coordinate descent on the codes:
+    refit at the absmax scale, then move one code at a time while the fit improves.
+    It has no trial scales and fits no zero-point."""
+    fits_zero_point = False
 
     @classmethod
-    def _fit(cls, x, quad, lin, code_min, code_max, with_offset, positive_scale, *args):
+    def _fit(cls, x, quad, lin, code_min, code_max, fit_zero_point, positive_scale, *args):
         return symmetric_descent_search(
             x, quad, lin, code_min, code_max, positive_scale=positive_scale), None

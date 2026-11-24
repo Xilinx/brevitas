@@ -361,21 +361,21 @@ def create_args_parser() -> ArgumentParser:
         type=int,
         default=None,
         help='GGUF solvers: number of trial scales of a sweep. Default: the solver\'s own, 9 '
-        'on each side of the seed without an offset, 36 with one.')
+        'on each side of the absmax scale without a zero-point, 36 with one.')
     parser.add_argument(
         '--grid-opt-sweep-step',
         type=float,
         default=None,
         help='GGUF solvers: spacing of the trial scales of a sweep. Default: the solver\'s own, '
-        '0.1 without an offset, 0.05 with one.')
+        '0.1 without a zero-point, 0.05 with one.')
     parser.add_argument(
         '--grid-opt-scale-placement',
         type=str,
         default='sweep',
         choices=SCALE_PLACEMENTS,
         help='GGUF solvers, for a quantizer whose scales are stored on a grid of their own: '
-        'place them there by their largest magnitude (seed) or by a weighted sweep around it '
-        '(sweep). Default: %(default)s.')
+        'place them there by their largest magnitude (absmax) or by a weighted sweep around '
+        'it (sweep). Default: %(default)s.')
     parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
     parser.add_argument('--gpfq', action='store_true', help='Apply GPFQ.')
     parser.add_argument(

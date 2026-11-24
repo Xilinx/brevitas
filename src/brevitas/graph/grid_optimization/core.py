@@ -245,7 +245,7 @@ class GridOptimizer:
         b = b.reshape(w.shape)
         grid = _build_grid(layer, dtype=w.dtype, device=w.device)
         allow_negative_s = _allows_negative_scale(layer)
-        with_offset = not _has_zero_zero_point(layer)
+        fit_zero_point = not _has_zero_zero_point(layer)
         # Only a layer whose scales are quantized on a nested grid passes its grids, and
         # only a family whose check_layer accepts such a layer receives them.
         nested = {}
@@ -265,7 +265,7 @@ class GridOptimizer:
                     H,
                     grid,
                     allow_negative_s=allow_negative_s,
-                    with_offset=with_offset,
+                    fit_zero_point=fit_zero_point,
                     eps=self.tolerance,
                     **nested,
                     **self.solver_kwargs)

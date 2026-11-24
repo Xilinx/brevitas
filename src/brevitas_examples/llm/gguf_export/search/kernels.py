@@ -22,13 +22,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""llama.cpp's block-level scale searches (ggml/src/ggml-quants.c), vectorised and
-generalised to any integer code range [code_min, code_max].
+"""Block-wise scale searches adapted from llama.cpp, vectorised and generalised to
+any integer code range [code_min, code_max].
 
 Every kernel fits each block along the last dimension of its input independently,
 minimising the weighted objective sum(quad * r^2) - 2 * sum(lin * r) over the
 reconstruction r of the block. With lin = quad * x, that is the weighted squared
-error sum(quad * (x - r)^2) llama.cpp minimises, up to a constant. A block without
+error sum(quad * (x - r)^2), up to a constant. A block without
 an offset is reconstructed as scale * code, one with an offset as scale * code +
 offset with codes counted from the lowest one, i.e. in [0, code_max - code_min].
 A positive placement, which puts non-negative values such as the per-block scales
@@ -41,16 +41,16 @@ from typing import Tuple
 import torch
 
 __all__ = [
+    "absmax_scale",
     "affine_scale_search",
-    "affine_seed",
+    "minmax_scale",
     "positive_absmax_grid",
     "positive_grid_search",
     "signed_absmax_grid",
     "symmetric_descent_search",
-    "symmetric_scale_search",
-    "symmetric_seed",]
+    "symmetric_scale_search",]
 
-# A block whose largest magnitude is below this is all-zero (ggml's GROUP_MAX_EPS).
+# A block whose largest magnitude is below this is all-zero.
 _ZERO_EPS = 1e-15
 
 
@@ -63,16 +63,17 @@ def _safe_divide(numerator: torch.Tensor, denominator: torch.Tensor) -> torch.Te
         torch.zeros_like(numerator))
 
 
-def _seed(x: torch.Tensor, code_min: int, code_max: int,
-          positive_scale: bool) -> Tuple[Callable[[float], torch.Tensor], torch.Tensor]:
-    """The inverse scale of the absmax seed, as a function of a trial offset, and which
+def _absmax_inverse_scale(
+        x: torch.Tensor, code_min: int, code_max: int,
+        positive_scale: bool) -> Tuple[Callable[[float], torch.Tensor], torch.Tensor]:
+    """The inverse of the absmax scale, as a function of a trial offset, and which
     blocks are all-zero.
 
     The element of largest magnitude, with its sign, goes onto the end of the grid
-    with the larger magnitude: llama.cpp maps it onto -nmax of [-nmax, nmax - 1],
-    which gives a negative scale whenever it is positive. A positive scale maps it
-    onto the end of its own sign instead. An unsigned grid only reaches the
-    positive weights, so its seed maps the largest of them onto code_max.
+    with the larger magnitude, e.g. -nmax of [-nmax, nmax - 1], which gives a
+    negative scale whenever it is positive. A positive scale maps it onto the end
+    of its own sign instead. An unsigned grid only reaches the positive weights, so
+    the largest of them goes onto code_max.
     """
     if code_min == 0:
         peak = x.max(dim=-1).values
@@ -88,7 +89,7 @@ def _seed(x: torch.Tensor, code_min: int, code_max: int,
         else:
             bound = float(code_min if -code_min >= code_max else code_max)
     peak = torch.where(empty, torch.ones_like(peak), peak)
-    # Trials move the bound away from zero, -(nmax + offset) in llama.cpp.
+    # Trials move the bound away from zero, e.g. to -(nmax + offset).
     sign = torch.sign(bound) if isinstance(bound, torch.Tensor) else (1. if bound > 0 else -1.)
     return lambda offset: (bound + sign * offset) / peak, empty
 
@@ -136,13 +137,13 @@ def _coordinate_descent(
     return _safe_divide(sumlx, suml2), codes
 
 
-def symmetric_seed(
+def absmax_scale(
         x: torch.Tensor,
         code_min: int,
         code_max: int,
         positive_scale: bool = False) -> torch.Tensor:
-    """The absmax scale alone, which is what llama.cpp's reference paths store."""
-    inverse_at, empty = _seed(x, code_min, code_max, positive_scale)
+    """The absmax scale of every block, with no search."""
+    inverse_at, empty = _absmax_inverse_scale(x, code_min, code_max, positive_scale)
     scale = 1.0 / inverse_at(0.)
     return torch.where(empty, torch.zeros_like(scale), scale)
 
@@ -156,17 +157,18 @@ def symmetric_scale_search(
         n_trials: int = 9,
         trial_step: float = 0.1,
         positive_scale: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
-    """llama.cpp `make_qx_quants`: the weighted fit through the origin.
+    """Weighted least-squares scale through the origin, refined by a sweep of trial
+    scales.
 
-    Codes are rounded at the absmax seed, the scale refit to the minimiser of the
+    Codes are rounded at the absmax scale, the scale refit to the minimiser of the
     objective, s = sum(lin * l) / sum(quad * l^2), and then 2 * n_trials trial
-    inverse scales are tried around the seed, the bound moved by trial_step * i,
-    each refit in turn. The trial that maximises sumlx^2 / suml2, which minimises
-    the objective of its refit, wins.
+    inverse scales are tried around the absmax one, the bound moved by
+    trial_step * i, each refit in turn. The trial that maximises sumlx^2 / suml2,
+    which minimises the objective of its refit, wins.
 
     Returns (scale, codes).
     """
-    inverse_at, empty = _seed(x, code_min, code_max, positive_scale)
+    inverse_at, empty = _absmax_inverse_scale(x, code_min, code_max, positive_scale)
 
     def fit(inverse):
         codes = torch.clamp(torch.round(inverse.unsqueeze(-1) * x), code_min, code_max)
@@ -197,18 +199,21 @@ def symmetric_descent_search(
         code_max: int,
         passes: int = 5,
         positive_scale: bool = False) -> torch.Tensor:
-    """llama.cpp `make_q3_quants`: refit at the absmax seed, then coordinate descent.
+    """Weighted least-squares scale through the origin, refined by coordinate descent
+    on the codes.
 
-    llama.cpp weighs every element by its own square here, i.e. quad = x^2.
+    Codes are rounded at the absmax scale, then moved one at a time to the value
+    the others imply while the objective improves, for at most `passes` passes.
+    Typically used with every element weighed by its own square, i.e. quad = x^2.
     """
-    inverse_at, empty = _seed(x, code_min, code_max, positive_scale)
+    inverse_at, empty = _absmax_inverse_scale(x, code_min, code_max, positive_scale)
     codes = torch.clamp(torch.round(inverse_at(0.).unsqueeze(-1) * x), code_min, code_max)
     scale, _ = _coordinate_descent(quad, lin, codes, code_min, code_max, passes)
     return torch.where(empty, torch.zeros_like(scale), scale)
 
 
-def affine_seed(x: torch.Tensor, nmax: int) -> Tuple[torch.Tensor, torch.Tensor]:
-    """The block range alone, which is what llama.cpp's reference paths store.
+def minmax_scale(x: torch.Tensor, nmax: int) -> Tuple[torch.Tensor, torch.Tensor]:
+    """The min-max scale and offset of every block, with no search.
 
     The offset is kept non-positive, as the search keeps it: a quantizer stores
     the magnitude of its zero-point.
@@ -227,7 +232,8 @@ def affine_scale_search(
         n_steps: int = 36,
         trial_step: float = 0.05,
         origin: float = -0.9) -> Tuple[torch.Tensor, torch.Tensor]:
-    """llama.cpp `make_qkx3_quants`: the weighted affine fit, codes in [0, nmax].
+    """Weighted least-squares fit of a scale and a non-positive offset, codes in
+    [0, nmax], refined by a sweep of trial scales over the block's range.
 
     For fixed codes, the scale and the offset solve the 2x2 system that minimises
     the objective. Codes are rounded at n_steps + 1 trial inverse scales
@@ -287,10 +293,10 @@ def positive_grid_search(
         n_trials: int = 4,
         trial_step: float = 0.1,
         passes: int = 5) -> Tuple[torch.Tensor, torch.Tensor]:
-    """llama.cpp `make_qp_quants`: place non-negative values on a grid `step * [0, nmax]`,
-    weighing the squared error of each value by w.
+    """Place non-negative values on a grid `step * [0, nmax]`, weighing the squared
+    error of each value by w.
 
-    The inverse step is seeded at `nmax / max` and 2 * n_trials trials
+    The inverse step starts at `nmax / max` and 2 * n_trials trials
     `(nmax + trial_step * i) / max` are scored by their weighted squared error.
     The codes are then rounded at the winner, the step refit by weighted least
     squares, and polished by coordinate descent.
@@ -326,8 +332,8 @@ def positive_grid_search(
 def signed_absmax_grid(values: torch.Tensor, code_min: int,
                        code_max: int) -> Tuple[torch.Tensor, torch.Tensor]:
     """Place signed values on a grid `step * [code_min, code_max]` by their signed peak,
-    as the symmetric seed does. Returns (step, codes)."""
-    inverse_at, empty = _seed(values, code_min, code_max, positive_scale=False)
+    as absmax_scale does. Returns (step, codes)."""
+    inverse_at, empty = _absmax_inverse_scale(values, code_min, code_max, positive_scale=False)
     inverse = inverse_at(0.)
     codes = torch.clamp(torch.round(inverse.unsqueeze(-1) * values), code_min, code_max)
     step = torch.where(empty, torch.zeros_like(inverse), 1. / inverse)

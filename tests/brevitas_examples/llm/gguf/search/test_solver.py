@@ -1,7 +1,7 @@
 # Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""The llama.cpp searches run as grid optimization solvers.
+"""The GGUF block searches run as grid optimization solvers.
 
 What is checked here is that GridOptimizer, given H = 2 * diag(imatrix), writes
 into a layer the scale (and zero-point) the corresponding kernel computes, for
@@ -164,7 +164,7 @@ def test_the_sweep_writes_the_kernel_scale():
     assert torch.allclose(written, scale, rtol=1e-6, atol=0.)
 
 
-def test_a_positive_scale_is_seeded_positive():
+def test_a_positive_scale_stays_positive():
     layer = build_layer(PositiveScaleWeight)
     imatrix = imatrix_for(N_IN)
     blocked, quad, lin = fit_inputs(layer.weight.detach().clone(), imatrix)
@@ -186,7 +186,7 @@ def test_a_per_channel_narrow_range_layer_is_one_block_per_row():
     assert torch.allclose(written, scale, rtol=1e-6, atol=0.)
 
 
-def test_the_sweep_fits_an_offset_for_a_quantizer_with_a_zero_point():
+def test_the_sweep_fits_the_zero_point_of_a_quantizer_with_one():
     layer = build_layer(AffineWeight)
     imatrix = imatrix_for(N_IN)
     blocked, quad, lin = fit_inputs(layer.weight.detach().clone(), imatrix)
@@ -210,7 +210,7 @@ def solve(layer, solver, imatrix, **solver_kwargs):
         h,
         _build_grid(layer, torch.float32, 'cpu'),
         allow_negative_s=not weight_quant.restrict_scale_positive,
-        with_offset=not weight_quant.is_signed,
+        fit_zero_point=not weight_quant.is_signed,
         scale_quant_grid=_get_scale_quant_grid(layer),
         zero_point_quant_grid=_get_zero_point_quant_grid(layer),
         **solver_kwargs)
@@ -226,7 +226,7 @@ def solve(layer, solver, imatrix, **solver_kwargs):
             dict(magnitude_factor=2.0, magnitude_scope='shared_step')),
         # Q2_K's nested quantizers round its scales up and its offsets down.
         ('GGUFQ2_KWeightQuant', 'gguf-sweep', dict(magnitude_scope='shared_step')),
-        ('GGUFQ6_KWeightQuant', 'gguf-sweep', dict(magnitude='one', scale_placement='seed')),],
+        ('GGUFQ6_KWeightQuant', 'gguf-sweep', dict(magnitude='one', scale_placement='absmax')),],
     ids=['q4_k', 'q2_k', 'q6_k'])
 def test_a_nested_grid_is_written_into_the_quantizer_and_exported(quantizer, solver, solver_kwargs):
     bq = pytest.importorskip("brevitas_examples.llm.gguf_export.base_quantizers")
@@ -290,10 +290,10 @@ def test_identity_covariance_ignores_the_data():
 @pytest.mark.parametrize(
     "solver, weight_quant, reason",
     [
-        ('gguf-descent', AffineWeight, "fits no offset"),
+        ('gguf-descent', AffineWeight, "fits no zero-point"),
         ('gguf-sweep', RoundedZeroPointWeight, "quantize_zero_point=False"),
-        ('gguf-seed', RoundedZeroPointWeight, "quantize_zero_point=False"),],
-    ids=['descent_with_offset', 'rounded_zp', 'seed'])
+        ('gguf-minmax', RoundedZeroPointWeight, "quantize_zero_point=False"),],
+    ids=['descent_with_zero_point', 'rounded_zp', 'minmax'])
 def test_a_layer_the_solver_cannot_fit_is_skipped(solver, weight_quant, reason):
     layer = build_layer(weight_quant)
     with pytest.warns(UserWarning, match=reason):
