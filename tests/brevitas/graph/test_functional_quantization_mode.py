@@ -346,6 +346,21 @@ class CheckpointedTwoLinearModel(nn.Module):
         return x
 
 
+@pytest.fixture
+def native_cpu_grouped_mm():
+    if not hasattr(torch, '_grouped_mm'):
+        pytest.skip('torch._grouped_mm is unavailable')
+    x = torch.randn(4, 256, dtype=torch.bfloat16)
+    w = torch.randn(2, 64, 256, dtype=torch.bfloat16)
+    offsets = torch.tensor([2, 4], dtype=torch.int32)
+    try:
+        torch._grouped_mm(x, w.transpose(-2, -1), offs=offsets)
+    except NotImplementedError as exc:
+        if "'CPU' backend" not in str(exc):
+            raise
+        pytest.skip('Native grouped-MM has no CPU kernel in this build')
+
+
 @requires_pt_ge('1.12')
 class TestFunctionalQuantizationMode:
 
@@ -495,8 +510,8 @@ class TestFunctionalQuantizationMode:
         assert out.shape == (2, 3)
         state.cleanup()
 
-    @pytest.mark.skipif(not hasattr(torch, '_grouped_mm'), reason='Torch grouped_mm is unavailable')
-    def test_grouped_mm_discovers_transposed_owner_and_preserves_gradients(self):
+    def test_grouped_mm_discovers_transposed_owner_and_preserves_gradients(
+            self, native_cpu_grouped_mm):
         model = GroupedFunctionalWeightModel()
 
         def weight_resolver(module, name, index):
@@ -519,8 +534,7 @@ class TestFunctionalQuantizationMode:
         assert model.weight.grad is not None
         state.cleanup()
 
-    @pytest.mark.skipif(not hasattr(torch, '_grouped_mm'), reason='Torch grouped_mm is unavailable')
-    def test_parameter_view_quantizes_full_grouped_expert_bank(self):
+    def test_parameter_view_quantizes_full_grouped_expert_bank(self, native_cpu_grouped_mm):
         model = GroupedFunctionalWeightModel()
         grouped_mm = next(func for func in grouped_mm_functions() if func is torch._grouped_mm)
         spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 0, 'group_dim': 1})
@@ -536,8 +550,7 @@ class TestFunctionalQuantizationMode:
         assert output.shape == (4, 64)
         state.cleanup()
 
-    @pytest.mark.skipif(not hasattr(torch, '_grouped_mm'), reason='Torch grouped_mm is unavailable')
-    def test_grouped_mm_replays_composed_arbitrary_transposes(self):
+    def test_grouped_mm_replays_composed_arbitrary_transposes(self, native_cpu_grouped_mm):
         model = ComposedTransposeGroupedWeightModel()
         grouped_mm = next(func for func in grouped_mm_functions() if func is torch._grouped_mm)
         spec = (Int8WeightPerTensorFloat, {'output_channel_dim': 0, 'group_dim': 1})

@@ -280,11 +280,9 @@ class FunctionalQuantState:
         self.function_indices = {func: index for index, func in enumerate(self.specs)}
         self.calls: Dict[Tuple[str, Callable, int], _PreparedCall] = {}
         # (call key, argument index) -> (owner, selector dimension, proxy keys, full owner)
-        self.parameter_view_quantizers: Dict[Tuple[Tuple[str, Callable, int], int],
-                                             Tuple[Tuple[nn.Module, str],
-                                                   int,
-                                                   Tuple[str, ...],
-                                                   bool],] = {}
+        self.parameter_view_quantizers: Dict[
+            Tuple[Tuple[str, Callable, int], int],
+            Tuple[Tuple[nn.Module, str], int, Tuple[str, ...], bool],] = {}
         self.registered_parametrizations: List[Tuple[nn.Module, str]] = []
         self.parametrizations_removed = False
         self.enabled = False
@@ -546,15 +544,15 @@ class _HookedMode(TorchFunctionMode):
                 continue
             for name, parameter in module.named_parameters(recurse=False):
                 owner = (module, name)
-                if id(parameter
-                     ) in self.parameter_owners and self.parameter_owners[id(parameter)] != owner:
+                if id(parameter) in self.parameter_owners and self.parameter_owners[id(
+                        parameter)] != owner:
                     self.aliased_parameters.add(id(parameter))
                 self.parameter_owners[id(parameter)] = owner
             for name in getattr(module, 'parametrizations', {}):
                 original = getattr(module.parametrizations, name).original
                 owner = (module, name)
-                if id(original
-                     ) in self.parameter_owners and self.parameter_owners[id(original)] != owner:
+                if id(original) in self.parameter_owners and self.parameter_owners[id(
+                        original)] != owner:
                     self.aliased_parameters.add(id(original))
                 self.parameter_owners[id(original)] = owner
 
