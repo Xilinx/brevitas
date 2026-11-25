@@ -6,7 +6,7 @@ import onnx
 import pytest
 import torch
 
-from brevitas.export import enable_debug
+from brevitas.export.onnx.debug import enable_debug
 from brevitas.nn import QuantConv2d
 from brevitas.nn import QuantIdentity
 from brevitas.nn import QuantLinear

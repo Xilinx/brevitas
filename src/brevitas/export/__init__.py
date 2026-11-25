@@ -12,13 +12,6 @@ from brevitas import torch_version
 _DEFAULT_DYNAMO = torch_version >= parse("2.9")
 
 
-def __getattr__(name):
-    if name == "enable_debug":
-        from .onnx.debug import enable_debug
-        return enable_debug
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-
 def export_brevitas_onnx(*args, **kwargs):  # alias for qonnx
     from .onnx.qonnx.manager import QONNXManager
     return QONNXManager.export(*args, **kwargs)
