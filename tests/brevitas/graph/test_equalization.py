@@ -12,12 +12,15 @@ from torchvision import models
 
 from brevitas.fx import symbolic_trace
 from brevitas.graph.equalize import _batch_norm
+from brevitas.graph.equalize import _cross_layer_equalization
 from brevitas.graph.equalize import _extract_regions
 from brevitas.graph.equalize import _is_supported_module
 from brevitas.graph.equalize import _supported_layers
 from brevitas.graph.equalize import activation_equalization_mode
+from brevitas.graph.equalize import EqualizationIndexes
 from brevitas.graph.equalize import GraphActivationEqualization
 from brevitas.graph.equalize import LayerwiseActivationEqualization
+from brevitas.graph.equalize import Region
 from brevitas.graph.standardize import DuplicateSharedStatelessModule
 from brevitas.graph.standardize import TorchFunctionalToModule
 from brevitas.graph.utils import get_module
@@ -374,3 +377,16 @@ def test_act_equalization_mha_layout_equivalence(layerwise):
             saw_non_scalar = True
     # Ensure the test actually exercised non-trivial equalization.
     assert saw_non_scalar
+
+
+def test_cross_layer_equalization_rejects_offloaded_weights():
+    # Offloaded weights are on the meta device: the caller must materialize them
+    # (materialized_params) instead of letting the equalization run on placeholders
+    src, sink = nn.Linear(4, 8, device='meta'), nn.Linear(8, 4, device='meta')
+    region = Region(
+        srcs={'src': EqualizationIndexes(0, 8, 0)},
+        sinks={'sink': EqualizationIndexes(0, 8, 0)},
+        name_to_module={
+            'src': src, 'sink': sink})
+    with pytest.raises(RuntimeError, match="meta device"):
+        _cross_layer_equalization(src, region, merge_bias=False, scale_computation_type='maxabs')

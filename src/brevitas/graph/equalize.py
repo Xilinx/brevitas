@@ -192,6 +192,10 @@ class Region:
         return self.name_to_module[name]
 
     @property
+    def modules(self) -> List[nn.Module]:
+        return [self.get_module_from_name(name) for name in self.srcs_names + self.sinks_names]
+
+    @property
     def max_shape_srcs(self):
         # Compute the number of output channel from the sources. If we are equalizing through cat,
         # we need to add together the number of channels. Otherwise, all sources must have the same
@@ -820,110 +824,108 @@ def _cross_layer_equalization(
     def _no_equalize():
         return torch.tensor(1., dtype=dtype), []
 
-    # If the modules are offloaded with accelerate, their weights are materialized for the whole
-    # computation and written back on exit, also on the early returns below
-    region_modules = [
-        region.get_module_from_name(name) for name in (region.srcs_names + region.sinks_names)]
-    with materialized_params(*region_modules):
-        single_module = region.get_module_from_name(next(iter(region.sinks_names)))
-        device = next(single_module.parameters()).device
-        dtype = next(single_module.parameters()).dtype
+    # If the model is offloaded with accelerate, the caller must materialize the weights of the
+    # region, e.g. with `materialized_params(*region.modules)`
+    if any(p.is_meta for module in region.modules for p in module.parameters()):
+        raise RuntimeError(
+            "The weights of the region are on the meta device (offloaded): call "
+            "_cross_layer_equalization within materialized_params(*region.modules)")
 
-        # Check if any of the axis is None, which means that the module is not supported.
-        # In that case, do not perform graph equalization
-        axes_to_check = [m.weight_axis for m in chain(region.srcs.values(), region.sinks.values())]
-        if None in axes_to_check:
+    single_module = region.get_module_from_name(next(iter(region.sinks_names)))
+    device = next(single_module.parameters()).device
+    dtype = next(single_module.parameters()).dtype
+
+    # Check if any of the axis is None, which means that the module is not supported.
+    # In that case, do not perform graph equalization
+    axes_to_check = [m.weight_axis for m in chain(region.srcs.values(), region.sinks.values())]
+    if None in axes_to_check:
+        return _no_equalize()
+
+    # If act_val is enabled, use source or sink weights to determine the activation channel
+    # For example, if the source is BatchNorm, we need to use the information coming from the sinks
+    if list_of_act_val is not None:
+        if not region.is_valid_activation_equalization:
             return _no_equalize()
 
-        # If act_val is enabled, use source or sink weights to determine the activation channel
-        # For example, if the source is BatchNorm, we need to use the information coming from the sinks
-        if list_of_act_val is not None:
-            if not region.is_valid_activation_equalization:
+    scale_fn = _select_scale_computation_fn(scale_computation_type)
+    srcs_range = -1 * torch.ones(region.max_shape_srcs, device='cpu', dtype=torch.float32)
+    sinks_range = -1 * torch.ones(region.max_shape_sinks, device='cpu', dtype=torch.float32)
+    for name, module in region.sinks.items():
+        # Sinks can be partially equalized, thus we need to select
+        # only the channels we are interested in
+        indexes = module.equalization_indexes
+        # Compute the range of the channels we need to equalize
+        weight_range = module.get_weight_range(scale_fn=scale_fn)
+        # Compute the numbers of channels we are equalizing
+        channel_range = indexes.end - indexes.start
+        # Use the offset and the range to update the correct range in the sinks
+        sinks_range[indexes.offset:indexes.offset + channel_range] = torch.max(
+            sinks_range[indexes.offset:indexes.offset + channel_range], weight_range)
+
+    for name, module in region.srcs.items():
+        # Srcs are always fully equalized, thus we simply need to apply the offset to position them
+        # correctly with respect to the other srcs matrices.
+        indexes = module.equalization_indexes
+        channel_start = indexes.offset + indexes.start
+        channel_end = indexes.offset + indexes.end
+        weight_range = module.get_weight_range(
+            scale_fn=scale_fn, merge_bias=merge_bias, bias_shrinkage=bias_shrinkage)
+        srcs_range[channel_start:channel_end] = torch.max(
+            srcs_range[channel_start:channel_end], weight_range)
+    if list_of_act_val is not None:
+        list_of_act_val_shapes = [act_val.shape for act_val in list_of_act_val]
+        if len(list_of_act_val_shapes) > 0:
+            shape_0 = list_of_act_val_shapes[0]
+            if any(shape_0 != shape for shape in list_of_act_val_shapes):
                 return _no_equalize()
+        list_of_act_val = [transpose(act_val, region.act_axis) for act_val in list_of_act_val]
+        srcs_range_act = scale_fn(
+            torch.cat([
+                act_val.reshape(act_val.size(0), -1).cpu().to(torch.float32)
+                for act_val in list_of_act_val],
+                      1))
 
-        scale_fn = _select_scale_computation_fn(scale_computation_type)
-        srcs_range = -1 * torch.ones(region.max_shape_srcs, device='cpu', dtype=torch.float32)
-        sinks_range = -1 * torch.ones(region.max_shape_sinks, device='cpu', dtype=torch.float32)
-        for name, module in region.sinks.items():
-            # Sinks can be partially equalized, thus we need to select
-            # only the channels we are interested in
-            indexes = module.equalization_indexes
-            # Compute the range of the channels we need to equalize
-            weight_range = module.get_weight_range(scale_fn=scale_fn)
-            # Compute the numbers of channels we are equalizing
-            channel_range = indexes.end - indexes.start
-            # Use the offset and the range to update the correct range in the sinks
-            sinks_range[indexes.offset:indexes.offset + channel_range] = torch.max(
-                sinks_range[indexes.offset:indexes.offset + channel_range], weight_range)
+    if list_of_act_val is not None:
+        if co_optimize_act_weights and len(region.srcs) > 0:
+            srcs_range = .5 * srcs_range + .5 * srcs_range_act
+        else:
+            srcs_range = srcs_range_act
 
-        for name, module in region.srcs.items():
-            # Srcs are always fully equalized, thus we simply need to apply the offset to position them
-            # correctly with respect to the other srcs matrices.
-            indexes = module.equalization_indexes
-            channel_start = indexes.offset + indexes.start
-            channel_end = indexes.offset + indexes.end
-            weight_range = module.get_weight_range(
-                scale_fn=scale_fn, merge_bias=merge_bias, bias_shrinkage=bias_shrinkage)
-            srcs_range[channel_start:channel_end] = torch.max(
-                srcs_range[channel_start:channel_end], weight_range)
-        if list_of_act_val is not None:
-            list_of_act_val_shapes = [act_val.shape for act_val in list_of_act_val]
-            if len(list_of_act_val_shapes) > 0:
-                shape_0 = list_of_act_val_shapes[0]
-                if any(shape_0 != shape for shape in list_of_act_val_shapes):
-                    return _no_equalize()
-            list_of_act_val = [transpose(act_val, region.act_axis) for act_val in list_of_act_val]
-            srcs_range_act = scale_fn(
-                torch.cat([
-                    act_val.reshape(act_val.size(0), -1).cpu().to(torch.float32)
-                    for act_val in list_of_act_val],
-                          1))
+    # If there is a mismatch between srcs and sinks values, exit
+    if srcs_range.shape != sinks_range.shape:
+        warnings.warn(
+            "Detected source and sink with non compatible shapes, equalization is skipped")
+        return _no_equalize()
 
-        if list_of_act_val is not None:
-            if co_optimize_act_weights and len(region.srcs) > 0:
-                srcs_range = .5 * srcs_range + .5 * srcs_range_act
-            else:
-                srcs_range = srcs_range_act
+    # Instead of clipping very low values, which would cause their reciprocal to be very large
+    # thus hindering quantization, we set both sources and sinks to one,
+    # which is the no-op equivalent for equalization.
+    channelwise_no_equalize = (sinks_range <= EPSILON) | (srcs_range <= EPSILON)
+    sinks_range = torch.where(
+        channelwise_no_equalize, torch.tensor(1., dtype=torch.float32, device='cpu'), sinks_range)
+    srcs_range = torch.where(
+        channelwise_no_equalize, torch.tensor(1., dtype=torch.float32, device='cpu'), srcs_range)
 
-        # If there is a mismatch between srcs and sinks values, exit
-        if srcs_range.shape != sinks_range.shape:
-            warnings.warn(
-                "Detected source and sink with non compatible shapes, equalization is skipped")
-            return _no_equalize()
+    srcs_range = torch.pow(srcs_range, alpha)
+    sinks_range = torch.pow(sinks_range, 1 - alpha)
+    scaling_factors = (sinks_range / srcs_range).to(device=device, dtype=dtype)
+    # If the scaling factors are not fused, they are stored as a parameter instead
+    if not fuse_scaling:
+        scaling_factors = nn.Parameter(scaling_factors)
 
-        # Instead of clipping very low values, which would cause their reciprocal to be very large
-        # thus hindering quantization, we set both sources and sinks to one,
-        # which is the no-op equivalent for equalization.
-        channelwise_no_equalize = (sinks_range <= EPSILON) | (srcs_range <= EPSILON)
-        sinks_range = torch.where(
-            channelwise_no_equalize,
-            torch.tensor(1., dtype=torch.float32, device='cpu'),
-            sinks_range)
-        srcs_range = torch.where(
-            channelwise_no_equalize,
-            torch.tensor(1., dtype=torch.float32, device='cpu'),
-            srcs_range)
+    if list_of_act_val is not None and list_of_insert_mul_node_fn is not None:
+        for act_val_shape, insert_mul_node_fn in zip(list_of_act_val_shapes, list_of_insert_mul_node_fn):
+            insert_mul_node_fn(scaling_factors, act_val_shape, region.act_axis)
 
-        srcs_range = torch.pow(srcs_range, alpha)
-        sinks_range = torch.pow(sinks_range, 1 - alpha)
-        scaling_factors = (sinks_range / srcs_range).to(device=device, dtype=dtype)
-        # If the scaling factors are not fused, they are stored as a parameter instead
-        if not fuse_scaling:
-            scaling_factors = nn.Parameter(scaling_factors)
+    # Whether to apply the scaling in-place or parametrize the weights instead
+    rewriter_class = ModuleInstanceTransformTensor if fuse_scaling else ModuleInstanceRegisterParametrization
+    for module in chain(region.srcs.values(), region.sinks.values()):
+        rewriters.extend(module.instantiate_rewriters(rewriter_class, scaling_factors))
 
-        if list_of_act_val is not None and list_of_insert_mul_node_fn is not None:
-            for act_val_shape, insert_mul_node_fn in zip(list_of_act_val_shapes, list_of_insert_mul_node_fn):
-                insert_mul_node_fn(scaling_factors, act_val_shape, region.act_axis)
+    for r in rewriters:
+        model = r.apply(model)
 
-        # Whether to apply the scaling in-place or parametrize the weights instead
-        rewriter_class = ModuleInstanceTransformTensor if fuse_scaling else ModuleInstanceRegisterParametrization
-        for module in chain(region.srcs.values(), region.sinks.values()):
-            rewriters.extend(module.instantiate_rewriters(rewriter_class, scaling_factors))
-
-        for r in rewriters:
-            model = r.apply(model)
-
-        return scaling_factors, rewriters
+    return scaling_factors, rewriters
 
 
 def _equalize(
@@ -941,12 +943,13 @@ def _equalize(
     for i in range(iterations):
         scale_factor_max = None
         for region in regions:
-            scale_factors_region, region_rewriters = _cross_layer_equalization(
-                model,
-                region,
-                merge_bias=merge_bias,
-                bias_shrinkage=bias_shrinkage,
-                scale_computation_type=scale_computation_type)
+            with materialized_params(*region.modules):
+                scale_factors_region, region_rewriters = _cross_layer_equalization(
+                    model,
+                    region,
+                    merge_bias=merge_bias,
+                    bias_shrinkage=bias_shrinkage,
+                    scale_computation_type=scale_computation_type)
             scale_factor_region_max = torch.max(torch.abs(1 - scale_factors_region))
             rewriters.extend(region_rewriters)
             if scale_factor_max is not None:
@@ -1382,15 +1385,16 @@ class LayerwiseActivationEqualization(ActivationEqualization):
                 continue
             insert_mul_fn = partial(
                 self.insert_mul_node, region=module, batch_dim=self.batch_dim_act_map[module])
-            scale_factors_region, rewriters_region = _cross_layer_equalization(
-                self.model,
-                region,
-                False,
-                scale_computation_type=self.scale_computation_type,
-                list_of_act_val=[self.float_act_map[module]],
-                list_of_insert_mul_node_fn=[insert_mul_fn],
-                alpha=alpha,
-                fuse_scaling=self.fuse_scaling)
+            with materialized_params(*region.modules):
+                scale_factors_region, rewriters_region = _cross_layer_equalization(
+                    self.model,
+                    region,
+                    False,
+                    scale_computation_type=self.scale_computation_type,
+                    list_of_act_val=[self.float_act_map[module]],
+                    list_of_insert_mul_node_fn=[insert_mul_fn],
+                    alpha=alpha,
+                    fuse_scaling=self.fuse_scaling)
             scale_factors.append(scale_factors_region)
             rewriters.extend(rewriters_region)
         return scale_factors, rewriters
@@ -1491,16 +1495,17 @@ class GraphActivationEqualization(ActivationEqualization):
                             act_node=act_node,
                             batch_dim=self.batch_dim_act_map[act_name]))
 
-            scale_factors_region, rewriters_region = _cross_layer_equalization(
-                self.model,
-                region,
-                False,
-                scale_computation_type=self.scale_computation_type,
-                list_of_act_val=list_of_act_val,
-                list_of_insert_mul_node_fn=list_of_insert_mul_node_fn,
-                alpha=alpha,
-                co_optimize_act_weights=self.co_optimize_act_weights,
-                fuse_scaling=self.fuse_scaling)
+            with materialized_params(*region.modules):
+                scale_factors_region, rewriters_region = _cross_layer_equalization(
+                    self.model,
+                    region,
+                    False,
+                    scale_computation_type=self.scale_computation_type,
+                    list_of_act_val=list_of_act_val,
+                    list_of_insert_mul_node_fn=list_of_insert_mul_node_fn,
+                    alpha=alpha,
+                    co_optimize_act_weights=self.co_optimize_act_weights,
+                    fuse_scaling=self.fuse_scaling)
             scale_factors.append(scale_factors_region)
             rewriters.append(rewriters_region)
 
