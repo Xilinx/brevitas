@@ -15,6 +15,7 @@ from brevitas.graph.quantize import _QuantParametrization
 from brevitas.graph.quantize import functional_quantization_mode
 from brevitas.graph.quantize import prepare_functional_quantization
 from brevitas.graph.quantize import remove_functional_quantization
+from brevitas.nn import QuantConv2d
 from brevitas.nn import QuantIdentity
 from brevitas.nn import QuantLinear
 from brevitas.proxy.groupwise_int_runtime_quant import GroupwiseActQuantProxyFromInjector
@@ -309,6 +310,66 @@ class TiedFunctionalWeightModel(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         return self.first(x)
+
+
+class TiedTwoUseFunctionalWeightModel(TiedFunctionalWeightModel):
+    """Both tied owners are consumed in the forward."""
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self.first(x) + self.second(x)
+
+
+class TiedConvModel(nn.Module):
+    """Four convolutions sharing one weight tensor, with separate biases."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.convs = nn.ModuleList(nn.Conv2d(4, 4, 3, padding=1) for _ in range(4))
+        for conv in self.convs[1:]:
+            conv.weight = self.convs[0].weight
+
+    def forward(self, x: Tensor) -> Tensor:
+        for conv in self.convs:
+            x = torch.relu(conv(x))
+        return x
+
+
+class TiedConvAutoencoder(nn.Module):
+    """Encoder conv and decoder transposed conv sharing one weight."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.encoder = nn.Conv2d(4, 8, 3, padding=1)
+        self.decoder = nn.ConvTranspose2d(8, 4, 3, padding=1)
+        self.decoder.weight = self.encoder.weight
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self.decoder(torch.relu(self.encoder(x)))
+
+
+class SameModuleTiedModel(nn.Module):
+    """One module holding the same parameter under two names."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.weight_a = nn.Parameter(torch.randn(3, 4))
+        self.weight_b = self.weight_a
+
+    def forward(self, x: Tensor) -> Tensor:
+        return F.linear(x, self.weight_a) + F.linear(x, self.weight_b)
+
+
+class TiedQuantLayerModel(nn.Module):
+    """A float conv tied to a Brevitas conv that quantizes its own weight."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.float_conv = nn.Conv2d(4, 4, 3, padding=1)
+        self.quant_conv = QuantConv2d(4, 4, 3, padding=1, weight_quant=Int8WeightPerTensorFloat)
+        self.quant_conv.weight = self.float_conv.weight
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self.quant_conv(self.float_conv(x))
 
 
 class FunctionalConvTranspose1dModel(nn.Module):
@@ -668,6 +729,123 @@ class TestFunctionalQuantizationMode:
         state = prepare_functional_quantization(
             model, {F.linear: Int8ActPerTensorFloat}, example_inputs=(x,))
         assert len(state.quantizers) == 1
+        state.cleanup()
+
+    def test_tied_weight_shares_one_parametrization(self):
+        """Tied owners share one quantizer and representation; cleanup restores the tie."""
+        model = TiedTwoUseFunctionalWeightModel()
+        x = torch.randn(2, 4)
+        state = prepare_functional_quantization(
+            model, {F.linear: (None, None, Int8WeightPerTensorFloat)}, example_inputs=(x,))
+
+        assert len(state.quantizers) == 1
+        assert is_parametrized(model.first, 'weight')
+        assert is_parametrized(model.second, 'weight')
+        original = model.first.parametrizations.weight.original
+        assert original is model.second.parametrizations.weight.original
+        assert state.quantized_parameters == {'first.weight', 'second.weight'}
+
+        with functional_quantization_mode(state):
+            assert torch.equal(model.first.weight.value, model.second.weight.value)
+            model(x).sum().backward()
+        assert original.grad is not None
+
+        state.cleanup()
+        assert model.first.weight is model.second.weight
+        assert model.first.weight is original
+
+    def test_tied_weight_with_incompatible_uses_is_rejected(self):
+        """Tied uses must agree on one quantizer configuration."""
+        model = TiedTwoUseFunctionalWeightModel()
+
+        def weight_resolver(module, name, index):
+            if name == 'first':
+                return Int8WeightPerTensorFloat
+            return Int8WeightPerChannelFloat
+
+        # Becomes pytest.raises once the fallback policy (default 'error') lands.
+        with pytest.warns(UserWarning, match='incompatible quantizers'):
+            state = prepare_functional_quantization(
+                model, {F.linear: (None, None, weight_resolver)},
+                example_inputs=(torch.randn(2, 4),))
+        assert not is_parametrized(model.first, 'weight')
+        assert not is_parametrized(model.second, 'weight')
+        state.cleanup()
+
+    def test_tied_conv_weights_share_one_quantizer(self):
+        """Tied conv owners share one per-channel quantizer and match a manual reference."""
+        model = TiedConvModel()
+        x = torch.randn(2, 4, 8, 8)
+        state = prepare_functional_quantization(
+            model, {F.conv2d: (None, Int8WeightPerChannelFloat)}, example_inputs=(x,))
+
+        assert len(state.quantizers) == 1
+        original = model.convs[0].parametrizations.weight.original
+        assert all(conv.parametrizations.weight.original is original for conv in model.convs)
+
+        with functional_quantization_mode(state):
+            with torch.no_grad():
+                quant_weight = model.convs[0].weight.value
+                reference = x
+                for conv in model.convs:
+                    reference = torch.relu(F.conv2d(reference, quant_weight, conv.bias, padding=1))
+            output = model(x)
+            output.sum().backward()
+        assert torch.allclose(output, reference)
+        assert original.grad is not None
+
+        state.cleanup()
+        assert all(conv.weight is original for conv in model.convs)
+
+    def test_tied_weight_under_two_names_on_one_module(self):
+        """Every attribute name holding the tied parameter is parametrized."""
+        model = SameModuleTiedModel()
+        state = prepare_functional_quantization(
+            model, {F.linear: (None, None, Int8WeightPerTensorFloat)},
+            example_inputs=(torch.randn(2, 4),))
+        assert is_parametrized(model, 'weight_a')
+        assert is_parametrized(model, 'weight_b')
+        assert len(state.quantizers) == 1
+        state.cleanup()
+        assert model.weight_a is model.weight_b
+
+    def test_tied_conv_and_transposed_conv_per_tensor(self):
+        """A conv/transposed-conv tie works with a layout-independent quantizer."""
+        model = TiedConvAutoencoder()
+        spec = (None, Int8WeightPerTensorFloat)
+        state = prepare_functional_quantization(
+            model, {
+                F.conv2d: spec, F.conv_transpose2d: spec},
+            example_inputs=(torch.randn(2, 4, 8, 8),))
+        assert is_parametrized(model.encoder, 'weight')
+        assert is_parametrized(model.decoder, 'weight')
+        state.cleanup()
+
+    def test_tied_conv_and_transposed_conv_conflicting_channel_axes(self):
+        """Per-channel uses that disagree on the stored output-channel axis are rejected."""
+        model = TiedConvAutoencoder()
+        quant_map = {
+            F.conv2d: (None, (Int8WeightPerChannelFloat, {
+                'output_channel_dim': 0})),
+            F.conv_transpose2d: (None, (Int8WeightPerChannelFloat, {
+                'output_channel_dim': 1}))}
+        # Becomes pytest.raises once the fallback policy (default 'error') lands.
+        with pytest.warns(UserWarning, match='incompatible quantizers'):
+            state = prepare_functional_quantization(
+                model, quant_map, example_inputs=(torch.randn(2, 4, 8, 8),))
+        assert not is_parametrized(model.encoder, 'weight')
+        state.cleanup()
+
+    def test_tied_weight_with_brevitas_layer_owner_is_rejected(self):
+        """A tie into a Brevitas layer with weight quantization would quantize twice."""
+        model = TiedQuantLayerModel()
+        # Becomes pytest.raises once the fallback policy (default 'error') lands.
+        with pytest.warns(UserWarning, match='Brevitas weight quantizer'):
+            state = prepare_functional_quantization(
+                model, {F.conv2d: (None, Int8WeightPerTensorFloat)},
+                example_inputs=(torch.randn(2, 4, 8, 8),))
+        assert not is_parametrized(model.quant_conv, 'weight')
+        assert not is_parametrized(model.float_conv, 'weight')
         state.cleanup()
 
     def test_three_slot_dispatch_quantizes_parameter_first_operand(self):

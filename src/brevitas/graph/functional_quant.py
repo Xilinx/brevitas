@@ -30,6 +30,7 @@ from torch.utils.hooks import RemovableHandle
 
 from brevitas import torch_version
 from brevitas.nn import QuantIdentity
+from brevitas.nn.mixin.parameter import QuantWeightMixin
 from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
 
@@ -262,6 +263,8 @@ class _OwnerPlan:
     quant_class: Type
     di_kwargs: Dict[str, Any]
     quantizer_key: str
+    # Every module attribute holding this parameter; tied owners share one parametrization.
+    owners: Tuple[Tuple[nn.Module, str], ...]
     error: Optional[str] = None
 
 
@@ -302,7 +305,8 @@ class FunctionalQuantState:
     def quantized_parameters(self) -> set[str]:
         """Names of parameters quantized through owner parametrizations."""
         names = set()
-        for name, _ in self.model.named_parameters():
+        # Keep duplicates so every tied owner is reported, not only the first.
+        for name, _ in self.model.named_parameters(remove_duplicate=False):
             if '.original' not in name:
                 continue
             names.add(name.replace('parametrizations.', '').rsplit('.original', 1)[0])
@@ -354,7 +358,7 @@ class _HookedMode(TorchFunctionMode):
         self.hooks: List[RemovableHandle] = []
         self.parameter_owners: Dict[int, Tuple[nn.Module, str]] = {}
         self.parameter_views: Dict[int, Tuple[weakref.ReferenceType, Any]] = {}
-        self.aliased_parameters = set()
+        self.tied_owners: Dict[int, List[Tuple[nn.Module, str]]] = {}
 
     def _attach_hooks(self) -> None:
         """Attach hooks that maintain the active module stack and counters."""
@@ -375,7 +379,7 @@ class _HookedMode(TorchFunctionMode):
         self.counters.clear()
         self.parameter_views.clear()
         self.parameter_owners.clear()
-        self.aliased_parameters.clear()
+        self.tied_owners.clear()
 
     def _pre_hook(self, name: str) -> Callable:
         """Create a pre-hook that resets and records each managed forward root."""
@@ -535,26 +539,22 @@ class _HookedMode(TorchFunctionMode):
                     transposes=view.transposes + ((dim0, dim1),)))
 
     def _build_parameter_owners(self) -> None:
-        """Map each direct model parameter to its owning module attribute."""
+        """Map each parameter to a canonical owner and to all of its tied owners."""
         self.parameter_owners.clear()
-        self.aliased_parameters.clear()
+        self.tied_owners.clear()
         excluded = set(self.state.quantizers.modules())
         for _, module in self.model.named_modules():
             if module in excluded or isinstance(module, ParametrizationList):
                 continue
-            for name, parameter in module.named_parameters(recurse=False):
-                owner = (module, name)
-                if id(parameter) in self.parameter_owners and self.parameter_owners[id(
-                        parameter)] != owner:
-                    self.aliased_parameters.add(id(parameter))
-                self.parameter_owners[id(parameter)] = owner
-            for name in getattr(module, 'parametrizations', {}):
-                original = getattr(module.parametrizations, name).original
-                owner = (module, name)
-                if id(original) in self.parameter_owners and self.parameter_owners[id(
-                        original)] != owner:
-                    self.aliased_parameters.add(id(original))
-                self.parameter_owners[id(original)] = owner
+            # Keep duplicates: one module can hold the same parameter under several names.
+            parameters = list(module.named_parameters(recurse=False, remove_duplicate=False))
+            parameters += [(name, getattr(module.parametrizations, name).original)
+                           for name in getattr(module, 'parametrizations', {})]
+            for name, parameter in parameters:
+                # The first owner in module order is canonical, so preparation and later
+                # modes resolve every tied use to the same owner plan.
+                self.parameter_owners.setdefault(id(parameter), (module, name))
+                self.tied_owners.setdefault(id(parameter), []).append((module, name))
 
     def _spec_for(self, func: Callable, arg_idx: int, is_parameter: bool) -> Any:
         """Select the effective specification for an argument at a call site."""
@@ -627,6 +627,8 @@ class _FunctionalQuantBuilder(_HookedMode):
                     'parameter-derived views require the weight quantizer to declare owner-level '
                     f"{', '.join(missing)}")
 
+        # Match _create_weight's default so explicit and implicit axis 0 compare equal across uses.
+        owner_di_kwargs.setdefault('output_channel_dim', 0)
         axes = []
         owner_dim = owner_value.dim()
         for name in required:
@@ -684,10 +686,13 @@ class _FunctionalQuantBuilder(_HookedMode):
                 parameter_view_full_owner=view.selector_dim is None)
 
         owner_di_kwargs, error = self._owner_quant_kwargs(owner, view, di_kwargs)
-        if id(owner_value) in self.aliased_parameters:
-            error = 'tied parameters do not have a unique owner attribute'
-        if is_parametrized(owner[0], owner[1]):
+        owners = tuple(self.tied_owners.get(id(owner_value), [owner]))
+        if any(is_parametrized(tied_module, attr) for tied_module, attr in owners):
             error = 'the owner is already parametrized'
+        if any(isinstance(tied_module, QuantWeightMixin) and attr == 'weight' and
+               tied_module.weight_quant.is_quant_enabled for tied_module,
+               attr in owners):
+            error = 'a tied owner already quantizes it through its Brevitas weight quantizer'
 
         quantizer_key = _module_key(
             name, func, self.state.function_indices[func], index, arg_idx, weight=True)
@@ -697,6 +702,7 @@ class _FunctionalQuantBuilder(_HookedMode):
                 quant_class=quant_class,
                 di_kwargs=owner_di_kwargs,
                 quantizer_key=quantizer_key,
+                owners=owners,
                 error=error)
         elif plan.error is None:
             if error is not None:
@@ -763,9 +769,12 @@ class _FunctionalQuantBuilder(_HookedMode):
             parameter = getattr(owner_module, owner_name)
             proxy = self._create_weight(plan.quant_class, plan.di_kwargs, parameter)
             self._add_quantizer(plan.quantizer_key, proxy)
-            register_parametrization(
-                owner_module, owner_name, _QuantParametrization(self.state, proxy))
-            self.state.registered_parametrizations.append(owner)
+            # Tied owners share one parametrization, so every read of the shared parameter
+            # returns the same quantized representation.
+            parametrization = _QuantParametrization(self.state, proxy)
+            for module, name in plan.owners:
+                register_parametrization(module, name, parametrization)
+                self.state.registered_parametrizations.append((module, name))
 
         for call_key, arguments in self.discovered_calls.items():
             name, func, index = call_key
