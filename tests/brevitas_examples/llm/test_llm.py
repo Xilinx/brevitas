@@ -15,6 +15,8 @@ from typing import Optional
 from typing import Tuple
 from unittest.mock import patch
 
+from accelerate.hooks import add_hook_to_module
+from accelerate.hooks import AlignDevicesHook
 from datasets import Dataset
 import onnx
 from packaging import version
@@ -30,6 +32,7 @@ from brevitas.graph.equalize import _compute_rotations
 from brevitas.graph.equalize import Region
 from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
 from brevitas.utils.python_utils import Registry
+from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.generative.quantizers import BaseQuantizer
 from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
 from brevitas_examples.llm.llm_args import create_args_parser
@@ -801,3 +804,22 @@ def test_fix_rewriter_remaps_by_storage_and_rejects_meta():
         m.weight = nn.Parameter(torch.empty_like(m.weight, device='meta'))
     with pytest.raises(RuntimeError, match="meta device"):
         fix_rewriter([Rewriter(other[2])], eager, 'weight')
+
+
+@pytest.mark.llm
+def test_remove_hooks_restores_class_forward():
+    """accelerate restores the original forward as an instance attribute when removing its hooks, which
+    changes how dynamo exports the modules: remove_hooks must leave the class forward in place, while
+    keeping a forward that was set on purpose before the hooks."""
+
+    def custom_forward(x):
+        return x
+
+    model = nn.Sequential(nn.Linear(4, 4), nn.ReLU())
+    model[1].forward = custom_forward
+    for module in model.modules():
+        add_hook_to_module(module, AlignDevicesHook(execution_device='cpu'))
+    remove_hooks(model)
+    assert 'forward' not in model.__dict__
+    assert 'forward' not in model[0].__dict__
+    assert model[1].forward is custom_forward
