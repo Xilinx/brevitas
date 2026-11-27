@@ -4,9 +4,13 @@
 import numpy as np
 import onnx
 import pytest
+from qonnx.core.modelwrapper import ModelWrapper
+from qonnx.core.onnx_exec import execute_onnx
+from qonnx.util.cleanup import cleanup_model
 import torch
 
 from brevitas.export import enable_debug
+from brevitas.export import export_qonnx
 from brevitas.nn import QuantConv2d
 from brevitas.nn import QuantIdentity
 from brevitas.nn import QuantLinear
@@ -117,8 +121,45 @@ def test_a2q_quant_linear_export(request, a2q_weight_act_quantizers, qonnx_expor
     model = Model()
     model(inp)  # collect scale factors
     model.eval()
+    if getattr(qonnx_export_fn, 'keywords', {}).get('dynamo', False):
+        # the pre-quantized A2Q weights cannot be looked up under torch.export
+        with pytest.raises(RuntimeError, match="A2Q"):
+            qonnx_export_fn(model, inp, export_path=outfile)
+        return
     qonnx_export_fn(model, inp, export_path=outfile)
     rm_onnx(outfile)
+
+
+@jit_disabled_for_export()
+def test_a2q_quant_conv_export_matches_forward(request, a2q_weight_act_quantizers):
+    # A2Q quantizes w / pre_scale with round-to-zero and a learned norm, so a Quant node on the
+    # float weight with the final scale and ROUND does not reproduce it; the exported graph must
+    # carry the pre-quantized weights.
+    IN_SIZE = (2, IN_CH, 8, 8)
+
+    _, (weight_quant, io_quant) = a2q_weight_act_quantizers
+
+    model = QuantConv2d(
+        out_channels=OUT_CH,
+        in_channels=IN_CH,
+        kernel_size=3,
+        bias=False,
+        input_quant=io_quant,
+        weight_quant=weight_quant,
+        return_quant_tensor=False)
+    # decouple the weights from the norm the A2Q parameters were initialized with
+    model.weight.data.uniform_(-0.1, 0.1)
+    inp = torch.randn(IN_SIZE)
+    model(inp)  # collect scale factors
+    model.eval()
+    with torch.no_grad():
+        ref = model(inp).numpy()
+    outfile = f'a2q_quant_conv_forward_{request.node.callspec.id}.onnx'
+    export_qonnx(model, inp, export_path=outfile, dynamo=False)
+    onnx_model = cleanup_model(ModelWrapper(outfile))
+    out = execute_onnx(onnx_model, {onnx_model.graph.input[0].name: inp.numpy()})
+    rm_onnx(outfile)
+    assert np.allclose(out[onnx_model.graph.output[0].name], ref, atol=1e-5)
 
 
 @jit_disabled_for_export()

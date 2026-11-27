@@ -15,6 +15,7 @@ from brevitas.export.manager import _set_recurrent_layer_export_mode
 from brevitas.export.onnx.debug import DebugMarkerFunction
 from brevitas.export.onnx.manager import ONNXBaseManager
 from brevitas.export.onnx.manager import ONNXDynamoExportMixin
+from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.logging import setup_logger
 
@@ -112,6 +113,13 @@ class QONNXDynamoManager(ONNXDynamoExportMixin, QONNXManager):
             disable_warnings,
             **onnx_export_kwargs):
         cls._check_dynamo_export_kwargs(onnx_export_kwargs)
+        # The weight Quant node needs the pre-quantized weights, looked up by `data_ptr()`,
+        # which torch.export (FakeTensor) does not provide.
+        for m in module.modules():
+            if isinstance(m, DecoupledWeightQuantWithInputProxyFromInjector) and m.is_quant_enabled:
+                raise RuntimeError(
+                    "QONNX export with `dynamo=True` does not support input-aware decoupled "
+                    "weight quantization (e.g. A2Q), use `dynamo=False`.")
         model = super(QONNXDynamoManager, cls).export_onnx(
             module, args, export_path, input_shape, input_t, disable_warnings, **onnx_export_kwargs)
         return model

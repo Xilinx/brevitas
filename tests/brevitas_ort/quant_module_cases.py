@@ -59,7 +59,8 @@ def enumerate_wbiol_flags():
 
     Validity mirrors the exporter's limits: QuantLinear+asymmetric is excluded; dynamo exports
     need torch>=2.8 and dynamic act quant is QCDQ-only; fp8/dynamic force bias_quant=None;
-    export_q_weight is forced True for fp8/qcdq_dynamo and False for a2q/floor.
+    export_q_weight is forced True for fp8/qcdq_dynamo and False for a2q/floor; a2q is not exported
+    with qonnx_dynamo.
     """
     combos = []
     names = list(WBIOL_QUANTIZERS)
@@ -73,7 +74,9 @@ def enumerate_wbiol_flags():
             for rounding_type in ['round', 'floor']:
                 exports = ['qcdq', 'qonnx']
                 if torch_version >= parse('2.8'):
-                    exports.append('qonnx_dynamo')
+                    # A2Q needs its pre-quantized weights, which torch.export cannot look up
+                    if 'a2q' not in quantizer_name:
+                        exports.append('qonnx_dynamo')
                     if rounding_type == 'round' and (is_fp8 or is_dynamic):
                         exports.append('qcdq_dynamo')
                 if is_dynamic:
