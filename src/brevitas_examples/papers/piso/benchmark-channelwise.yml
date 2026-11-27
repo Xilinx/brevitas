@@ -32,7 +32,7 @@ model:
 # - Qwen/Qwen2.5-7B-Instruct
 
 # Quantization grid. `stats` is the absmax scale heuristic, which is both the
-# baseline and the starting point that scale optimization replaces.
+# baseline and the starting point that grid optimization replaces.
 weight_quant_format:
 - int
 weight_quant_granularity:
@@ -45,34 +45,34 @@ weight_bit_width:
 - 3
 - 4
 
-# Scale selection. The three flags below are swept jointly and select one scale
+# Scale selection. The flags below are swept jointly and select one scale
 # method per run:
-#   sopt_optimize: false                                 -> absmax (data-free heuristic)
-#   sopt_optimize: true,  sopt_hessian_mode: identity    -> data-free solver, H = I
-#   sopt_optimize: true,  sopt_hessian_mode: dense       -> PiSO
-sopt_optimize:
+#   both grid optimization flags false              -> absmax (data-free heuristic)
+#   grid optimization with covariance mode identity -> data-free solver, H = I
+#   grid optimization with covariance mode dense    -> PiSO
+grid_optimization:
 - false
 - true
-# How scale optimization composes with error correction: false runs it as a
+# How grid optimization composes with error correction: false runs it as a
 # separate pass beforehand (decoupled, +), true runs it inside GPTQ/Qronos just
 # before each layer is corrected (layer-interleaved, *). Per-channel quantization
 # is always layer-interleaved, so no further flag is needed here.
-sopt_optimize_in_gpxq:
+gpxq_use_grid_optimization:
 - false
 - true
 # `identity` ignores the calibration statistics and minimizes the weight-only
 # objective ||w - s q(w)||^2, i.e. the paper's `data-free` baseline.
-sopt_hessian_mode:
+grid_opt_covariance_mode:
 - dense
 - identity
-# PiSO minimizes the same objective as the algorithm it is combined with, so this
-# is not a free axis: `benchmark.py` keeps `self-activation` with GPTQ and
-# `cross-activation` with Qronos or standalone RTN, and discards the mismatches.
-sopt_objective:
-- cross-activation
-- self-activation
+# PiSO uses quantized activations for reconstruction. Qronos and standalone RTN
+# use float target activations (mismatched). GPTQ uses quantized target
+# activations (quantized).
+grid_opt_objective:
+- mismatched
+- quantized
 # Channels solved in parallel. Throughput/memory knob only; does not affect results.
-sopt_solver_batch_size:
+grid_opt_solver_batch_size:
 - 512
 # Calibrate block by block so activations are only materialized one block at a time.
 gpxq_block_name:
@@ -88,7 +88,7 @@ gptq:
 qronos:
 - true
 - false
-# Quantize columns in decreasing order of Hessian importance.
+# Quantize columns in decreasing order of covariance importance.
 gpxq_act_order:
 - true
 
