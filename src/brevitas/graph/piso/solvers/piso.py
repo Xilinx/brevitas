@@ -34,8 +34,36 @@ import torch
 from brevitas.graph.piso.solvers.common import _piso_grid_deltas
 from brevitas.graph.piso.solvers.common import _piso_select_optimal
 from brevitas.graph.piso.solvers.common import _piso_select_optimal_straddle
+from brevitas.graph.piso.solvers.common import _piso_sorted_transitions
+from brevitas.graph.piso.solvers.common import _piso_transition_lookup
 from brevitas.graph.piso.solvers.common import SCALE_SOLVER_REGISTRY
 from brevitas.graph.piso.solvers.common import ScaleSolverFamily
+
+
+# An ``zero_point`` z makes the quantizer affine, w_hat = s*q - z. Expanding the
+# objective,
+#
+#     E(s) = s^2 (q^T H q) - 2 s (q^T G w + z q^T H 1) + const,
+#
+# so z only shifts the transitions (q flips on (w + z)/s) and adds the term
+# z q^T H 1 to the linear coefficient, tracked by the qH1 accumulator in O(1) per
+# interval exactly like wHq. Note it uses H 1, not G 1, so this is exact for any
+# G -- unlike shifting the weights by z, which is only valid when G 1 = H 1.
+# Scales are positive-only when a zero point is given.
+#
+# The zero point is expected to cover the weight range, i.e. w + z >= 0, which is
+# what a calibrated zero point (NegativeMinOrZero) produces. Otherwise the
+# optimum can fall in the unbounded top interval, where every entry clamps to
+# grid[0] and the reconstruction s*q - z = -z no longer depends on the scale;
+# the sweeps only visit intervals delimited by transitions, so they would not
+# find it.
+def _reject_zero_point_with_negative_scales(
+        zero_point: Optional[torch.Tensor], allow_negative_s: bool) -> None:
+    """A nonzero zero_point pins the search to positive scales (see the note above)."""
+    if zero_point is not None and allow_negative_s:
+        raise ValueError(
+            "zero_point (asymmetric free-offset quantization) only supports positive scales; "
+            "got allow_negative_s=True.")
 
 
 def _piso_sweep_per_channel_diag(
@@ -44,7 +72,8 @@ def _piso_sweep_per_channel_diag(
         unscaled_grid: torch.Tensor,
         G_diag: Optional[torch.Tensor] = None,
         eps: float = 1.e-6,
-        allow_negative_s: bool = False) -> torch.Tensor:
+        allow_negative_s: bool = False,
+        zero_point: Optional[torch.Tensor] = None) -> torch.Tensor:
     """PiSO sweep for per-channel quantization with a diagonal Hessian (paper section 3.1).
 
     Fast path when H is forced diagonal (debug) or the data-free regime is used
@@ -63,6 +92,7 @@ def _piso_sweep_per_channel_diag(
     Returns:
         Optimal scale per channel, shape [batch, 1].
     """
+    _reject_zero_point_with_negative_scales(zero_point, allow_negative_s)
     _, k_curr, k_next, delta_next_curr = _piso_grid_deltas(unscaled_grid)
 
     # batch size and dimension of weight vectors
@@ -70,12 +100,11 @@ def _piso_sweep_per_channel_diag(
     # Batch indices for batched operations
     rows = torch.arange(batch_size, device=w_b.device)
 
-    # Compute scale values where the vector q changes
-    transition_scales = 2 * w_b.unsqueeze(1) / (unscaled_grid[:-1] +
-                                                unscaled_grid[1:]).unsqueeze(1).unsqueeze(0)
-
-    # Sort the transition scales to have the intervals where q is constant
-    sorted_transition_scales, scales_sorting_indices = torch.sort(transition_scales.reshape(batch_size, -1), dim=1)
+    # Scale values where the vector q changes, sorted so each interval on which
+    # q is constant is contiguous. The zero point shifts the transitions
+    # (q flips on (w + z)/s); Hw below stays built from w.
+    sorted_transition_scales, scales_sorting_indices, w_shift = _piso_sorted_transitions(
+        w_b, unscaled_grid, zero_point)
 
     # Intialization of values for the loop
     # Hw doesn't change during the loop
@@ -83,6 +112,9 @@ def _piso_sweep_per_channel_diag(
         Hw = G_diag * w_b
     else:
         Hw = H_diag * w_b
+    # For a diagonal H, H 1 is just the diagonal; qH1 tracks the zero point's term.
+    H1 = None if zero_point is None else H_diag
+    qH1 = torch.zeros((batch_size,), dtype=w_b.dtype, device=w_b.device)
     # wHq is originally all 0s as Hq is originally 0s
     wHq = torch.zeros((batch_size,), dtype=w_b.dtype, device=w_b.device)
     # qHq is originally all 0s as Hq is originally 0s
@@ -96,16 +128,18 @@ def _piso_sweep_per_channel_diag(
     mask_sign = torch.zeros((batch_size,), dtype=torch.bool, device=w_b.device)
     # Intialize values from positive to negative scale transition
     # This is the only transition where more than one entry of q changes at a time
-    q_transition = torch.where(w_b[rows] < 0., unscaled_grid[-1],
-                               unscaled_grid[0]).to(dtype=w_b.dtype)
+    q_transition = torch.where(w_shift[rows] < 0., unscaled_grid[..., -1:],
+                               unscaled_grid[..., :1]).to(dtype=w_b.dtype)
     wHq_transition = torch.sum(Hw * q_transition, dim=1)
+    qH1_transition = torch.zeros_like(wHq_transition) if H1 is None else torch.sum(
+        H1 * q_transition, dim=1)
     Hq_transition = H_diag * q_transition
     qHq_transition = torch.sum(q_transition * Hq_transition, dim=1)
 
     # Loop over the intervals with fixed q compute the closed solution for
     # the best scale in the interval and if the error of the best scale in
     # the interval is lower than the optimal error, update the optimal scale
-    for j in reversed(range(1, transition_scales.numel() // batch_size)):
+    for j in reversed(range(1, sorted_transition_scales.shape[-1])):
         # i is the changed entry of the vector q in this iteration
         # k allows to retrieve the ammount of change in that entry
         k, i = scales_sorting_indices[:, j] // D, scales_sorting_indices[:, j] % D
@@ -122,10 +156,11 @@ def _piso_sweep_per_channel_diag(
         # Handle the special case of going from positive to negative scales
         if torch.any(mask_sign_changes):
             wHq[mask_sign_changes] = wHq_transition[mask_sign_changes]
+            qH1[mask_sign_changes] = qH1_transition[mask_sign_changes]
             qHq[mask_sign_changes] = qHq_transition[mask_sign_changes]
 
         # get the change in the single entry of q that got updated
-        delta = delta_next_curr[k] * (1. - 2. * mask.to(dtype=w_b.dtype))
+        delta = _piso_transition_lookup(delta_next_curr, k) * (1. - 2. * mask.to(dtype=w_b.dtype))
 
         # get the bounds of the current scale interval
         upper_limit = sorted_transition_scales[:, j]
@@ -136,16 +171,23 @@ def _piso_sweep_per_channel_diag(
         # but the quadratic term needs the entry's *current* grid value: k_curr on
         # the positive branch, and its mirror k_next once s has gone negative (the
         # sign transition swaps which side of the grid the entry is walking from).
-        k_base = torch.where(mask, k_next[k], k_curr[k])
+        k_base = torch.where(
+            mask, _piso_transition_lookup(k_next, k), _piso_transition_lookup(k_curr, k))
         wHq += delta * Hw[rows, i]
+        if H1 is not None:
+            qH1 += delta * H1[i]
         qHq += H_diag[i] * (2. * k_base * delta + delta ** 2)
 
+        num = wHq if zero_point is None else wHq + zero_point.squeeze(-1) * qH1
         optimal_scale, optimal_error, should_break, _ = _piso_select_optimal(
-            wHq, qHq, lower_limit, upper_limit, mask, optimal_scale, optimal_error, eps,
+            num, qHq, lower_limit, upper_limit, mask, optimal_scale, optimal_error, eps,
             allow_negative_s)
 
+        num_transition = (
+            wHq_transition if zero_point is None else wHq_transition +
+            zero_point.squeeze(-1) * qH1_transition)
         optimal_scale, optimal_error = _piso_select_optimal_straddle(
-            wHq_transition, qHq_transition, lower_limit, upper_limit, mask, optimal_scale,
+            num_transition, qHq_transition, lower_limit, upper_limit, mask, optimal_scale,
             optimal_error, eps, allow_negative_s)
 
         if should_break:
@@ -160,7 +202,8 @@ def _piso_sweep_per_group_diag(
         unscaled_grid: torch.Tensor,
         G_diag: Optional[torch.Tensor] = None,
         eps: float = 1.e-6,
-        allow_negative_s: bool = False) -> torch.Tensor:
+        allow_negative_s: bool = False,
+        zero_point: Optional[torch.Tensor] = None) -> torch.Tensor:
     """PiSO sweep for group-wise quantization, independent groups with a diagonal Hessian (paper section 3.1, section 3.2).
 
     Combines the independent-groups approximation (section 3.2) with the diagonal-H fast
@@ -180,6 +223,7 @@ def _piso_sweep_per_group_diag(
     Returns:
         Optimal scale per group, shape [batch, n_groups, 1].
     """
+    _reject_zero_point_with_negative_scales(zero_point, allow_negative_s)
     _, k_curr, k_next, delta_next_curr = _piso_grid_deltas(unscaled_grid)
 
     # batch size, groups and group dimension of weights
@@ -187,13 +231,10 @@ def _piso_sweep_per_group_diag(
 
     g_idx = torch.arange(n_groups, device=w_b.device).unsqueeze(0).expand(batch_size, -1)
 
-    # Compute scale values where the vector q changes
-    transition_scales = 2 * w_b.unsqueeze(1) / (unscaled_grid[:-1] +
-                                                unscaled_grid[1:]).unsqueeze(1).unsqueeze(0).view(
-                                                    1, unscaled_grid.shape[0] - 1, 1, 1)
-    # Sort the transition scales to have the intervals where q is constant
-
-    sorted_transition_scales, scales_sorting_indices = torch.sort(transition_scales.permute(0, 2, 1, 3).reshape(batch_size, n_groups, -1), dim=-1)
+    # Scale values where the vector q changes, sorted so each interval on which
+    # q is constant is contiguous.
+    sorted_transition_scales, scales_sorting_indices, w_shift = _piso_sorted_transitions(
+        w_b, unscaled_grid, zero_point)
 
     if G_diag is not None:
         Hw = (G_diag * w_b.reshape(batch_size, n_groups * group_size)).reshape(
@@ -202,6 +243,9 @@ def _piso_sweep_per_group_diag(
         Hw = (H_diag * w_b.reshape(batch_size, n_groups * group_size)).reshape(
             batch_size, n_groups, group_size)
 
+    # For a diagonal H, H 1 is just the diagonal; qH1 tracks the zero point's term.
+    H1 = None if zero_point is None else H_diag.reshape(*H_diag.shape[:-1], n_groups, group_size)
+    qH1 = torch.zeros((batch_size, n_groups), dtype=w_b.dtype, device=w_b.device)
     wHq = torch.zeros((batch_size, n_groups), dtype=w_b.dtype, device=w_b.device)
     qHq = torch.zeros((batch_size, n_groups), dtype=w_b.dtype, device=w_b.device)
     optimal_scale = torch.empty((batch_size, n_groups), device=w_b.device)
@@ -209,13 +253,16 @@ def _piso_sweep_per_group_diag(
     optimal_error = torch.full((batch_size, n_groups), torch.inf, device=w_b.device)
 
     mask_sign = torch.zeros((batch_size, n_groups), dtype=torch.bool, device=w_b.device)
-    q_transition = torch.where(w_b < 0., unscaled_grid[-1], unscaled_grid[0]).to(dtype=w_b.dtype)
+    q_transition = torch.where(w_shift < 0., unscaled_grid[..., -1:],
+                               unscaled_grid[..., :1]).to(dtype=w_b.dtype)
     wHq_transition = torch.sum(Hw * q_transition, dim=2)
+    qH1_transition = torch.zeros_like(wHq_transition) if H1 is None else torch.sum(
+        H1 * q_transition, dim=2)
     Hq_transition = (H_diag * q_transition.reshape(batch_size, n_groups * group_size)).reshape(
         batch_size, n_groups, group_size)
     qHq_transition = torch.sum(q_transition * Hq_transition, dim=2)
 
-    for j in reversed(range(1, transition_scales.numel() // (batch_size * n_groups))):
+    for j in reversed(range(1, sorted_transition_scales.shape[-1])):
         k, i = scales_sorting_indices[:,:,j] // group_size, scales_sorting_indices[:,:,j] % group_size
         mask = sorted_transition_scales[:, :, j] < 0
         mask_sign_changes = mask & ~mask_sign
@@ -223,24 +270,33 @@ def _piso_sweep_per_group_diag(
 
         if torch.any(mask_sign_changes):
             wHq[mask_sign_changes] = wHq_transition[mask_sign_changes]
+            qH1[mask_sign_changes] = qH1_transition[mask_sign_changes]
             qHq[mask_sign_changes] = qHq_transition[mask_sign_changes]
 
-        delta = delta_next_curr[k] * (1. - 2. * mask.to(dtype=w_b.dtype))
+        delta = _piso_transition_lookup(delta_next_curr, k) * (1. - 2. * mask.to(dtype=w_b.dtype))
         upper_limit = sorted_transition_scales[:, :, j]
         lower_limit = sorted_transition_scales[:, :, j - 1]
 
         # Diagonal H: the quadratic term needs the entry's current grid value —
         # k_curr on the positive branch, its mirror k_next once s is negative.
-        k_base = torch.where(mask, k_next[k], k_curr[k])
+        k_base = torch.where(
+            mask, _piso_transition_lookup(k_next, k), _piso_transition_lookup(k_curr, k))
+        h_sel = H_diag[g_idx * group_size + i]
         wHq += delta * torch.gather(Hw, dim=2, index=i.unsqueeze(-1)).squeeze(-1)
-        qHq += H_diag[g_idx * group_size + i] * (2. * k_base * delta + delta ** 2)
+        if H1 is not None:
+            qH1 += delta * h_sel
+        qHq += h_sel * (2. * k_base * delta + delta ** 2)
 
+        num = wHq if zero_point is None else wHq + zero_point.squeeze(-1) * qH1
         optimal_scale, optimal_error, should_break, _ = _piso_select_optimal(
-            wHq, qHq, lower_limit, upper_limit, mask, optimal_scale, optimal_error, eps,
+            num, qHq, lower_limit, upper_limit, mask, optimal_scale, optimal_error, eps,
             allow_negative_s)
 
+        num_transition = (
+            wHq_transition if zero_point is None else wHq_transition +
+            zero_point.squeeze(-1) * qH1_transition)
         optimal_scale, optimal_error = _piso_select_optimal_straddle(
-            wHq_transition, qHq_transition, lower_limit, upper_limit, mask, optimal_scale,
+            num_transition, qHq_transition, lower_limit, upper_limit, mask, optimal_scale,
             optimal_error, eps, allow_negative_s)
 
         if should_break:
