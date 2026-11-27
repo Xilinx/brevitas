@@ -20,10 +20,11 @@ from brevitas.quant.scaled_int import Int32Bias
 from .common import *
 
 # Bit-width examples Hypothesis draws per flag combination (each a full export + ORT run).
-# Scheduled (periodic) CI tests every bit-width combination per flag set (Hypothesis stops once a
-# node's finite space is exhausted); PR/push CI samples a few per node.
-WBIOL_BITWIDTH_EXAMPLES = (
-    len(BIT_WIDTHS) ** 3 if os.environ.get('GITHUB_EVENT_NAME') == 'schedule' else 10)
+# Scheduled (periodic) CI samples 50 of the len(BIT_WIDTHS)**3 combinations per node to keep each
+# job under the 6h limit; PR/push CI samples a few. Seeds differ per node and per scheduled run
+# (see tests/conftest.py), so gaps are covered by other nodes, matrix jobs and later runs.
+# Nodes with smaller spaces (dynamic act quant, fp8) remain exhaustive.
+WBIOL_BITWIDTH_EXAMPLES = (50 if os.environ.get('GITHUB_EVENT_NAME') == 'schedule' else 10)
 
 
 @dataclass(frozen=True)
