@@ -380,8 +380,6 @@ class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler, GroupwiseMi
     def prepare_for_export(self, module):
         IntWeightInferencetHandler.prepare_for_export(self, module)
         GroupwiseMixin.prepare_for_export(self, module)
-        if module.is_quant_enabled:
-            self.input_view = module.input_view_impl
 
     def inner_forward(self, x: Tensor, scale: Tensor, zero_point: Tensor) -> Tensor:
         return self.dequantize(self.quantize(x, scale, zero_point), scale, zero_point)
@@ -394,7 +392,8 @@ class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler, GroupwiseMi
             out = self.cached_weight
         else:
             inp_shape = x.shape
-            x = self.input_view(x)
+            # Computed from the group metadata, so that the handler can be rebuilt from its state dict
+            x = dynamic_over_sub_channel_block_view(x, self.group_size, self.group_dim)
             out = self.inner_forward(x, self.scale, self.zero_point)
 
             # If we skip quant tensor, we return the flattened version of the groupwise tensor

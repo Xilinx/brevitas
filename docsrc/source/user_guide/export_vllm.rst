@@ -12,8 +12,9 @@ vLLM with quantization applied transparently.
 
 .. note::
 
-   vLLM is not a dependency of Brevitas and must be installed separately.
-   The vLLM import only occurs when ``--export-target vllm`` is specified.
+   vLLM is not a dependency of Brevitas and must be installed separately. The export with
+   ``--export-target vllm`` does not need it: vLLM is only required to load or evaluate the
+   exported model, possibly in another environment (see `Evaluation in Benchmarks`_).
 
 
 QDQ-based Export
@@ -69,6 +70,33 @@ Activation quantization granularity options:
 * Per row (dynamic) -- FP8 only
 * Per group (dynamic)
 
+
+Merged Layers
+-------------
+
+vLLM merges the query, key, and value projections into one layer (``qkv_proj``), and the gate and up
+projections into another one (``gate_up_proj``), while Brevitas exports them separately. Every part
+keeps its own weight and input quantizers, so the parts can have different formats (e.g., some
+layers in MXFP8 and the others in MXFP4), and a part that is not quantized stays in float. If all
+the parts share the input quantizer, the merged layer is computed with a single matmul, and
+otherwise with one matmul per part. The bias, output, and rotation quantizers apply to the whole
+merged layer, so they must be the same for all its parts.
+
+
+First and Last Layer Quantization
+---------------------------------
+
+With ``--quantize-first-last-layer``, the weights of the input embedding and the weights and inputs
+of the LM head are quantized in vLLM as well.
+
+
+Attention Quantization
+----------------------
+
+Static per-tensor quantization of the attention query, key, and value is supported with
+``--quant-sdpa eager`` and ``--attn-quant-config`` set to ``kv`` or ``qkv``. Keys and values are
+quantized before being written to the KV cache. The quantization of the softmax output
+(``--attn-quant-config qkvs``) is not supported, since vLLM attention kernels never materialize it.
 
 
 
@@ -140,6 +168,9 @@ The following are **not** currently supported:
 * AWQ
 * Learned Round (support is a work in progress)
 * SVDQuant
+* Expanded rotations (``--rotation-layers-to-expand``)
+
+Block rotations (``--rotation-block-size``) are supported for both fused and online rotations.
 
 
 Export Output
@@ -154,32 +185,213 @@ When the export completes, the output directory (specified by ``--export-prefix`
   * Quantization handler class type per proxy (weight, input, output, bias)
   * Scale and zero point values
   * Bit width, float-to-int implementation type, and scaling restriction settings
-  * Rotation configurations (Hadamard matrix shape and ``k`` value) for layers wrapped
-    in ``RotatedModule``
+  * Rotation configurations (Hadamard matrix shape, ``k`` value, and block size) for layers
+    wrapped in ``RotatedModule``
 
 At load time in vLLM, the registered ``quant_brevitas`` quantization method discovers
-``brevitas_config.json`` and assigns a ``QuantLinear`` method to each linear layer. This method
-reconstructs the quantization handlers from the saved configuration and applies quantization
-during inference.
+``brevitas_config.json`` and assigns a quantization method to each linear, embedding, and attention
+layer. This method reconstructs the quantization handlers from the saved configuration and applies
+quantization during inference.
 
 
 Using the Exported Model in vLLM
 =================================
 
-Once the model has been exported, it can be loaded in vLLM like any other quantized model by
-pointing to the export directory:
+Brevitas registers the ``quant_brevitas`` quantization method through a vLLM plugin, which is
+installed together with Brevitas. Once the model has been exported, it can be loaded in vLLM like
+any other quantized model by pointing to the export directory:
 
 .. code-block:: python
 
    from vllm import LLM
 
-   llm = LLM(model="./exported_model", quantization="quant_brevitas")
+   llm = LLM(model="./exported_model", quantization="quant_brevitas", enforce_eager=True)
 
 Or via the vLLM CLI:
 
 .. code-block:: bash
 
-   vllm serve ./exported_model --quantization quant_brevitas
+   vllm serve ./exported_model --quantization quant_brevitas --enforce-eager
+
+Tensor parallelism is not supported, since quantization parameters are not sharded across GPUs.
+To use multiple GPUs or evaluate models that do not fit on a single GPU, see
+`Multiple GPUs and Large Models`_.
+
+Zero-Shot Evaluation
+====================
+
+The ``brevitas_vllm_eval`` entrypoint evaluates an exported model through vLLM using either
+lm-evaluation-harness or LightEval. The latest published harnesses require incompatible vLLM
+versions, so install them in separate environments. For lm-evaluation-harness:
+
+.. code-block:: bash
+
+   pip install -e ".[vllm_eval_lm_eval]"
+
+The evaluation backend must be selected explicitly. For lm-evaluation-harness:
+
+.. code-block:: bash
+
+   brevitas_vllm_eval --model ./exported_model --backend lm_eval
+
+In a separate environment, install and run LightEval with:
+
+.. code-block:: bash
+
+   pip install -e ".[vllm_eval_lighteval]"
+   brevitas_vllm_eval --model ./exported_model --backend lighteval
+
+Both commands evaluate ARC Challenge, ARC Easy, WinoGrande, and PIQA with zero-shot prompts by
+default. With LightEval, the custom tasks defined for ``brevitas_ptq_llm`` (``piqa_lm_eval`` and
+``hellaswag_lm_eval``) are available, and ``piqa_lm_eval`` is used by default. Use ``--tasks`` to
+override the task list. Task names follow the selected harness; bare LightEval task names are
+converted to zero-shot task specifications automatically. For example:
+
+.. code-block:: bash
+
+   brevitas_vllm_eval --model ./exported_model --backend lm_eval \
+      --tasks hellaswag piqa --batch-size 64
+
+``--batch-size`` sets the maximum number of sequences processed concurrently by vLLM
+(``max_num_seqs``) for both backends. ``--max-new-tokens`` overrides the generation length of every
+generative task. ``--add-bos-token`` prepends the BOS token to lm_eval requests and should match
+the ``--bos-preprocessing`` setting used with ``brevitas_ptq_llm``; LightEval always adds special
+tokens, as it does in ``brevitas_ptq_llm``.
+
+The CLI also exposes ``--dtype``, ``--gpu-memory-utilization``, ``--max-model-length``,
+``--limit``, ``--seed``, and ``--output-dir``. As with the LLM quantization entrypoint, these
+options can be supplied through a YAML file using ``--config``. For both backends, the numeric
+metrics are stored in ``results.json`` within ``--output-dir``. The evaluator always loads the model
+with the ``quant_brevitas`` vLLM quantization method, without CUDA graphs and compilation.
+Since the export is stored in ``float32``, ``--dtype auto`` runs the model in the preferred half
+precision type of the platform; set ``--dtype`` explicitly to match the data type used during
+quantization.
+The base Brevitas dependency keeps a broad Torch requirement; the vLLM version installed by each
+evaluation extra may impose a narrower Torch requirement in that environment.
+
+Thinking Models
+---------------
+
+Thinking is disabled by default. Likelihood and multiple-choice tasks always use plain-text
+prompts so an empty reasoning block or assistant prefix does not alter continuation scores.
+Generative tasks use the model chat template, if defined, and explicitly disable thinking:
+
+.. code-block:: bash
+
+   brevitas_vllm_eval --model ./exported_model --backend lm_eval --tasks gsm8k \
+      --thinking disabled
+
+Enable thinking for generative tasks and configure the tags removed before metric computation
+with:
+
+.. code-block:: bash
+
+   brevitas_vllm_eval --model ./exported_model --backend lighteval --tasks gsm8k \
+      --thinking enabled --reasoning-start-tag '<think>' --reasoning-end-tag '</think>' \
+      --max-new-tokens 2048
+
+With lm-evaluation-harness, generative and likelihood tasks must be evaluated in separate
+invocations because chat-template and thinking settings apply to the entire evaluation. LightEval
+supports mixed task sets by selecting prompt formatting for each request type, provided an
+individual task document does not request both generation and likelihood metrics. The reasoning
+start and end tags are both used by LightEval. lm-evaluation-harness supports only an end token and
+therefore uses ``--reasoning-end-tag`` to remove the reasoning prefix.
+
+Multiple GPUs and Large Models
+------------------------------
+
+By default, a single GPU is used, even if more GPUs are visible (e.g., through
+``CUDA_VISIBLE_DEVICES``). ``--parallelism`` makes use of all the visible GPUs, and it is supported
+by both backends:
+
+* ``data`` runs a replica of the model on each GPU, and each replica evaluates a share of the
+  requests. This is the fastest option if the model fits on a single GPU. It relies on Ray, which is
+  installed with both evaluation extras. Every replica loads the model, so the CPU memory required to
+  load it is multiplied by the number of GPUs.
+* ``pipeline`` splits the model layers across the GPUs, for models that do not fit on a single GPU.
+  It works for the model architectures that support pipeline parallelism in vLLM, and it scales less
+  than linearly with the number of GPUs.
+
+Models that still do not fit can offload part of their weights with ``--cpu-offload-gb X``, which
+keeps ``X`` GiB of weights per GPU in CPU memory and streams them to the GPU at every forward pass.
+It is supported only by lm-evaluation-harness, since LightEval does not expose this vLLM option.
+Evaluation becomes considerably slower, especially for generative tasks, and ``X`` GiB of pinned CPU
+memory are required for each GPU.
+
+Tensor parallelism and offloading to disk are not supported. Since quantization is simulated, the
+weights take as much memory as the unquantized model in the selected ``--dtype``.
+
+Evaluation in Benchmarks
+------------------------
+
+For a single model, quantization and evaluation are two separate commands:
+
+.. code-block:: bash
+
+   brevitas_ptq_llm --model org/model --weight-bit-width 4 --weight-quant-type sym \
+     --weight-quant-granularity per_group --weight-group-size 128 \
+     --export-target vllm --export-prefix ./exported_model
+   brevitas_vllm_eval --config vllm_eval.yaml --model ./exported_model
+
+In benchmark sweeps (``brevitas_examples.llm.benchmark.llm_benchmark`` and ``llm_rand_benchmark``),
+every job can instead evaluate its own export through vLLM, by specifying a ``brevitas_vllm_eval``
+YAML configuration with ``vllm_eval_config``, together with ``export_target: vllm``:
+
+.. code-block:: yaml
+
+   # vllm_eval.yaml
+   backend: lm_eval
+   tasks: [arc_challenge, arc_easy, winogrande, piqa]
+   dtype: bfloat16
+   gpu_memory_utilization: 0.8
+
+.. code-block:: yaml
+
+   # sweep.yaml
+   model: [org/model]
+   weight_bit_width: [4, 8]
+   gptq: [false, true]
+   export_target: [vllm]
+   vllm_eval_config: [/path/to/vllm_eval.yaml]
+
+The configuration is checked before any job starts. After quantization, each job exports the model
+into ``vllm_export`` within its job folder, and ``brevitas_vllm_eval`` runs in a separate process on
+the GPUs of the job, storing its outputs in ``vllm_eval``. Its metrics are added to the results with
+a ``vllm_`` prefix, so that they appear in ``results.csv`` next to the metrics computed by Brevitas.
+To save disk space, the export is deleted after the evaluation, even if it fails, unless
+``vllm_eval_keep_export`` is set to ``true``.
+
+``vllm_eval_config`` can also be a list of configurations, and the export is then evaluated once with
+each of them, in order. The lm_eval backend needs it to evaluate likelihood and generative tasks, since it
+cannot mix them in a run, and the metrics of all the runs are added to the results. In a benchmark YAML,
+the list of configurations of a job is one value of the sweep: ``vllm_eval_config: [[likelihood.yaml,
+generation.yaml]]``.
+
+vLLM and the evaluation harnesses require specific versions of PyTorch and other packages, so the
+evaluation can run in another environment than the quantization, which does not need vLLM. The
+``python`` key of an evaluation configuration selects the interpreter of that environment, and each
+configuration can use its own, e.g., one environment for lm_eval and another one for LightEval:
+
+.. code-block:: yaml
+
+   # vllm_eval.yaml
+   backend: lm_eval
+   python: /path/to/vllm_env/bin/python
+
+Brevitas must be installed in that environment from the same repository, since vLLM loads the
+``quant_brevitas`` quantization method through its plugin, e.g., with
+``pip install -e ".[vllm_eval_lm_eval]"``. Before any job starts, every interpreter is checked to
+import vLLM, the evaluation harness and the plugin. Without ``python``, the evaluation runs in the
+environment of the benchmark. ``brevitas_vllm_eval`` itself ignores ``python``.
+
+The benchmark process keeps part of the GPU memory while vLLM runs, so ``gpu_memory_utilization``
+might need to be lowered. The evaluation can use all the GPUs assigned to each job through
+``--num-gpus-per-process``, by setting ``parallelism`` in the evaluation configuration.
+
+The ``config.yaml`` of each job folder contains the arguments of the quantization, and it can be
+passed to ``brevitas_ptq_llm --config`` to run the job again on its own. The arguments that only
+apply to benchmark jobs, ``vllm_eval_config`` and ``vllm_eval_keep_export``, are stored in
+``benchmark_config.yaml`` instead.
 
 
 FAQ
@@ -204,5 +416,5 @@ the underlying quantization format maps to one of the supported inference handle
 * *Why do I get an import error for vLLM?*
 
 vLLM is not bundled with Brevitas and must be installed separately in your environment.
-The vLLM-specific code is only imported when ``--export-target vllm`` is specified, so
-vLLM is not required for other Brevitas workflows.
+It is imported only to load or evaluate an exported model (e.g., by ``brevitas_vllm_eval``), so vLLM
+is not required for the export or for other Brevitas workflows.

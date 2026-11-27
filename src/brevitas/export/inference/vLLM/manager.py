@@ -3,48 +3,30 @@
 
 from dataclasses import dataclass
 from functools import partial
-import json
-from json import JSONEncoder
-import os
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
 
 import torch
-from torch.nn import Module
 import torch.nn as nn
-from torch.utils.data import Dataset
 from vllm.model_executor.layers.linear import LinearBase
-from vllm.model_executor.layers.linear import MergedColumnParallelLinear
-from vllm.model_executor.layers.linear import QKVParallelLinear
-from vllm.model_executor.layers.linear import RowParallelLinear
 from vllm.model_executor.layers.linear import UnquantizedLinearMethod
 from vllm.model_executor.layers.quantization import QuantizationMethods
 from vllm.model_executor.layers.quantization import register_quantization_config
 from vllm.model_executor.layers.quantization.base_config import QuantizationConfig
 from vllm.model_executor.layers.quantization.utils.quant_utils import is_layer_skipped
+from vllm.model_executor.layers.vocab_parallel_embedding import VocabParallelEmbedding
+from vllm.platforms import current_platform
 
-import brevitas.config as config
+from brevitas.export.inference.vLLM.layer import QuantAttentionMethod
+from brevitas.export.inference.vLLM.layer import QuantEmbeddingMethod
 from brevitas.export.inference.vLLM.layer import QuantLinear
-from brevitas.export.manager import _set_proxy_export_handler
-from brevitas.export.manager import _set_proxy_export_mode
-from brevitas.export.manager import _set_recurrent_layer_export_handler
-from brevitas.export.manager import _set_recurrent_layer_export_mode
-from brevitas.export.manager import BaseManager
-from brevitas.nn.equalized_layer import RotatedModule
-from brevitas.nn.mixin import QuantLayerMixin
-from brevitas.proxy.quant_proxy import QuantProxyFromInjector
 
-from ..handler import FloatInferencetHandler
-from ..handler import FloatWeightInferencetHandler
-from ..handler import IntInferenceHandler
-from ..handler import IntWeightInferencetHandler
-from .handler import vLLMDynamicPerRowFloatInferenceHandler
-from .handler import vLLMGroupwiseFloatInferenceHandler
-from .handler import vLLMGroupwiseFloatWeightInferenceHandler
-from .handler import vLLMGroupwiseIntInferenceHandler
-from .handler import vLLMGroupwiseIntWeightInferenceHandler
+# The export does not need vLLM, so it lives in export_manager.py. It is also available from here, for
+# backward compatibility.
+from .export_manager import EncodeTensor  # noqa: F401
+from .export_manager import vLLMExportManager  # noqa: F401
 
 
 @register_quantization_config("quant_brevitas")
@@ -80,44 +62,79 @@ class QuantConfigBrevitas(QuantizationConfig):
     def get_config_filenames() -> List[str]:
         return ["brevitas_config.json"]
 
+    def layer_quant_configs(self, prefix: str) -> Dict[str, Any]:
+        base_config = self.config.get(prefix) or {}
+        return {
+            f"{param}_config": base_config.get(f"{param}_quant", None)
+            for param in ["weight", "bias", "output", "input", "rotation"]}
+
+    def get_merged_linear_method(self, prefix: str) -> "QuantizeMethodBase":
+        """Quantization method of a layer that vLLM merges from layers that are exported separately.
+
+        This is the case of the q/k/v projections (qkv_proj) and of the gate/up projections
+        (gate_up_proj). Each part keeps its weight and input quantizers. Parts that were not
+        quantized in Brevitas are not exported, and stay unquantized.
+        """
+        parent, _, suffix = prefix.rpartition('.')
+        names = [
+            f'{parent}.{name}' if parent else name
+            for name in self.packed_modules_mapping.get(suffix, [])]
+        part_configs = [self.config.get(name) or {} for name in names]
+        if not any(part_configs):
+            return UnquantizedLinearMethod()
+
+        # The other quantizers apply to the whole layer, so they must be the same for every part
+        layer_configs = [self.layer_quant_configs(name) for name in names]
+        for param in ["bias", "output", "rotation"]:
+            configs = [layer_config[f"{param}_config"] for layer_config in layer_configs]
+            if any(config != configs[0] for config in configs):
+                raise NotImplementedError(
+                    f"The layers {names} that vLLM merges into {prefix} have different {param} "
+                    "quantizers, which is not supported.")
+
+        quant_configs = layer_configs[0]
+        quant_configs["weight_config"] = [config.get('weight_quant') for config in part_configs]
+        input_configs = [config.get('input_quant') for config in part_configs]
+        # If all the parts share the input quantizer, the layer is computed with a single matmul
+        if all(config == input_configs[0] for config in input_configs):
+            quant_configs["input_config"] = input_configs[0]
+        else:
+            quant_configs["input_config"] = input_configs
+        return QuantLinear(quant_configs=quant_configs)
+
     def get_quant_method(self, layer: torch.nn.Module,
                          prefix: str) -> Optional["QuantizeMethodBase"]:
-        if isinstance(layer, RowParallelLinear) or isinstance(
-                layer, MergedColumnParallelLinear) or isinstance(layer, QKVParallelLinear):
+        if isinstance(layer, LinearBase):
             if self.ignored_layers is not None and is_layer_skipped(
                     prefix=prefix,
                     ignored_layers=self.ignored_layers,
                     fused_mapping=self.packed_modules_mapping,
             ):
                 return UnquantizedLinearMethod()
-            else:
-                if prefix in self.config:
-                    base_config = self.config[prefix]
-                    quant_configs = {
-                        f"{param}_config": base_config.get(f"{param}_quant", None)
-                        for param in ["weight", "bias", "output", "input", "rotation"]}
+            if prefix in self.config:
+                return QuantLinear(quant_configs=self.layer_quant_configs(prefix))
+            return self.get_merged_linear_method(prefix)
 
-                else:
-                    base = prefix.split('.')[:-1]
-                    base = '.'.join(base)
-                    suffix = prefix.split('.')[-1]
-                    layers_to_merge = self.packed_modules_mapping[suffix]
-                    layers_to_merge = [base + '.' + x for x in layers_to_merge]
+        # Covers both the input embedding and the LM head (ParallelLMHead)
+        elif isinstance(layer, VocabParallelEmbedding) and prefix in self.config:
+            return QuantEmbeddingMethod(quant_configs=self.layer_quant_configs(prefix))
 
-                    base_config = self.config[layers_to_merge[0]]
-                    quant_configs = {
-                        f"{param}_config": base_config.get(f"{param}_quant", None)
-                        for param in ["bias", "output", "input", "rotation"]}
-                    weight_config = [
-                        self.config[layer].get('weight_quant', None) for layer in layers_to_merge]
-                    quant_configs["weight_config"] = weight_config
-
-                return QuantLinear(quant_configs=quant_configs)
-
-        elif isinstance(layer, LinearBase):
-            return UnquantizedLinearMethod()
+        # Q/K/V quantizers are exported from the QuantScaledDotProductAttention module, which
+        # matches the name of vLLM's Attention layer
+        elif f"{prefix}.k_transposed_quant" in self.config:
+            quant_configs = {
+                'q_config': self.config[f"{prefix}.q_scaled_quant"].get('act_quant', None),
+                'k_config': self.config[f"{prefix}.k_transposed_quant"].get('act_quant', None),
+                'v_config': self.config[f"{prefix}.v_quant"].get('act_quant', None)}
+            return QuantAttentionMethod(self, quant_configs=quant_configs)
 
         return None
+
+
+# vLLM < 0.10.2 does not add custom quantization methods to platforms with a restricted list (ROCm)
+if current_platform.supported_quantization and ("quant_brevitas"
+                                                not in current_platform.supported_quantization):
+    current_platform.supported_quantization.append("quant_brevitas")
 
 
 def combine_configs(config: Dict, *names: str) -> Dict:
@@ -131,108 +148,3 @@ def combine_configs(config: Dict, *names: str) -> Dict:
             scale = torch.cat((scale, v), 0)
     base_config['weight_quant']['scale'] = scale
     return base_config
-
-
-class EncodeTensor(JSONEncoder, Dataset):
-
-    def default(self, obj: Any) -> Any:
-        if isinstance(obj, torch.Tensor):
-            if obj.dtype == torch.bfloat16:
-                obj = obj.to(torch.float32)
-            return obj.cpu().detach().numpy().tolist()
-        return super(EncodeTensor, self).default(obj)
-
-
-class vLLMExportManager(BaseManager):
-
-    handlers = [
-        IntInferenceHandler,
-        vLLMDynamicPerRowFloatInferenceHandler,
-        FloatInferencetHandler,
-        IntWeightInferencetHandler,
-        FloatWeightInferencetHandler,
-        vLLMGroupwiseIntInferenceHandler,
-        vLLMGroupwiseIntWeightInferenceHandler,
-        vLLMGroupwiseFloatInferenceHandler,
-        vLLMGroupwiseFloatWeightInferenceHandler]
-
-    @classmethod
-    def set_export_mode(cls, model: Module, enabled: bool):
-        _set_proxy_export_mode(model, enabled)
-        _set_recurrent_layer_export_mode(model, enabled)
-
-    @classmethod
-    def set_export_handler(cls, module: Module):
-        _set_proxy_export_handler(cls, module)
-        _set_recurrent_layer_export_handler(cls, module)
-
-    @staticmethod
-    def handle_wrap_layer(module: Module):
-        class_type = type(module)
-
-        def unwrap(self, destination=None, prefix='', keep_vars=False):
-            inner_module_prefix = 'layer'
-            output_dict = super(class_type, self).state_dict(
-                destination=destination, prefix=prefix, keep_vars=keep_vars)
-            layer_keys = [k for k in output_dict.keys() if inner_module_prefix in k]
-            wrapper_keys = [k for k in output_dict.keys() if inner_module_prefix not in k]
-            # For vLLM Export, we only want to export the inner module's state dict, so we remove the wrapper keys
-            # The
-            for k in wrapper_keys:
-                del output_dict[k]
-
-            for k in layer_keys:
-                v = output_dict.pop(k)
-                output_dict.update({k.replace('layer.', ''): v})
-            return output_dict
-
-        module.orig_state_dict = module.state_dict
-        module.state_dict = unwrap
-
-    @staticmethod
-    def export(model: Module, tokenizer: Any, filepath: str) -> None:
-        layers_to_restore = list()
-        json_to_save = dict()
-        os.makedirs(filepath, exist_ok=True)
-        for name, module in model.named_modules():
-
-            if isinstance(module, QuantLayerMixin) or isinstance(module, RotatedModule):
-                layer_dict = dict()
-                json_to_save[name] = layer_dict
-                if isinstance(module, RotatedModule):
-                    layers_to_restore.append(module)
-                    vLLMExportManager.handle_wrap_layer(module)
-                    layer_dict['rotation_config'] = dict()
-                    layer_dict['rotation_config'][
-                        'rot_mat_shape'] = module.had_mat.shape[0] if getattr(
-                            module, 'had_mat', None) is not None else None
-                    layer_dict['rotation_config']['k'] = getattr(module, 'k', None)
-
-                for subname, submodule in module.named_modules():
-                    if isinstance(submodule, QuantProxyFromInjector) and submodule.is_quant_enabled:
-                        proxy_dict = dict()
-                        proxy_name = subname.split('.')[-1]
-                        export_handler = submodule.export_handler
-                        if export_handler is None:
-                            raise RuntimeError(
-                                "Quantization configuration currently not supported for vLLM")
-                        proxy_dict.update(export_handler.state_dict())
-                        proxy_dict['threshold_restriction'] = getattr(
-                            export_handler, 'threshold_restriction', None)
-                        proxy_dict['scaling_restriction'] = getattr(
-                            export_handler, 'scaling_restriction', None)
-                        proxy_dict['float_to_int_impl_type'] = export_handler.float_to_int_impl_type
-                        proxy_dict['class_type'] = export_handler.__class__.__name__
-                        json_to_save[name][proxy_name] = proxy_dict
-
-        json_filename = os.path.join(filepath, 'brevitas_config.json')
-        with open(json_filename, 'w+') as f:
-            json.dump(json_to_save, f, cls=EncodeTensor)
-
-        token = config.IGNORE_PROXY_KEYS.set(True)
-        model.save_pretrained(filepath)
-        tokenizer.save_pretrained(filepath)
-        config.IGNORE_PROXY_KEYS.reset(token)
-
-        for layer in layers_to_restore:
-            layer.state_dict = layer.orig_state_dict

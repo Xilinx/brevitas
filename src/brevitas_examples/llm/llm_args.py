@@ -656,6 +656,9 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
     # Re-validate for callers that build `args` directly without going through argparse (e.g. benchmark sweeps).
     if args.export_target is not None:
         lazy_validate_export_target(args.export_target)
+    if args.export_target == 'vllm':
+        # Expanded layers have padded weights that do not match the original model shapes
+        assert not args.rotation_layers_to_expand, "vLLM export does not support expanded rotations."
     if not args.no_quantize:
         if args.weight_quant_rescaling_init is not None:
             assert args.weight_quant_rescaling_init > 0, \
@@ -698,6 +701,15 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
                 assert args.quantize_weight_zero_point, "Quantized weight zero point required."
             if args.input_bit_width is not None and args.input_quant_type == 'asym':
                 assert args.quantize_input_zero_point, "Quantized input zero point required."
+        if args.export_target == 'vllm':
+            if args.input_bit_width is not None and args.input_quant_granularity == 'per_row':
+                assert args.input_quant_format != 'int', "vLLM export supports per-row input quantization only with float formats."
+            if args.quant_sdpa is not None:
+                assert args.quant_sdpa == 'eager', "vLLM export supports attention quantization only with --quant-sdpa eager."
+                assert args.attn_quant_config in ['kv', 'qkv'], "vLLM export does not support softmax output quantization, use --attn-quant-config kv or qkv."
+                attn_scale_type = args.attn_scale_type or args.input_scale_type
+                attn_quant_granularity = args.attn_quant_granularity or args.input_quant_granularity
+                assert attn_scale_type == 'static' and attn_quant_granularity == 'per_tensor', "vLLM export supports only static per-tensor attention quantization."
         if args.input_bit_width and args.input_scale_type == 'static':
             assert args.act_calibration, "Static input quantization is being applied without activation calibration. Set --act-calibration."
 
