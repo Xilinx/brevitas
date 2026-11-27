@@ -28,6 +28,10 @@ class _ViewParameterWrapper(brevitas.jit.ScriptModule):
             parameter = self.parameter
         return self.view_shape_impl(parameter)
 
+    def refresh_parameter(self, parameter: Parameter) -> None:
+        """Update the tracked parameter after an FSDP2 parameter replacement."""
+        self._parameters['parameter'] = parameter
+
     def _load_from_state_dict(
             self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
             error_msgs):
@@ -71,6 +75,10 @@ class _ViewCatParameterWrapper(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x: Tensor) -> Tensor:
         return torch.cat([self.view_shape_impl(self.parameter), x], dim=self.cat_dim)
+
+    def refresh_parameter(self, parameter: Parameter) -> None:
+        """Update the tracked parameter after an FSDP2 parameter replacement."""
+        self._parameters['parameter'] = parameter
 
     def _load_from_state_dict(
             self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,

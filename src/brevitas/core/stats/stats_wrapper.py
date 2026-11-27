@@ -126,3 +126,11 @@ class _ParameterListStats(brevitas.jit.ScriptModule):
             stats_input = self.first_tracked_param(x)
         out = self.stats(stats_input)
         return out
+
+    def refresh_tracked_parameters(self, tracked_parameter_list) -> None:
+        """Refresh stored parameter aliases after FSDP2 swaps module parameters."""
+        if isinstance(self.first_tracked_param, _ViewParameterWrapper):
+            self.first_tracked_param.refresh_parameter(tracked_parameter_list[0])
+        if self.extra_tracked_params_list is not None:
+            for wrapper, parameter in zip(self.extra_tracked_params_list, tracked_parameter_list[1:]):
+                wrapper.refresh_parameter(parameter)

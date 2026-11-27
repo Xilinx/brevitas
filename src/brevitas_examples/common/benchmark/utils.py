@@ -11,6 +11,7 @@ import datetime
 from functools import reduce
 import hashlib
 import itertools
+import json
 import multiprocessing
 from multiprocessing import Queue
 import os
@@ -35,6 +36,24 @@ import yaml
 
 # A single benchmark experiment: (parsed known args, extra CLI args, full arg dict)
 Experiment = Tuple[SimpleNamespace, List[str], Dict[str, Any]]
+
+
+class BenchmarkArgsDict(dict):
+
+    def __init__(self, *args, explicit_keys=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.explicit_keys = set() if explicit_keys is None else explicit_keys
+
+
+def _append_extra_arg(extra_args: List[str], key: str, value: Any) -> None:
+    extra_args.append(f"--{key.replace('_', '-')}")
+    if isinstance(value, (list, tuple)):
+        extra_args.extend(
+            json.dumps(item) if isinstance(item, (dict, list)) else str(item) for item in value)
+    elif isinstance(value, dict):
+        extra_args.append(json.dumps(value))
+    else:
+        extra_args.append(str(value))
 
 
 class EntryPointUtils(ABC):
@@ -230,6 +249,7 @@ class GridSearchUtils(SearchUtils):
             entrypoint_parser: ArgumentParser,
             validate_fn: Callable[[Namespace, List[str]], None]) -> List[Experiment]:
         # Generate combinations of arguments
+        explicit_keys = getattr(args_dict, "explicit_keys", set())
         args_keys, args_values = zip(*args_dict.items())
         # Extract the keys that are known to the argument parser
         parser_keys = set(action.dest for action in entrypoint_parser._actions)
@@ -246,8 +266,9 @@ class GridSearchUtils(SearchUtils):
                     if key in parser_keys:
                         args[key] = value
                     else:
-                        extra_args += [f"--{key.replace('_', '-')}", str(value)]
+                        _append_extra_arg(extra_args, key, value)
                 args = SimpleNamespace(**args)
+                args._benchmark_explicit_keys = explicit_keys
                 # Only keep valid configurations
                 validate_fn(args, extra_args)
                 exp_queue.append((args, extra_args, args_dict))
@@ -441,6 +462,7 @@ class RandomSearchUtils(SearchUtils):
             script_args: Namespace,
             entrypoint_parser: ArgumentParser,
             validate_fn: Callable[[Namespace, List[str]], None]) -> List[Experiment]:
+        explicit_keys = getattr(args_dict, "explicit_keys", set())
         generator_dict = {k: RandomArgNode.from_config(**v) for k, v in args_dict.items()}
         # Extract the keys that are known to the argument parser
         parser_keys = set(action.dest for action in entrypoint_parser._actions)
@@ -459,8 +481,9 @@ class RandomSearchUtils(SearchUtils):
                     if key in parser_keys:
                         args[key] = value
                     else:
-                        extra_args += [f"--{key.replace('_', '-')}", str(value)]
+                        _append_extra_arg(extra_args, key, value)
                 args = SimpleNamespace(**args)
+                args._benchmark_explicit_keys = explicit_keys
                 # Only keep valid configurations
                 validate_fn(args, extra_args)
                 exp_queue.append((args, extra_args, args_dict))
@@ -646,8 +669,11 @@ def maybe_sort_values(values):
 
 
 def _as_hashable(value: Any) -> Any:
-    # Lists are unhashable and can't be compared to tuple defaults; normalize both.
-    return tuple(value) if isinstance(value, list) else value
+    if isinstance(value, dict):
+        return tuple(sorted((key, _as_hashable(item)) for key, item in value.items()))
+    if isinstance(value, (list, tuple)):
+        return tuple(_as_hashable(item) for item in value)
+    return value
 
 
 class BenchmarkUtils:
@@ -678,6 +704,7 @@ class BenchmarkUtils:
             raise ValueError("Config file not specified")
         with open(script_args.config, 'r') as f:
             args_dict = yaml.safe_load(f)
+        args_dict = BenchmarkArgsDict(args_dict, explicit_keys=set(args_dict))
         # Add defaults if only a subset of keys are specified
         for action in cls.entry_point_utils.argument_parser._actions:
             if action.dest not in args_dict:
@@ -777,13 +804,18 @@ class BenchmarkUtils:
             args_queue.put(args_tuple)
         # Map the comma-separated string of GPU ids to a list
         cuda_available_devices = list(map(int, script_args.gpus.split(",")))
+        if script_args.num_gpus_per_process <= 0:
+            raise ValueError("--num-gpus-per-process must be positive.")
+        if len(cuda_available_devices) % script_args.num_gpus_per_process != 0:
+            raise ValueError("The number of GPUs must be divisible by --num-gpus-per-process.")
         # Number of argument combinations
         num_processes = len(cuda_available_devices) // script_args.num_gpus_per_process
         # Instantiate processes to run the argument combinations
         processes = []
         for i in range(num_processes):
+            start = i * script_args.num_gpus_per_process
             cuda_visible_devices = ",".join(
-                map(str, cuda_available_devices[i:i + script_args.num_gpus_per_process]))
+                map(str, cuda_available_devices[start:start + script_args.num_gpus_per_process]))
             process = multiprocessing.Process(
                 target=run_args_bucket_process,
                 args=(
