@@ -14,10 +14,12 @@ try:
 except:
     LinAlgError = RuntimeError
 
+from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.utils import is_conv_transposed
+from brevitas.utils.stats_utils import is_stats_collector_active
 from brevitas.utils.torch_utils import StopFwdException
 
 
@@ -40,6 +42,10 @@ class GPTQ(GPxQ):
     limitations under the License.
     """
 
+    # Set per instance in __init__. Declared here because MagR reuses
+    # compute_iterative_covariance while bypassing GPTQ.__init__.
+    _stats_dual_pass = False
+
     def __init__(
             self,
             layer,
@@ -61,6 +67,19 @@ class GPTQ(GPxQ):
         self.H = torch.zeros((self.groups, self.columns, self.columns),
                              device=self.device,
                              dtype=self.dtype)
+        # GPTQ solves the self-activation objective and so only needs H. When statistics
+        # are collected we additionally accumulate the cross-covariance G = X \hat{X}^T
+        # and the float covariance R = X X^T, which requires a second forward pass with
+        # quantization disabled (see gptq_mode.catch_stopfwd).
+        self._stats_dual_pass = is_stats_collector_active()
+        if self._stats_dual_pass:
+            self.G = torch.zeros((self.groups, self.columns, self.columns),
+                                 device=self.device,
+                                 dtype=self.dtype)
+            self.R = torch.zeros((self.groups, self.columns, self.columns),
+                                 device=self.device,
+                                 dtype=self.dtype)
+            self.quant_input = None
         if self.use_intermediate_buffer:
             # Creating an intermediate buffer with pinned memory to improve transfer speeds
             self.B = torch.zeros((self.groups, self.columns, self.columns),
@@ -85,13 +104,41 @@ class GPTQ(GPxQ):
             self.H += self.B
         else:
             self.H += inp_processed.bmm(inp_processed.transpose(2, 1))
+        if self._stats_dual_pass:
+            # Pair this (quantized) input with the float input of the next pass.
+            assert self.quant_input is None
+            self.quant_input = inp_processed
+
+    def compute_iterative_cross_covariance(self, module, input):
+        # Float pass of the statistics dual pass: accumulate G = X \hat{X}^T and
+        # R = X X^T with the same running normalization as H, so that the constants
+        # cancel in the reported relative errors. nsamples is only advanced by the
+        # quantized pass, which always runs first.
+        inp_processed = self.process_input(input)  # [groups, in_features, batch_size]
+        batch_size = inp_processed.shape[-1]
+        inp_processed = math.sqrt(2 / self.nsamples) * inp_processed.to(self.dtype)
+        decay = (self.nsamples - batch_size) / self.nsamples
+        self.G *= decay
+        self.R *= decay
+        if self.use_intermediate_buffer:
+            self.B.copy_(inp_processed.bmm(self.quant_input.transpose(2, 1)))
+            self.G += self.B
+            self.B.copy_(inp_processed.bmm(inp_processed.transpose(2, 1)))
+            self.R += self.B
+        else:
+            self.G += inp_processed.bmm(self.quant_input.transpose(2, 1))
+            self.R += inp_processed.bmm(inp_processed.transpose(2, 1))
+        self.quant_input = None
 
     def update_batch(self, module, input, current_layer):
         if self.disable_pre_forward_hook:
             return input
-        # Workaround to avoid duplication with GPTQ and MagR, will have the same method
-        # across GPxQ classes
-        self.compute_iterative_covariance(module, input, current_layer)
+        if self._stats_dual_pass and not module.weight_quant.is_quant_enabled:
+            self.compute_iterative_cross_covariance(module, input)
+        else:
+            # Workaround to avoid duplication with GPTQ and MagR, will have the same method
+            # across GPxQ classes
+            self.compute_iterative_covariance(module, input, current_layer)
         # If we are executing GPTQ with group of parallel layers, we keep track of how many forward
         # we executed. Once we executed as many as the number of parallel_layers, we raise
         # StopFwdException
@@ -278,15 +325,29 @@ class gptq_mode(gpxq_mode):
             self.orig_forward(*args, **kwargs)
         except StopFwdException:
             pass
-        finally:
-            if self.return_forward_output:
-                # If we want to return the output of the network, we need to disable all hooks
-                for name, gpxq_class in self.layers.items():
-                    gpxq_class.disable_pre_forward_hook = True
-                out = self.orig_forward(*args, **kwargs)
-                for name, gpxq_class in self.layers.items():
-                    gpxq_class.disable_pre_forward_hook = False
-                return out
+
+        # When statistics are collected, a second pass with quantization fully disabled
+        # provides the float inputs GPTQ needs to accumulate G and R. Same pattern as
+        # optimize_scale_mode.catch_stopfwd for the cross-activation objective.
+        if is_stats_collector_active():
+            with quantization_status_manager(self.model,
+                                             disable_act_quant=True,
+                                             disable_weight_quant=True,
+                                             disable_bias_quant=True,
+                                             is_training=False):
+                try:
+                    self.orig_forward(*args, **kwargs)
+                except StopFwdException:
+                    pass
+
+        if self.return_forward_output:
+            # If we want to return the output of the network, we need to disable all hooks
+            for name, gpxq_class in self.layers.items():
+                gpxq_class.disable_pre_forward_hook = True
+            out = self.orig_forward(*args, **kwargs)
+            for name, gpxq_class in self.layers.items():
+                gpxq_class.disable_pre_forward_hook = False
+            return out
 
     def initialize_module_optimizer(self, layer, name, len_parallel_layers, create_weight_orig):
         return self.gptq_class(
