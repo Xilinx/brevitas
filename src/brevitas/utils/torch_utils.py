@@ -7,6 +7,7 @@ from typing import Optional
 from typing import Tuple
 
 import torch
+from torch._guards import detect_fake_mode
 import torch.distributed as dist
 from torch.nn import Sequential
 
@@ -178,6 +179,18 @@ def is_broadcastable(tensor, other):
         else:
             return False
     return True
+
+
+def is_fake_mode_active() -> bool:
+    """
+    Whether tensors are fake, as while ``torch.compile`` or ``torch.export`` trace a model.
+
+    Fake tensors have no values, so Python control flow cannot depend on them. This is False in
+    eager mode and when tracing with TorchScript, where tensors have values. Unlike
+    ``is_dynamo_compiling``, it is also True while Dynamo and AOTAutograd run code on fake tensors
+    without tracing it, where ``is_dynamo_compiling`` is False as of torch 2.11.
+    """
+    return detect_fake_mode() is not None
 
 
 def torch_dtype(dtype):

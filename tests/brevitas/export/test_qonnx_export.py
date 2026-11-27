@@ -221,6 +221,26 @@ def test_generic_quant_avgpool_export_quant_input(request, qonnx_export_fn):
 
 
 @jit_disabled_for_export()
+def test_generic_quant_tensor_input_export(request, qonnx_export_fn):
+    IN_SIZE = (2, IN_CH)
+    input_quant = QuantIdentity(return_quant_tensor=True)
+    model = QuantIdentity(return_quant_tensor=True)
+    model(input_quant(torch.randn(IN_SIZE)))  # collect scale factors
+    input_quant.eval()
+    model.eval()
+    quant_inp = input_quant(torch.randn(IN_SIZE))
+    outfile = f'generic_quant_tensor_input_{request.node.callspec.id}.onnx'
+    exported_model = qonnx_export_fn(model, args=quant_inp, export_path=outfile)
+    rm_onnx(outfile)
+    # The QuantTensor is traced through its value, so the graph must compute from its input
+    graph = exported_model.graph
+    initializers = {initializer.name for initializer in graph.initializer}
+    inputs = [inp.name for inp in graph.input if inp.name not in initializers]
+    assert len(inputs) == 1
+    assert any(inputs[0] in node.input for node in graph.node)
+
+
+@jit_disabled_for_export()
 def test_debug_brevitas_onnx_export(request, qonnx_export_fn):
     model, cfg = imagenet_classification.model_with_cfg('quant_mobilenet_v1_4b')
     model.eval()
