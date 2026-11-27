@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import math
+from typing import Callable
+from typing import Optional
 
 import torch
 from torch import Tensor
@@ -38,11 +40,19 @@ class Qronos(GPFQ):
             num_blocks: int = 100,
             alpha: float = 1e-6,
             device: str = 'cpu',
-            dtype: torch.dtype = torch.float32) -> None:
+            dtype: torch.dtype = torch.float32,
+            grid_optimizer_factory: Optional[Callable] = None) -> None:
         super().__init__(
-            layer, name, act_order, len_parallel_layers, create_weight_orig, device, dtype)
+            layer,
+            name,
+            act_order,
+            len_parallel_layers,
+            create_weight_orig,
+            device,
+            dtype,
+            grid_optimizer_factory=grid_optimizer_factory)
 
-        # Mixins may override _resolve_blocksize (e.g. PiSO aligns blocks with groups).
+        # Grid optimization aligns blocks with quantization groups (see _resolve_blocksize).
         self.blocksize = self._resolve_blocksize(num_blocks)
 
         self.alpha = alpha
@@ -169,7 +179,7 @@ class Qronos(GPFQ):
         for group_index in range(self.groups):
             if self.act_order:
                 # Quantize weights with larger activation magnitudes first.
-                # Mixins can override the ordering (for example, group-aware ordering).
+                # See _act_order_permutation for the group-aware ordering used by grid optimization.
                 perm = self._act_order_permutation(self.H[group_index])
             else:
                 # Keep the original order.
@@ -177,10 +187,12 @@ class Qronos(GPFQ):
             permutation_list.append(perm.to(dev))
             self.iH[group_index] = self.iH[group_index, perm, :][:, perm]
 
-        # Hook before error correction. PiSO optimizes the layer scale here.
+        # Hook before error correction. Grid optimization sets the layer scale here.
         # Error correction starts after the least-squares projection.
-        # H and G keep the natural column order at this point. PiSO supports one group only.
-        self._on_error_correction_starts(permutation_list[0])
+        # H and G keep the natural column order at this point. G is transposed to the
+        # grid optimizer's convention (G = X_tilde^T X). Grid optimization supports
+        # one group only.
+        self._on_error_correction_starts(self.H[0], self.G[0].T, permutation_list[0])
 
         del self.G, self.H  # memory management
 
@@ -209,8 +221,7 @@ class Qronos(GPFQ):
 
             # Correct the quantization error within the block.
             for i in range(count):
-                # Let a PiSO mixin optimize a group's scale when column i1+i starts
-                # a new group, before its weights are quantized. No-op otherwise.
+                # Callback for a mix-in when a new column is optimized.
                 self._on_column_reached(i1 + i)
 
                 q_groups = self.get_quant_weights(i, i1, permutation_list)  # [groups, OC/groups]
