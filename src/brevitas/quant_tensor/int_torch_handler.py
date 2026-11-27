@@ -11,11 +11,11 @@ import torch
 from torch import Tensor
 import torch.nn.functional as F
 
+from brevitas import is_dynamo_compiling
 from brevitas.function.ops import max_int
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.utils.torch_utils import compute_channel_view_shape
 from brevitas.utils.torch_utils import is_broadcastable
-from brevitas.utils.torch_utils import is_fake_mode_active
 
 INT_QUANT_TENSOR_FN_HANDLER = {}
 
@@ -221,7 +221,7 @@ def quant_layer(fn, quant_input, quant_weight, bias, *args, **kwargs):
             output_bit_width = output_bit_width + 1
 
     if compute_output_quant_tensor:
-        if is_fake_mode_active():
+        if is_dynamo_compiling():
             # The zero points cannot be read while tracing, so the worst case is assumed
             warnings.warn(
                 "Cannot check that the zero points are zero while tracing with torch.compile or "

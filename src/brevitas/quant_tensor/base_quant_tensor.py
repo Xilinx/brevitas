@@ -10,16 +10,16 @@ import torch
 from torch import Tensor
 from torch.utils._python_dispatch import return_and_correct_aliasing
 
+from brevitas import is_dynamo_compiling
 from brevitas.function.ops_ste import round_ste
 from brevitas.utils.torch_utils import float_internal_scale
-from brevitas.utils.torch_utils import is_fake_mode_active
 
 TOLERANCE = {torch.float64: 1e-1, torch.float32: 2e-1, torch.float16: 0.5, torch.bfloat16: 0.5}
 _MISSING = object()
 
 
 def _skip_check_while_tracing(check: str) -> bool:
-    if not is_fake_mode_active():
+    if not is_dynamo_compiling():
         return False
     warnings.warn(
         f"Cannot check {check} while tracing with torch.compile or torch.export, where tensor "
