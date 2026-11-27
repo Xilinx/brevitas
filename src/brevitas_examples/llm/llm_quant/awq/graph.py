@@ -17,6 +17,7 @@ from brevitas.graph.base import Transform
 from brevitas.graph.equalize import _cross_layer_equalization
 from brevitas.graph.equalize import Region
 from brevitas.utils.parametrization_utils import ScaleWeightParametrization
+from brevitas.utils.torch_utils import materialized_params
 
 
 # The Regions in AWQ are defined as subclasses of Region, for compatibility
@@ -67,13 +68,14 @@ class EqualizeAWQ(GraphTransform):
 
     def _apply_scaling_rewriters(self, model: Union[GraphModule, nn.Module],
                                  region: Region) -> List[Transform]:
-        _, rewriters = _cross_layer_equalization(
-            model,
-            region,
-            merge_bias=self._merge_bias,
-            bias_shrinkage=self._bias_shrinkage,
-            scale_computation_type=self._scale_computation_type,
-            fuse_scaling=False)
+        with materialized_params(*region.modules):
+            _, rewriters = _cross_layer_equalization(
+                model,
+                region,
+                merge_bias=self._merge_bias,
+                bias_shrinkage=self._bias_shrinkage,
+                scale_computation_type=self._scale_computation_type,
+                fuse_scaling=False)
         # Scaling factors are set to identity
         for r in rewriters:
             if isinstance(r, ModuleInstanceRegisterParametrization):

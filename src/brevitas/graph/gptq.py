@@ -16,6 +16,7 @@ except:
 
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
+from brevitas.graph.gpxq import materialize_layer_params
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.utils import is_conv_transposed
 from brevitas.utils.torch_utils import StopFwdException
@@ -100,10 +101,9 @@ class GPTQ(GPxQ):
             current_layer.forward_count = 0
             raise StopFwdException
 
+    @materialize_layer_params
     def single_layer_update(self, percdamp=.01, c=1e4):
         assert not self.layer.weight_quant.requires_quant_input, "Error: GPTQ does not support weight quantizers that require quantized inputs."
-        if hasattr(self.layer, 'allocate_params'):
-            self.layer.allocate_params(self.layer)
         if self.use_intermediate_buffer:
             del self.B  # free memory
         weight = self.layer.weight.data
@@ -169,8 +169,6 @@ class GPTQ(GPxQ):
                 f'GPTQ will not be applied. '
                 f'Increasing the number of samples might fix this issue')
             self._on_layer_finished()
-            if hasattr(self.layer, 'offload_params'):
-                self.layer.offload_params(self.layer)
             return
         finally:
             del self.H
@@ -206,9 +204,6 @@ class GPTQ(GPxQ):
                     error_block[group_index].matmul(h_inv[group_index, i1:i2,
                                                           i2:].to(dev))).to(dtype)
         self._on_layer_finished()
-
-        if hasattr(self.layer, 'offload_params'):
-            self.layer.offload_params(self.layer)
 
 
 class gptq_mode(gpxq_mode):

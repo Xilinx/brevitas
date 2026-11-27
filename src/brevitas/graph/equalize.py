@@ -56,6 +56,7 @@ from brevitas.utils.parametrization_utils import RotationWeightParametrization
 from brevitas.utils.parametrization_utils import ScaleWeightParametrization
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas.utils.torch_utils import KwargsForwardHook
+from brevitas.utils.torch_utils import materialized_params
 from brevitas.utils.torch_utils import pad_to_dim
 
 logging = setup_logger(__name__)
@@ -189,6 +190,10 @@ class Region:
     def get_module_from_name(self, name: str) -> nn.Module:
         name = name.split("$")[0]
         return self.name_to_module[name]
+
+    @property
+    def modules(self) -> List[nn.Module]:
+        return [self.get_module_from_name(name) for name in self.srcs_names + self.sinks_names]
 
     @property
     def max_shape_srcs(self):
@@ -372,16 +377,6 @@ def _select_scale_computation_fn(
 
 ## Accelerate specific functions
 # TODO: refactor and move this somewhere else
-
-
-def maybe_offload_params_accelerate(module):
-    if hasattr(module, 'offload_params'):
-        module.offload_params(module)
-
-
-def maybe_allocate_params_accelerate(module):
-    if hasattr(module, 'allocate_params'):
-        module.allocate_params(module)
 
 
 def is_model_offloaded_accelerate(model):
@@ -829,10 +824,12 @@ def _cross_layer_equalization(
     def _no_equalize():
         return torch.tensor(1., dtype=dtype), []
 
-    # If a module has `allocate_params` attribute, we must load the weights following that method
-    for name in (region.srcs_names + region.sinks_names):
-        module = region.get_module_from_name(name)
-        maybe_allocate_params_accelerate(module)
+    # If the model is offloaded with accelerate, the caller must materialize the weights of the
+    # region, e.g. with `materialized_params(*region.modules)`
+    if any(p.is_meta for module in region.modules for p in module.parameters()):
+        raise RuntimeError(
+            "The weights of the region are on the meta device (offloaded): call "
+            "_cross_layer_equalization within materialized_params(*region.modules)")
 
     single_module = region.get_module_from_name(next(iter(region.sinks_names)))
     device = next(single_module.parameters()).device
@@ -928,11 +925,6 @@ def _cross_layer_equalization(
     for r in rewriters:
         model = r.apply(model)
 
-    # If a module has `offload_params` attribute, we must offload the weights following that method
-    for name in (region.srcs_names + region.sinks_names):
-        module = region.get_module_from_name(name)
-        maybe_offload_params_accelerate(module)
-
     return scaling_factors, rewriters
 
 
@@ -951,12 +943,13 @@ def _equalize(
     for i in range(iterations):
         scale_factor_max = None
         for region in regions:
-            scale_factors_region, region_rewriters = _cross_layer_equalization(
-                model,
-                region,
-                merge_bias=merge_bias,
-                bias_shrinkage=bias_shrinkage,
-                scale_computation_type=scale_computation_type)
+            with materialized_params(*region.modules):
+                scale_factors_region, region_rewriters = _cross_layer_equalization(
+                    model,
+                    region,
+                    merge_bias=merge_bias,
+                    bias_shrinkage=bias_shrinkage,
+                    scale_computation_type=scale_computation_type)
             scale_factor_region_max = torch.max(torch.abs(1 - scale_factors_region))
             rewriters.extend(region_rewriters)
             if scale_factor_max is not None:
@@ -1392,15 +1385,16 @@ class LayerwiseActivationEqualization(ActivationEqualization):
                 continue
             insert_mul_fn = partial(
                 self.insert_mul_node, region=module, batch_dim=self.batch_dim_act_map[module])
-            scale_factors_region, rewriters_region = _cross_layer_equalization(
-                self.model,
-                region,
-                False,
-                scale_computation_type=self.scale_computation_type,
-                list_of_act_val=[self.float_act_map[module]],
-                list_of_insert_mul_node_fn=[insert_mul_fn],
-                alpha=alpha,
-                fuse_scaling=self.fuse_scaling)
+            with materialized_params(*region.modules):
+                scale_factors_region, rewriters_region = _cross_layer_equalization(
+                    self.model,
+                    region,
+                    False,
+                    scale_computation_type=self.scale_computation_type,
+                    list_of_act_val=[self.float_act_map[module]],
+                    list_of_insert_mul_node_fn=[insert_mul_fn],
+                    alpha=alpha,
+                    fuse_scaling=self.fuse_scaling)
             scale_factors.append(scale_factors_region)
             rewriters.extend(rewriters_region)
         return scale_factors, rewriters
@@ -1501,16 +1495,17 @@ class GraphActivationEqualization(ActivationEqualization):
                             act_node=act_node,
                             batch_dim=self.batch_dim_act_map[act_name]))
 
-            scale_factors_region, rewriters_region = _cross_layer_equalization(
-                self.model,
-                region,
-                False,
-                scale_computation_type=self.scale_computation_type,
-                list_of_act_val=list_of_act_val,
-                list_of_insert_mul_node_fn=list_of_insert_mul_node_fn,
-                alpha=alpha,
-                co_optimize_act_weights=self.co_optimize_act_weights,
-                fuse_scaling=self.fuse_scaling)
+            with materialized_params(*region.modules):
+                scale_factors_region, rewriters_region = _cross_layer_equalization(
+                    self.model,
+                    region,
+                    False,
+                    scale_computation_type=self.scale_computation_type,
+                    list_of_act_val=list_of_act_val,
+                    list_of_insert_mul_node_fn=list_of_insert_mul_node_fn,
+                    alpha=alpha,
+                    co_optimize_act_weights=self.co_optimize_act_weights,
+                    fuse_scaling=self.fuse_scaling)
             scale_factors.append(scale_factors_region)
             rewriters.append(rewriters_region)
 
@@ -2000,8 +1995,10 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
             return False
         if isinstance(module, RMSNorm) and module.elementwise_affine:
             # A uniform affine weight is a scalar identity and commutes with any rotation.
-            weight = module.weight.detach()
-            return torch.equal(weight, weight.flatten()[0].expand_as(weight))
+            # If the module is offloaded with accelerate, its weight must be materialized first.
+            with materialized_params(module):
+                weight = module.weight.detach()
+                return torch.equal(weight, weight.flatten()[0].expand_as(weight))
         return True
 
     def get_regions(self) -> List[Region]:

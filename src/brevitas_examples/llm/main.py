@@ -195,8 +195,11 @@ def fused_rotation_no_fx(model, calibration_loader, args, rotation_dtype):
     # fused_rotation_no_fx() may be called either if args.rotation == 'fused_no_fx' or args.permute_fn is not None,
     # so if args.rotation == 'layerwise', we need to skip applying the rewriters here to do it later
     if args.rotation != 'layerwise':
-        model = offload_model(model)
+        # fx_model shares parameters and hooks with model: release its offloading first
+        remove_hooks(fx_model)
+        # Remap before offloading: offloaded (meta) weights cannot be matched by storage
         rewriters = fix_rewriter(rewriters, model, 'weight')
+        model = offload_model(model)
         model = apply_rewriters(model, rewriters, delay_rewriters=False)
 
     remove_hooks(model)

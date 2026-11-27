@@ -14,6 +14,7 @@ except:
 import warnings
 
 from brevitas.graph.gpfq import GPFQ
+from brevitas.graph.gpxq import materialize_layer_params
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.utils import is_conv_transposed
 from brevitas.graph.utils import power_iteration
@@ -97,13 +98,12 @@ class Qronos(GPFQ):
             current_layer.forward_count = 0
             raise StopFwdException
 
+    @materialize_layer_params
     def single_layer_update(self, beta: int = 1e4):
         assert not self.layer.weight_quant.requires_quant_input, \
             "Error: Qronos does not support weight quantizers that require metadata from input quantizers."
         assert hasattr(self.layer, 'weight_orig'), \
             "Error: Qronos requires the original weights to be stored, see `create_weight_orig`."
-        if hasattr(self.layer, 'allocate_params'):
-            self.layer.allocate_params(self.layer)
         if self.use_intermediate_buffer:
             del self.B  # free memory
 
@@ -150,8 +150,6 @@ class Qronos(GPFQ):
                 f'Qronos will not be applied. '
                 f'Increasing the number of samples might fix this issue.')
             self._on_layer_finished()
-            if hasattr(self.layer, 'offload_params'):
-                self.layer.offload_params(self.layer)
             return
 
         self.iH = self.iH.to(dev)
@@ -196,8 +194,6 @@ class Qronos(GPFQ):
                 f'Qronos will not be applied. '
                 f'Increasing the number of samples might fix this issue.')
             self._on_layer_finished()
-            if hasattr(self.layer, 'offload_params'):
-                self.layer.offload_params(self.layer)
             return
 
         for i1 in range(0, self.columns, self.blocksize):
@@ -234,6 +230,3 @@ class Qronos(GPFQ):
         del self.iH  # memory management
 
         self._on_layer_finished()
-
-        if hasattr(self.layer, 'offload_params'):
-            self.layer.offload_params(self.layer)

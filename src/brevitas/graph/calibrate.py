@@ -25,6 +25,7 @@ from brevitas.proxy.runtime_quant import ClampQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 from brevitas.quant_tensor import QuantTensor
 from brevitas.quant_tensor.base_quant_tensor import _unpack_quant_tensor
+from brevitas.utils.torch_utils import materialized_params
 
 from .base import Transform
 
@@ -543,17 +544,13 @@ class _BiasCorrection:
                 # Compute the correction for the bias
                 correction = self.correction_map[name] / self._get_correction_map_reduce_size(name)
                 # When accelerate is enabled, bring tensors onto the device to avoid allocating a meta parameter.
-                if hasattr(module, 'allocate_params'):
-                    module.allocate_params(module)
-                if module.bias is not None:
-                    module.bias.data += correction
-                elif self.skip_if_no_bias is False:
-                    # If accelerate is enabled, bias will be on the same execution device as the weights, but won't be managed properly by accelerate
-                    module.register_parameter(
-                        'bias', nn.Parameter(correction).to(module.weight.device))
-                # Offload params again
-                if hasattr(module, 'offload_params'):
-                    module.offload_params(module)
+                with materialized_params(module):
+                    if module.bias is not None:
+                        module.bias.data += correction
+                    elif self.skip_if_no_bias is False:
+                        # If accelerate is enabled, bias will be on the same execution device as the weights, but won't be managed properly by accelerate
+                        module.register_parameter(
+                            'bias', nn.Parameter(correction).to(module.weight.device))
 
     def compute_correct_bias(self, module, inp, name):
         inp = unpack_input(inp)

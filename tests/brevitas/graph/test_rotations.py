@@ -32,6 +32,7 @@ from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
 from brevitas.utils.parametrization_utils import RotationWeightParametrization
 from brevitas.utils.python_utils import recurse_getattr
+from brevitas.utils.torch_utils import materialized_params
 from tests.marker import requires_torch_compile
 
 from .equalization_fixtures import ATOL
@@ -498,3 +499,66 @@ def test_fuse_parametrized_modules_after_compile_and_train(device):
         output_after_fuse = qmodel(sample_input)
     assert torch.allclose(output_before_fuse, output_after_fuse, rtol=0.0, atol=0.0)
     torch.set_default_device('cpu')
+
+
+def test_rotated_module_keeps_had_mat_for_meta_layer():
+    # A layer offloaded by accelerate has its parameters on the meta device. The Hadamard factor
+    # must keep its values, instead of being moved to meta together with the layer.
+    had_mat, K = get_hadK(28)
+    layer = nn.Linear(28, 4, device='meta')
+    rotated = RotatedModule(layer, had_mat=had_mat, k=K)
+    assert not rotated.had_mat.is_meta
+    assert torch.equal(rotated.had_mat.data, had_mat.to(rotated.had_mat.device))
+
+
+def _offloaded_linear(calls, name):
+    # Stand-in for a module offloaded by offload_model: parameters on the meta device, and the two
+    # functions that load them (with the values of the offloaded copy) and release them
+    module = nn.Linear(4, 4, device='meta')
+
+    def allocate_params(m):
+        calls.append(('allocate', name))
+        m.weight = nn.Parameter(torch.zeros(4, 4))
+        m.bias = nn.Parameter(torch.zeros(4))
+
+    def offload_params(m):
+        calls.append(('offload', name))
+        m.weight = nn.Parameter(m.weight.to('meta'))
+        m.bias = nn.Parameter(m.bias.to('meta'))
+
+    module.allocate_params = allocate_params
+    module.offload_params = offload_params
+    return module
+
+
+def test_materialized_params_allocates_and_offloads():
+    calls = []
+    modules = [_offloaded_linear(calls, n) for n in 'ab'] + [nn.Linear(4, 4)]  # last: not offloaded
+    with materialized_params(*modules):
+        assert calls == [('allocate', 'a'), ('allocate', 'b')]
+        assert not any(p.is_meta for m in modules for p in m.parameters())
+    assert calls[2:] == [('offload', 'b'), ('offload', 'a')]
+    assert all(p.is_meta for m in modules[:2] for p in m.parameters())
+
+
+def test_materialized_params_nested_is_noop():
+    # An already materialized module is neither reloaded (it would discard the values written in the
+    # outer block) nor released by the inner block
+    calls = []
+    module = _offloaded_linear(calls, 'a')
+    with materialized_params(module):
+        module.weight.data.fill_(1.)
+        with materialized_params(module):
+            assert calls == [('allocate', 'a')]
+        assert calls == [('allocate', 'a')]
+        assert torch.all(module.weight == 1.)
+    assert calls == [('allocate', 'a'), ('offload', 'a')]
+
+
+def test_materialized_params_offloads_on_exception():
+    calls = []
+    module = _offloaded_linear(calls, 'a')
+    with pytest.raises(RuntimeError):
+        with materialized_params(module):
+            raise RuntimeError
+    assert calls == [('allocate', 'a'), ('offload', 'a')]

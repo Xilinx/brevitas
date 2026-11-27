@@ -1,6 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from contextlib import contextmanager
 import copy
 from functools import wraps
 from typing import Optional
@@ -118,6 +119,33 @@ def same_storage(a: torch.Tensor, b: torch.Tensor) -> bool:
     that share the same storage across different versions of a model (e.g. eager vs FX).
     """
     return a.untyped_storage().data_ptr() == b.untyped_storage().data_ptr()
+
+
+@contextmanager
+def materialized_params(*modules: torch.nn.Module):
+    """Materialize the parameters of modules offloaded with accelerate for the duration of the block.
+
+    Modules offloaded by `offload_model` (brevitas_examples) hold their parameters on the meta device
+    and expose `allocate_params` / `offload_params`. On enter, the parameters are loaded on the
+    execution device; on exit, also on early returns and exceptions, their current values are
+    written back to the offloaded copy and released.
+
+    Modules are left in the state they had on enter: modules that are not offloaded, or whose
+    parameters are already materialized (e.g. by an enclosing block), are neither loaded nor released.
+    In particular, a nested block does not reload the parameters, which would discard the values
+    written since they were loaded.
+    """
+    materialized = []
+    for module in modules:
+        if hasattr(module, 'allocate_params') and any(p.is_meta for p in module.parameters()):
+            module.allocate_params(module)
+            materialized.append(module)
+    try:
+        yield
+    finally:
+        for module in reversed(materialized):
+            if hasattr(module, 'offload_params'):
+                module.offload_params(module)
 
 
 def compute_channel_view_shape(tensor: torch.Tensor, channel_dim: int):

@@ -78,12 +78,19 @@ class CastFloat16ToFloat32(TorchDispatchMode):
 # modules.
 # NOTE: two versions of the same model might also wrap the shared tensors in distinct Parameter
 # objects (id(fx_param) != id(eager_param)), so we match on shared storage rather than on id.
+# Tensors on the meta device (e.g. offloaded by accelerate) all have data_ptr() == 0, so they
+# cannot be matched by storage: the remapping must be done before offloading.
 def fix_rewriter(rewriters, old_model_ref, tensor_name):
     for r in rewriters:
         old_tensor = getattr(r.old_module_instance, tensor_name)
-        module = [
-            m for m in old_model_ref.modules()
-            if hasattr(m, tensor_name) and torch.is_tensor(getattr(m, tensor_name)) and
-            same_storage(getattr(m, tensor_name), old_tensor)]
+        if old_tensor.is_meta:
+            raise RuntimeError(
+                f"Cannot remap a rewriter whose '{tensor_name}' is on the meta device (offloaded): "
+                "call fix_rewriter before offloading the model")
+        module = []
+        for m in old_model_ref.modules():
+            tensor = getattr(m, tensor_name, None)
+            if torch.is_tensor(tensor) and not tensor.is_meta and same_storage(tensor, old_tensor):
+                module.append(m)
         r.old_module_instance = module[0]
     return rewriters

@@ -324,6 +324,12 @@ def remove_hooks(model: torch.nn.Module) -> torch.nn.Module:
             if hasattr(module, "offload_params"):
                 del module.offload_params
     remove_hook_from_module(model, recurse=True)
+    # accelerate restores the original forward as an instance attribute: drop it when it is just the
+    # class forward, so that the module (e.g., when traced by dynamo) is the same as before the hooks
+    for module in model.modules():
+        forward = module.__dict__.get("forward", None)
+        if getattr(forward, "__func__", None) is type(module).forward:
+            del module.forward
     model.cpu()
     if hasattr(model, "graph"):
         for node in model.graph.nodes:

@@ -15,6 +15,8 @@ from typing import Optional
 from typing import Tuple
 from unittest.mock import patch
 
+from accelerate.hooks import add_hook_to_module
+from accelerate.hooks import AlignDevicesHook
 from datasets import Dataset
 import onnx
 from packaging import version
@@ -30,6 +32,7 @@ from brevitas.graph.equalize import _compute_rotations
 from brevitas.graph.equalize import Region
 from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
 from brevitas.utils.python_utils import Registry
+from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.generative.quantizers import BaseQuantizer
 from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
 from brevitas_examples.llm.llm_args import create_args_parser
@@ -37,6 +40,7 @@ from brevitas_examples.llm.llm_args import dynamo_required
 from brevitas_examples.llm.llm_quant.ln_affine_merge import rmsnorm_patch
 from brevitas_examples.llm.llm_quant.parse_utils import parse_custom_trainer
 from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
+from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.trainer_utils import _build_optimizers_from_configs
 from brevitas_examples.llm.llm_quant.trainer_utils import GeneralizedTrainer
 from brevitas_examples.llm.llm_quant.trainer_utils import TRAINER_REGISTRY
@@ -775,3 +779,47 @@ def test_rmsnorm_patch_context_manager(caplog):
             f"After context manager: {name} should be restored to original type, got {cls}")
         assert cls is not torch.nn.RMSNorm, (
             f"After context manager: {name} should not be torch.nn.RMSNorm")
+
+
+@pytest.mark.llm
+def test_fix_rewriter_remaps_by_storage_and_rejects_meta():
+    """fix_rewriter maps rewriters across two versions of a model sharing the weight storage (as
+    the eager and the FX models do). Offloaded (meta) weights all have data_ptr() == 0 and cannot
+    be matched: fix_rewriter must raise instead of silently remapping to the wrong module."""
+
+    class Rewriter:
+
+        def __init__(self, module):
+            self.old_module_instance = module
+
+    eager = nn.Sequential(nn.Linear(16, 32), nn.Linear(32, 16), nn.Linear(64, 16))
+    other = nn.Sequential(*[nn.Linear(1, 1) for _ in range(3)])
+    for i in range(3):
+        other[i].weight = nn.Parameter(eager[i].weight.data)
+
+    rewriters = fix_rewriter([Rewriter(m) for m in other], eager, 'weight')
+    assert [r.old_module_instance for r in rewriters] == list(eager)
+
+    for m in list(eager) + list(other):
+        m.weight = nn.Parameter(torch.empty_like(m.weight, device='meta'))
+    with pytest.raises(RuntimeError, match="meta device"):
+        fix_rewriter([Rewriter(other[2])], eager, 'weight')
+
+
+@pytest.mark.llm
+def test_remove_hooks_restores_class_forward():
+    """accelerate restores the original forward as an instance attribute when removing its hooks, which
+    changes how dynamo exports the modules: remove_hooks must leave the class forward in place, while
+    keeping a forward that was set on purpose before the hooks."""
+
+    def custom_forward(x):
+        return x
+
+    model = nn.Sequential(nn.Linear(4, 4), nn.ReLU())
+    model[1].forward = custom_forward
+    for module in model.modules():
+        add_hook_to_module(module, AlignDevicesHook(execution_device='cpu'))
+    remove_hooks(model)
+    assert 'forward' not in model.__dict__
+    assert 'forward' not in model[0].__dict__
+    assert model[1].forward is custom_forward

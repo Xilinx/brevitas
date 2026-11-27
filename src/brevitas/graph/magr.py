@@ -12,6 +12,7 @@ from tqdm import tqdm
 from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
+from brevitas.graph.gpxq import materialize_layer_params
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.utils import is_conv_transposed
 from brevitas.graph.utils import power_iteration
@@ -98,9 +99,8 @@ class MagR(GPTQ):
         # across GPxQ classes
         self.compute_iterative_covariance(module, input, current_layer)
 
+    @materialize_layer_params
     def single_layer_update(self):
-        if hasattr(self.layer, 'allocate_params'):
-            self.layer.allocate_params(self.layer)
         weight = self.layer.weight.data
         if self.create_weight_orig:
             weight_orig = self.layer.weight_orig.data
@@ -138,8 +138,6 @@ class MagR(GPTQ):
                 weight[group_index] = wk.to(dtype)  # downcast
                 assert torch.isfinite(weight[group_index]).all()
         del self.H  # free memory
-        if hasattr(self.layer, 'offload_params'):
-            self.layer.offload_params(self.layer)
 
 
 class magr_mode(gpxq_mode):

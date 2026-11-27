@@ -50,6 +50,7 @@ from brevitas.graph.piso.utils import _set_base_scale
 from brevitas.graph.piso.utils import compute_group_importance_permutation
 from brevitas.graph.qronos import Qronos
 from brevitas.graph.utils import is_quant_module
+from brevitas.utils.torch_utils import materialized_params
 from brevitas.utils.torch_utils import StopFwdException
 
 # How the solver uses the Hessian H (and G): 'dense' keeps the full matrices
@@ -109,8 +110,7 @@ class ScaleOptimizer:
             self,
             layer: nn.Module,
             H: Optional[torch.Tensor] = None,
-            G: Optional[torch.Tensor] = None,
-            skip_offload: bool = False):
+            G: Optional[torch.Tensor] = None):
         """Compute and write the optimized scales for layer in one shot.
 
         Builds the quantization grid from the layer's quantizer, selects the
@@ -118,9 +118,9 @@ class ScaleOptimizer:
         diagonal H, greedy sequential), runs it in batches over output
         channels, and stores optimal_s * threshold into the weight quantizer's
         scaling parameter. H/G are the Hessians of Eq. H,G-def; if
-        cross_act_objective is set, G is required. skip_offload means the caller
-        manages the layer params: it has allocated them already and will offload
-        them later, so neither is done here.
+        cross_act_objective is set, G is required. If the layer is offloaded, its
+        params are materialized for the update, unless the caller (e.g. GPTQ/Qronos)
+        has already materialized them.
 
         Solver-specific work is split across _select_solver (choose the function),
         _prepare_matrices (shape/permute H/G/W) and _bind_solver_matrices (bind
@@ -128,7 +128,13 @@ class ScaleOptimizer:
         """
         if not ScaleOptimizer.is_layer_valid(layer):
             return
+        # Materialize the params if offloaded (e.g., meta device with accelerate). If the caller
+        # (e.g. GPTQ/Qronos) has already materialized them, this is a no-op.
+        with materialized_params(layer):
+            self._single_layer_update(layer, H, G)
 
+    def _single_layer_update(
+            self, layer: nn.Module, H: Optional[torch.Tensor], G: Optional[torch.Tensor]):
         if self.cross_act_objective and G is None:
             raise ValueError("Expected matrix G to not be None for cross_act_objective=True")
 
@@ -172,14 +178,6 @@ class ScaleOptimizer:
         # Generate unscaled grid in intX or float_eXmY
         grid = _build_grid(layer, dtype=H.dtype, device=H.device)
 
-        # Allocate params if offloaded (e.g., meta device with accelerate). A caller
-        # passing skip_offload owns the whole params lifecycle and has already
-        # allocated (GPTQ/Qronos do so at the top of single_layer_update), so
-        # allocating again would re-materialize the weights from accelerate's
-        # weights_map and discard anything written since.
-        if not skip_offload and hasattr(layer, 'allocate_params'):
-            layer.allocate_params(layer)
-
         # Select the solver and the arguments it expects (H/G dense, diagonal, or greedy)
         solver_fn, arg_kind = self._select_solver(is_group, use_diag, is_greedy)
 
@@ -203,10 +201,6 @@ class ScaleOptimizer:
 
         # Update the s on the weight quantizer
         _set_base_scale(layer, optimal_s * _grid_threshold(grid, weight_quant))
-
-        # Offload params back to free memory
-        if not skip_offload and hasattr(layer, 'offload_params'):
-            layer.offload_params(layer)
 
         # Clean-up of input matrices
         del H
@@ -656,7 +650,7 @@ class PiSOLayerHandler():
             raise StopFwdException
 
     def single_layer_update(self):
-        # ScaleOptimizer.single_layer_update owns the allocate/offload pair here.
+        # ScaleOptimizer.single_layer_update materializes the layer params here.
         self.scale_optimizer.single_layer_update(layer=self.layer, H=self.H, G=self.G)
         del self.H
         if self.scale_optimizer.cross_act_objective:
@@ -861,8 +855,7 @@ class PiSOMixin:
             self.scale_optimizer.init_scale_optimizer_params(layer=self.layer, perm=perm, H=H, G=G)
         else:
             G = None if G is None else G.unsqueeze(0)
-            self.scale_optimizer.single_layer_update(
-                self.layer, H.unsqueeze(0), G, skip_offload=True)
+            self.scale_optimizer.single_layer_update(self.layer, H.unsqueeze(0), G)
 
     def _on_column_reached(self, column_idx: int) -> None:
         if self.scale_optimizer.should_update_group(column_idx):
