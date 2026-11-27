@@ -9,9 +9,9 @@ from typing import Tuple
 from typing import Union
 
 import torch
+from torch.fx import GraphModule
 import torch.nn as nn
 
-from brevitas.fx import GraphModule
 from brevitas.graph.base import GraphTransform
 from brevitas.graph.equalize import _channel_maxabs
 from brevitas.graph.equalize import _extract_regions

@@ -4,8 +4,8 @@
 import pytest
 import pytest_cases
 import torch
+from torch.fx import symbolic_trace
 
-from brevitas.fx import symbolic_trace
 from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.permute import GraphPermutationEqualization
 from brevitas.graph.permute import rotate_permute_mode

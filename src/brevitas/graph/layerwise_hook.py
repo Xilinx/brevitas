@@ -13,9 +13,8 @@ from typing import Set
 from typing import Tuple
 import warnings
 
-from torch.fx import GraphModule as TorchGraphModule
+from torch.fx import GraphModule
 
-from brevitas.fx import GraphModule
 from brevitas.graph.calibrate import quantization_status_manager
 
 
@@ -84,7 +83,7 @@ class layerwise_hook_mode(quantization_status_manager):
             self._set_forward(self.catch_stopfwd)
 
     def _set_forward(self, forward_fn) -> None:
-        if isinstance(self.model, (GraphModule, TorchGraphModule)):
+        if isinstance(self.model, GraphModule):
             self.model.__class__.forward = forward_fn
         else:
             self.model.forward = forward_fn

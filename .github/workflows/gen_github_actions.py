@@ -45,7 +45,7 @@ MATRIX_REDUCED = od([('python_version', list(PYTHON_VERSIONS_REDUCED)),
 
 EXAMPLES_LLM_PYTEST_MATRIX_REDUCED = od([('python_version', list(PYTHON_VERSIONS_REDUCED)),
                                          ('pytorch_version', list(
-                                             ('2.7.1',))), ('platform', PLATFORM_LIST_REDUCED)])
+                                             ('2.14.1',))), ('platform', PLATFORM_LIST_REDUCED)])
 
 EXAMPLES_DIFFUSION_PYTEST_MATRIX_REDUCED = od([('python_version', list(PYTHON_VERSIONS_REDUCED)),
                                                ('pytorch_version', list(PYTORCH_LIST_REDUCED)),
@@ -114,7 +114,7 @@ MATRIX_ALL_SUPPORTED = od([('python_version', list(ALL_SUPPORTED_PYTHON_VERSIONS
                            ('pytorch_version', list(ALL_SUPPORTED_PYTORCH_VERSIONS)),
                            ('platform', PLATFORM_LIST)])
 
-EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS = ('2.6.0', '2.7.1')
+EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS = ('2.6.0', '2.7.1', '2.14.1')
 EXAMPLES_LLM_PYTEST_MATRIX = od([('python_version', list(PYTHON_VERSIONS)),
                                  ('pytorch_version', list(EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS)),
                                  ('platform', PLATFORM_LIST)])

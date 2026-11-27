@@ -25,7 +25,6 @@ import torch
 from torch.utils._python_dispatch import TorchDispatchMode
 from torch.utils._pytree import tree_map
 
-from brevitas.fx.value_tracer import ValueProxy
 from brevitas.utils.torch_utils import same_storage
 
 
@@ -52,14 +51,9 @@ def cast_to_float32(model, target_dtype):
 class CastFloat16ToFloat32(TorchDispatchMode):
 
     def cast_cpu_to(self, x, src_dtype, dest_dtype):
-        # workaround for value_trace to avoid tracing through the ops below
-        if issubclass(type(x), ValueProxy):
-            t = x.value
-        else:
-            t = x
-        if isinstance(t, torch.Tensor) and t.dtype == src_dtype and t.device == torch.device('cpu'):
+        if isinstance(x, torch.Tensor) and x.dtype == src_dtype and x.device == torch.device('cpu'):
             # Keep the casting out of place so that it's ephemeral
-            return t.to(dest_dtype, non_blocking=True, copy=True)
+            return x.to(dest_dtype, non_blocking=True, copy=True)
         return x
 
     def cast_cpu_float32(self, t):
