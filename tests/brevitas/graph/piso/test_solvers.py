@@ -29,6 +29,9 @@ import torch
 from brevitas.graph.piso.solvers import ChunkedPiSOSolverFamily
 from brevitas.graph.piso.solvers import PiSOSolverFamily
 from brevitas.graph.piso.solvers import ScaleSolverFamily
+from brevitas.graph.piso.solvers import translate_grid_by_zero_point
+from brevitas.graph.piso.solvers.common import _piso_grid_deltas
+from brevitas.graph.piso.solvers.common import build_quant_scale_problem
 from brevitas.graph.piso.utils import make_fp_grid
 from brevitas.graph.piso.utils import make_int_grid
 
@@ -62,6 +65,10 @@ dense_xfail = pytest.mark.xfail(
     raises=NotImplementedError,
     strict=True,
     reason="dense solvers are not implemented")
+
+# For tests that exercised the dense and the diagonal variant in one body: the
+# variant becomes a parameter so the diagonal one keeps running on its own.
+DENSE_DIAG_PARAMS = [pytest.param('dense', marks=[dense_xfail]), 'diag']
 
 
 def dense_params(mapping):
@@ -1087,8 +1094,8 @@ def test_chunked_rejects_negative_scales():
 def test_chunked_piso_family_layer_dispatches(is_group, use_diag, is_greedy, expected, arg_kind):
     from brevitas.graph.piso.solvers import SCALE_SOLVER_REGISTRY
     fam = SCALE_SOLVER_REGISTRY.get("chunked-piso")
-    solver, kind = fam.get_layer_solver(is_group=is_group, use_diag=use_diag, is_greedy=is_greedy)
-    assert solver is expected and kind == arg_kind
+    solver, arg_kind_out = fam.get_layer_solver(is_group=is_group, use_diag=use_diag, is_greedy=is_greedy)
+    assert solver is expected and arg_kind_out == arg_kind
 
 
 @pytest.mark.parametrize(
@@ -1100,5 +1107,568 @@ def test_chunked_piso_family_layer_dispatches(is_group, use_diag, is_greedy, exp
 def test_chunked_piso_family_group_dispatches(use_diag, per_group_greedy, expected, tag):
     from brevitas.graph.piso.solvers import SCALE_SOLVER_REGISTRY
     fam = SCALE_SOLVER_REGISTRY.get("chunked-piso")
-    solver, kind = fam.get_group_solver(use_diag=use_diag, per_group_greedy=per_group_greedy)
-    assert solver is expected and kind == tag
+    solver, tag_out = fam.get_group_solver(use_diag=use_diag, per_group_greedy=per_group_greedy)
+    assert solver is expected and tag_out == tag
+
+
+# =============================================================================
+# Asymmetric quantizers: translated grids (integer zero point) and the additive
+# zero-point term (free offset). See .agent_space/piso-gguf-extensions for the derivation.
+# =============================================================================
+
+UNSIGNED_GRIDS = {
+    "uint4": int_grid(4, signed=False),
+    "uint3": int_grid(3, signed=False),}
+
+
+def random_zero_points(B, seed, scale=0.4, shape=None):
+    """Arbitrary non-negative offsets.
+
+    Only for tests that compare two code paths against each other; a zero point
+    that does not cover the weight range is not a configuration the sweeps claim
+    to solve (see calibrated_zero_point).
+    """
+    g = torch.Generator().manual_seed(seed)
+    return torch.rand(*(shape or (B, 1)), generator=g, dtype=DTYPE) * scale
+
+
+def calibrated_zero_point(w):
+    """z = -min(w, 0), the additive zero point a calibrated quantizer produces.
+
+    The sweeps assume w + z >= 0. Otherwise the optimum can fall in the
+    unbounded top interval, where every entry clamps to grid[0] and the
+    reconstruction s*q - z = -z stops depending on the scale; the sweep only
+    visits intervals delimited by transitions, so it would not find it.
+    """
+    return torch.clamp(-w.amin(-1, keepdim=True), min=0.)
+
+
+def eval_affine_obj(w, s, z, H, G, grid):
+    """E(s) = ||X w - X_tilde (s q - z)||^2 up to a constant, q on `grid`."""
+    q = torch.clamp(torch.round((w + z) / s), grid[0], grid[-1])
+    wh = s * q - z
+    return (wh * (H @ wh.T).T).sum(-1) - 2 * (wh * (G @ w.T).T).sum(-1)
+
+
+# -----------------------------------------------------------------------------
+# translate_grid_by_zero_point
+# -----------------------------------------------------------------------------
+@pytest.mark.parametrize("bit_width", [3, 4, 8])
+def test_translate_grid_matches_brevitas_reconstruction(bit_width):
+    """s * round_{G-z}(w/s) must equal Brevitas' asymmetric dequantization."""
+    grid = int_grid(bit_width, signed=False)
+    M = int(grid[-1].item())
+    w = random_weights(6, 32, seed=71) * 0.3
+    for z_val in [0, 1, M // 2, M]:
+        z = torch.tensor(float(z_val), dtype=DTYPE)
+        translated = translate_grid_by_zero_point(grid, z)
+        assert bool((translated == grid - z).all())
+        assert bool((translated == 0).any()), "translated grid must still contain 0"
+        for s in [0.01, 0.05, 0.2]:
+            # Brevitas: w_hat = s * (clamp(round(w/s + z), 0, M) - z)
+            ref = s * (torch.clamp(torch.round(w / s + z), 0., float(M)) - z)
+            ours = s * torch.clamp(torch.round(w / s), translated[0], translated[-1])
+            assert torch.allclose(ref, ours), f"z={z_val} s={s}"
+
+
+def test_translate_grid_rejects_invalid_inputs():
+    grid = int_grid(4, signed=False)
+    with pytest.raises(ValueError, match="integer-valued"):
+        translate_grid_by_zero_point(grid, torch.tensor(1.5, dtype=DTYPE))
+    with pytest.raises(ValueError, match="out of"):
+        translate_grid_by_zero_point(grid, torch.tensor(16.0, dtype=DTYPE))
+    with pytest.raises(ValueError, match="out of"):
+        translate_grid_by_zero_point(grid, torch.tensor(-1.0, dtype=DTYPE))
+    with pytest.raises(ValueError, match="grid\\[0\\] == 0"):
+        translate_grid_by_zero_point(int_grid(4, signed=True), torch.tensor(0.0, dtype=DTYPE))
+
+
+# -----------------------------------------------------------------------------
+# Local (per-row) grids: a shared 1-D grid must equal the same grid tiled per row
+# -----------------------------------------------------------------------------
+@pytest.mark.parametrize("variant", DENSE_DIAG_PARAMS)
+@pytest.mark.parametrize("grid_name", ["uint4", "uint3"])
+def test_per_channel_shared_grid_equals_tiled_local_grid(grid_name, variant):
+    grid = UNSIGNED_GRIDS[grid_name]
+    B, D = 6, 24
+    w = random_weights(B, D, seed=72) * 0.3
+    H, G = spd_matrix(D, seed=73), spd_matrix(D, seed=74)
+    z = random_zero_points(B, seed=75)
+    local = grid.unsqueeze(0).expand(B, -1).contiguous()
+    fn, kw = ((_piso_sweep_per_channel, dict(H=H, G=G)) if variant == 'dense' else
+              (_piso_sweep_per_channel_diag, dict(H_diag=torch.diag(H), G_diag=torch.diag(G))))
+    shared = fn(
+        w_b=w, unscaled_grid=grid, eps=SOLVER_EPS, allow_negative_s=False, zero_point=z, **kw)
+    tiled = fn(
+        w_b=w, unscaled_grid=local, eps=SOLVER_EPS, allow_negative_s=False, zero_point=z, **kw)
+    assert torch.equal(shared, tiled), variant
+
+
+@pytest.mark.parametrize("variant", DENSE_DIAG_PARAMS)
+@pytest.mark.parametrize("grid_name", ["uint4", "uint3"])
+@pytest.mark.parametrize("n_groups,group_size", [(2, 8), (3, 4)])
+def test_per_group_shared_grid_equals_tiled_local_grid(grid_name, n_groups, group_size, variant):
+    grid = UNSIGNED_GRIDS[grid_name]
+    B, D = 5, n_groups * group_size
+    w = (random_weights(B, D, seed=76) * 0.3).reshape(B, n_groups, group_size)
+    H, G = spd_matrix(D, seed=77), spd_matrix(D, seed=78)
+    z = random_zero_points(B, seed=79, shape=(B, n_groups, 1))
+    local = grid.view(1, 1, -1).expand(B, n_groups, -1).contiguous()
+    fn, kw = ((_piso_sweep_per_group, dict(H=H, G=G)) if variant == 'dense' else
+              (_piso_sweep_per_group_diag, dict(H_diag=torch.diag(H), G_diag=torch.diag(G))))
+    shared = fn(
+        w_b=w, unscaled_grid=grid, eps=SOLVER_EPS, allow_negative_s=False, zero_point=z, **kw)
+    tiled = fn(
+        w_b=w, unscaled_grid=local, eps=SOLVER_EPS, allow_negative_s=False, zero_point=z, **kw)
+    assert torch.equal(shared, tiled), variant
+
+
+@pytest.mark.parametrize("grid_name", list(GRIDS))
+def test_piso_grid_deltas_batched_matches_per_row(grid_name):
+    """The batched grid-delta helper must agree row by row with the 1-D call."""
+    grid = GRIDS[grid_name]
+    zs = torch.tensor([[0.], [1.], [2.]], dtype=DTYPE)
+    local = grid.unsqueeze(0) - zs
+    _, kc_b, kn_b, d_b = _piso_grid_deltas(local)
+    for i in range(local.shape[0]):
+        _, kc, kn, d = _piso_grid_deltas(local[i])
+        assert torch.equal(kc_b[i], kc) and torch.equal(kn_b[i], kn) and torch.equal(d_b[i], d)
+
+
+# -----------------------------------------------------------------------------
+# The zero point term: exact for an arbitrary G (not only the self-activation case)
+# -----------------------------------------------------------------------------
+@pytest.mark.parametrize("grid_name", ["uint4", "uint3"])
+@pytest.mark.parametrize("use_diag", [pytest.param(False, marks=[dense_xfail]), True])
+def test_offset_per_channel_matches_grid_search(grid_name, use_diag):
+    grid = UNSIGNED_GRIDS[grid_name]
+    B, D = 6, 24
+    w = random_weights(B, D, seed=80) * 0.3
+    H, G = spd_matrix(D, seed=81), spd_matrix(D, seed=82)
+    z = calibrated_zero_point(w)
+    if use_diag:
+        H, G = torch.diag(torch.diag(H)), torch.diag(torch.diag(G))
+        s = _piso_sweep_per_channel_diag(
+            w_b=w,
+            H_diag=torch.diag(H),
+            G_diag=torch.diag(G),
+            unscaled_grid=grid,
+            eps=SOLVER_EPS,
+            allow_negative_s=False,
+            zero_point=z)
+    else:
+        s = _piso_sweep_per_channel(
+            w_b=w,
+            H=H,
+            G=G,
+            unscaled_grid=grid,
+            eps=SOLVER_EPS,
+            allow_negative_s=False,
+            zero_point=z)
+    E_solver = eval_affine_obj(w, s, z, H, G, grid)
+    # grid-search reference over the same (positive) scale range
+    s_max = ((w + z).abs().amax(-1, keepdim=True) / grid[-1]) * 4
+    cand = torch.linspace(1e-4, 1.0, N_GRID_CANDIDATES, dtype=DTYPE).view(1, -1) * s_max
+    E_grid = torch.stack(
+        [eval_affine_obj(w, cand[:, j:j + 1], z, H, G, grid) for j in range(cand.shape[1])], -1)
+    assert objective_leq(E_solver, E_grid.amin(-1))
+
+
+@pytest.mark.parametrize("grid_name", ["uint4", "uint3"])
+@pytest.mark.parametrize("n_groups,group_size", [(2, 8), (3, 4)])
+@pytest.mark.parametrize("use_diag", [pytest.param(False, marks=[dense_xfail]), True])
+def test_offset_per_group_matches_grid_search(grid_name, n_groups, group_size, use_diag):
+    grid = UNSIGNED_GRIDS[grid_name]
+    B, D = 5, n_groups * group_size
+    w_flat = random_weights(B, D, seed=84) * 0.3
+    w = w_flat.reshape(B, n_groups, group_size)
+    H, G = spd_matrix(D, seed=85), spd_matrix(D, seed=86)
+    z = calibrated_zero_point(w)
+    if use_diag:
+        H, G = torch.diag(torch.diag(H)), torch.diag(torch.diag(G))
+        s = _piso_sweep_per_group_diag(
+            w_b=w,
+            H_diag=torch.diag(H),
+            G_diag=torch.diag(G),
+            unscaled_grid=grid,
+            eps=SOLVER_EPS,
+            allow_negative_s=False,
+            zero_point=z).squeeze(-1)
+    else:
+        s = _piso_sweep_per_group(
+            w_b=w,
+            H=H,
+            G=G,
+            unscaled_grid=grid,
+            eps=SOLVER_EPS,
+            allow_negative_s=False,
+            zero_point=z).squeeze(-1)
+    # the independent-groups objective is separable, so check each group alone
+    for k in range(n_groups):
+        sl = slice(k * group_size, (k + 1) * group_size)
+        Hk, Gk = H[sl, sl], G[sl, sl]
+        E_solver = eval_affine_obj(w[:, k], s[:, k:k + 1], z[:, k], Hk, Gk, grid)
+        s_max = ((w[:, k] + z[:, k]).abs().amax(-1, keepdim=True) / grid[-1]) * 4
+        cand = torch.linspace(1e-4, 1.0, N_GRID_CANDIDATES, dtype=DTYPE).view(1, -1) * s_max
+        E_grid = torch.stack([
+            eval_affine_obj(w[:, k], cand[:, j:j + 1], z[:, k], Hk, Gk, grid)
+            for j in range(cand.shape[1])],
+                             -1)
+        assert objective_leq(E_solver, E_grid.amin(-1)), f"group {k}"
+
+
+OFFSET_NONE_SWEEPS = {
+    'per_channel': 'dense',
+    'per_channel_diag': 'diag',
+    'per_group': 'dense',
+    'per_group_diag': 'diag',
+    'groups_sequential': 'dense',
+    'single_group_sequential': 'dense',}
+
+
+@pytest.mark.parametrize(
+    "sweep",
+    [
+        pytest.param(n, marks=[dense_xfail] if k == 'dense' else []) for n,
+        k in OFFSET_NONE_SWEEPS.items()])
+@pytest.mark.parametrize("grid_name", list(GRIDS))
+def test_offset_none_matches_zero_offset_for_every_sweep(grid_name, sweep):
+    """zero_point=None and an all-zero zero_point must take identical code paths."""
+    grid = GRIDS[grid_name]
+    B, n_groups, group_size = 5, 3, 4
+    D = n_groups * group_size
+    w_flat = random_weights(B, D, seed=88) * 0.3
+    w = w_flat.reshape(B, n_groups, group_size)
+    w_upd = random_weights(B, D, seed=89) * 0.3
+    H, G = spd_matrix(D, seed=90), spd_matrix(D, seed=91)
+    hd, gd = torch.diag(H), torch.diag(G)
+    zc = torch.zeros(B, 1, dtype=DTYPE)
+    zg = torch.zeros(B, n_groups, 1, dtype=DTYPE)
+    cases = {
+        'per_channel': (_piso_sweep_per_channel, dict(w_b=w_flat, H=H, G=G), zc),
+        'per_channel_diag':
+            (_piso_sweep_per_channel_diag, dict(w_b=w_flat, H_diag=hd, G_diag=gd), zc),
+        'per_group': (_piso_sweep_per_group, dict(w_b=w, H=H, G=G), zg),
+        'per_group_diag': (_piso_sweep_per_group_diag, dict(w_b=w, H_diag=hd, G_diag=gd), zg),
+        'groups_sequential': (_piso_sweep_groups_sequential, dict(w_b=w, H=H, G=G), zg),
+        'single_group_sequential': (
+            _piso_sweep_single_group_sequential,
+            dict(w_orig=w_flat, w_updated=w_upd, H=H, G=G, group_size=group_size, group_idx=1),
+            zc),}
+    fn, kw, z0 = cases[sweep]
+    base = fn(unscaled_grid=grid, eps=SOLVER_EPS, allow_negative_s=False, **kw)
+    zeroed = fn(unscaled_grid=grid, eps=SOLVER_EPS, allow_negative_s=False, zero_point=z0, **kw)
+    assert torch.equal(base, zeroed), sweep
+
+
+def test_offset_rejects_negative_scales():
+    grid = UNSIGNED_GRIDS["uint4"]
+    B, D = 4, 12
+    w = random_weights(B, D, seed=92) * 0.3
+    H = spd_matrix(D, seed=93)
+    z = random_zero_points(B, seed=94)
+    with pytest.raises(ValueError, match="positive scales"):
+        _piso_sweep_per_channel_diag(
+            w_b=w,
+            H_diag=torch.diag(H),
+            unscaled_grid=grid,
+            eps=SOLVER_EPS,
+            allow_negative_s=True,
+            zero_point=z)
+
+
+@dense_xfail
+@pytest.mark.parametrize("grid_name", ["uint4", "uint3"])
+def test_groups_sequential_commits_dequantized_with_offset(grid_name):
+    """A processed group must commit s*q - z, not s*q, so later groups subtract
+    the reconstruction the quantizer actually produces."""
+    grid = UNSIGNED_GRIDS[grid_name]
+    B, n_groups, group_size = 4, 3, 4
+    D = n_groups * group_size
+    w = (random_weights(B, D, seed=95) * 0.3).reshape(B, n_groups, group_size)
+    H, G = spd_matrix(D, seed=96), spd_matrix(D, seed=97)
+    z = calibrated_zero_point(w)
+    s = _piso_sweep_groups_sequential(
+        w_b=w, H=H, G=G, unscaled_grid=grid, eps=SOLVER_EPS, allow_negative_s=False,
+        zero_point=z).squeeze(-1)
+    # Group 0 has no committed prefix, so it must match the independent sweep.
+    s_ind = _piso_sweep_per_group(
+        w_b=w, H=H, G=G, unscaled_grid=grid, eps=SOLVER_EPS, allow_negative_s=False,
+        zero_point=z).squeeze(-1)
+    assert torch.allclose(s[:, 0], s_ind[:, 0])
+
+    # The full objective must not be worse than the absmax-style baseline.
+    def full_obj(scales):
+        q = torch.clamp(torch.round((w + z) / scales.unsqueeze(-1)), grid[0], grid[-1])
+        sq = (scales.unsqueeze(-1) * q - z).reshape(B, D)
+        wf = w.reshape(B, D)
+        return (sq * (H @ sq.T).T).sum(-1) - 2 * (sq * (G @ wf.T).T).sum(-1)
+
+    baseline = (w + z).abs().amax(-1) / grid[-1]
+    assert bool(torch.all(full_obj(s) <= full_obj(baseline) + ATOL))
+
+
+@dense_xfail
+@pytest.mark.parametrize("grid_name", list(GRIDS))
+@pytest.mark.parametrize("n_groups,group_size", [(2, 4), (3, 2)])
+def test_sequential_shared_grid_equals_tiled_local_grid(grid_name, n_groups, group_size):
+    """The sequential sweeps take a per-group translated grid too, which is what
+    lets the greedy ordering and the group-interleaved updater run with an
+    integer zero point."""
+    grid = GRIDS[grid_name]
+    B, D = 5, n_groups * group_size
+    w_flat = random_weights(B, D, seed=99) * 0.3
+    w = w_flat.reshape(B, n_groups, group_size)
+    w_upd = random_weights(B, D, seed=100) * 0.3
+    H, G = spd_matrix(D, seed=101), spd_matrix(D, seed=102)
+
+    # groups_sequential: one grid row per (channel, group)
+    local_g = grid.view(1, 1, -1).expand(B, n_groups, -1).contiguous()
+    shared = _piso_sweep_groups_sequential(
+        w_b=w, H=H, G=G, unscaled_grid=grid, eps=SOLVER_EPS, allow_negative_s=False)
+    tiled = _piso_sweep_groups_sequential(
+        w_b=w, H=H, G=G, unscaled_grid=local_g, eps=SOLVER_EPS, allow_negative_s=False)
+    assert torch.equal(shared, tiled), "groups_sequential"
+
+    # single_group_sequential: one grid row per channel, for the group in hand
+    local_c = grid.view(1, -1).expand(B, -1).contiguous()
+    for group_idx in range(n_groups):
+        kw = dict(
+            w_orig=w_flat,
+            w_updated=w_upd,
+            H=H,
+            G=G,
+            group_size=group_size,
+            group_idx=group_idx,
+            eps=SOLVER_EPS,
+            allow_negative_s=False)
+        shared = _piso_sweep_single_group_sequential(unscaled_grid=grid, **kw)
+        tiled = _piso_sweep_single_group_sequential(unscaled_grid=local_c, **kw)
+        assert torch.equal(shared, tiled), f"single_group_sequential group {group_idx}"
+
+
+# =============================================================================
+# The chunked family implements the asymmetric extensions too: it must agree
+# with the reference sweeps on both a free offset and a translated grid.
+# =============================================================================
+
+CHUNKED_PAIRS = [
+    ("per_channel", _piso_sweep_per_channel, _chunked_piso_sweep_per_channel, 'channel', 'dense'),
+    (
+        "per_channel_diag",
+        _piso_sweep_per_channel_diag,
+        _chunked_piso_sweep_per_channel_diag,
+        'channel',
+        'diag'),
+    ("per_group", _piso_sweep_per_group, _chunked_piso_sweep_per_group, 'group', 'dense'),
+    (
+        "per_group_diag",
+        _piso_sweep_per_group_diag,
+        _chunked_piso_sweep_per_group_diag,
+        'group',
+        'diag'),
+    (
+        "groups_sequential",
+        _piso_sweep_groups_sequential,
+        _chunked_piso_sweep_groups_sequential,
+        'group',
+        'dense'),]
+
+
+def chunked_pair_params(pairs):
+    """pytest params for CHUNKED_PAIRS, xfailing the entries backed by a dense slot."""
+    return [
+        pytest.param(*p, marks=[dense_xfail] if p[4] == 'dense' else [], id=p[0]) for p in pairs]
+
+
+def _asym_pair_inputs(layout, hessian, n_groups, group_size, grid):
+    B, D = 5, n_groups * group_size
+    w_flat = random_weights(B, D, seed=411) * 0.3
+    H, G = spd_matrix(D, seed=412), spd_matrix(D, seed=413)
+    kw = (dict(H_diag=torch.diag(H), G_diag=torch.diag(G)) if hessian == 'diag' else dict(H=H, G=G))
+    if layout == 'group':
+        w = w_flat.reshape(B, n_groups, group_size)
+        return w, kw, calibrated_zero_point(w)
+    return w_flat, kw, calibrated_zero_point(w_flat)
+
+
+@pytest.mark.parametrize(
+    "name,ref_fn,chunked_fn,layout,hessian", chunked_pair_params(CHUNKED_PAIRS))
+@pytest.mark.parametrize("grid_name", ["uint4", "uint3"])
+def test_chunked_matches_reference_with_free_offset(
+        name, ref_fn, chunked_fn, layout, hessian, grid_name):
+    grid = UNSIGNED_GRIDS[grid_name]
+    w, kw, z = _asym_pair_inputs(layout, hessian, 3, 8, grid)
+    call = dict(
+        w_b=w, unscaled_grid=grid, eps=SOLVER_EPS, allow_negative_s=False, zero_point=z, **kw)
+    assert torch.allclose(ref_fn(**call), chunked_fn(**call), rtol=1e-6, atol=1e-9), name
+
+
+@pytest.mark.parametrize(
+    "name,ref_fn,chunked_fn,layout,hessian", chunked_pair_params(CHUNKED_PAIRS))
+@pytest.mark.parametrize("grid_name", ["uint4", "uint3"])
+def test_chunked_matches_reference_with_translated_grid(
+        name, ref_fn, chunked_fn, layout, hessian, grid_name):
+    """An integer zero point gives every row (and group) its own grid."""
+    grid = UNSIGNED_GRIDS[grid_name]
+    n_groups, group_size = 3, 8
+    w, kw, _ = _asym_pair_inputs(layout, hessian, n_groups, group_size, grid)
+    B = w.shape[0]
+    shape = (B, n_groups, 1) if layout == 'group' else (B, 1)
+    g = torch.Generator().manual_seed(414)
+    zeta = torch.randint(0, int(grid[-1].item()) + 1, shape, generator=g).to(DTYPE)
+    local_grid = translate_grid_by_zero_point(grid, zeta)
+    call = dict(w_b=w, unscaled_grid=local_grid, eps=SOLVER_EPS, allow_negative_s=False, **kw)
+    assert torch.allclose(ref_fn(**call), chunked_fn(**call), rtol=1e-6, atol=1e-9), name
+
+
+@dense_xfail
+@pytest.mark.parametrize("grid_name", ["uint4", "uint3"])
+def test_chunked_single_group_sequential_asymmetric(grid_name):
+    grid = UNSIGNED_GRIDS[grid_name]
+    B, n_groups, group_size = 5, 3, 8
+    D = n_groups * group_size
+    w_orig = random_weights(B, D, seed=415) * 0.3
+    w_upd = random_weights(B, D, seed=416) * 0.3
+    H, G = spd_matrix(D, seed=417), spd_matrix(D, seed=418)
+    group_idx = 1
+    sl = slice(group_idx * group_size, (group_idx + 1) * group_size)
+    base = dict(
+        w_orig=w_orig,
+        w_updated=w_upd,
+        H=H,
+        G=G,
+        group_size=group_size,
+        group_idx=group_idx,
+        eps=SOLVER_EPS,
+        allow_negative_s=False)
+    # free offset
+    call = dict(unscaled_grid=grid, zero_point=calibrated_zero_point(w_upd[:, sl]), **base)
+    assert torch.allclose(
+        _piso_sweep_single_group_sequential(**call),
+        _chunked_piso_sweep_single_group_sequential(**call),
+        rtol=1e-6,
+        atol=1e-9)
+    # translated grid
+    g = torch.Generator().manual_seed(419)
+    zeta = torch.randint(0, int(grid[-1].item()) + 1, (B, 1), generator=g).to(DTYPE)
+    call = dict(unscaled_grid=translate_grid_by_zero_point(grid, zeta), **base)
+    assert torch.allclose(
+        _piso_sweep_single_group_sequential(**call),
+        _chunked_piso_sweep_single_group_sequential(**call),
+        rtol=1e-6,
+        atol=1e-9)
+
+
+@dense_xfail
+@pytest.mark.parametrize("grid_name", ["uint4", "uint3"])
+def test_chunked_handles_rows_with_no_negative_transition(grid_name):
+    """An unsigned grid with a covering zero point makes every transition
+    positive, which the j_min skip must not overrun."""
+    grid = UNSIGNED_GRIDS[grid_name]
+    B, n_groups, group_size = 4, 2, 8
+    D = n_groups * group_size
+    w = (random_weights(B, D, seed=420) * 0.3).reshape(B, n_groups, group_size)
+    z = calibrated_zero_point(w)
+    assert bool(torch.all(w + z >= 0.)), "precondition: the zero point covers the range"
+    H, G = spd_matrix(D, seed=421), spd_matrix(D, seed=422)
+    call = dict(
+        w_b=w, H=H, G=G, unscaled_grid=grid, eps=SOLVER_EPS, allow_negative_s=False, zero_point=z)
+    assert torch.allclose(
+        _piso_sweep_groups_sequential(**call),
+        _chunked_piso_sweep_groups_sequential(**call),
+        rtol=1e-6,
+        atol=1e-9)
+
+
+# =============================================================================
+# Hierarchical scales: the macro problem is the base problem one level up. The
+# llama.cpp-style reduction uses the plain per-group sum of diag(H) as curvature
+# and keeps the solved scales as the weights, so it is solved by the *existing*
+# diagonal group sweep.
+# =============================================================================
+MACRO_B, MACRO_K, MACRO_GS, MACRO_NSB = 3, 8, 4, 2
+MACRO_D = MACRO_K * MACRO_GS
+
+
+def _macro_inputs(seed=11):
+    """A solved group-scale problem to reduce: weights, scales, grids, H."""
+    w = (random_weights(MACRO_B, MACRO_D, seed=seed) * 0.3).reshape(MACRO_B, MACRO_K, MACRO_GS)
+    code_grid = int_grid(6, signed=False)
+    H = spd_matrix(MACRO_D, seed=seed + 1)
+    optimal_s = (w.abs().amax(-1) / int_grid(4)[-1]).clamp_min(1e-6)
+    return w, optimal_s, code_grid, H
+
+
+@pytest.mark.parametrize("pass_diag", [False, True])
+def test_macro_problem_reduces_to_the_group_diagonal_sum(pass_diag):
+    """H_diag[j] is the plain sum of diag(H) over group j, whether H arrives dense
+    or already as its diagonal; scales are the solved scales, unchanged."""
+    w, optimal_s, _, H = _macro_inputs()
+    H_in = torch.diag(H) if pass_diag else H
+    scales, H_diag = build_quant_scale_problem(
+        w_b=w, optimal_s=optimal_s, H=H_in, n_macro_blocks=MACRO_NSB, use_diag=pass_diag)
+
+    expected = torch.diag(H).reshape(MACRO_K, MACRO_GS).sum(-1)  # [K]
+    assert torch.allclose(H_diag, expected.repeat(MACRO_B))
+    assert torch.equal(scales, optimal_s.reshape(MACRO_B, MACRO_NSB, MACRO_K // MACRO_NSB))
+
+
+def test_macro_curvature_ignores_the_codes():
+    """Unlike the exact q^T H q curvature, the sum-of-diagonals one does not depend
+    on the weights (hence on the frozen assignment) at all."""
+    w, optimal_s, _, H = _macro_inputs()
+    _, H_diag_a = build_quant_scale_problem(
+        w_b=w, optimal_s=optimal_s, H=H, n_macro_blocks=MACRO_NSB, use_diag=False)
+    _, H_diag_b = build_quant_scale_problem(
+        w_b=w * 7.0, optimal_s=optimal_s * 3.0, H=H, n_macro_blocks=MACRO_NSB, use_diag=False)
+    assert torch.equal(H_diag_a, H_diag_b)
+
+
+def _macro_objective(scales, d, H_diag, code_grid):
+    """The reduced macro objective sum_j H_diag[j] (s_j - d c_j)^2 per super-block.
+
+    scales and H_diag are [B, NSB, per_super_block]; d is [B, NSB].
+    """
+    c = torch.clamp(torch.round(scales / d.unsqueeze(-1)), code_grid[0], code_grid[-1])
+    return (H_diag * (c * d.unsqueeze(-1) - scales) ** 2).sum(-1)
+
+
+def test_macro_sweep_beats_a_grid_search_over_d():
+    """The reduction plus the diagonal sweep must reach the best macro scale on the
+    reduced (sum-of-diagonals) objective, checked against a dense grid search."""
+    w, optimal_s, code_grid, H = _macro_inputs()
+    scales, H_diag = build_quant_scale_problem(
+        w_b=w, optimal_s=optimal_s, H=H, n_macro_blocks=MACRO_NSB, use_diag=False)
+    per_super_block = MACRO_K // MACRO_NSB
+    d = _piso_sweep_per_group_diag(
+        w_b=scales.reshape(1, MACRO_B * MACRO_NSB, per_super_block),
+        H_diag=H_diag,
+        unscaled_grid=code_grid,
+        eps=SOLVER_EPS,
+        allow_negative_s=False).reshape(MACRO_B, MACRO_NSB)
+
+    H_diag_bk = H_diag.reshape(MACRO_B, MACRO_NSB, per_super_block)
+    err = lambda dd: _macro_objective(scales, dd, H_diag_bk, code_grid)
+    cand = torch.linspace(1e-6, 1.0, 4001, dtype=DTYPE)
+    hi = scales.amax(-1) / code_grid[-1] * 4  # [B, NSB]
+    E_grid = torch.stack([err(c * hi) for c in cand], -1).amin(-1)
+    assert objective_leq(err(d), E_grid)
+
+
+def test_macro_channel_folded_into_group_axis_equals_per_channel_loop():
+    """The macro curvature is per channel; folding the channel into the group axis
+    (one diagonal spanning all channels) must equal a per-channel loop."""
+    code_grid = int_grid(4, signed=False)
+    gen = torch.Generator().manual_seed(314)
+    scales = torch.rand(MACRO_B, MACRO_K, generator=gen, dtype=DTYPE) * 0.02 + 0.001
+    beta = torch.rand(MACRO_B, MACRO_K, generator=gen, dtype=DTYPE) + 0.5
+    gs = MACRO_K // MACRO_NSB
+    call = lambda s, h: _piso_sweep_per_group_diag(
+        w_b=s, H_diag=h, unscaled_grid=code_grid, eps=SOLVER_EPS, allow_negative_s=False)
+    loop = torch.stack([
+        call(scales[b].reshape(1, MACRO_NSB, gs), beta[b]).reshape(MACRO_NSB)
+        for b in range(MACRO_B)])
+    folded = call(scales.reshape(1, MACRO_B * MACRO_NSB, gs),
+                  beta.reshape(-1)).reshape(MACRO_B, MACRO_NSB)
+    assert torch.equal(loop, folded)
