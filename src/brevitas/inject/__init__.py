@@ -24,6 +24,18 @@ from dependencies import this  # noqa
 from dependencies import value
 
 
+class _UnresolvableAttributeError(DependencyError, AttributeError):
+    """An injector attribute that can not be resolved.
+
+    Attribute lookup has to fail with an :class:`AttributeError` so that ``getattr(obj, name,
+    default)`` and ``hasattr(obj, name)`` behave as usual instead of propagating the error.
+    Accelerate >= 1.16 probes the values stored in every (sub)module ``__dict__`` with
+    ``getattr(value, "_accelerate_added_attribute", False)`` when removing hooks, so a plain
+    :class:`DependencyError` escaped ``remove_hook_from_module`` for any module holding a
+    Brevitas quantizer. It stays a :class:`DependencyError` subclass for backwards compatibility.
+    """
+
+
 def _replace_dependency(injector, current_attr, spec):
     replaced_dependency = injector.__dependencies__[current_attr]
     injector.__dependencies__[current_attr] = spec
@@ -132,7 +144,7 @@ class _ExtendedInjectorType(_InjectorType):
                 else:
                     message = "{!r} can not resolve attribute {!r}".format(
                         cls.__name__, current_attr)
-                raise DependencyError(message)
+                raise _UnresolvableAttributeError(message)
 
             marker, attribute, args, have_defaults = spec
 
