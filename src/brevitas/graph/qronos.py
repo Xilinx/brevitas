@@ -107,6 +107,13 @@ class Qronos(GPFQ):
         if self.use_intermediate_buffer:
             del self.B  # free memory
 
+        def cleanup_and_offload(*buffer_names):
+            for buffer_name in buffer_names:
+                if hasattr(self, buffer_name):
+                    delattr(self, buffer_name)
+            if hasattr(self.layer, 'offload_params'):
+                self.layer.offload_params(self.layer)
+
         weight: Tensor = self.layer.weight.data
         weight_orig: Tensor = self.layer.weight_orig.data
         dev = weight.device
@@ -150,8 +157,7 @@ class Qronos(GPFQ):
                 f'Qronos will not be applied. '
                 f'Increasing the number of samples might fix this issue.')
             self._on_layer_finished()
-            if hasattr(self.layer, 'offload_params'):
-                self.layer.offload_params(self.layer)
+            cleanup_and_offload('G', 'H', 'iH')
             return
 
         self.iH = self.iH.to(dev)
@@ -196,8 +202,7 @@ class Qronos(GPFQ):
                 f'Qronos will not be applied. '
                 f'Increasing the number of samples might fix this issue.')
             self._on_layer_finished()
-            if hasattr(self.layer, 'offload_params'):
-                self.layer.offload_params(self.layer)
+            cleanup_and_offload('iH')
             return
 
         for i1 in range(0, self.columns, self.blocksize):
@@ -213,7 +218,7 @@ class Qronos(GPFQ):
                 # a new group, before its weights are quantized. No-op otherwise.
                 self._on_column_reached(i1 + i)
 
-                q_groups = self.get_quant_weights(i, i1, permutation_list)  # [groups, OC/groups]
+                q_groups = self.get_quant_weight(i, i1, permutation_list)  # [groups, OC/groups]
                 for group_index in range(self.groups):
                     perm = permutation_list[group_index]
                     q = q_groups[group_index].to(self.dtype)  # [OC/groups]
