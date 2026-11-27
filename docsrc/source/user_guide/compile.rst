@@ -53,7 +53,7 @@ Full model compile + ``quant_inference_mode``
 The first option is to compile the entire model after entering ``quant_inference_mode``.
 Using quant_inference_mode simplifies the compute graph that compile needs to optimize,
 as well as drop the use of ``QuantTensor``.
-The NamedTuple structure is not currently compatible with compile, and even the torch subclass tensors have some outstanding issues.
+``QuantTensor`` can also be traced, but some of its operations behave differently while tracing, see the Known Gotchas below.
 
 This approach might grant the best performance, since the entire model is being optimized.
 On the negative side, model-specific issues might cause compile to fail.
@@ -195,6 +195,15 @@ A non-comprehensive list can be found below:
 * We definitely tested very few compile + PTQ cases
 
 * Some torch versions might have compile regressions
+
+* While ``torch.compile`` (with a backend that uses AOTAutograd, such as ``inductor``) or ``torch.export`` trace operations on ``QuantTensor``, tensor values are unknown, so the checks that read them are skipped with a warning and assumed to hold:
+  the scaling factors, zero points and bit widths of ``torch.cat`` operands, the scaling factors of ``+`` operands, and the zero points of ``*`` and ``/`` operands.
+  Eager execution, and the ``eager`` backend, raise an error when they do not hold
+
+* While tracing, integer ``F.linear``, ``F.conv*`` and ``F.conv_transpose*`` with a ``QuantTensor`` input and weight return a plain ``Tensor`` instead of the accumulator ``QuantTensor``, since the zero points of the operands cannot be checked.
+  A layer with ``return_quant_tensor=True`` and no output quantizer then fails with a "QuantLayer is not correctly configured" assertion
+
+* Methods that read the values of a ``QuantTensor``, such as ``int()``, ``minifloat()``, ``is_valid`` and the unary minus, cannot be traced
 
 
 FAQ
