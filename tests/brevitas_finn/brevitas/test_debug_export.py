@@ -3,7 +3,7 @@
 
 import torch
 
-from brevitas.export import enable_debug
+from brevitas.export.onnx.debug import enable_debug
 from brevitas_examples import bnn_pynq
 
 from ...export_fixture import qonnx_export_fn

@@ -5,7 +5,13 @@
 The requirements can be installed as followed:
 
 ```bash
-pip install -e .[export,llm]
+pip install -e .[llm]
+```
+
+ONNX QCDQ export (`--export-target onnx_qcdq`) is optional and needs extra dependencies, including `optimum`, which constrains `transformers` to `<4.58`:
+
+```bash
+pip install -e .[llm,llm_onnx_export]
 ```
 
 ## Run

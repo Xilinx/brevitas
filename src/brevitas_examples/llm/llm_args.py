@@ -637,7 +637,7 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
         except ImportError as e:
             raise ImportError(
                 "ONNX QCDQ export of LLMs requires `optimum`, which is an optional "
-                "dependency. Install it with `pip install \"brevitas[llm,export,llm_onnx_export]\"`."
+                "dependency. Install it with `pip install \"brevitas[llm,llm_onnx_export]\"`."
             ) from e
         del onnx_export_from_model
     if args.rotation == 'fx':

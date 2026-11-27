@@ -1,62 +1,44 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from functools import wraps
-
 from packaging.version import parse
 
 from brevitas import torch_version
 
-from .onnx.debug import enable_debug
-from .onnx.qonnx.manager import QONNXDynamoManager
-from .onnx.qonnx.manager import QONNXManager
-from .onnx.standard.qcdq.manager import StdQCDQONNXDynamoManager
-from .onnx.standard.qcdq.manager import StdQCDQONNXManager
-from .torch.qcdq.manager import TorchQCDQManager
+# ONNX-related managers are imported lazily so that importing brevitas.export (e.g. for
+# inference mode) does not require onnx.
 
 # PyTorch's own default for torch.onnx.export flips to the dynamo exporter in 2.9.
 _DEFAULT_DYNAMO = torch_version >= parse("2.9")
 
 
-@wraps(QONNXManager.export)
 def export_brevitas_onnx(*args, **kwargs):  # alias for qonnx
+    from .onnx.qonnx.manager import QONNXManager
     return QONNXManager.export(*args, **kwargs)
 
 
 def export_qonnx(*args, **kwargs):
-
-    @wraps(QONNXManager.export)
-    def _export_qonnx_torchscript(*args, **kwargs):
-        return QONNXManager.export(*args, **kwargs)
-
-    @wraps(QONNXDynamoManager.export)
-    def _export_qonnx_dynamo(*args, **kwargs):
-        return QONNXDynamoManager.export(*args, **kwargs)
+    from .onnx.qonnx.manager import QONNXDynamoManager
+    from .onnx.qonnx.manager import QONNXManager
 
     key = "dynamo"
     kwargs.setdefault(key, _DEFAULT_DYNAMO)
     if kwargs.get(key, False):
-        return _export_qonnx_dynamo(*args, **kwargs)
-    return _export_qonnx_torchscript(*args, **kwargs)
+        return QONNXDynamoManager.export(*args, **kwargs)
+    return QONNXManager.export(*args, **kwargs)
 
 
 def export_onnx_qcdq(*args, **kwargs):
-
-    @wraps(StdQCDQONNXManager.export)
-    def _export_onnx_qcdq_torchscript(*args, **kwargs):
-        return StdQCDQONNXManager.export(*args, **kwargs)
-
-    @wraps(StdQCDQONNXDynamoManager.export)
-    def _export_onnx_qcdq_dynamo(*args, **kwargs):
-        return StdQCDQONNXDynamoManager.export(*args, **kwargs)
+    from .onnx.standard.qcdq.manager import StdQCDQONNXDynamoManager
+    from .onnx.standard.qcdq.manager import StdQCDQONNXManager
 
     key = "dynamo"
     kwargs.setdefault(key, _DEFAULT_DYNAMO)
     if kwargs.get(key, False):
-        return _export_onnx_qcdq_dynamo(*args, **kwargs)
-    return _export_onnx_qcdq_torchscript(*args, **kwargs)
+        return StdQCDQONNXDynamoManager.export(*args, **kwargs)
+    return StdQCDQONNXManager.export(*args, **kwargs)
 
 
-@wraps(TorchQCDQManager.export)
 def export_torch_qcdq(*args, **kwargs):
+    from .torch.qcdq.manager import TorchQCDQManager
     return TorchQCDQManager.export(*args, **kwargs)
