@@ -12,6 +12,7 @@ from brevitas.nn import QuantIdentity
 from brevitas.quant.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.float_quant_ocp import Fp8e5m2OCPActPerTensorFloat
 from brevitas.quant.mx_quant_ocp import MXFloat8e4m3Act
+from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant_tensor import FloatQuantTensor
 from brevitas.quant_tensor import GroupwiseFloatQuantTensor
 from brevitas.quant_tensor import GroupwiseIntQuantTensor
@@ -369,3 +370,23 @@ def test_groupwise_quant_tensor_device(device, quant_tensor_class):
     mismatched_quant_tensor = quant_tensor_class(**mismatched_kwargs)
     with pytest.raises(RuntimeError, match="Value and metadata are on different devices"):
         mismatched_quant_tensor.device
+
+
+def test_shifted_int_quant_tensor_neg_sub_abs():
+    """Affine IntQuantTensor with nonzero zero-point must negate/abs/sub correctly."""
+    for zp in (0, 1, 2, 200):
+        model = QuantIdentity(act_quant=ShiftedUint8ActPerTensorFloat, return_quant_tensor=True)
+        model(torch.tensor([[-float(zp), float(255 - zp)]]))
+        model.eval()
+        xs = [-float(zp), 0.0, 1.0, 2.0]
+        q = model(torch.tensor([[float(v) for v in xs]]))
+        assert q.scale.item() == 1 and q.zero_point.item() == zp and q.is_valid
+        neg_q = -q
+        assert neg_q.is_valid
+        assert (-neg_q).is_valid
+        np.testing.assert_array_equal(q.value.detach().numpy(), [[float(v) for v in xs]])
+        np.testing.assert_array_equal(neg_q.value.detach().numpy(), [[-v for v in xs]])
+        np.testing.assert_array_equal(
+            neg_q.int().detach().numpy(), -q.int(float_datatype=True).detach().numpy())
+        np.testing.assert_array_equal(abs(q).value.detach().numpy(), [[abs(v) for v in xs]])
+        np.testing.assert_array_equal((q - q).value.detach().numpy(), [[0.0 for _ in xs]])
